@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-04
+**Última atualização:** 2026-07-05
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -38,8 +38,8 @@ O que fica mais fácil, o que fica mais difícil, o que passa a ser proibido.
 
 ## ADR-0001: Monorepo com pacotes NuGet de adoção independente
 
-**Status:** Proposta
-**Data:** 2026-07-04
+**Status:** Aceita
+**Data:** 2026-07-05
 
 ### Contexto
 A plataforma tem múltiplos produtos (SecureGate, LogStream, etc.) que compartilham `Secco.SharedKernel` e `Secco.SDK`, ambos em evolução rápida. Time pequeno. Multi-repo exigiria publicar pacote e atualizar N repositórios a cada mudança no kernel, criando atrito e divergência de versões. Ao mesmo tempo, é requisito que uma empresa possa adotar apenas um produto isoladamente.
@@ -51,8 +51,13 @@ Estrutura raiz:
 
 ```
 secco-platform/
-├── docs/adr/
-├── eng/                      # Directory.Build.props, analyzers, nuget.config
+├── Directory.Build.props     # propriedades comuns de build (a raiz é obrigatória:
+├── Directory.Packages.props  # o MSBuild os descobre subindo a árvore a partir de cada projeto)
+├── nuget.config
+├── .editorconfig
+├── docs/
+│   ├── adr/
+│   └── roadmap.md
 ├── src/
 │   ├── SharedKernel/
 │   ├── SDK/
@@ -109,8 +114,8 @@ Api → Infrastructure → Application → Domain
 
 ## ADR-0003: Escopo e regras de admissão do Secco.SharedKernel
 
-**Status:** Proposta
-**Data:** 2026-07-04
+**Status:** Aceita
+**Data:** 2026-07-05
 
 ### Contexto
 Shared kernels tendem a virar depósito de código genérico, acoplando todos os produtos a um pacote instável. Esse é o maior risco estrutural da plataforma.
@@ -277,7 +282,7 @@ Produtos não devem implementar persistência de logs; o LogStream é o destino 
 | Namespaces | espelham o projeto | `Secco.LogStream.Domain.Entities` |
 | Endpoints | kebab-case, plural | `/api/v1/log-entries` |
 | JSON | camelCase | `correlationId` |
-| Tabelas/colunas | snake_case (PostgreSQL) | `log_entries.tenant_id` |
+| Tabelas/colunas | notação húngara (ADR-0017) | `tb_log_entries.id_fk_tenant` |
 | Casos de uso | verbo + substantivo | `CreateLogEntryHandler` |
 | Testes | `Metodo_Cenario_Resultado` | `Create_WhenTenantMissing_ReturnsFailure` |
 | Branches | `feature/`, `fix/`, `chore/` | `feature/logstream-retention` |
@@ -287,8 +292,8 @@ Produtos não devem implementar persistência de logs; o LogStream é o destino 
 
 ## ADR-0011: Pacotes NuGet, versionamento e feed
 
-**Status:** Proposta
-**Data:** 2026-07-04
+**Status:** Aceita
+**Data:** 2026-07-05
 
 ### Decisão
 - Pacotes publicáveis: `Secco.SharedKernel`, `Secco.SDK.AspNetCore`, `Secco.<Produto>.Client`.
@@ -309,7 +314,7 @@ Produtos não devem implementar persistência de logs; o LogStream é o destino 
 
 ### Decisão
 - **Unit:** Domain e Application, sem infraestrutura. Maior volume.
-- **Integration:** Infrastructure + Api com **Testcontainers** (PostgreSQL, Redis reais) e `WebApplicationFactory`.
+- **Integration:** Infrastructure + Api com **Testcontainers** (SQL Server como padrão conforme ADR-0018; PostgreSQL na matriz quando suportado; Redis real) e `WebApplicationFactory`.
 - **Contract:** o `openapi.json` versionado é o teste de contrato (ADR-0006); breaking change não declarado falha o CI.
 - xUnit + FluentAssertions + NSubstitute em toda a plataforma.
 - Gate de CI: testes verdes obrigatórios; cobertura é métrica observada, não gate.
@@ -332,8 +337,8 @@ Um template `dotnet new secco-service` gera um produto completo já conforme tod
 
 ## ADR-0014: CI/CD
 
-**Status:** Proposta
-**Data:** 2026-07-04
+**Status:** Aceita
+**Data:** 2026-07-05
 
 ### Decisão
 - GitHub Actions com **path filters**: mudança em `src/LogStream/**` builda apenas LogStream (+ dependentes de kernel/SDK quando estes mudam).
@@ -345,14 +350,29 @@ Um template `dotnet new secco-service` gera um produto completo já conforme tod
 
 ## ADR-0015: Background processing
 
-**Status:** Proposta
-**Data:** 2026-07-04
+**Status:** Aceita
+**Data:** 2026-07-05
 
 ### Contexto
-Produtos precisarão de trabalho assíncrono (retenção de logs no LogStream, envio no NotificationHub). Ainda não há decisão madura.
+Produtos precisam de trabalho assíncrono com naturezas distintas: manutenção periódica in-process (retenção de logs), trabalho persistente com retry e visibilidade (envios em lote), e — futuramente — comunicação assíncrona entre produtos. Uma única ferramenta para os três casos ou é insuficiente ou é excesso de infraestrutura, quebrando a promessa de adoção leve de produtos isolados.
 
-### Decisão (proposta a validar)
-Iniciar com `BackgroundService` nativo + fila em Redis para casos simples. Adotar um scheduler/queue dedicado (Hangfire ou similar) apenas quando um produto demonstrar necessidade real, via atualização desta ADR.
+### Decisão
+Estratégia em três camadas, com critérios objetivos de escalada:
+
+**Camada 1 — Nativo (`BackgroundService` + `PeriodicTimer`):** para manutenção periódica in-process onde perder uma execução por restart é aceitável e não há necessidade de retry, distribuição ou visibilidade. Ex.: purge de retenção, limpeza de caches.
+
+**Camada 2 — Hangfire com storage SQL Server (padrão da plataforma):** obrigatória quando qualquer um destes critérios surgir: persistência de jobs entre restarts, retry automático, agendamento gerenciável, ou visibilidade operacional (dashboard). O storage em SQL Server (ADR-0018) não adiciona infraestrutura nova. Regras:
+- Produtos **nunca acoplam ao Hangfire diretamente**: usam a abstração `IBackgroundJobScheduler` do `Secco.SDK`, permitindo troca de implementação pelo adotante.
+- Multi-tenancy: jobs vivem no **banco de catálogo da plataforma** (não por tenant); o `tenant_id` viaja no payload e o SDK restaura o contexto de tenant na execução (ADR-0005).
+- Uso restrito ao núcleo gratuito (LGPL); recursos da versão Pro (batches etc.) exigem nova avaliação nesta ADR antes de qualquer adoção.
+
+**Camada 3 — Mensageria com broker: adiada por ADR futura.** Será aberta quando surgir o primeiro caso real de comunicação assíncrona entre produtos (provavelmente no NotificationHub). Candidatos registrados: CAP, Wolverine, MassTransit v8 — com a ressalva de que o MassTransit v9 passa a ser comercial (mesma armadilha de licença do FluentAssertions v8; avaliar antes de adotar).
+
+### Consequências
+- Produtos isolados permanecem leves: quem não precisa de jobs persistentes não carrega Hangfire.
+- O critério de escalada é objetivo — elimina a discussão "nativo ou Hangfire?" caso a caso.
+- A abstração no SDK evita lock-in, ao custo de manter uma interface própria sobre o Hangfire.
+- Descartado de ofício: soluções cloud-native (Azure Functions etc.) — amarrariam a plataforma a um provedor, incompatível com adotantes self-hosted.
 
 ---
 
@@ -379,9 +399,116 @@ O prefixo original `RS.*` derivava das iniciais do autor (Rafael Secco). Prefixo
 
 ---
 
+## ADR-0017: Nomenclatura de banco de dados — notação húngara
+
+**Status:** Aceita
+**Data:** 2026-07-05
+
+### Contexto
+A ADR-0010 definia snake_case simples para tabelas e colunas. Adota-se notação húngara com prefixos semânticos, tornando o tipo e o papel de cada coluna evidentes em qualquer query, sem consultar o schema. Todos os prefixos são minúsculos: é o único formato com comportamento idêntico nos engines suportados (ADR-0018) — o SQL Server preserva a caixa, mas o PostgreSQL converte identificadores não-citados para minúsculas, e prefixos maiúsculos (`TB_`) exigiriam aspas duplas em todo SQL.
+
+### Decisão
+
+**Prefixos de coluna** (prefixo + snake_case do nome):
+
+| Prefixo | Semântica | Exemplo |
+|---|---|---|
+| `id_pk_` | chave primária | `id_pk_log_entry` |
+| `id_fk_` | chave estrangeira | `id_fk_tenant` |
+| `id_pfk_` | membro de PK composta que também é FK (tabelas associativas) | `id_pfk_user` |
+| `ds_` | texto/descrição | `ds_message`, `ds_email` |
+| `dt_` | data/hora | `dt_created_at`, `dt_expires` |
+| `nr_` | número/métrica | `nr_attempts`, `nr_duration_ms` |
+| `ie_` | enum/indicador | `ie_log_level`, `ie_status` |
+| `fl_` | flag/booleano | `fl_active`, `fl_deleted` |
+| `vl_` | valor monetário | `vl_price`, `vl_total` |
+| `qt_` | quantidade | `qt_items`, `qt_retries` |
+
+**Prefixos de objeto:**
+
+| Prefixo | Objeto | Exemplo |
+|---|---|---|
+| `tb_` | tabela | `tb_log_entries` |
+| `vw_` | view | `vw_active_tenants` |
+| `pk_` / `fk_` / `uk_` | constraints (primária, estrangeira, única) | `fk_log_entries_tenant` |
+| `idx_` / `ft_` | índice comum / full-text | `idx_log_entries_dt_created_at` |
+| `sp_` / `fn_` | procedure / function — padrão `<verbo>_<nome>` | `sp_purge_old_logs`, `fn_select_active_tenants` |
+
+Regras complementares:
+- PK: `id_pk_<entidade no singular>`; FK: `id_fk_<tabela referenciada no singular>`; coluna que é membro de PK composta **e** FK: `id_pfk_<referenciada no singular>`.
+- Consequência assumida: a mesma coluna lógica tem nome distinto em cada lado do relacionamento (`id_pk_tenant` na origem, `id_fk_tenant` em quem referencia) — é intencional: os JOINs explicitam a direção (`ON le.id_fk_tenant = t.id_pk_tenant`).
+- Booleanos descartam o prefixo `Is/Has` do C#: `IsActive` → `fl_active`.
+- Constraints e índices: `<prefixo>_<tabela sem tb_>_<colunas>`.
+- Procedures e functions: `sp_`/`fn_` + **verbo** + objeto. Verbos CRUD padronizados: `select`, `get` (leitura pontual), `insert`, `update`, `delete`, `upsert`; operações de negócio usam verbo descritivo livre (`purge`, `rebuild`, `merge`). Convenção semântica da plataforma, válida em qualquer engine: `fn_*` retorna dados (`fn_select_*`, `fn_get_*`); `sp_*` concentra mutações/batch (no PostgreSQL isso coincide com a natureza de functions vs procedures; no SQL Server é disciplina nossa).
+- A tradução C# → banco é feita por **convention global do EF Core** no SDK (deriva prefixo do tipo CLR e do papel na chave); mapeamento manual de nome de coluna só em exceções, via `[Column]` explícito.
+- Ambiguidade `nr_`/`vl_`/`qt_` em decimais: `decimal` → `vl_` por padrão; quantidades e métricas usam override explícito.
+
+### Consequências
+- Qualquer query revela tipo e papel das colunas sem consultar o schema.
+- Nenhum dev nomeia colunas manualmente: a convention garante o padrão; migrations geradas já saem corretas.
+- Onboarding exige aprender a tabela de prefixos (mitigado pela skill `secco-db-naming`).
+- Substitui parcialmente a ADR-0010 (linha de tabelas/colunas).
+
+---
+
+## ADR-0018: Providers de banco de dados — SQL Server como padrão
+
+**Status:** Aceita
+**Data:** 2026-07-05
+
+### Contexto
+A plataforma pertence ao ecossistema Microsoft (.NET), e seu público corporativo primário opera majoritariamente sobre SQL Server. Ao mesmo tempo, produtos da plataforma já nasceram sobre PostgreSQL e a adoção independente exige flexibilidade de engine.
+
+### Decisão
+- **SQL Server é o provider padrão** de todos os produtos da plataforma: é o engine dos templates, exemplos, documentação e da configuração default.
+- **PostgreSQL é o segundo provider suportado**, com paridade de testes.
+- A arquitetura permanece **extensível a outros engines**: nenhum código de Domain/Application conhece o provider; acesso a dados via EF Core com abstrações do SDK.
+- Migrations são geradas **por provider** (assemblies de migration separados por engine, quando um produto suportar mais de um).
+- SQL cru (views, functions, procedures) é mantido por provider, no mesmo padrão de nomenclatura (ADR-0017); recursos exclusivos de um engine só entram com fallback ou feature-gate documentado.
+- Testes de integração rodam contra o provider padrão via Testcontainers (`Testcontainers.MsSql`); produtos que suportam PostgreSQL adicionam a matriz correspondente.
+
+### Consequências
+- Templates e `Secco.Templates` nascem configurados para SQL Server; trocar de provider é decisão explícita do adotante.
+- A nomenclatura minúscula da ADR-0017 é reforçada: é o único formato com comportamento idêntico em SQL Server (preserva caixa) e PostgreSQL (dobra para minúsculas).
+- Manter dois providers custa: cada feature com SQL cru é escrita e testada duas vezes. Aceito em troca do alcance de adoção.
+- Prefixo `sp_` **mantido** (decisão de 2026-07-05): o custo de lookup no banco `master` do SQL Server (prefixo reservado a procedures de sistema) é conhecido e aceito conscientemente em favor da consistência da notação (ADR-0017).
+
+---
+
+## ADR-0019: Seed de dados — referência vs desenvolvimento
+
+**Status:** Aceita
+**Data:** 2026-07-05
+
+### Contexto
+Aplicações precisam de dois tipos de dados iniciais com naturezas opostas: dados **obrigatórios** para o sistema funcionar (ex.: valores default de enums dinâmicos cadastrados em banco, registros de sistema, configurações padrão) e dados **de amostra** para desenvolver e navegar na aplicação sem cadastro manual. Misturá-los causa o vazamento clássico de dados fake em produção.
+
+### Decisão
+Duas categorias de seed, com contratos distintos:
+
+**1. Seed de referência — roda em TODOS os ambientes**
+- Conteúdo: valores obrigatórios/default de enums dinâmicos, registros de sistema, configurações padrão.
+- **Idempotente** (upsert por chave natural/determinística; IDs determinísticos) — reexecutar nunca duplica nem corrompe.
+- Versionado junto do schema: integra o pipeline de **provisionamento de cada tenant** (ADR-0005) e reexecuta após cada migration, em todos os bancos de tenant.
+- Mudança em seed de referência é revisada com o mesmo rigor de uma migration.
+
+**2. Seed de desenvolvimento — roda APENAS em DEV**
+- Conteúdo: tenants de exemplo, usuários, registros de domínio suficientes para navegar na aplicação imediatamente após subir o ambiente.
+- **Guarda dupla obrigatória:** `IHostEnvironment.IsDevelopment()` **e** flag explícita de configuração (`Secco:Seed:Development = true`). Sem as duas, não executa.
+- Executa sempre **após** o seed de referência (constrói sobre ele).
+- Dados realistas gerados com **Bogus** (locale `pt_BR`), com seed randômico fixo para reprodutibilidade.
+
+Organização por produto: `Infrastructure/Seeding/` com `ReferenceDataSeeder` e `DevelopmentDataSeeder`; orquestração exposta pelo SDK e incluída no template (ADR-0013).
+
+### Consequências
+- Ambiente dev sobe navegável, sem cadastro manual; enums dinâmicos jamais chegam vazios a produção.
+- Seeds são artefatos de código revisáveis, não scripts avulsos.
+- Custo assumido: manter o seed de referência sincronizado com a evolução dos enums dinâmicos — mitigado por teste de integração que valida a presença dos valores obrigatórios após provisionamento.
+
+---
+
 ## Backlog de ADRs futuras
 
-- Suporte a múltiplos providers de banco (PostgreSQL primeiro; abstração para SQL Server?)
 - Estratégia de cache distribuído (Redis) e invalidação
 - Idempotência em endpoints de escrita
 - Política de retenção e conformidade LGPD por produto

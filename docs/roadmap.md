@@ -1,0 +1,59 @@
+# Secco Platform — Roadmap de Fundação
+
+> Ordem de construção da plataforma. Cada fase só começa quando a anterior está estável.
+> Status: `[ ]` pendente · `[~]` em andamento · `[x]` concluída
+
+## Fase 0 — Decisões arquiteturais
+- [x] Redigir as ADRs iniciais (`docs/adr/secco-platform-adrs.md`)
+- [x] Definir prefixo e marca (`Secco.*`, ADR-0016)
+- [x] ADRs de banco de dados: notação húngara (0017), SQL Server default (0018), seed (0019)
+- [x] Ratificar ADR-0015 (background processing em camadas: nativo → Hangfire/SQL Server → broker adiado)
+- [x] Ratificar as ADRs com status **Proposta** (0001, 0003, 0011, 0014)
+- [x] Decidir prefixo de procedures no SQL Server: mantido `sp_` (ADR-0018)
+
+## Fase 1 — Fundação do monorepo
+- [x] Criar repositório `secco-platform` e primeiro commit
+- [~] `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `nuget.config`, `.gitignore`
+- [ ] Criar `Secco.Platform.sln` vazia
+- [ ] CI mínimo: build + testes em push/PR (GitHub Actions)
+
+## Fase 2 — Secco.SharedKernel v0.1
+- [ ] `Result<T>`, `Error`, `PagedResult<T>`, `PageRequest`, `ApiResponse<T>`
+- [ ] `BaseEntity`, `AuditableEntity`, exceções base, constantes
+- [ ] Testes de unidade completos
+- [ ] Empacotar (NuGet local / GitHub Packages)
+
+## Fase 3 — Secco.SDK v0.1
+- [ ] `AddSeccoCorrelation()` — propagação de X-Correlation-Id
+- [ ] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory`
+- [ ] `AddSeccoHealthChecks()` — /health/live e /health/ready
+- [ ] `AddSeccoResilience()` — políticas padrão (Polly)
+- [ ] `AddSeccoPlatform()` — composição de tudo
+- [ ] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017) + providers SQL Server/PostgreSQL (ADR-0018)
+- [ ] Orquestração de seeding — `ReferenceDataSeeder`/`DevelopmentDataSeeder` com guarda dupla (ADR-0019)
+
+## Fase 4 — Migração do LogStream (produto de referência)
+- [ ] Mover RS.Logging para `src/LogStream/` com `git mv` (preservar histórico)
+- [ ] Renomear `RS.*` → `Secco.LogStream.*` (ADR-0016)
+- [ ] Adotar SharedKernel + SDK (remover duplicações locais)
+- [ ] Pipeline NSwag: `openapi.json` versionado + `Secco.LogStream.Client` gerado e empacotado
+- [ ] Validação de breaking change de contrato no CI (ADR-0006)
+
+## Fase 5 — Secco.Templates
+- [ ] Template `dotnet new secco-service` destilado do LogStream
+- [ ] Camadas, SDK plugado, OpenAPI + Scalar, client NSwag, testes, Dockerfile, pipeline
+
+## Fase 6 — Secco.SecureGate
+- [ ] Nasce do template (prova real do padrão)
+- [ ] OIDC provider, JWT, client credentials, catálogo de tenants
+
+## Fase 7 — Secco.AdminPortal
+- [ ] Consome os clients de todos os produtos
+- [ ] Gestão de tenants, visualização de logs, administração de identidade
+
+## Backlog (só após Fase 7 estável)
+NotificationHub · Configuration · FeatureFlags · Audit
+
+---
+
+*Regra de ouro: NotificationHub, Configuration, FeatureFlags e Audit ficam no backlog até o quarteto SharedKernel + SDK + LogStream + SecureGate provar o padrão. Paralelizar sete produtos impede que qualquer um amadureça.*

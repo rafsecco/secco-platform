@@ -1,0 +1,30 @@
+# Build
+bin/
+obj/
+artifacts/
+*.binlog
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Testes e cobertura
+TestResults/
+coverage*/
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# SO
+Thumbs.db
+.DS_Store
+
+# Secrets locais (nunca commitar)
+appsettings.*.local.json
+*.local.env

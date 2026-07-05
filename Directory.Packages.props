@@ -1,0 +1,54 @@
+<Project>
+
+  <!-- Central Package Management (ADR-0011): TODAS as versões de pacotes vivem aqui.
+       Nos .csproj usa-se apenas <PackageReference Include="X" /> sem Version.
+       IMPORTANTE: as versões abaixo são um ponto de partida — rode
+       `dotnet list package --outdated` após o primeiro restore e atualize. -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Build e versionamento -->
+  <ItemGroup>
+    <PackageVersion Include="MinVer" Version="6.0.0" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- Dados (Fase 2+) — SQL Server é o provider padrão (ADR-0018) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- Resiliência e observabilidade (Fase 3) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.5.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.11.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
+  </ItemGroup>
+
+  <!-- Contratos HTTP (Fase 4, ADR-0006) -->
+  <ItemGroup>
+    <PackageVersion Include="NSwag.MSBuild" Version="14.2.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.1.0" />
+  </ItemGroup>
+
+  <!-- Testes (ADR-0012) -->
+  <ItemGroup>
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <!-- FluentAssertions fixado na v7: a v8+ mudou para licença paga em uso comercial.
+         Alternativas livres se preferir: Shouldly ou AwesomeAssertions. -->
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Bogus" Version="35.6.1" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.3.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

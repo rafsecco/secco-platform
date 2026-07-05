@@ -1,0 +1,55 @@
+<Project>
+
+  <!-- Propriedades comuns a TODOS os projetos do monorepo (ADR-0001, ADR-0002) -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- Identidade da plataforma -->
+  <PropertyGroup>
+    <Authors>Rafael Secco</Authors>
+    <Company>Secco</Company>
+    <Product>Secco Platform</Product>
+    <Copyright>Copyright (c) Rafael Secco $([System.DateTime]::Now.Year)</Copyright>
+  </PropertyGroup>
+
+  <!-- Nada é empacotável por padrão; pacotes NuGet ativam explicitamente (ADR-0011) -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Metadados aplicados apenas aos projetos que se declararem empacotáveis -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryType>git</RepositoryType>
+    <!-- Ajustar quando o repositório remoto existir: -->
+    <!-- <RepositoryUrl>https://github.com/SEU_USUARIO/secco-platform</RepositoryUrl> -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Versionamento por tag git (ADR-0011). Prefixo definido em cada projeto empacotável:
+         <MinVerTagPrefix>sharedkernel/v</MinVerTagPrefix> -->
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Convenções de teste: projetos *.Tests ganham a stack padrão (ADR-0012) -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsTestProject>true</IsTestProject>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>
