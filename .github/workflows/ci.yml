@@ -1,0 +1,41 @@
+name: CI
+
+# CI mínimo da Fase 1 (ADR-0014). Evolui na Fase 4 com:
+# path filters por produto, validação de contrato OpenAPI e publicação de pacotes por tag.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela execuções obsoletas do mesmo branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Obrigatório: MinVer (ADR-0011) calcula versões a partir das tags
+          # e precisa do histórico completo — o checkout raso quebraria o versionamento.
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Secco.Platform.slnx
+
+      - name: Build
+        run: dotnet build Secco.Platform.slnx --no-restore --configuration Release
+
+      - name: Test
+        # Testcontainers (ADR-0012) usa o Docker já disponível no runner ubuntu-latest
+        run: dotnet test Secco.Platform.slnx --no-build --configuration Release --verbosity normal

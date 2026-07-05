@@ -13,9 +13,9 @@
 
 ## Fase 1 — Fundação do monorepo
 - [x] Criar repositório `secco-platform` e primeiro commit
-- [~] `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `nuget.config`, `.gitignore`
-- [ ] Criar `Secco.Platform.sln` vazia
-- [ ] CI mínimo: build + testes em push/PR (GitHub Actions)
+- [x] `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `nuget.config`, `.gitignore`
+- [x] Criar `Secco.Platform.slnx` vazia (formato padrão do .NET 10)
+- [x] CI mínimo: build + testes em push/PR (GitHub Actions, `.github/workflows/ci.yml`)
 
 ## Fase 2 — Secco.SharedKernel v0.1
 - [ ] `Result<T>`, `Error`, `PagedResult<T>`, `PageRequest`, `ApiResponse<T>`

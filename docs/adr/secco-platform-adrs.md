@@ -73,7 +73,7 @@ secco-platform/
 ├── tests/
 │   ├── LogStream/
 │   └── SecureGate/
-└── Secco.Platform.sln           # + solution filters (.slnf) por produto
+└── Secco.Platform.slnx          # formato XML do .NET 10; + solution filters (.slnf) por produto
 ```
 
 ### Consequências
