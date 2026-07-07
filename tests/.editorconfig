@@ -1,0 +1,5 @@
+# Regras específicas de projetos de teste (herda o .editorconfig da raiz)
+
+[*.cs]
+# ADR-0010: testes seguem Metodo_Cenario_Resultado — sublinhados são a convenção.
+dotnet_diagnostic.CA1707.severity = none

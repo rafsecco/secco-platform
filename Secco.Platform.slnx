@@ -1,2 +1,10 @@
 <Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/SharedKernel/">
+    <Project Path="src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/SharedKernel/">
+    <Project Path="tests/SharedKernel/Secco.SharedKernel.Tests/Secco.SharedKernel.Tests.csproj" />
+  </Folder>
 </Solution>

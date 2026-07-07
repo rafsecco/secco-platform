@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sharedkernel/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sharedkernel/v</MinVerTagPrefix>
+    <Description>Primitivas estáveis e puras da Secco Platform: Result, Error e tipos base compartilhados entre os produtos (ADR-0003).</Description>
+    <PackageTags>secco;sharedkernel;result;error</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- ADR-0003: zero dependências além da BCL — nenhum PackageReference aqui. -->
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

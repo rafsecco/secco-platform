@@ -18,7 +18,8 @@
 - [x] CI mínimo: build + testes em push/PR (GitHub Actions, `.github/workflows/ci.yml`)
 
 ## Fase 2 — Secco.SharedKernel v0.1
-- [ ] `Result<T>`, `Error`, `PagedResult<T>`, `PageRequest`, `ApiResponse<T>`
+- [x] `Result<T>`, `Error` (+ `ErrorType`, `ValidationError`, extensões `Match`/`Map`/`Bind`)
+- [ ] `PagedResult<T>`, `PageRequest`, `ApiResponse<T>`
 - [ ] `BaseEntity`, `AuditableEntity`, exceções base, constantes
 - [ ] Testes de unidade completos
 - [ ] Empacotar (NuGet local / GitHub Packages)
