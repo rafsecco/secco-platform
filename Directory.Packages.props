@@ -2,8 +2,8 @@
 
   <!-- Central Package Management (ADR-0011): TODAS as versões de pacotes vivem aqui.
        Nos .csproj usa-se apenas <PackageReference Include="X" /> sem Version.
-       IMPORTANTE: as versões abaixo são um ponto de partida — rode
-       `dotnet list package --outdated` após o primeiro restore e atualize. -->
+       IMPORTANTE: as versões abaixo são um ponto de partida; rode
+       `dotnet list package` com a opção `outdated` após o primeiro restore e atualize. -->
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
