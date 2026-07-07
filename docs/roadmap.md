@@ -19,7 +19,8 @@
 
 ## Fase 2 — Secco.SharedKernel v0.1
 - [x] `Result<T>`, `Error` (+ `ErrorType`, `ValidationError`, extensões `Match`/`Map`/`Bind`)
-- [ ] `PagedResult<T>`, `PageRequest`, `ApiResponse<T>`
+- [x] `PagedResult<T>`, `PageRequest`
+  - `ApiResponse<T>`: **adiado** — erros já saem como ProblemDetails e os clients NSwag tipam as respostas; um envelope só entra (Fase 3+) se o SDK provar caso real, conforme regras de admissão da ADR-0003
 - [ ] `BaseEntity`, `AuditableEntity`, exceções base, constantes
 - [ ] Testes de unidade completos
 - [ ] Empacotar (NuGet local / GitHub Packages)

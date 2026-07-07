@@ -4,6 +4,7 @@ Primitivas estáveis e puras da Secco Platform, compartilhadas por todos os prod
 
 - `Result` / `Result<T>` — resultado de operações de negócio sem exceções para controle de fluxo (ADR-0004).
 - `Error` / `ErrorType` / `ValidationError` — erro de negócio com código estável e categoria semântica.
+- `PageRequest` / `PagedResult<T>` — paginação 1-based com normalização silenciosa (default 20, teto 200) e metadados de navegação.
 
 ## Regras de admissão (ADR-0003)
 
