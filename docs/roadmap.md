@@ -21,8 +21,8 @@
 - [x] `Result<T>`, `Error` (+ `ErrorType`, `ValidationError`, extensões `Match`/`Map`/`Bind`)
 - [x] `PagedResult<T>`, `PageRequest`
   - `ApiResponse<T>`: **adiado** — erros já saem como ProblemDetails e os clients NSwag tipam as respostas; um envelope só entra (Fase 3+) se o SDK provar caso real, conforme regras de admissão da ADR-0003
-- [ ] `BaseEntity`, `AuditableEntity`, exceções base, constantes
-- [ ] Testes de unidade completos
+- [x] `BaseEntity` (Guid v7, igualdade por Id, eventos de domínio), `AuditableEntity` + `ISoftDeletable`, exceções base (`SeccoException`, `DomainInvariantException`), constantes (`SeccoClaims`, `SeccoHeaders`)
+- [x] Testes de unidade completos
 - [ ] Empacotar (NuGet local / GitHub Packages)
 
 ## Fase 3 — Secco.SDK v0.1
