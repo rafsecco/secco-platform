@@ -10,7 +10,11 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas (ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 completo com 77 testes e pipeline de publicação). **Próxima: Fase 3 — `Secco.SDK`**, começando por `AddSeccoCorrelation()`. Publicar o kernel = criar tag `sharedkernel/v0.1.0` e dar push (workflow `publish-packages.yml`).
+Fases 0, 1 e 2 concluídas (ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel`). **Fase 3 em andamento: `Secco.SDK`** — começando por `AddSeccoCorrelation()`.
+
+## Segurança — critério transversal obrigatório (ADR-0020)
+
+Toda análise de design e toda revisão de código avalia explicitamente, antes de implementar: confiança em input externo (headers, payloads — nunca propagar/persistir sem validar formato/tamanho), injeção (SQL, log forging, header injection), vazamento de informação (erros, logs, stack traces em produção), isolamento de tenant, autenticação/autorização explícitas, negação de serviço (limites de tamanho/taxa em input não confiável), e dependências novas (manutenção ativa, CVEs conhecidas). Ao propor decisões de design, apresentar o risco de segurança de cada opção — não só o trade-off funcional.
 
 ## Comandos
 
@@ -37,4 +41,4 @@ dotnet test Secco.Platform.slnx
 
 ## Checklist antes de concluir qualquer entrega
 
-Executar o checklist da skill `secco-platform-standards` (ADRs respeitadas, camadas corretas, Result pattern, contratos regenerados, isolamento de tenant, testes incluídos) e atualizar `docs/roadmap.md` se algum item de fase foi concluído.
+Executar o checklist da skill `secco-platform-standards` (ADRs respeitadas, camadas corretas, Result pattern, contratos regenerados, isolamento de tenant, análise de segurança ADR-0020, testes incluídos) e atualizar `docs/roadmap.md` se algum item de fase foi concluído.

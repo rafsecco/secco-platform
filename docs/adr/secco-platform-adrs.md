@@ -507,6 +507,34 @@ Organização por produto: `Infrastructure/Seeding/` com `ReferenceDataSeeder` e
 
 ---
 
+## ADR-0020: Segurança como critério transversal obrigatório
+
+**Status:** Aceita
+**Data:** 2026-07-08
+
+### Contexto
+Componentes de infraestrutura compartilhada (SDK, SharedKernel) são superfície de ataque de toda a plataforma por definição — uma falha em `Secco.SDK` se propaga a todo produto que o consome. Decisões de design que parecem puramente técnicas (formato de um id, o que logar, o que aceitar de um header) têm consequências de segurança que só aparecem depois, em produção, se não forem avaliadas no momento do design.
+
+### Decisão
+Toda análise de design e toda revisão de código na plataforma — feita por mim ou por IA (Claude Code, Claude.ai) — avalia explicitamente os seguintes eixos, quando aplicáveis ao componente em questão, **antes** da implementação:
+
+- **Confiança em input externo:** todo dado vindo de fora do processo (headers HTTP, query strings, payloads, mensagens de fila) é não confiável até validado. Nunca propagar ou persistir sem validação de formato/tamanho.
+- **Injeção:** SQL (mesmo com EF Core — atenção a `FromSqlRaw`/SQL cru das procedures da ADR-0017), log forging (CRLF/controle em valores logados), header injection.
+- **Vazamento de informação:** o que aparece em mensagens de erro, logs, headers de resposta e stack traces expostos ao cliente. ProblemDetails (ADR-0009) nunca inclui detalhes internos em produção.
+- **Multi-tenancy:** todo novo componente de acesso a dado é avaliado quanto a isolamento de tenant (ADR-0005) — a pergunta obrigatória é "este código poderia, por engano, vazar ou aceitar dado de outro tenant?".
+- **Autenticação/autorização:** endpoints e chamadas internas novas declaram explicitamente quem pode chamar (ADR-0007); nenhum endpoint "esquece" de proteger por omissão.
+- **Negação de serviço:** inputs não confiáveis (headers, batches, listas) têm limite de tamanho/taxa antes de processados ou propagados.
+- **Dependências:** pacotes novos adicionados ao `Directory.Packages.props` são avaliados quanto a manutenção ativa e vulnerabilidades conhecidas antes da adoção.
+
+Essa análise é parte do design, não uma revisão posterior: ao propor uma decisão de arquitetura (ex.: formato de um id, política de um header), as opções já vêm acompanhadas do risco de segurança de cada uma — não apenas do trade-off funcional.
+
+### Consequências
+- Design de componentes de SDK/SharedKernel passa a incluir explicitamente a pergunta "como isso pode ser abusado?", não só "como isso deve funcionar no caso feliz".
+- Checklist de entrega (skill `secco-platform-standards`) ganha item de segurança.
+- Custo assumido: análises de design ficam mais longas. Aceito — o custo de uma falha de segurança em componente compartilhado é ordens de magnitude maior.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação

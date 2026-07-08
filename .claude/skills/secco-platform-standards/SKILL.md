@@ -9,6 +9,10 @@ Este skill garante que todo código produzido para o ecossistema Secco Platform 
 
 ## Regra zero: ADRs primeiro
 
+## Segurança é parte do design, não revisão posterior (ADR-0020)
+
+Antes de implementar, avaliar: confiança em input externo (validar formato/tamanho de tudo que vem de fora do processo — headers, payloads, mensagens), injeção (SQL, log forging, header injection), vazamento de informação (erros/logs/stack traces em produção), isolamento de tenant ("este código pode vazar ou aceitar dado de outro tenant?"), autenticação/autorização explícitas, negação de serviço (limites em input não confiável), dependências novas (manutenção ativa, CVEs). Ao apresentar opções de design, incluir o risco de segurança de cada uma.
+
 1. Se o repositório estiver acessível, ler `docs/adr/secco-platform-adrs.md` antes de decisões estruturais.
 2. Nunca produzir código que contradiga uma ADR **Aceita**. Se a tarefa pedida contradiz uma ADR, avisar o usuário e propor: (a) ajustar a tarefa, ou (b) redigir uma nova ADR que substitua a antiga.
 3. Decisão nova que afete mais de um produto ou seja difícil de reverter → propor o texto da ADR (template no próprio documento) antes de codificar.
@@ -109,5 +113,6 @@ Nunca criar por cópia manual de outro produto. Usar `dotnet new secco-service` 
 - [ ] Contrato mudou? `openapi.json` e Client regenerados no mesmo PR.
 - [ ] Nada foi adicionado ao SharedKernel sem passar no critério de admissão.
 - [ ] Queries respeitam isolamento de tenant.
+- [ ] Análise de segurança feita (ADR-0020): input externo validado, sem injeção/vazamento, tenant isolado, auth explícita, limites contra DoS.
 - [ ] Testes incluídos; nomenclatura e commits nas convenções.
 - [ ] Se surgiu decisão arquitetural nova: ADR proposta ao usuário.
