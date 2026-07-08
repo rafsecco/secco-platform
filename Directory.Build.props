@@ -26,25 +26,8 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <!-- Metadados aplicados apenas aos projetos que se declararem empacotáveis -->
-  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryType>git</RepositoryType>
-    <!-- Ajustar quando o repositório remoto existir: -->
-    <!-- <RepositoryUrl>https://github.com/SEU_USUARIO/secco-platform</RepositoryUrl> -->
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <!-- Versionamento por tag git (ADR-0011). Prefixo definido em cada projeto empacotável:
-         <MinVerTagPrefix>sharedkernel/v</MinVerTagPrefix> -->
-  </PropertyGroup>
-
-  <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <PackageReference Include="MinVer" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
-  </ItemGroup>
+  <!-- Metadados de projetos empacotáveis: ver Directory.Build.targets — a condição
+       sobre IsPackable só enxerga o valor definido no csproj quando avaliada no fim. -->
 
   <!-- Convenções de teste: projetos *.Tests ganham a stack padrão (ADR-0012) -->
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">

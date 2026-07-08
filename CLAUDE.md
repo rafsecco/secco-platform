@@ -10,7 +10,7 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Estado atual
 
-Fases 0 e 1 concluídas (ADRs ratificadas, fundação do monorepo, CI). **Fase 2 em andamento: `Secco.SharedKernel`** — começando pelo design do `Result<T>`.
+Fases 0, 1 e 2 concluídas (ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 completo com 77 testes e pipeline de publicação). **Próxima: Fase 3 — `Secco.SDK`**, começando por `AddSeccoCorrelation()`. Publicar o kernel = criar tag `sharedkernel/v0.1.0` e dar push (workflow `publish-packages.yml`).
 
 ## Comandos
 

@@ -1,0 +1,51 @@
+name: Publish NuGet
+
+# Publicação disparada por tag (ADR-0011/0014): criar a tag = publicar o pacote.
+# Padrão de tag por pacote (MinVer calcula a versão a partir dela):
+#   sharedkernel/v1.2.0        → Secco.SharedKernel 1.2.0
+#   (futuros: sdk/v*, logstream-client/v* — adicionar novo job por pacote)
+
+on:
+  push:
+    tags:
+      - "sharedkernel/v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-sharedkernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # MinVer precisa do histórico completo e das tags para calcular a versão
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Secco.Platform.slnx
+
+      - name: Build
+        run: dotnet build Secco.Platform.slnx --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test Secco.Platform.slnx --no-build --configuration Release
+
+      - name: Pack
+        run: >
+          dotnet pack src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj
+          --no-build --configuration Release --output ./artifacts
+
+      - name: Push to GitHub Packages
+        run: >
+          dotnet nuget push "./artifacts/*.nupkg"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate

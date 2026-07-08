@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- Metadados de projetos empacotáveis (ADR-0011).
+       Vivem aqui (e não no Directory.Build.props) porque este arquivo é importado
+       no FIM de cada csproj: PropertyGroups condicionais avaliam em ordem de arquivo,
+       e só aqui a condição enxerga o IsPackable=true definido pelo projeto. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/rafsecco/secco-platform.git</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Versionamento por tag git (ADR-0011). Prefixo definido em cada projeto empacotável:
+         <MinVerTagPrefix>sharedkernel/v</MinVerTagPrefix> -->
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
