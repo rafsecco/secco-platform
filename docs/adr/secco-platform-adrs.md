@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-05
+**Última atualização:** 2026-07-09 (ADR-0007 detalhada, ADR-0021 adicionada)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -218,20 +218,33 @@ builder.Services.AddLogStream(o => o.BaseUrl = ...);
 ## ADR-0007: Autenticação e autorização — JWT + OIDC via Secco.SecureGate
 
 **Status:** Aceita
-**Data:** 2026-07-04
+**Data:** 2026-07-04 (claims detalhados em 2026-07-09)
 
 ### Contexto
-Identidade deve ser um serviço da plataforma, não uma preocupação de cada produto.
+Identidade deve ser um serviço da plataforma, não uma preocupação de cada produto. Como o Secco.SecureGate é emissor próprio, a plataforma não herda convenção de claims de terceiros — precisa fixar uma. O `JwtSecurityTokenHandler` do ASP.NET Core remapeia, por padrão e silenciosamente, claims curtos do JWT (`sub`, `role`) para URIs longas de `System.Security.Claims.ClaimTypes`. Deixar esse comportamento implícito é fonte de bug de autorização: código que busca `User.FindFirst("role")` falha silenciosamente (retorna null) se o mapeamento automático estiver ativo, pois o claim real passa a ter outro nome.
 
 ### Decisão
 - Secco.SecureGate é o único emissor de tokens (OIDC provider) da plataforma.
 - Todas as APIs validam JWT via `AddSeccoAuthentication()` do SDK (authority = SecureGate, validação por JWKS).
-- Autorização por policies nomeadas em constantes no SharedKernel; claims padronizadas: `sub`, `tenant_id`, `roles`, `scope`.
-- Comunicação serviço-a-serviço usa client credentials flow.
+- **Claims curtos, padrão JWT/OIDC — nunca `System.Security.Claims.ClaimTypes` (URIs longas):**
+
+  | Claim | Significado |
+  |---|---|
+  | `sub` | id do usuário (subject) |
+  | `role` | role(s) do usuário |
+  | `tenant_id` | tenant ao qual o token pertence (ADR-0005) |
+  | `scope` | escopos concedidos (client credentials, service-a-service) |
+
+- `AddSeccoAuthentication()` desliga o mapeamento automático de entrada centralmente (`JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear()` ou equivalente em `Microsoft.IdentityModel`) e configura `TokenValidationParameters.RoleClaimType = "role"` e `NameClaimType = "sub"` — nenhum produto decide isso individualmente.
+- Autorização por policies nomeadas em constantes no SharedKernel, construídas sobre esses claims. Autorização granular por ação (não só role) segue a ADR-0021.
+- Comunicação serviço-a-serviço usa client credentials flow (token carrega `scope`, sem `sub` de usuário).
 
 ### Consequências
 - Nenhum produto armazena credenciais de usuários.
 - SecureGate é dependência de runtime de todos — exige SLA e HA superiores aos demais.
+- `User.FindFirst("sub")` / `User.IsInRole(...)` funcionam com os nomes exatamente como emitidos pelo token — sem tradução mental nem mapeamento surpresa.
+- Login federado futuro (Entra ID, OIDC de terceiros) já parte de uma convenção compatível com claims curtos padrão, sem remapeamento adicional.
+- Todo produto que usa `[Authorize]` herda a configuração via `AddSeccoAuthentication()`; implementar autenticação fora dessa extensão é proibido (ADR-0020 — autenticação/autorização sempre explícitas, nunca reimplementadas ponto a ponto).
 
 ---
 
@@ -532,6 +545,32 @@ Essa análise é parte do design, não uma revisão posterior: ao propor uma dec
 - Design de componentes de SDK/SharedKernel passa a incluir explicitamente a pergunta "como isso pode ser abusado?", não só "como isso deve funcionar no caso feliz".
 - Checklist de entrega (skill `secco-platform-standards`) ganha item de segurança.
 - Custo assumido: análises de design ficam mais longas. Aceito — o custo de uma falha de segurança em componente compartilhado é ordens de magnitude maior.
+
+---
+
+## ADR-0021: Autorização granular — Role + Permission (padrão ASP.NET Core Identity)
+
+**Status:** Aceita
+**Data:** 2026-07-09
+
+### Contexto
+`role` (ADR-0007) identifica um perfil (`Admin`, `Financeiro`, `Suporte`), mas não expressa ações permitidas com granularidade — a plataforma adota o padrão do `Microsoft.AspNetCore.Identity` (`IdentityRole` + claims de ação): Role é o perfil, Permission é a ação concreta (`invoices:read`, `logs:delete`). Duas estratégias de transporte foram avaliadas: embutir permissões no token (rápido, mas revogação só no expirar do token) ou resolver em runtime a partir do role (revogação imediata, exige consulta/cache). Optou-se pela segunda — a plataforma prioriza revogação imediata de acesso sobre a latência marginal de uma consulta em cache.
+
+### Decisão
+- **Token carrega apenas `role`** (ADR-0007) — nunca a lista de permissões.
+- **Fonte da verdade do mapeamento Role → Permissions:** `Secco.SecureGate`, por ser o produto de IAM. Mapeamento é **por tenant** (um tenant pode customizar o que um role concede) — coerente com ADR-0005.
+- **Formato de permissão:** string `recurso:ação` (`invoices:write`, `logs:delete`) — namespaced por recurso para evitar colisão semântica entre produtos.
+- **Resolução:** outras APIs consultam o SecureGate via `Secco.SecureGate.Client` (NSwag, ADR-0006) — nunca `HttpClient` manual.
+- **Cache local obrigatório**, chave `(tenant_id, role)`, TTL curto (60–300s, configurável). Motivo: sem cache, toda requisição autorizada dependeria do SecureGate em tempo real, tornando-o gargalo e alvo natural de negação de serviço (ADR-0020).
+- **Fail-closed obrigatório:** se o SecureGate estiver indisponível e o cache expirado, a resposta é **negar** o acesso. Autorização nunca falha aberta.
+- Exposto via `AddSeccoAuthorization()` no `Secco.SDK`, com policies dinâmicas geradas a partir de constantes de permissão no SharedKernel: `[Authorize(Policy = SeccoPermissions.Invoices.Write)]`.
+- Permissões por usuário individual (fora do papel) ficam fora de escopo desta ADR — se necessárias, tratadas como extensão futura, não como caso padrão.
+
+### Consequências
+- Revogar acesso de um role é imediato dentro do horizonte do TTL, sem esperar expiração de token.
+- SecureGate ganha responsabilidade de servir consultas de permissão em alta frequência (mitigada pelo cache) — reforça a exigência de SLA/HA já registrada na ADR-0007.
+- Cache introduz uma janela (o TTL) onde uma permissão revogada ainda pode estar em vigor — aceito conscientemente; TTL deve ser calibrado por sensibilidade da operação (ex.: TTL menor para permissões financeiras).
+- Nenhum produto implementa checagem de permissão própria; tudo passa por `AddSeccoAuthorization()`.
 
 ---
 

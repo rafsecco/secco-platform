@@ -30,6 +30,7 @@
 - [x] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory` (claim primária, header só sem claim, divergência = 400 — ADR-0020; `ITenantCatalog` com implementação padrão via `IConfiguration`, catálogo SQL chega com o AdminPortal)
 - [ ] `AddSeccoHealthChecks()` — /health/live e /health/ready
 - [ ] `AddSeccoResilience()` — políticas padrão (Polly)
+- [ ] `AddSeccoAuthorization()` — Role + Permission, resolução em runtime via Secco.SecureGate.Client, cache (tenant_id, role) TTL curto, fail-closed (ADR-0021)
 - [ ] `AddSeccoPlatform()` — composição de tudo
 - [ ] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017) + providers SQL Server/PostgreSQL (ADR-0018)
 - [ ] Orquestração de seeding — `ReferenceDataSeeder`/`DevelopmentDataSeeder` com guarda dupla (ADR-0019)

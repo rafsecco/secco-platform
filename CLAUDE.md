@@ -32,6 +32,8 @@ dotnet test Secco.Platform.slnx
 - SharedKernel só admite tipos usados por 2+ produtos, com zero dependências externas, sem I/O, estáveis — na dúvida, fica no produto (ADR-0003).
 - Comunicação entre produtos exclusivamente via clients NSwag gerados (`Secco.<Produto>.Client`); nunca `HttpClient` manual; contrato mudou → regenerar `openapi.json` + client no mesmo PR (ADR-0006).
 - Multi-tenancy database-per-tenant; nenhuma query cruza tenants; acesso via `ITenantConnectionFactory` (ADR-0005).
+- Auth: claims curtos JWT/OIDC (`sub`, `role`, `tenant_id`, `scope`) — nunca `System.Security.Claims.ClaimTypes`; mapeamento automático de claims desligado centralmente em `AddSeccoAuthentication()` (ADR-0007).
+- Autorização granular: token só carrega `role`; permissões (`recurso:ação`) resolvidas em runtime via `Secco.SecureGate.Client`, cache `(tenant_id, role)` com TTL curto, **fail-closed** se indisponível — `AddSeccoAuthorization()` (ADR-0021).
 - Banco: SQL Server é o provider padrão, PostgreSQL segundo (ADR-0018); notação húngara minúscula — `tb_`, `vw_`, colunas `id_pk_`/`id_fk_`/`id_pfk_`, `ds_`, `dt_`, `nr_`, `ie_`, `fl_`, `vl_`, `qt_` — via convention global do EF Core, nunca digitada à mão (ADR-0017); `sp_` mantido por decisão registrada.
 - Seed: referência (todos os ambientes, idempotente) vs desenvolvimento (só DEV, guarda dupla `IsDevelopment()` + flag) — nunca misturar (ADR-0019).
 - Background: nativo → Hangfire/SQL Server via `IBackgroundJobScheduler` do SDK → broker só com ADR nova (ADR-0015).
