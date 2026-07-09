@@ -27,7 +27,7 @@
 
 ## Fase 3 — Secco.SDK v0.1
 - [x] `AddSeccoCorrelation()` — propagação de X-Correlation-Id (`ICorrelationContext`, middleware valida formato do header recebido antes de reaproveitar — ADR-0020; gera Guid v7 caso contrário)
-- [ ] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory`
+- [x] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory` (claim primária, header só sem claim, divergência = 400 — ADR-0020; `ITenantCatalog` com implementação padrão via `IConfiguration`, catálogo SQL chega com o AdminPortal)
 - [ ] `AddSeccoHealthChecks()` — /health/live e /health/ready
 - [ ] `AddSeccoResilience()` — políticas padrão (Polly)
 - [ ] `AddSeccoPlatform()` — composição de tudo
