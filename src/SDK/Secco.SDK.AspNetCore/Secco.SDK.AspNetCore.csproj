@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk/v</MinVerTagPrefix>
+    <Description>Comportamento transversal de runtime da Secco Platform: correlação, tenancy, resiliência e health checks (ADR-0004).</Description>
+    <PackageTags>secco;sdk;aspnetcore;correlation</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- ADR-0004: ao contrário do SharedKernel, o SDK pode depender de pacotes externos. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

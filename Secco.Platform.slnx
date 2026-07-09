@@ -1,9 +1,15 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/src/SDK/">
+    <Project Path="src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" />
+  </Folder>
   <Folder Name="/src/SharedKernel/">
     <Project Path="src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/tests/SDK/">
+    <Project Path="tests/SDK/Secco.SDK.AspNetCore.Tests/Secco.SDK.AspNetCore.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/SharedKernel/">
     <Project Path="tests/SharedKernel/Secco.SharedKernel.Tests/Secco.SharedKernel.Tests.csproj" />
   </Folder>

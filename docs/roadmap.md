@@ -26,7 +26,7 @@
 - [x] Empacotar (NuGet local / GitHub Packages) — workflow `publish-packages.yml` dispara em tag `sharedkernel/v*`; nupkg validado localmente (license, readme, SourceLink, snupkg)
 
 ## Fase 3 — Secco.SDK v0.1
-- [ ] `AddSeccoCorrelation()` — propagação de X-Correlation-Id
+- [x] `AddSeccoCorrelation()` — propagação de X-Correlation-Id (`ICorrelationContext`, middleware valida formato do header recebido antes de reaproveitar — ADR-0020; gera Guid v7 caso contrário)
 - [ ] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory`
 - [ ] `AddSeccoHealthChecks()` — /health/live e /health/ready
 - [ ] `AddSeccoResilience()` — políticas padrão (Polly)
