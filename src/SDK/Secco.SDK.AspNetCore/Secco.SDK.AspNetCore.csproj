@@ -12,6 +12,7 @@
   <!-- ADR-0004: ao contrário do SharedKernel, o SDK pode depender de pacotes externos. -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
   </ItemGroup>
 
   <ItemGroup>

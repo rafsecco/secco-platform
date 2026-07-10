@@ -29,7 +29,7 @@
 - [x] `AddSeccoCorrelation()` — propagação de X-Correlation-Id (`ICorrelationContext`, middleware valida formato do header recebido antes de reaproveitar — ADR-0020; gera Guid v7 caso contrário)
 - [x] `AddSeccoTenancy()` — resolução de tenant + `ITenantConnectionFactory` (claim primária, header só sem claim, divergência = 400 — ADR-0020; `ITenantCatalog` com implementação padrão via `IConfiguration`, catálogo SQL chega com o AdminPortal)
 - [x] `AddSeccoHealthChecks()` — /health/live (sem checks: liveness = processo responde) e /health/ready (todos os checks; JSON sem descrições/exceções — ADR-0020); `MapSeccoHealthChecks()` nos endpoints
-- [ ] `AddSeccoResilience()` — políticas padrão (Polly)
+- [x] `AddSeccoResilience()` — standard handler (Polly v8) global via `ConfigureHttpClientDefaults`; retry só em métodos idempotentes (POST/PATCH não repetem até existir ADR de idempotency keys)
 - [ ] `AddSeccoAuthorization()` — Role + Permission, resolução em runtime via Secco.SecureGate.Client, cache (tenant_id, role) TTL curto, fail-closed (ADR-0021)
 - [ ] `AddSeccoPlatform()` — composição de tudo
 - [ ] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017) + providers SQL Server/PostgreSQL (ADR-0018)
