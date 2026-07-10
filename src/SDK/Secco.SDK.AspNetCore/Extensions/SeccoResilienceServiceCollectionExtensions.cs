@@ -28,6 +28,15 @@ public static class SeccoResilienceServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // Guarda de chamada dupla: registrar o handler duas vezes empilharia dois
+        // pipelines de resiliência (retry 3x aninhado = até 16 tentativas).
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(SeccoResilienceMarker)))
+        {
+            return services;
+        }
+
+        services.AddSingleton<SeccoResilienceMarker>();
+
         services.ConfigureHttpClientDefaults(http =>
             http.AddStandardResilienceHandler(options =>
             {
@@ -48,4 +57,7 @@ public static class SeccoResilienceServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>Marcador de registro único do pipeline de resiliência.</summary>
+    internal sealed class SeccoResilienceMarker;
 }

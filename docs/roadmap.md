@@ -31,7 +31,7 @@
 - [x] `AddSeccoHealthChecks()` — /health/live (sem checks: liveness = processo responde) e /health/ready (todos os checks; JSON sem descrições/exceções — ADR-0020); `MapSeccoHealthChecks()` nos endpoints
 - [x] `AddSeccoResilience()` — standard handler (Polly v8) global via `ConfigureHttpClientDefaults`; retry só em métodos idempotentes (POST/PATCH não repetem até existir ADR de idempotency keys)
 - [ ] `AddSeccoAuthorization()` — Role + Permission, resolução em runtime via Secco.SecureGate.Client, cache (tenant_id, role) TTL curto, fail-closed (ADR-0021)
-- [ ] `AddSeccoPlatform()` — composição de tudo
+- [x] `AddSeccoPlatform()` — composição de tudo (+ `UseSeccoPlatform()` fixando a ordem correlation → [auth, Fase 6] → tenancy e `MapSeccoPlatform()`; sem toggles, chamada dupla é no-op; auth entra aditiva quando o SecureGate existir)
 - [ ] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017) + providers SQL Server/PostgreSQL (ADR-0018)
 - [ ] Orquestração de seeding — `ReferenceDataSeeder`/`DevelopmentDataSeeder` com guarda dupla (ADR-0019)
 

@@ -2,12 +2,25 @@
 
 Comportamento transversal de runtime da Secco Platform (ADR-0004): nenhum produto reimplementa correlação, tenancy, resiliência ou health checks localmente.
 
+## Uso recomendado — composição completa
+
+```csharp
+builder.Services.AddSeccoPlatform();   // correlation + tenancy + health + resilience
+
+var app = builder.Build();
+app.UseSeccoPlatform();                // ordem correta: correlation → [auth, Fase 6] → tenancy
+app.MapSeccoPlatform();                // /health/live e /health/ready
+```
+
+Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a extensão individual (ex.: `AddSeccoResilience(o => ...)`) **antes** — a composição não duplica o que já existe. `AddSeccoAuthentication()` entrará no agregado quando o SecureGate existir (Fase 6), de forma aditiva.
+
 ## Disponível nesta versão
 
 - `AddSeccoCorrelation()` / `UseSeccoCorrelation()` — propaga `X-Correlation-Id` (constante `SeccoHeaders.CorrelationId` do SharedKernel) por toda a requisição e a devolve no header de resposta.
 - `AddSeccoTenancy()` / `UseSeccoTenancy()` — resolve o tenant (claim `tenant_id` primária; header `X-Tenant-Id` só sem claim; divergência = 400) e expõe `ITenantContext` + `ITenantConnectionFactory` (ADR-0005).
 - `AddSeccoHealthChecks()` / `MapSeccoHealthChecks()` — `/health/live` (processo vivo, nenhum check) e `/health/ready` (todos os checks, JSON sem detalhes sensíveis).
 - `AddSeccoResilience()` — pipeline padrão de resiliência (retry + circuit breaker + timeouts) em todo `HttpClient`; retry automático só para métodos idempotentes.
+- `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada e guarda contra registro duplicado.
 
 ## Uso
 

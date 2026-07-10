@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Secco.SDK.AspNetCore.Correlation;
 
 namespace Secco.SDK.AspNetCore.Extensions;
@@ -15,8 +16,8 @@ public static class SeccoCorrelationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddScoped<CorrelationContext>();
-        services.AddScoped<ICorrelationContext>(sp => sp.GetRequiredService<CorrelationContext>());
+        services.TryAddScoped<CorrelationContext>();
+        services.TryAddScoped<ICorrelationContext>(sp => sp.GetRequiredService<CorrelationContext>());
 
         return services;
     }
