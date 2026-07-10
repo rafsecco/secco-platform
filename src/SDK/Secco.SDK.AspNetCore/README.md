@@ -6,6 +6,7 @@ Comportamento transversal de runtime da Secco Platform (ADR-0004): nenhum produt
 
 - `AddSeccoCorrelation()` / `UseSeccoCorrelation()` — propaga `X-Correlation-Id` (constante `SeccoHeaders.CorrelationId` do SharedKernel) por toda a requisição e a devolve no header de resposta.
 - `AddSeccoTenancy()` / `UseSeccoTenancy()` — resolve o tenant (claim `tenant_id` primária; header `X-Tenant-Id` só sem claim; divergência = 400) e expõe `ITenantContext` + `ITenantConnectionFactory` (ADR-0005).
+- `AddSeccoHealthChecks()` / `MapSeccoHealthChecks()` — `/health/live` (processo vivo, nenhum check) e `/health/ready` (todos os checks, JSON sem detalhes sensíveis).
 
 ## Uso
 
@@ -42,3 +43,14 @@ Catálogo padrão via configuração (substituível registrando outro `ITenantCa
 ```
 
 Regras de confiança (ADR-0020): claim assinada vence sempre; header `X-Tenant-Id` só é considerado sem claim e se for `Guid` válido; claim e header divergentes → 400 (possível tentativa cross-tenant, logada como warning); claim presente porém inválida **não** cai para o header. O middleware não bloqueia requisições sem tenant (health checks funcionam) — a barreira é o `ITenantConnectionFactory`, que lança `TenantNotResolvedException` sem tenant resolvido.
+
+## Health checks (ADR-0004)
+
+```csharp
+builder.Services.AddSeccoHealthChecks()
+    .AddCheck<MinhaDepend>("fila");   // checks do produto afetam só o /health/ready
+// ...
+app.MapSeccoHealthChecks();
+```
+
+`/health/live` não executa nenhum check — reiniciar o processo não conserta dependência externa caída. `/health/ready` executa todos os checks e responde JSON com nome, status e duração por check — **sem** descrições nem mensagens de exceção (ADR-0020: erros de infraestrutura vazam hostnames e connection strings; diagnóstico detalhado fica nos logs). Endpoints anônimos: probes de orquestrador não autenticam.
