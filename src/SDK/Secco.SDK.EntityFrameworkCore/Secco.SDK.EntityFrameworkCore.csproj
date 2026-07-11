@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-efcore/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-efcore/v</MinVerTagPrefix>
+    <Description>Integração EF Core da Secco Platform: SeccoDbContext e convention global de nomenclatura húngara de banco (ADR-0017), agnóstica de provider (ADR-0018).</Description>
+    <PackageTags>secco;sdk;efcore;naming-convention</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Agnóstico de provider (ADR-0018): Relational é neutro de engine;
+       SqlServer/Npgsql são referenciados pelos produtos. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

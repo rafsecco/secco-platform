@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Stack de testes da plataforma (ADR-0012); versões em Directory.Packages.props (ADR-0011) -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <!-- Provider padrão (ADR-0018) — o modelo é construído sem conexão real -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\SDK\Secco.SDK.EntityFrameworkCore\Secco.SDK.EntityFrameworkCore.csproj" />
+  </ItemGroup>
+
+</Project>

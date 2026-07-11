@@ -10,7 +10,7 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Estado atual
 
-Fases 0, 1 e 2 concluídas (ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 publicado — tag `sharedkernel/v0.1.0`). **Fase 3 em andamento: `Secco.SDK.AspNetCore`** — miolo completo: `AddSeccoCorrelation()`, `AddSeccoTenancy()`, `AddSeccoHealthChecks()`, `AddSeccoResilience()` e `AddSeccoPlatform()`/`UseSeccoPlatform()`/`MapSeccoPlatform()` (composição). Restam: `Secco.SDK.EntityFrameworkCore` (`SeccoNamingConvention`, ADR-0017) e orquestração de seeding (ADR-0019).
+Fases 0, 1 e 2 concluídas (ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 publicado — tag `sharedkernel/v0.1.0`). **Fase 3 em andamento: `Secco.SDK.AspNetCore`** — miolo completo: `AddSeccoCorrelation()`, `AddSeccoTenancy()`, `AddSeccoHealthChecks()`, `AddSeccoResilience()` e `AddSeccoPlatform()`/`UseSeccoPlatform()`/`MapSeccoPlatform()` (composição). `Secco.SDK.EntityFrameworkCore` pronto (`SeccoDbContext` + `SeccoNamingConvention`, ADR-0017). Resta: orquestração de seeding (ADR-0019) — último item da Fase 3.
 
 ## Segurança — critério transversal obrigatório (ADR-0020)
 
