@@ -10,7 +10,7 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Estado atual
 
-Fases 0–3 concluídas: ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 (tag `sharedkernel/v0.1.0`), `Secco.SDK.AspNetCore` v0.1 (correlation, tenancy, health checks, resilience e composição `AddSeccoPlatform()`) e `Secco.SDK.EntityFrameworkCore` v0.1 (`SeccoDbContext` + `SeccoNamingConvention` ADR-0017 + seeding ADR-0019). **Próxima: Fase 4 — migração do LogStream** (produto de referência): mover RS.Logging, renomear para `Secco.LogStream.*`, adotar SharedKernel + SDK, pipeline NSwag.
+Fases 0–3 concluídas: ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 (tag `sharedkernel/v0.1.0`), `Secco.SDK.AspNetCore` v0.1 (correlation, tenancy, health checks, resilience e composição `AddSeccoPlatform()`) e `Secco.SDK.EntityFrameworkCore` v0.1 (`SeccoDbContext` + `SeccoNamingConvention` ADR-0017 + seeding ADR-0019). **Próxima: Fase 4 — `Secco.LogStream` reescrito do zero** (decisão: sem migração de histórico do RS.Logging, que fica em `C:\Programacao\Projects\RS.Logging` como referência funcional). Plano faseado 4.1–4.7 no roadmap.
 
 ## Segurança — critério transversal obrigatório (ADR-0020)
 

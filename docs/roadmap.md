@@ -35,12 +35,23 @@
 - [x] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017: tabelas via nome do DbSet, colunas por tipo CLR, `pk_`/`fk_`/`uk_`/`idx_` automáticos, `[Column]` explícito vence) + `SeccoDbContext` base; agnóstico de provider — SqlServer/Npgsql ficam nos produtos (ADR-0018)
 - [x] Orquestração de seeding — `IReferenceDataSeeder`/`IDevelopmentDataSeeder` + `SeedSeccoDataAsync()` explícito, guarda dupla fail-closed (ADR-0019); Bogus fica na Infrastructure dos produtos
 
-## Fase 4 — Migração do LogStream (produto de referência)
-- [ ] Mover RS.Logging para `src/LogStream/` com `git mv` (preservar histórico)
-- [ ] Renomear `RS.*` → `Secco.LogStream.*` (ADR-0016)
-- [ ] Adotar SharedKernel + SDK (remover duplicações locais)
-- [ ] Pipeline NSwag: `openapi.json` versionado + `Secco.LogStream.Client` gerado e empacotado
-- [ ] Validação de breaking change de contrato no CI (ADR-0006)
+## Fase 4 — Secco.LogStream (produto de referência, reescrito do zero)
+
+> Decisão (2026-07-11): o RS.Logging **não** é migrado — o Secco.LogStream é reescrito do zero
+> sobre SharedKernel + SDK, com histórico novo nos padrões da plataforma. O RS.Logging
+> (`C:\Programacao\Projects\RS.Logging`) permanece como referência funcional até a paridade.
+> Mudanças estruturais da reescrita: tenancy real (database-per-tenant via SDK — sem coluna
+> `TenantId`, sem "sem header vê tudo"), Guid v7 (permite ingestão 100% assíncrona inclusive do
+> LogProcess pai), nomenclatura via `SeccoNamingConvention`, `Result<T>` + 4 camadas, limites de
+> ingestão (ADR-0020), MariaDB fora (ADR-0018).
+
+- [ ] 4.1 Fundação: 4 camadas (ADR-0002) + `AddSeccoPlatform()` + OpenAPI/Scalar + pipeline NSwag (`Secco.LogStream.Client` e `openapi.json` versionados desde o 1º endpoint) + migrations SQL Server + CI com path filters (ADR-0014)
+- [ ] 4.2 `AddSeccoAuthentication()` no SDK (authority OIDC configurável — SecureGate assume na Fase 6) — endpoints do LogStream nascem protegidos
+- [ ] 4.3 Log geral: ingestão assíncrona (bounded channel + `BackgroundService`, `202`), batch com limites, consulta/busca paginada (`PagedResult<T>`, DTOs)
+- [ ] 4.4 Log de processos: `LogProcess`/`LogProcessDetail`, ingestão assíncrona (Guid v7 elimina o POST síncrono do pai), auditoria com status agregado
+- [ ] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão + consulta/busca
+- [ ] 4.6 Retenção: `BackgroundService` (ADR-0015 camada 1) iterando os bancos de tenant via catálogo
+- [ ] 4.7 Paridade final: PostgreSQL (migrations + matriz de testes), decisão de full-text (SQL Server `CONTAINS` vs `LIKE`), Dockerfile + compose
 
 ## Fase 5 — Secco.Templates
 - [ ] Template `dotnet new secco-service` destilado do LogStream
