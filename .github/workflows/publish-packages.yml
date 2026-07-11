@@ -2,20 +2,24 @@ name: Publish NuGet
 
 # Publicação disparada por tag (ADR-0011/0014): criar a tag = publicar o pacote.
 # Padrão de tag por pacote (MinVer calcula a versão a partir dela):
-#   sharedkernel/v1.2.0        → Secco.SharedKernel 1.2.0
-#   (futuros: sdk/v*, logstream-client/v* — adicionar novo job por pacote)
+#   sharedkernel/v1.2.0   → Secco.SharedKernel 1.2.0
+#   sdk/v0.1.0            → Secco.SDK.AspNetCore 0.1.0
+#   sdk-efcore/v0.1.0     → Secco.SDK.EntityFrameworkCore 0.1.0
+#   (futuros: logstream-client/v* — adicionar o mapeamento no passo "map")
 
 on:
   push:
     tags:
       - "sharedkernel/v*"
+      - "sdk/v*"
+      - "sdk-efcore/v*"
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  publish-sharedkernel:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,6 +27,16 @@ jobs:
         with:
           # MinVer precisa do histórico completo e das tags para calcular a versão
           fetch-depth: 0
+
+      - name: Map tag to project
+        id: map
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            sharedkernel/v*) echo "project=src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" >> "$GITHUB_OUTPUT" ;;
+            sdk/v*)          echo "project=src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" >> "$GITHUB_OUTPUT" ;;
+            sdk-efcore/v*)   echo "project=src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Tag ${GITHUB_REF_NAME} sem mapeamento de pacote" >&2; exit 1 ;;
+          esac
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -40,7 +54,7 @@ jobs:
 
       - name: Pack
         run: >
-          dotnet pack src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj
+          dotnet pack ${{ steps.map.outputs.project }}
           --no-build --configuration Release --output ./artifacts
 
       - name: Push to GitHub Packages

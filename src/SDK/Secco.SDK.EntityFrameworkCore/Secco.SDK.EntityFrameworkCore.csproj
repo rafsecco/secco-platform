@@ -13,6 +13,8 @@
        SqlServer/Npgsql são referenciados pelos produtos. -->
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <!-- IHostEnvironment para a guarda dupla do seeding (ADR-0019) -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

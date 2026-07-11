@@ -33,7 +33,7 @@
 - [ ] `AddSeccoAuthorization()` — Role + Permission, resolução em runtime via Secco.SecureGate.Client, cache (tenant_id, role) TTL curto, fail-closed (ADR-0021)
 - [x] `AddSeccoPlatform()` — composição de tudo (+ `UseSeccoPlatform()` fixando a ordem correlation → [auth, Fase 6] → tenancy e `MapSeccoPlatform()`; sem toggles, chamada dupla é no-op; auth entra aditiva quando o SecureGate existir)
 - [x] `Secco.SDK.EntityFrameworkCore` — `SeccoNamingConvention` (ADR-0017: tabelas via nome do DbSet, colunas por tipo CLR, `pk_`/`fk_`/`uk_`/`idx_` automáticos, `[Column]` explícito vence) + `SeccoDbContext` base; agnóstico de provider — SqlServer/Npgsql ficam nos produtos (ADR-0018)
-- [ ] Orquestração de seeding — `ReferenceDataSeeder`/`DevelopmentDataSeeder` com guarda dupla (ADR-0019)
+- [x] Orquestração de seeding — `IReferenceDataSeeder`/`IDevelopmentDataSeeder` + `SeedSeccoDataAsync()` explícito, guarda dupla fail-closed (ADR-0019); Bogus fica na Infrastructure dos produtos
 
 ## Fase 4 — Migração do LogStream (produto de referência)
 - [ ] Mover RS.Logging para `src/LogStream/` com `git mv` (preservar histórico)

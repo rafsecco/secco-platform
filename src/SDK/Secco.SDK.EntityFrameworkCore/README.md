@@ -23,3 +23,18 @@ public sealed class LogStreamDbContext(DbContextOptions<LogStreamDbContext> opti
 Configuração explícita sempre vence a convention — é o mecanismo de exceção previsto na ADR-0017.
 
 Agnóstico de provider (ADR-0018): este pacote referencia só o EF Core relacional base; `Microsoft.EntityFrameworkCore.SqlServer` (padrão) ou `Npgsql.EntityFrameworkCore.PostgreSQL` são referenciados pelo produto.
+
+## Seeding (ADR-0019)
+
+Produtos implementam seus seeders em `Infrastructure/Seeding/` e os registram no DI; o disparo é sempre **explícito** (`Program.cs` em DEV, provisionamento de tenant, job pós-migration — nunca efeito automático de startup em produção):
+
+```csharp
+builder.Services.AddScoped<IReferenceDataSeeder, LogStreamReferenceDataSeeder>();
+builder.Services.AddScoped<IDevelopmentDataSeeder, LogStreamDevelopmentDataSeeder>();
+// ...
+await app.Services.SeedSeccoDataAsync();
+```
+
+- **`IReferenceDataSeeder`** — roda em todos os ambientes; implementação obrigatoriamente idempotente (upsert por chave natural, IDs determinísticos).
+- **`IDevelopmentDataSeeder`** — roda somente sob a **guarda dupla**: `IsDevelopment()` **e** `Secco:Seed:Development = true` (fail-closed: sem `IHostEnvironment` registrado, não roda; em DEV sem a flag, o skip é logado). Executa sempre após os de referência. Dados via Bogus `pt_BR` com seed fixo — referenciado pela Infrastructure do produto, não por este pacote.
+- `Order` (default 0) ordena seeders do mesmo tipo.
