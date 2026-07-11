@@ -24,4 +24,25 @@ internal sealed class ConfigurationTenantCatalog(IConfiguration configuration) :
             ? null
             : new TenantInfo(tenantId, connectionString));
     }
+
+    public ValueTask<IReadOnlyList<TenantInfo>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        var tenants = new List<TenantInfo>();
+
+        foreach (var section in configuration.GetSection(TenantsSectionKey).GetChildren())
+        {
+            var connectionString = section["ConnectionString"];
+
+            // Chaves que não são Guid ou sem connection string são ignoradas silenciosamente —
+            // configuração malformada não pode derrubar processos de manutenção.
+            if (Guid.TryParse(section.Key, out var tenantId)
+                && tenantId != Guid.Empty
+                && !string.IsNullOrWhiteSpace(connectionString))
+            {
+                tenants.Add(new TenantInfo(tenantId, connectionString));
+            }
+        }
+
+        return ValueTask.FromResult<IReadOnlyList<TenantInfo>>(tenants);
+    }
 }

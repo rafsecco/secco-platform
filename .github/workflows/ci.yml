@@ -1,7 +1,7 @@
 name: CI
 
-# CI mínimo da Fase 1 (ADR-0014). Evolui na Fase 4 com:
-# path filters por produto, validação de contrato OpenAPI e publicação de pacotes por tag.
+# Path filters (ADR-0014): mudança só em LogStream builda só o LogStream;
+# mudança em kernel/SDK/arquivos de build builda a solution inteira (dependentes incluídos).
 
 on:
   push:
@@ -9,20 +9,54 @@ on:
   pull_request:
     branches: [main]
 
-# Cancela execuções obsoletas do mesmo branch/PR
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      platform: ${{ steps.filter.outputs.platform }}
+      logstream: ${{ steps.filter.outputs.logstream }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            platform:
+              - 'src/SharedKernel/**'
+              - 'src/SDK/**'
+              - 'tests/SharedKernel/**'
+              - 'tests/SDK/**'
+              - 'Directory.Build.props'
+              - 'Directory.Build.targets'
+              - 'Directory.Packages.props'
+              - 'nuget.config'
+              - '.editorconfig'
+              - 'Secco.Platform.slnx'
+              - '.github/workflows/**'
+            logstream:
+              - 'src/LogStream/**'
+              - 'tests/LogStream/**'
+
+  build-all:
+    # Kernel/SDK/build mudaram: tudo é rebuildado — consumidores validam a mudança
+    needs: changes
+    if: needs.changes.outputs.platform == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Obrigatório: MinVer (ADR-0011) calcula versões a partir das tags
-          # e precisa do histórico completo — o checkout raso quebraria o versionamento.
+          # MinVer (ADR-0011) calcula versões a partir das tags e precisa do histórico completo
           fetch-depth: 0
 
       - name: Setup .NET
@@ -37,5 +71,24 @@ jobs:
         run: dotnet build Secco.Platform.slnx --no-restore --configuration Release
 
       - name: Test
-        # Testcontainers (ADR-0012) usa o Docker já disponível no runner ubuntu-latest
+        # Testcontainers (ADR-0012) usa o Docker do runner ubuntu-latest
         run: dotnet test Secco.Platform.slnx --no-build --configuration Release --verbosity normal
+
+  build-logstream:
+    # Só o LogStream mudou: builda apenas o produto (a cadeia kernel/SDK entra por referência)
+    needs: changes
+    if: needs.changes.outputs.platform != 'true' && needs.changes.outputs.logstream == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test LogStream
+        run: dotnet test tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj --configuration Release --verbosity normal

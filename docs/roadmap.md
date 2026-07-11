@@ -45,7 +45,7 @@
 > LogProcess pai), nomenclatura via `SeccoNamingConvention`, `Result<T>` + 4 camadas, limites de
 > ingestão (ADR-0020), MariaDB fora (ADR-0018).
 
-- [ ] 4.1 Fundação: 4 camadas (ADR-0002) + `AddSeccoPlatform()` + OpenAPI/Scalar + pipeline NSwag (`Secco.LogStream.Client` e `openapi.json` versionados desde o 1º endpoint) + migrations SQL Server + CI com path filters (ADR-0014)
+- [x] 4.1 Fundação: 4 camadas (ADR-0002) + `AddSeccoPlatform()` + OpenAPI/Scalar (DEV) + `openapi.json` versionado com teste de contrato (drift falha o CI; atualização via `SECCO_UPDATE_OPENAPI=true`) + `LogStreamDbContext` por tenant + migrations SQL Server (aplicadas no startup só em DEV) + Testcontainers provando isolamento entre bancos de tenant + CI com path filters (ADR-0014); `ITenantCatalog` ganhou `ListAsync()` (SDK v0.2)
 - [ ] 4.2 `AddSeccoAuthentication()` no SDK (authority OIDC configurável — SecureGate assume na Fase 6) — endpoints do LogStream nascem protegidos
 - [ ] 4.3 Log geral: ingestão assíncrona (bounded channel + `BackgroundService`, `202`), batch com limites, consulta/busca paginada (`PagedResult<T>`, DTOs)
 - [ ] 4.4 Log de processos: `LogProcess`/`LogProcessDetail`, ingestão assíncrona (Guid v7 elimina o POST síncrono do pai), auditoria com status agregado

@@ -61,3 +61,8 @@ dotnet_naming_style.underscore_camel.capitalization = camel_case
 dotnet_style_readonly_field = true:warning
 dotnet_code_quality_unused_parameters = all:warning
 csharp_style_unused_value_expression_statement_preference = discard_variable:suggestion
+
+# Migrations do EF Core são código gerado (dotnet-ef) — sem enforcement de estilo
+[**/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

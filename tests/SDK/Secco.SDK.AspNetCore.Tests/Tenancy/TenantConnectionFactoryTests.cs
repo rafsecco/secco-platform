@@ -17,6 +17,9 @@ public class TenantConnectionFactoryTests
     {
         public ValueTask<TenantInfo?> FindAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(tenant);
+
+        public ValueTask<IReadOnlyList<TenantInfo>> ListAsync(CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult<IReadOnlyList<TenantInfo>>(tenant is null ? [] : [tenant]);
     }
 
     [Fact]

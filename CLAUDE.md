@@ -10,7 +10,7 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Estado atual
 
-Fases 0–3 concluídas: ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 (tag `sharedkernel/v0.1.0`), `Secco.SDK.AspNetCore` v0.1 (correlation, tenancy, health checks, resilience e composição `AddSeccoPlatform()`) e `Secco.SDK.EntityFrameworkCore` v0.1 (`SeccoDbContext` + `SeccoNamingConvention` ADR-0017 + seeding ADR-0019). **Próxima: Fase 4 — `Secco.LogStream` reescrito do zero** (decisão: sem migração de histórico do RS.Logging, que fica em `C:\Programacao\Projects\RS.Logging` como referência funcional). Plano faseado 4.1–4.7 no roadmap.
+Fases 0–3 concluídas: ADRs ratificadas, fundação do monorepo, CI, `Secco.SharedKernel` v0.1 (tag `sharedkernel/v0.1.0`), `Secco.SDK.AspNetCore` v0.1 (correlation, tenancy, health checks, resilience e composição `AddSeccoPlatform()`) e `Secco.SDK.EntityFrameworkCore` v0.1 (`SeccoDbContext` + `SeccoNamingConvention` ADR-0017 + seeding ADR-0019). **Fase 4 em andamento — `Secco.LogStream` reescrito do zero** (decisão: sem migração de histórico do RS.Logging, que fica em `C:\Programacao\Projects\RS.Logging` como referência funcional; plano 4.1–4.7 no roadmap). 4.1 (fundação) concluída: 4 camadas, `LogStreamDbContext` por tenant, migrations DEV, contrato OpenAPI versionado com teste de drift, CI com path filters. Próxima: 4.2 — `AddSeccoAuthentication()` no SDK.
 
 ## Segurança — critério transversal obrigatório (ADR-0020)
 

@@ -49,4 +49,45 @@ public class ConfigurationTenantCatalogTests
 
         tenant.Should().BeNull();
     }
+
+    [Fact]
+    public async Task ListAsync_WithConfiguredTenants_ReturnsAllOfThem()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var catalog = CreateCatalog(new Dictionary<string, string?>
+        {
+            [$"Secco:Tenancy:Tenants:{tenantA}:ConnectionString"] = "Server=sql;Database=tenant_a;",
+            [$"Secco:Tenancy:Tenants:{tenantB}:ConnectionString"] = "Server=sql;Database=tenant_b;",
+        });
+
+        var tenants = await catalog.ListAsync();
+
+        tenants.Should().HaveCount(2);
+        tenants.Select(t => t.TenantId).Should().BeEquivalentTo([tenantA, tenantB]);
+    }
+
+    [Fact]
+    public async Task ListAsync_WithMalformedEntries_SkipsThemSilently()
+    {
+        var validTenant = Guid.NewGuid();
+        var catalog = CreateCatalog(new Dictionary<string, string?>
+        {
+            [$"Secco:Tenancy:Tenants:{validTenant}:ConnectionString"] = "Server=sql;Database=ok;",
+            ["Secco:Tenancy:Tenants:nao-e-guid:ConnectionString"] = "Server=sql;Database=x;",
+            [$"Secco:Tenancy:Tenants:{Guid.NewGuid()}:ConnectionString"] = "  ",
+        });
+
+        var tenants = await catalog.ListAsync();
+
+        tenants.Should().ContainSingle().Which.TenantId.Should().Be(validTenant);
+    }
+
+    [Fact]
+    public async Task ListAsync_WithEmptyCatalog_ReturnsEmptyList()
+    {
+        var catalog = CreateCatalog([]);
+
+        (await catalog.ListAsync()).Should().BeEmpty();
+    }
 }

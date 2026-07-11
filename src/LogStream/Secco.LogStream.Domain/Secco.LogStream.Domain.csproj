@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain (ADR-0002): apenas SharedKernel — zero infraestrutura.
+       Entidades chegam com as fases 4.3+ (Log, LogProcess, ApiCallLog). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
