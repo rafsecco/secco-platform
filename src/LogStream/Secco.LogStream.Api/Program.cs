@@ -20,7 +20,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 builder.Services.AddLogStreamApplication(options =>
     builder.Configuration.GetSection("LogStream:Ingestion").Bind(options));
-builder.Services.AddLogStreamInfrastructure();
+builder.Services.AddLogStreamInfrastructure(retention =>
+    builder.Configuration.GetSection("LogStream:Retention").Bind(retention));
 
 var app = builder.Build();
 

@@ -50,7 +50,7 @@
 - [x] 4.3 Log geral: `LogEntry` (Guid v7), ingestão assíncrona (bounded channel + worker que restaura o tenant via `SetTenant` do SDK; fila cheia = 503 + Retry-After), batch com limites (ADR-0020, perfil balanceado configurável), consulta/busca paginada; `Secco.LogStream.Client` NSwag nasceu (gerado no build a partir do snapshot); kernel ganhou `ErrorType.Unavailable` e o SDK ganhou `ToHttpResult()` (Result → ProblemDetails)
 - [x] 4.4 Log de processos: `LogProcess`/`LogProcessDetail` (details aninhados na rota; `Name` + `ExternalReference`), ingestão assíncrona também do pai (Guid v7 — fila FIFO única garante pai antes dos details), auditoria embutida na listagem (status agregado computado no SQL via `MAX(ie_level)`, filtrável por `?status=`; regra pura `ProcessStatusRule` no Domain)
 - [x] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão assíncrona + consulta/busca; sanitização server-side de headers (blocklist embutida + configurável → `[REDACTED]`, ADR-0020), bodies opcionais truncados em 64 KB, validação de URL/método/status
-- [ ] 4.6 Retenção: `BackgroundService` (ADR-0015 camada 1) iterando os bancos de tenant via catálogo
+- [x] 4.6 Retenção: `BackgroundService` + `PeriodicTimer` (ADR-0015 camada 1) iterando os bancos via `ITenantCatalog.ListAsync()`; **opt-in explícito** (sem `DefaultDays` = inativo; config inválida = inativo, fail-safe), janela única com override por tenant (`LogStream:Retention`), `ExecuteDelete` com cascade nos details
 - [ ] 4.7 Paridade final: PostgreSQL (migrations + matriz de testes), decisão de full-text (SQL Server `CONTAINS` vs `LIKE`), Dockerfile + compose
 
 ## Fase 5 — Secco.Templates

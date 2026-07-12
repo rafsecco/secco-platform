@@ -23,6 +23,20 @@ Produto de logging e observabilidade da Secco Platform: recebe, armazena e consu
 
 Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000 — ADR-0020).
 
+## Retenção (opt-in explícito)
+
+Sem configuração, **nada é expurgado** — apagar dados jamais é efeito colateral de default; configuração inválida também desativa o worker (fail-safe). Janela única para os três tipos de log, com override por tenant:
+
+```json
+"LogStream": { "Retention": {
+    "DefaultDays": 30,
+    "IntervalHours": 6,
+    "DaysByTenant": { "<guid-do-tenant>": 90 }
+} }
+```
+
+O worker (`ADR-0015` camada 1) itera os bancos de tenant via catálogo a cada ciclo; details de processos são removidos pelo cascade da FK. Falha em um tenant é logada e não interrompe os demais.
+
 ## Arquitetura
 
 Quatro camadas com dependências apontando para dentro (ADR-0002):

@@ -7,6 +7,7 @@ using Secco.LogStream.Application.LogProcesses;
 using Secco.LogStream.Infrastructure.Contexts;
 using Secco.LogStream.Infrastructure.Ingestion;
 using Secco.LogStream.Infrastructure.Repositories;
+using Secco.LogStream.Infrastructure.Retention;
 using Secco.SDK.AspNetCore.Tenancy;
 
 namespace Secco.LogStream.Infrastructure;
@@ -20,9 +21,20 @@ public static class LogStreamInfrastructureExtensions
     /// — jamais fixa. Requer <c>AddSeccoTenancy()</c> (via <c>AddSeccoPlatform()</c>).
     /// </summary>
     /// <param name="services">Coleção de serviços da aplicação.</param>
-    public static IServiceCollection AddLogStreamInfrastructure(this IServiceCollection services)
+    /// <param name="configureRetention">
+    /// Política de retenção (bind da seção <c>LogStream:Retention</c> pela borda).
+    /// Sem configuração, a retenção fica inativa — opt-in explícito.
+    /// </param>
+    public static IServiceCollection AddLogStreamInfrastructure(
+        this IServiceCollection services,
+        Action<LogStreamRetentionOptions>? configureRetention = null)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        var retentionOptions = new LogStreamRetentionOptions();
+        configureRetention?.Invoke(retentionOptions);
+        services.AddSingleton(retentionOptions);
+        services.AddHostedService<LogRetentionWorker>();
 
         services.AddDbContext<LogStreamDbContext>((serviceProvider, options) =>
         {
