@@ -30,6 +30,11 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 
+  <!-- Autenticação (Fase 4.2, ADR-0007) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+  </ItemGroup>
+
   <!-- Resiliência e observabilidade (Fase 3) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.5.0" />

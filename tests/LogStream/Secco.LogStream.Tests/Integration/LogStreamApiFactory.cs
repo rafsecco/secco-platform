@@ -33,6 +33,9 @@ public sealed class LogStreamApiFactory : WebApplicationFactory<Program>, IAsync
         builder.ConfigureAppConfiguration((_, configuration) =>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["Secco:Authentication:Audience"] = "secco-logstream",
+                ["Secco:Authentication:Issuer"] = "secco-tests",
+                ["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
                 [$"Secco:Tenancy:Tenants:{TenantAlfa}:ConnectionString"] =
                     GetTenantConnectionString("secco_logstream_alfa"),
                 [$"Secco:Tenancy:Tenants:{TenantBeta}:ConnectionString"] =

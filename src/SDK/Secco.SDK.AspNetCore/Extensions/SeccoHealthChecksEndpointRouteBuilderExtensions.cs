@@ -28,15 +28,17 @@ public static class SeccoHealthChecksEndpointRouteBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(endpoints);
 
+        // AllowAnonymous explícito: probes de orquestrador não autenticam, e a
+        // FallbackPolicy da plataforma (ADR-0020) exige usuário autenticado por default.
         endpoints.MapHealthChecks(LivenessPath, new HealthCheckOptions
         {
             Predicate = _ => false,
-        });
+        }).AllowAnonymous();
 
         endpoints.MapHealthChecks(ReadinessPath, new HealthCheckOptions
         {
             ResponseWriter = SeccoHealthResponseWriter.WriteAsync,
-        });
+        }).AllowAnonymous();
 
         return endpoints;
     }

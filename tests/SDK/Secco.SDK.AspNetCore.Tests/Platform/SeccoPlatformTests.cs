@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Secco.SDK.AspNetCore.Correlation;
@@ -22,6 +23,14 @@ public class SeccoPlatformTests
             .ConfigureWebHost(webBuilder =>
             {
                 webBuilder.UseTestServer();
+                webBuilder.UseEnvironment(Environments.Development);
+                webBuilder.ConfigureAppConfiguration((_, configuration) =>
+                    configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Secco:Authentication:Audience"] = "secco-tests",
+                        ["Secco:Authentication:Issuer"] = "secco-tests",
+                        ["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
+                    }));
                 webBuilder.ConfigureServices(services =>
                 {
                     services.AddRouting();
@@ -34,8 +43,12 @@ public class SeccoPlatformTests
                     app.UseEndpoints(endpoints =>
                     {
                         endpoints.MapSeccoPlatform();
+
+                        // AllowAnonymous: estes testes exercitam correlation/tenancy sem token;
+                        // a postura fail-closed da FallbackPolicy é coberta em SeccoAuthenticationTests.
                         endpoints.MapGet("/contextos", (ICorrelationContext correlation, ITenantContext tenant) =>
-                            $"{correlation.CorrelationId}|{(tenant.IsResolved ? tenant.TenantId.ToString() : "sem-tenant")}");
+                            $"{correlation.CorrelationId}|{(tenant.IsResolved ? tenant.TenantId.ToString() : "sem-tenant")}")
+                            .AllowAnonymous();
                     });
                 });
             })
@@ -69,7 +82,7 @@ public class SeccoPlatformTests
     }
 
     [Fact]
-    public async Task MapSeccoPlatform_Always_ExposesHealthEndpoints()
+    public async Task MapSeccoPlatform_Always_ExposesHealthEndpointsAnonymously()
     {
         using var host = await StartHostAsync();
         var client = host.GetTestClient();

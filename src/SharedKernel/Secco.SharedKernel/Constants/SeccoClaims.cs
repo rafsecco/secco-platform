@@ -11,8 +11,8 @@ public static class SeccoClaims
     /// <summary>Identificador do tenant do usuário (ADR-0005).</summary>
     public const string TenantId = "tenant_id";
 
-    /// <summary>Papéis do usuário.</summary>
-    public const string Roles = "roles";
+    /// <summary>Role (perfil) do usuário — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>
+    public const string Role = "role";
 
     /// <summary>Escopos concedidos ao token.</summary>
     public const string Scope = "scope";

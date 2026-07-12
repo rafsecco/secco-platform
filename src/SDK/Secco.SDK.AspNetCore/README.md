@@ -20,7 +20,8 @@ Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a ext
 - `AddSeccoTenancy()` / `UseSeccoTenancy()` — resolve o tenant (claim `tenant_id` primária; header `X-Tenant-Id` só sem claim; divergência = 400) e expõe `ITenantContext` + `ITenantConnectionFactory` (ADR-0005).
 - `AddSeccoHealthChecks()` / `MapSeccoHealthChecks()` — `/health/live` (processo vivo, nenhum check) e `/health/ready` (todos os checks, JSON sem detalhes sensíveis).
 - `AddSeccoResilience()` — pipeline padrão de resiliência (retry + circuit breaker + timeouts) em todo `HttpClient`; retry automático só para métodos idempotentes.
-- `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada e guarda contra registro duplicado.
+- `AddSeccoAuthentication()` — JWT Bearer conforme ADR-0007: claims curtas sem remapeamento (`sub`/`role`/`tenant_id`/`scope`), `FallbackPolicy` fail-closed; Authority OIDC ou chave HS256 de desenvolvimento (proibida em Production).
+- `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada (correlation → auth → tenancy) e guarda contra registro duplicado.
 
 ## Uso
 
@@ -57,6 +58,22 @@ Catálogo padrão via configuração (substituível registrando outro `ITenantCa
 ```
 
 Regras de confiança (ADR-0020): claim assinada vence sempre; header `X-Tenant-Id` só é considerado sem claim e se for `Guid` válido; claim e header divergentes → 400 (possível tentativa cross-tenant, logada como warning); claim presente porém inválida **não** cai para o header. O middleware não bloqueia requisições sem tenant (health checks funcionam) — a barreira é o `ITenantConnectionFactory`, que lança `TenantNotResolvedException` sem tenant resolvido.
+
+## Autenticação (ADR-0007)
+
+Configuração pela seção `Secco:Authentication`, validada no startup — fail-fast (ADR-0020):
+
+```json
+"Secco": { "Authentication": {
+    "Audience": "secco-logstream",
+    "Authority": "https://securegate..."          // produção (OIDC/JWKS)
+    // OU, fora de Production:
+    // "Issuer": "secco-dev",
+    // "DevelopmentSigningKey": "<mín. 32 chars>"  // HS256 local até o SecureGate existir
+} }
+```
+
+Regras aplicadas centralmente: mapeamento automático de claims **desligado** (`MapInboundClaims = false`), `NameClaimType = "sub"`, `RoleClaimType = "role"`; `Authority` e `DevelopmentSigningKey` mutuamente exclusivos; chave de desenvolvimento em Production = startup falha. A `FallbackPolicy` exige usuário autenticado em todo endpoint sem metadata explícita — exceções (`AllowAnonymous`) são explícitas e auditáveis; os health checks já vêm anônimos do SDK.
 
 ## Health checks (ADR-0004)
 

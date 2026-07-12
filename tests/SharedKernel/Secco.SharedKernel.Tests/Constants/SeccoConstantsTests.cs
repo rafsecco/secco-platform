@@ -11,7 +11,7 @@ public class SeccoConstantsTests
     {
         SeccoClaims.Subject.Should().Be("sub");
         SeccoClaims.TenantId.Should().Be("tenant_id");
-        SeccoClaims.Roles.Should().Be("roles");
+        SeccoClaims.Role.Should().Be("role");
         SeccoClaims.Scope.Should().Be("scope");
     }
 

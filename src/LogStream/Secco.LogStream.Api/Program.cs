@@ -18,12 +18,13 @@ var app = builder.Build();
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
 
-app.MapOpenApi();
+// Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
+app.MapOpenApi().AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {
     // UI de documentação (ADR-0006) — apenas em DEV nesta fase
-    app.MapScalarApiReference();
+    app.MapScalarApiReference().AllowAnonymous();
 
     // Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
     // processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).

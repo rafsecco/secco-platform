@@ -4,14 +4,16 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 
 | Produto | Descrição | Status |
 |---|---|---|
-| Secco.SharedKernel | Primitivas compartilhadas (Result, paginação, entidades base) | Em construção |
-| Secco.SDK | Cross-cutting de runtime (auth, correlation, tenancy, resiliência) | Planejado |
-| Secco.LogStream | Logging & Observability | Migração planejada |
-| Secco.SecureGate | Identity & Access Management (OIDC) | Planejado |
-| Secco.AdminPortal | Portal administrativo da plataforma | Planejado |
-| Secco.Templates | `dotnet new secco-service` | Planejado |
+| [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base) | v0.1 publicado |
+| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência) | v0.1 publicado |
+| [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding | v0.1 publicado |
+| [Secco.LogStream](src/LogStream/README.md) | Logging & Observability | Em desenvolvimento (Fase 4) |
+| Secco.SecureGate | Identity & Access Management (OIDC) | Planejado (Fase 6) |
+| Secco.AdminPortal | Portal administrativo da plataforma | Planejado (Fase 7) |
+| Secco.Templates | `dotnet new secco-service` | Planejado (Fase 5) |
 
 ## Documentação
 
 - **Decisões arquiteturais:** [`docs/adr/secco-platform-adrs.md`](docs/adr/secco-platform-adrs.md) — fonte da verdade; nenhum código contradiz uma ADR Aceita.
 - **Roadmap:** [`docs/roadmap.md`](docs/roadmap.md)
+- **Produtos:** cada produto/pacote tem README próprio — links na tabela acima.
