@@ -920,7 +920,7 @@
             "description": "Indica se existe página posterior a esta."
           }
         },
-        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\r\nmais os metadados de paginação necessários para navegação."
+        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
       },
       "PagedResultOfLogProcessDetailDto": {
         "required": [
@@ -983,7 +983,7 @@
             "description": "Indica se existe página posterior a esta."
           }
         },
-        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\r\nmais os metadados de paginação necessários para navegação."
+        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
       },
       "PagedResultOfLogProcessDto": {
         "required": [
@@ -1046,7 +1046,7 @@
             "description": "Indica se existe página posterior a esta."
           }
         },
-        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\r\nmais os metadados de paginação necessários para navegação."
+        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
       },
       "ProblemDetails": {
         "type": "object",

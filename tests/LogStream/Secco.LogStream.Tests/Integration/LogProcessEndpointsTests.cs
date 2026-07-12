@@ -51,7 +51,7 @@ public class LogProcessEndpointsTests(LogStreamApiFactory factory) : IClassFixtu
         }
     }
 
-    private async Task<Guid> CreateProcessAsync(HttpClient client, string name)
+    private static async Task<Guid> CreateProcessAsync(HttpClient client, string name)
     {
         var response = await client.PostAsJsonAsync("/api/v1/log-processes", new { name });
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);

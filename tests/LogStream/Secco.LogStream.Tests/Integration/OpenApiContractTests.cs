@@ -47,7 +47,13 @@ public class OpenApiContractTests(LogStreamApiFactory factory) : IClassFixture<L
     }
 
     private static string Normalize(string content) =>
-        content.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n') + "\n";
+        content
+            // Fins de linha reais do arquivo (checkout Windows vs Linux)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            // Fins de linha ESCAPADOS dentro de strings JSON: as descrições do OpenAPI vêm
+            // dos comentários XML, cujos line endings seguem o SO do build (CRLF/LF)
+            .Replace("\\r\\n", "\\n", StringComparison.Ordinal)
+            .TrimEnd('\n') + "\n";
 
     private static string FindRepositoryRoot()
     {
