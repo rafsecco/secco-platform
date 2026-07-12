@@ -51,7 +51,9 @@
 - [x] 4.4 Log de processos: `LogProcess`/`LogProcessDetail` (details aninhados na rota; `Name` + `ExternalReference`), ingestão assíncrona também do pai (Guid v7 — fila FIFO única garante pai antes dos details), auditoria embutida na listagem (status agregado computado no SQL via `MAX(ie_level)`, filtrável por `?status=`; regra pura `ProcessStatusRule` no Domain)
 - [x] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão assíncrona + consulta/busca; sanitização server-side de headers (blocklist embutida + configurável → `[REDACTED]`, ADR-0020), bodies opcionais truncados em 64 KB, validação de URL/método/status
 - [x] 4.6 Retenção: `BackgroundService` + `PeriodicTimer` (ADR-0015 camada 1) iterando os bancos via `ITenantCatalog.ListAsync()`; **opt-in explícito** (sem `DefaultDays` = inativo; config inválida = inativo, fail-safe), janela única com override por tenant (`LogStream:Retention`), `ExecuteDelete` com cascade nos details
-- [ ] 4.7 Paridade final: PostgreSQL (migrations + matriz de testes), decisão de full-text (SQL Server `CONTAINS` vs `LIKE`), Dockerfile + compose
+- [x] 4.7 Paridade final: PostgreSQL como segundo provider (assemblies de migrations separados por engine — ADR-0018; seleção via `LogStream:Database:Provider`; paridade provada por testes: migrations do zero + schema minúsculo sem aspas + E2E), full-text decidido (**`LIKE` na v1; full-text por provider vai ao backlog** com demanda real), Dockerfile multi-stage + docker-compose de desenvolvimento; options do produto passaram a bind lazy via DI
+
+**Fase 4 concluída** — paridade funcional com o RS.Logging atingida, com as melhorias estruturais registradas acima. Desvios conscientes: MariaDB fora (ADR-0018), `TraceId` manual substituído por OpenTelemetry futuro (ADR-0008), full-text/webhook/dashboard no backlog.
 
 ## Fase 5 — Secco.Templates
 - [ ] Template `dotnet new secco-service` destilado do LogStream

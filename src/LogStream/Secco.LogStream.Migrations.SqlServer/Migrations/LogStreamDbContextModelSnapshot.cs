@@ -3,20 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Secco.LogStream.Infrastructure.Contexts;
 
 #nullable disable
 
-namespace Secco.LogStream.Infrastructure.Migrations.SqlServer
+namespace Secco.LogStream.Migrations.SqlServer
 {
     [DbContext(typeof(LogStreamDbContext))]
-    [Migration("20260712102518_ApiCallLogs")]
-    partial class ApiCallLogs
+    partial class LogStreamDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

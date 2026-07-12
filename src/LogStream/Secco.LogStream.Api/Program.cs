@@ -18,10 +18,10 @@ builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddLogStreamApplication(options =>
-    builder.Configuration.GetSection("LogStream:Ingestion").Bind(options));
-builder.Services.AddLogStreamInfrastructure(retention =>
-    builder.Configuration.GetSection("LogStream:Retention").Bind(retention));
+// Options (LogStream:Ingestion, LogStream:Retention, LogStream:Database) são bindadas
+// lazy pela Infrastructure a partir do IConfiguration do host
+builder.Services.AddLogStreamApplication();
+builder.Services.AddLogStreamInfrastructure();
 
 var app = builder.Build();
 

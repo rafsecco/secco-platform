@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Secco.LogStream.Infrastructure.Migrations.SqlServer
+namespace Secco.LogStream.Migrations.SqlServer
 {
     /// <inheritdoc />
     public partial class LogProcesses : Migration

@@ -14,6 +14,7 @@ namespace Secco.LogStream.Infrastructure.Retention;
 /// </summary>
 internal sealed partial class LogRetentionWorker(
     LogStreamRetentionOptions options,
+    LogStreamDatabaseOptions databaseOptions,
     ITenantCatalog tenantCatalog,
     ILogger<LogRetentionWorker> logger) : BackgroundService
 {
@@ -63,8 +64,8 @@ internal sealed partial class LogRetentionWorker(
             try
             {
                 var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
-                var (entries, processes, apiCalls) =
-                    await PurgeTenantAsync(tenant.ConnectionString, cutoff, cancellationToken).ConfigureAwait(false);
+                var (entries, processes, apiCalls) = await PurgeTenantAsync(
+                    databaseOptions.Provider, tenant.ConnectionString, cutoff, cancellationToken).ConfigureAwait(false);
 
                 LogTenantPurged(logger, tenant.TenantId, days, entries, processes, apiCalls);
             }
@@ -84,13 +85,12 @@ internal sealed partial class LogRetentionWorker(
     /// details de processos caem pelo cascade da FK no banco.
     /// </summary>
     internal static async Task<(int Entries, int Processes, int ApiCalls)> PurgeTenantAsync(
+        LogStreamDatabaseProvider provider,
         string connectionString,
         DateTimeOffset cutoff,
         CancellationToken cancellationToken)
     {
-        var contextOptions = new DbContextOptionsBuilder<LogStreamDbContext>()
-            .UseSqlServer(connectionString)
-            .Options;
+        var contextOptions = LogStreamDatabaseProviderConfigurator.CreateOptions(provider, connectionString);
 
         await using var context = new LogStreamDbContext(contextOptions);
 

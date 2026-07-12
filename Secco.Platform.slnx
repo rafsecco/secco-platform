@@ -6,6 +6,8 @@
     <Project Path="src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Domain/Secco.LogStream.Domain.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Infrastructure/Secco.LogStream.Infrastructure.csproj" />
+    <Project Path="src/LogStream/Secco.LogStream.Migrations.Postgres/Secco.LogStream.Migrations.Postgres.csproj" />
+    <Project Path="src/LogStream/Secco.LogStream.Migrations.SqlServer/Secco.LogStream.Migrations.SqlServer.csproj" />
   </Folder>
   <Folder Name="/src/SDK/">
     <Project Path="src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" />

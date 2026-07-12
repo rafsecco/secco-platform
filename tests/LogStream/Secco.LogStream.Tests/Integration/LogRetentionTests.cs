@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Secco.LogStream.Domain.ApiCalls;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.LogStream.Domain.LogProcesses;
+using Secco.LogStream.Infrastructure;
 using Secco.LogStream.Infrastructure.Contexts;
 using Secco.LogStream.Infrastructure.Retention;
 using Xunit;
@@ -50,6 +51,7 @@ public class LogRetentionTests(LogStreamApiFactory factory) : IClassFixture<LogS
 
         var cutoff = DateTimeOffset.UtcNow.AddDays(-30);
         var (entries, processes, apiCalls) = await LogRetentionWorker.PurgeTenantAsync(
+            LogStreamDatabaseProvider.SqlServer,
             factory.GetTenantConnectionString("secco_logstream_alfa"), cutoff, CancellationToken.None);
 
         entries.Should().BeGreaterThanOrEqualTo(1);

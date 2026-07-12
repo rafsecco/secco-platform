@@ -51,6 +51,14 @@ Quatro camadas com dependências apontando para dentro (ADR-0002):
 
 **Multi-tenancy (ADR-0005):** cada tenant possui banco próprio. Não existe coluna `TenantId` nem filtro por tenant — o isolamento é físico. A connection string vem do catálogo via `ITenantConnectionFactory` a cada requisição; o tenant é resolvido pela claim `tenant_id` do token (primário) ou header `X-Tenant-Id` (cenários internos, sem claim).
 
+**Providers (ADR-0018):** SQL Server (padrão) e PostgreSQL, com migrations em assemblies separados por engine (`Secco.LogStream.Migrations.SqlServer`/`.Postgres`) e seleção por configuração — todos os tenants de um deployment usam o mesmo engine:
+
+```json
+"LogStream": { "Database": { "Provider": "PostgreSql" } }
+```
+
+Nova migration (uma por engine, no mesmo PR): `dotnet ef migrations add <Nome> --project src/LogStream/Secco.LogStream.Migrations.<Engine>`. Full-text search ficou no backlog — a busca da v1 é por substring (`LIKE`).
+
 ## Rodando em desenvolvimento
 
 Pré-requisitos: .NET 10 SDK e um SQL Server acessível (ex.: container):
@@ -61,6 +69,12 @@ docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Secco@Dev123" -p 1433:1433 -
 
 ```bash
 dotnet run --project src/LogStream/Secco.LogStream.Api
+```
+
+Ou tudo em containers (SQL Server + API, com migrations/seed automáticos):
+
+```bash
+docker compose -f src/LogStream/docker-compose.yml up --build
 ```
 
 Em **Development** o startup aplica as migrations em todos os bancos de tenant do catálogo (`appsettings.Development.json`, seção `Secco:Tenancy:Tenants`) e executa o seeding (ADR-0019). Fora de Development, nada é automático — migrations via processo controlado.

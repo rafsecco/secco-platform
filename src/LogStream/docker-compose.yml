@@ -1,0 +1,33 @@
+# Ambiente de desenvolvimento do LogStream: SQL Server + API.
+#   docker compose -f src/LogStream/docker-compose.yml up --build
+# Em Development a API aplica migrations e seed automaticamente nos tenants do catálogo.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Secco@Dev123"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Secco@Dev123' -C -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  logstream-api:
+    build:
+      context: ../..
+      dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Catálogo de tenants apontando para o container (sobrepõe o appsettings.Development.json)
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000002__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_beta;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+    ports:
+      - "8080:8080"

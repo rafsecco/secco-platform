@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Migrations do provider PostgreSQL (ADR-0018: assemblies separados por engine).
+       Código gerado pelo dotnet-ef — sem enforcement de estilo. -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.LogStream.Infrastructure\Secco.LogStream.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

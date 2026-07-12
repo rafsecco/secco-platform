@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Secco.LogStream.Infrastructure.Contexts;
 
 #nullable disable
 
-namespace Secco.LogStream.Infrastructure.Migrations.SqlServer
+namespace Secco.LogStream.Migrations.SqlServer
 {
     [DbContext(typeof(LogStreamDbContext))]
-    partial class LogStreamDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260712035652_LogProcesses")]
+    partial class LogProcesses
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,74 +24,6 @@ namespace Secco.LogStream.Infrastructure.Migrations.SqlServer
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("Secco.LogStream.Domain.ApiCalls.ApiCallLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id_pk_api_call_log");
-
-                    b.Property<Guid?>("CorrelationId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("correlation_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("dt_created_at");
-
-                    b.Property<long?>("DurationMs")
-                        .HasColumnType("bigint")
-                        .HasColumnName("nr_duration_ms");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_error_message");
-
-                    b.Property<string>("HttpMethod")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_http_method");
-
-                    b.Property<bool>("IsSuccess")
-                        .HasColumnType("bit")
-                        .HasColumnName("fl_success");
-
-                    b.Property<string>("RequestBody")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_request_body");
-
-                    b.Property<string>("RequestHeaders")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_request_headers");
-
-                    b.Property<string>("ResponseBody")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_response_body");
-
-                    b.Property<int?>("ResponseStatusCode")
-                        .HasColumnType("int")
-                        .HasColumnName("nr_response_status_code");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_url");
-
-                    b.HasKey("Id")
-                        .HasName("pk_api_call_logs");
-
-                    b.HasIndex("CorrelationId")
-                        .HasDatabaseName("idx_api_call_logs_correlation_id");
-
-                    b.HasIndex("CreatedAt")
-                        .HasDatabaseName("idx_api_call_logs_dt_created_at");
-
-                    b.HasIndex("CreatedAt", "IsSuccess")
-                        .HasDatabaseName("idx_api_call_logs_dt_created_at_fl_success");
-
-                    b.ToTable("tb_api_call_logs");
-                });
 
             modelBuilder.Entity("Secco.LogStream.Domain.LogEntries.LogEntry", b =>
                 {

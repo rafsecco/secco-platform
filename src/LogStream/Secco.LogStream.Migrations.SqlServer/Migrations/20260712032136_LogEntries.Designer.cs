@@ -9,7 +9,7 @@ using Secco.LogStream.Infrastructure.Contexts;
 
 #nullable disable
 
-namespace Secco.LogStream.Infrastructure.Migrations.SqlServer
+namespace Secco.LogStream.Migrations.SqlServer
 {
     [DbContext(typeof(LogStreamDbContext))]
     [Migration("20260712032136_LogEntries")]

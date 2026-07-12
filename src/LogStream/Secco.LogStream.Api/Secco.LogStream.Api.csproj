@@ -8,6 +8,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Secco.LogStream.Application\Secco.LogStream.Application.csproj" />
     <ProjectReference Include="..\Secco.LogStream.Infrastructure\Secco.LogStream.Infrastructure.csproj" />
+    <!-- Assemblies de migrations por engine (ADR-0018): a raiz de composição os carrega
+         para o MigrationsAssembly selecionado em runtime estar no output -->
+    <ProjectReference Include="..\Secco.LogStream.Migrations.SqlServer\Secco.LogStream.Migrations.SqlServer.csproj" />
+    <ProjectReference Include="..\Secco.LogStream.Migrations.Postgres\Secco.LogStream.Migrations.Postgres.csproj" />
   </ItemGroup>
 
 </Project>
