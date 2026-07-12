@@ -54,6 +54,8 @@ public class CreateApiCallLogHandlerTests
     [InlineData("")]
     [InlineData("nao-e-uma-url")]
     [InlineData("/relativa/apenas")]
+    [InlineData("file:///etc/passwd")]
+    [InlineData("ftp://arquivos.exemplo.com/x")]
     public void Handle_WithInvalidUrl_ReturnsValidationFailure(string? url)
     {
         var handler = new CreateApiCallLogHandler(new FakeQueue(), Options);

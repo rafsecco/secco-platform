@@ -68,9 +68,9 @@ public static class LogStreamErrors
         public static Error UrlTooLong(int limit) =>
             Error.Validation("LogStream.ApiCallLog.UrlTooLong", $"A URL excede o limite de {limit} caracteres.");
 
-        /// <summary>URL sem formato absoluto válido.</summary>
+        /// <summary>URL sem formato absoluto http(s) válido.</summary>
         public static readonly Error UrlMalformed =
-            Error.Validation("LogStream.ApiCallLog.UrlMalformed", "A URL deve ser um URI absoluto válido.");
+            Error.Validation("LogStream.ApiCallLog.UrlMalformed", "A URL deve ser um URI absoluto http ou https válido.");
 
         /// <summary>Método HTTP fora do vocabulário conhecido.</summary>
         public static readonly Error MethodInvalid =

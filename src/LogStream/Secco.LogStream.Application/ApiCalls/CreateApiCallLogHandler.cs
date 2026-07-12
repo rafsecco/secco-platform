@@ -55,7 +55,10 @@ public sealed class CreateApiCallLogHandler(ILogIngestionQueue queue, LogStreamI
             return LogStreamErrors.ApiCalls.UrlTooLong(options.MaxUrlLength);
         }
 
-        if (!Uri.TryCreate(command.Url, UriKind.Absolute, out _))
+        // Esquema http(s) obrigatório: no Unix um path rooted ("/x") é URI file:// absoluto
+        // válido — sem a checagem de esquema a validação divergiria entre SOs
+        if (!Uri.TryCreate(command.Url, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             return LogStreamErrors.ApiCalls.UrlMalformed;
         }
