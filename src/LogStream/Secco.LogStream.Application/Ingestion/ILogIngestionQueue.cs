@@ -1,3 +1,4 @@
+using Secco.LogStream.Domain.ApiCalls;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.LogStream.Domain.LogProcesses;
 
@@ -35,4 +36,8 @@ public interface ILogIngestionQueue
     /// <summary>Tenta enfileirar um detail de processo. Nunca bloqueia.</summary>
     /// <param name="detail">Detail a persistir de forma assíncrona.</param>
     EnqueueOutcome TryEnqueue(LogProcessDetail detail);
+
+    /// <summary>Tenta enfileirar um registro de chamada de API. Nunca bloqueia.</summary>
+    /// <param name="apiCallLog">Registro a persistir de forma assíncrona.</param>
+    EnqueueOutcome TryEnqueue(ApiCallLog apiCallLog);
 }

@@ -28,6 +28,8 @@ public class CreateLogEntryHandlerTests
         public EnqueueOutcome TryEnqueue(LogProcess logProcess) => outcome;
 
         public EnqueueOutcome TryEnqueue(LogProcessDetail detail) => outcome;
+
+        public EnqueueOutcome TryEnqueue(Secco.LogStream.Domain.ApiCalls.ApiCallLog apiCallLog) => outcome;
     }
 
     private static readonly LogStreamIngestionOptions Options = new();

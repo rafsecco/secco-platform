@@ -49,7 +49,7 @@
 - [x] 4.2 `AddSeccoAuthentication()` no SDK: claims curtas sem remapeamento (ADR-0007, `SeccoClaims.Role` corrigido para `role`), Authority OIDC ou HS256 dev (proibida em Production, fail-fast triplo), `FallbackPolicy` fail-closed (health anônimos explícitos); integrado ao `AddSeccoPlatform()`/`UseSeccoPlatform()` (correlation → auth → tenancy) e aplicado ao LogStream
 - [x] 4.3 Log geral: `LogEntry` (Guid v7), ingestão assíncrona (bounded channel + worker que restaura o tenant via `SetTenant` do SDK; fila cheia = 503 + Retry-After), batch com limites (ADR-0020, perfil balanceado configurável), consulta/busca paginada; `Secco.LogStream.Client` NSwag nasceu (gerado no build a partir do snapshot); kernel ganhou `ErrorType.Unavailable` e o SDK ganhou `ToHttpResult()` (Result → ProblemDetails)
 - [x] 4.4 Log de processos: `LogProcess`/`LogProcessDetail` (details aninhados na rota; `Name` + `ExternalReference`), ingestão assíncrona também do pai (Guid v7 — fila FIFO única garante pai antes dos details), auditoria embutida na listagem (status agregado computado no SQL via `MAX(ie_level)`, filtrável por `?status=`; regra pura `ProcessStatusRule` no Domain)
-- [ ] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão + consulta/busca
+- [x] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão assíncrona + consulta/busca; sanitização server-side de headers (blocklist embutida + configurável → `[REDACTED]`, ADR-0020), bodies opcionais truncados em 64 KB, validação de URL/método/status
 - [ ] 4.6 Retenção: `BackgroundService` (ADR-0015 camada 1) iterando os bancos de tenant via catálogo
 - [ ] 4.7 Paridade final: PostgreSQL (migrations + matriz de testes), decisão de full-text (SQL Server `CONTAINS` vs `LIKE`), Dockerfile + compose
 

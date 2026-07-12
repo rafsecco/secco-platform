@@ -1,4 +1,5 @@
 using Secco.LogStream.Application.Ingestion;
+using Secco.LogStream.Domain.ApiCalls;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.LogStream.Domain.LogProcesses;
 using Secco.SDK.AspNetCore.Tenancy;
@@ -31,6 +32,13 @@ internal sealed class LogEntryIngestionQueue(LogEntryIngestionChannel channel, I
         ArgumentNullException.ThrowIfNull(detail);
 
         return Enqueue(tenantId => new LogProcessDetailWorkItem(tenantId, detail));
+    }
+
+    public EnqueueOutcome TryEnqueue(ApiCallLog apiCallLog)
+    {
+        ArgumentNullException.ThrowIfNull(apiCallLog);
+
+        return Enqueue(tenantId => new ApiCallLogWorkItem(tenantId, apiCallLog));
     }
 
     private EnqueueOutcome Enqueue(Func<Guid, IngestionWorkItem> workItemFactory)

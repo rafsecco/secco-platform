@@ -17,6 +17,9 @@ Produto de logging e observabilidade da Secco Platform: recebe, armazena e consu
 | `GET /api/v1/log-processes?status=&name=&from=&to=&correlationId=&page=&size=` | A listagem **é** a auditoria — status sempre presente e filtrável |
 | `POST /api/v1/log-processes/{id}/details` (+`/batch`) | Details do processo (ingestão assíncrona; fila FIFO única preserva a ordem pai→details) |
 | `GET /api/v1/log-processes/{id}/details?page=&size=` | Details paginados, mais recentes primeiro |
+| `POST /api/v1/api-call-logs` | Registra chamada de API externa — headers sensíveis (`Authorization`, `Cookie`, `X-Api-Key`...) são **redigidos no servidor** (ADR-0020); bodies opcionais truncados em 64 KB |
+| `GET /api/v1/api-call-logs/{id}` | Busca pontual |
+| `GET /api/v1/api-call-logs?isSuccess=&method=&url=&statusCode=&from=&to=&correlationId=&page=&size=` | Busca paginada (diagnóstico de integrações) |
 
 Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000 — ADR-0020).
 

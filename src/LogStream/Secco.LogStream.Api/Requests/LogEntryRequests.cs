@@ -26,3 +26,24 @@ public sealed record CreateLogProcessRequest(string? Name, string? ExternalRefer
 /// <param name="Message">Mensagem. Obrigatória.</param>
 /// <param name="StackTrace">Stack trace associado, quando houver.</param>
 public sealed record CreateLogProcessDetailRequest(LogEntryLevel Level, string? Message, string? StackTrace = null);
+
+/// <summary>Payload de registro de uma chamada de API externa.</summary>
+/// <param name="Url">URL chamada (URI absoluto). Obrigatória.</param>
+/// <param name="HttpMethod">Método HTTP. Obrigatório.</param>
+/// <param name="IsSuccess">Sucesso segundo o chamador (falha de rede não tem status code).</param>
+/// <param name="RequestBody">Corpo da requisição (opcional; truncado no limite configurado).</param>
+/// <param name="RequestHeaders">Headers (opcional; valores sensíveis são redigidos no servidor — ADR-0020).</param>
+/// <param name="ResponseStatusCode">Status HTTP da resposta, quando houve resposta.</param>
+/// <param name="ResponseBody">Corpo da resposta (opcional; truncado no limite configurado).</param>
+/// <param name="DurationMs">Duração da chamada em milissegundos.</param>
+/// <param name="ErrorMessage">Mensagem de erro, quando houver.</param>
+public sealed record CreateApiCallLogRequest(
+    string? Url,
+    string? HttpMethod,
+    bool IsSuccess,
+    string? RequestBody = null,
+    Dictionary<string, string?>? RequestHeaders = null,
+    int? ResponseStatusCode = null,
+    string? ResponseBody = null,
+    long? DurationMs = null,
+    string? ErrorMessage = null);

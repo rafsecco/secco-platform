@@ -57,6 +57,38 @@ public static class LogStreamErrors
             Error.NotFound("LogStream.LogProcess.NotFound", "Processo não encontrado.");
     }
 
+    /// <summary>Erros de chamadas de API.</summary>
+    public static class ApiCalls
+    {
+        /// <summary>URL ausente ou vazia.</summary>
+        public static readonly Error UrlRequired =
+            Error.Validation("LogStream.ApiCallLog.UrlRequired", "A URL da chamada é obrigatória.");
+
+        /// <summary>URL acima do limite configurado.</summary>
+        public static Error UrlTooLong(int limit) =>
+            Error.Validation("LogStream.ApiCallLog.UrlTooLong", $"A URL excede o limite de {limit} caracteres.");
+
+        /// <summary>URL sem formato absoluto válido.</summary>
+        public static readonly Error UrlMalformed =
+            Error.Validation("LogStream.ApiCallLog.UrlMalformed", "A URL deve ser um URI absoluto válido.");
+
+        /// <summary>Método HTTP fora do vocabulário conhecido.</summary>
+        public static readonly Error MethodInvalid =
+            Error.Validation("LogStream.ApiCallLog.MethodInvalid", "Método HTTP inválido.");
+
+        /// <summary>Status code fora do intervalo HTTP.</summary>
+        public static readonly Error StatusCodeOutOfRange =
+            Error.Validation("LogStream.ApiCallLog.StatusCodeOutOfRange", "O status code deve estar entre 100 e 599.");
+
+        /// <summary>Duração negativa.</summary>
+        public static readonly Error DurationNegative =
+            Error.Validation("LogStream.ApiCallLog.DurationNegative", "A duração não pode ser negativa.");
+
+        /// <summary>Registro não encontrado no banco do tenant atual.</summary>
+        public static readonly Error NotFound =
+            Error.NotFound("LogStream.ApiCallLog.NotFound", "Registro de chamada de API não encontrado.");
+    }
+
     /// <summary>Erros de ingestão.</summary>
     public static class Ingestion
     {

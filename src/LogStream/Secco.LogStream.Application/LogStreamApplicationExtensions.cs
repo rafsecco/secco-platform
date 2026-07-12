@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Secco.LogStream.Application.ApiCalls;
 using Secco.LogStream.Application.LogEntries;
 using Secco.LogStream.Application.LogProcesses;
 
@@ -33,6 +34,10 @@ public static class LogStreamApplicationExtensions
         services.AddScoped<GetLogProcessByIdHandler>();
         services.AddScoped<SearchLogProcessesHandler>();
         services.AddScoped<GetLogProcessDetailsHandler>();
+
+        services.AddScoped<CreateApiCallLogHandler>();
+        services.AddScoped<GetApiCallLogByIdHandler>();
+        services.AddScoped<SearchApiCallLogsHandler>();
 
         return services;
     }

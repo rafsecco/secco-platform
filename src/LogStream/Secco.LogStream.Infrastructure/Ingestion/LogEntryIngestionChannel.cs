@@ -1,8 +1,10 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.LogStream.Application;
+using Secco.LogStream.Application.ApiCalls;
 using Secco.LogStream.Application.LogEntries;
 using Secco.LogStream.Application.LogProcesses;
+using Secco.LogStream.Domain.ApiCalls;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.LogStream.Domain.LogProcesses;
 
@@ -47,6 +49,15 @@ internal sealed record LogProcessDetailWorkItem(Guid TenantId, LogProcessDetail 
 
     public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
         scopedServices.GetRequiredService<ILogProcessRepository>().AddDetailAsync(Detail, cancellationToken);
+}
+
+/// <summary>Item de chamada de API.</summary>
+internal sealed record ApiCallLogWorkItem(Guid TenantId, ApiCallLog ApiCallLog) : IngestionWorkItem(TenantId)
+{
+    public override Guid ItemId => ApiCallLog.Id;
+
+    public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
+        scopedServices.GetRequiredService<IApiCallLogRepository>().AddAsync(ApiCallLog, cancellationToken);
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.LogStream.Domain.ApiCalls;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.LogStream.Domain.LogProcesses;
 using Secco.SDK.EntityFrameworkCore;
@@ -21,6 +22,9 @@ public sealed class LogStreamDbContext(DbContextOptions<LogStreamDbContext> opti
 
     /// <summary>Details de processos (tabela <c>tb_log_process_details</c>).</summary>
     public DbSet<LogProcessDetail> LogProcessDetails => Set<LogProcessDetail>();
+
+    /// <summary>Chamadas de APIs externas (tabela <c>tb_api_call_logs</c>).</summary>
+    public DbSet<ApiCallLog> ApiCallLogs => Set<ApiCallLog>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
