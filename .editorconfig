@@ -66,3 +66,7 @@ csharp_style_unused_value_expression_statement_preference = discard_variable:sug
 [**/Migrations/**.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# CA1711: "Queue" é sufixo legítimo para portas de fila de ingestão (semântica de domínio)
+[*.cs]
+dotnet_code_quality.CA1711.allowed_suffixes = Queue

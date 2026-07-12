@@ -42,9 +42,16 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
   </ItemGroup>
 
+  <!-- Camadas de aplicação (abstrações puras, sem I/O) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
   <!-- Contratos HTTP (Fase 4, ADR-0006) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageVersion Include="NSwag.ApiDescription.Client" Version="14.2.0" />
     <!-- Pin transitivo: o Microsoft.OpenApi 2.0.0 trazido pelo AspNetCore.OpenApi 10.0.0
          tem CVE alta (GHSA-v5pm-xwqc-g5wc); fixado na última 2.x corrigida (ADR-0020). -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.10.0" />

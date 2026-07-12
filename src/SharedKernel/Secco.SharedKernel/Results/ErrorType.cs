@@ -27,4 +27,7 @@ public enum ErrorType
 
     /// <summary>Chamador autenticado sem permissão (equivalente HTTP: 403).</summary>
     Forbidden = 6,
+
+    /// <summary>Recurso temporariamente indisponível — tente novamente (equivalente HTTP: 503).</summary>
+    Unavailable = 7,
 }

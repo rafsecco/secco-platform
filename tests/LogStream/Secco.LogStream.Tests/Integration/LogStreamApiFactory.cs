@@ -15,10 +15,32 @@ namespace Secco.LogStream.Tests.Integration;
 public sealed class LogStreamApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
+    private readonly SemaphoreSlim _migrationLock = new(1, 1);
+    private bool _migrated;
 
     public Guid TenantAlfa { get; } = Guid.NewGuid();
 
     public Guid TenantBeta { get; } = Guid.NewGuid();
+
+    /// <summary>Aplica as migrations nos bancos de tenant uma única vez por factory.</summary>
+    public async Task EnsureTenantDatabasesMigratedAsync()
+    {
+        await _migrationLock.WaitAsync();
+
+        try
+        {
+            if (!_migrated)
+            {
+                await Secco.LogStream.Infrastructure.LogStreamInfrastructureExtensions
+                    .MigrateLogStreamTenantDatabasesAsync(Services);
+                _migrated = true;
+            }
+        }
+        finally
+        {
+            _migrationLock.Release();
+        }
+    }
 
     public string GetTenantConnectionString(string databaseName) =>
         new SqlConnectionStringBuilder(_container.GetConnectionString())

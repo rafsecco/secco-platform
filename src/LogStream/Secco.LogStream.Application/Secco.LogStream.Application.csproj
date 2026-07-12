@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Application (ADR-0002): casos de uso e portas; retorna Result<T>.
-       Handlers chegam com as fases 4.3+. -->
+       Única dependência externa: abstrações de DI (puras, sem I/O). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Secco.LogStream.Domain\Secco.LogStream.Domain.csproj" />
   </ItemGroup>

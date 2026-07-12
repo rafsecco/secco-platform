@@ -50,4 +50,10 @@ public record Error(string Code, string Description, ErrorType Type)
     /// <param name="description">Descrição legível do erro.</param>
     public static Error Failure(string code, string description) =>
         new(code, description, ErrorType.Failure);
+
+    /// <summary>Cria um erro de indisponibilidade temporária (<see cref="ErrorType.Unavailable"/>).</summary>
+    /// <param name="code">Código estável do erro.</param>
+    /// <param name="description">Descrição legível do erro.</param>
+    public static Error Unavailable(string code, string description) =>
+        new(code, description, ErrorType.Unavailable);
 }

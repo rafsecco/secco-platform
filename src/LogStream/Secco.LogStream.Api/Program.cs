@@ -1,22 +1,32 @@
+using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
+using Secco.LogStream.Api.Endpoints;
+using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cross-cutting da plataforma: correlation + tenancy + health checks + resilience (ADR-0004)
+// Cross-cutting da plataforma: correlation + auth + tenancy + health checks + resilience (ADR-0004)
 builder.Services.AddSeccoPlatform();
 
 // OpenAPI nativo (.NET 10); o snapshot versionado é validado por teste de contrato (ADR-0006)
 builder.Services.AddOpenApi();
 
+// Enums viajam como string no contrato (ex.: "Error" em vez de 4)
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+builder.Services.AddLogStreamApplication(options =>
+    builder.Configuration.GetSection("LogStream:Ingestion").Bind(options));
 builder.Services.AddLogStreamInfrastructure();
 
 var app = builder.Build();
 
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
+app.MapLogEntryEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

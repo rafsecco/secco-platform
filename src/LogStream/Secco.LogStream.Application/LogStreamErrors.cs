@@ -1,0 +1,51 @@
+using Secco.SharedKernel.Results;
+
+namespace Secco.LogStream.Application;
+
+/// <summary>Erros de negócio do LogStream (ADR-0004): códigos estáveis <c>LogStream.*</c>.</summary>
+public static class LogStreamErrors
+{
+    /// <summary>Erros de registros de log.</summary>
+    public static class LogEntries
+    {
+        /// <summary>Mensagem ausente ou vazia.</summary>
+        public static readonly Error MessageRequired =
+            Error.Validation("LogStream.LogEntry.MessageRequired", "A mensagem do log é obrigatória.");
+
+        /// <summary>Mensagem acima do limite configurado.</summary>
+        public static Error MessageTooLong(int limit) =>
+            Error.Validation("LogStream.LogEntry.MessageTooLong", $"A mensagem excede o limite de {limit} caracteres.");
+
+        /// <summary>Stack trace acima do limite configurado.</summary>
+        public static Error StackTraceTooLong(int limit) =>
+            Error.Validation("LogStream.LogEntry.StackTraceTooLong", $"O stack trace excede o limite de {limit} caracteres.");
+
+        /// <summary>Batch vazio.</summary>
+        public static readonly Error BatchEmpty =
+            Error.Validation("LogStream.LogEntry.BatchEmpty", "O batch deve conter ao menos um item.");
+
+        /// <summary>Batch acima do limite configurado.</summary>
+        public static Error BatchTooLarge(int limit) =>
+            Error.Validation("LogStream.LogEntry.BatchTooLarge", $"O batch excede o limite de {limit} itens.");
+
+        /// <summary>Registro não encontrado no banco do tenant atual.</summary>
+        public static readonly Error NotFound =
+            Error.NotFound("LogStream.LogEntry.NotFound", "Registro de log não encontrado.");
+
+        /// <summary>Intervalo de busca invertido.</summary>
+        public static readonly Error InvalidDateRange =
+            Error.Validation("LogStream.LogEntry.InvalidDateRange", "A data inicial não pode ser posterior à final.");
+    }
+
+    /// <summary>Erros de ingestão.</summary>
+    public static class Ingestion
+    {
+        /// <summary>Fila de ingestão na capacidade máxima — tente novamente (503 + Retry-After).</summary>
+        public static readonly Error QueueFull =
+            Error.Unavailable("LogStream.Ingestion.QueueFull", "A fila de ingestão está cheia; tente novamente em instantes.");
+
+        /// <summary>Requisição sem tenant resolvido — logs sempre pertencem a um tenant (ADR-0005).</summary>
+        public static readonly Error TenantNotResolved =
+            Error.Validation("LogStream.Ingestion.TenantNotResolved", "Nenhum tenant foi resolvido para a requisição (claim tenant_id ou header X-Tenant-Id).");
+    }
+}

@@ -65,6 +65,14 @@ public class ErrorTests
     }
 
     [Fact]
+    public void Unavailable_Always_CreatesErrorWithUnavailableType()
+    {
+        var error = Error.Unavailable("Platform.Queue.Full", "Fila de ingestão cheia.");
+
+        error.Type.Should().Be(ErrorType.Unavailable);
+    }
+
+    [Fact]
     public void Equals_WhenSameCodeDescriptionAndType_ReturnsTrue()
     {
         var left = Error.NotFound("Platform.Tenant.NotFound", "Tenant não encontrado.");

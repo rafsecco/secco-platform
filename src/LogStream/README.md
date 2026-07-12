@@ -2,7 +2,18 @@
 
 Produto de logging e observabilidade da Secco Platform: recebe, armazena e consulta logs gerais, logs de processos (com auditoria por status agregado) e logs de chamadas de API de qualquer aplicação da plataforma ou externa.
 
-> **Em reescrita (Fase 4 do [roadmap](../../docs/roadmap.md)):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. O plano faseado 4.1–4.7 está no roadmap; funcionalidades de negócio (ingestão, consulta) chegam a partir da fase 4.3.
+> **Em reescrita (Fase 4 do [roadmap](../../docs/roadmap.md)):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. Log geral disponível (4.3); log de processos, ApiCallLog e retenção chegam nas fases 4.4–4.6.
+
+## Endpoints (v1)
+
+| Endpoint | Descrição |
+|---|---|
+| `POST /api/v1/log-entries` | Registra um log — **ingestão assíncrona**: responde `202` com o Id definitivo (Guid v7); fila cheia responde `503` + `Retry-After` |
+| `POST /api/v1/log-entries/batch` | Lote (até 500 itens por default); validação tudo-ou-nada |
+| `GET /api/v1/log-entries/{id}` | Busca pontual no banco do tenant |
+| `GET /api/v1/log-entries?from=&to=&level=&message=&correlationId=&page=&size=` | Busca paginada, mais recentes primeiro |
+
+Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000 — ADR-0020).
 
 ## Arquitetura
 

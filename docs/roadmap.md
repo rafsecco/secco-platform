@@ -47,7 +47,7 @@
 
 - [x] 4.1 Fundação: 4 camadas (ADR-0002) + `AddSeccoPlatform()` + OpenAPI/Scalar (DEV) + `openapi.json` versionado com teste de contrato (drift falha o CI; atualização via `SECCO_UPDATE_OPENAPI=true`) + `LogStreamDbContext` por tenant + migrations SQL Server (aplicadas no startup só em DEV) + Testcontainers provando isolamento entre bancos de tenant + CI com path filters (ADR-0014); `ITenantCatalog` ganhou `ListAsync()` (SDK v0.2)
 - [x] 4.2 `AddSeccoAuthentication()` no SDK: claims curtas sem remapeamento (ADR-0007, `SeccoClaims.Role` corrigido para `role`), Authority OIDC ou HS256 dev (proibida em Production, fail-fast triplo), `FallbackPolicy` fail-closed (health anônimos explícitos); integrado ao `AddSeccoPlatform()`/`UseSeccoPlatform()` (correlation → auth → tenancy) e aplicado ao LogStream
-- [ ] 4.3 Log geral: ingestão assíncrona (bounded channel + `BackgroundService`, `202`), batch com limites, consulta/busca paginada (`PagedResult<T>`, DTOs)
+- [x] 4.3 Log geral: `LogEntry` (Guid v7), ingestão assíncrona (bounded channel + worker que restaura o tenant via `SetTenant` do SDK; fila cheia = 503 + Retry-After), batch com limites (ADR-0020, perfil balanceado configurável), consulta/busca paginada; `Secco.LogStream.Client` NSwag nasceu (gerado no build a partir do snapshot); kernel ganhou `ErrorType.Unavailable` e o SDK ganhou `ToHttpResult()` (Result → ProblemDetails)
 - [ ] 4.4 Log de processos: `LogProcess`/`LogProcessDetail`, ingestão assíncrona (Guid v7 elimina o POST síncrono do pai), auditoria com status agregado
 - [ ] 4.5 Log de chamadas de API (`ApiCallLog`): ingestão + consulta/busca
 - [ ] 4.6 Retenção: `BackgroundService` (ADR-0015 camada 1) iterando os bancos de tenant via catálogo

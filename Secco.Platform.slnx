@@ -3,6 +3,7 @@
   <Folder Name="/src/LogStream/">
     <Project Path="src/LogStream/Secco.LogStream.Api/Secco.LogStream.Api.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Application/Secco.LogStream.Application.csproj" />
+    <Project Path="src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Domain/Secco.LogStream.Domain.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Infrastructure/Secco.LogStream.Infrastructure.csproj" />
   </Folder>

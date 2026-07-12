@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Client NSwag (ADR-0006): GERADO no build a partir do openapi.json versionado —
+       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração.
+       Pacote publicável (ADR-0011): tag logstream-client/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>logstream-client/v</MinVerTagPrefix>
+    <Description>Client HTTP gerado (NSwag) do Secco.LogStream — única forma de comunicação entre produtos da Secco Platform (ADR-0006).</Description>
+    <PackageTags>secco;logstream;client;nswag</PackageTags>
+    <!-- Código gerado: sem enforcement de estilo/docs -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="NSwag.ApiDescription.Client" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <OpenApiReference Include="..\Secco.LogStream.Api\openapi\openapi.json"
+                      CodeGenerator="NSwagCSharp"
+                      Namespace="Secco.LogStream.Client"
+                      ClassName="LogStreamClient">
+      <Options>/JsonLibrary:SystemTextJson /GenerateClientInterfaces:true /UseBaseUrl:false /GenerateBaseUrlProperty:false</Options>
+    </OpenApiReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
