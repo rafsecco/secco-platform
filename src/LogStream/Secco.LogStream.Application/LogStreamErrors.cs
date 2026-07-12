@@ -37,6 +37,26 @@ public static class LogStreamErrors
             Error.Validation("LogStream.LogEntry.InvalidDateRange", "A data inicial não pode ser posterior à final.");
     }
 
+    /// <summary>Erros de processos.</summary>
+    public static class LogProcesses
+    {
+        /// <summary>Nome do processo ausente ou vazio.</summary>
+        public static readonly Error NameRequired =
+            Error.Validation("LogStream.LogProcess.NameRequired", "O nome do processo é obrigatório.");
+
+        /// <summary>Nome do processo acima do limite configurado.</summary>
+        public static Error NameTooLong(int limit) =>
+            Error.Validation("LogStream.LogProcess.NameTooLong", $"O nome do processo excede o limite de {limit} caracteres.");
+
+        /// <summary>Referência externa acima do limite configurado.</summary>
+        public static Error ExternalReferenceTooLong(int limit) =>
+            Error.Validation("LogStream.LogProcess.ExternalReferenceTooLong", $"A referência externa excede o limite de {limit} caracteres.");
+
+        /// <summary>Processo não encontrado no banco do tenant atual.</summary>
+        public static readonly Error NotFound =
+            Error.NotFound("LogStream.LogProcess.NotFound", "Processo não encontrado.");
+    }
+
     /// <summary>Erros de ingestão.</summary>
     public static class Ingestion
     {

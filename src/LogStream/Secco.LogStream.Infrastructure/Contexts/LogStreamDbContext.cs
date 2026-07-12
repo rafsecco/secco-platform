@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Secco.LogStream.Domain.LogEntries;
+using Secco.LogStream.Domain.LogProcesses;
 using Secco.SDK.EntityFrameworkCore;
 
 namespace Secco.LogStream.Infrastructure.Contexts;
@@ -14,6 +15,12 @@ public sealed class LogStreamDbContext(DbContextOptions<LogStreamDbContext> opti
 {
     /// <summary>Registros de log gerais (tabela <c>tb_log_entries</c>).</summary>
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+
+    /// <summary>Processos monitorados (tabela <c>tb_log_processes</c>).</summary>
+    public DbSet<LogProcess> LogProcesses => Set<LogProcess>();
+
+    /// <summary>Details de processos (tabela <c>tb_log_process_details</c>).</summary>
+    public DbSet<LogProcessDetail> LogProcessDetails => Set<LogProcessDetail>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)

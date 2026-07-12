@@ -12,6 +12,11 @@ Produto de logging e observabilidade da Secco Platform: recebe, armazena e consu
 | `POST /api/v1/log-entries/batch` | Lote (até 500 itens por default); validação tudo-ou-nada |
 | `GET /api/v1/log-entries/{id}` | Busca pontual no banco do tenant |
 | `GET /api/v1/log-entries?from=&to=&level=&message=&correlationId=&page=&size=` | Busca paginada, mais recentes primeiro |
+| `POST /api/v1/log-processes` | Cria um processo (`202` com o Id — já serve para enviar details) |
+| `GET /api/v1/log-processes/{id}` | Processo com **status agregado** (pior nível dos details) e contagem |
+| `GET /api/v1/log-processes?status=&name=&from=&to=&correlationId=&page=&size=` | A listagem **é** a auditoria — status sempre presente e filtrável |
+| `POST /api/v1/log-processes/{id}/details` (+`/batch`) | Details do processo (ingestão assíncrona; fila FIFO única preserva a ordem pai→details) |
+| `GET /api/v1/log-processes/{id}/details?page=&size=` | Details paginados, mais recentes primeiro |
 
 Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000 — ADR-0020).
 

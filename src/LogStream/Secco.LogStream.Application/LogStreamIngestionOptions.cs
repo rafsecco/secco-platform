@@ -16,6 +16,12 @@ public sealed class LogStreamIngestionOptions
     /// <summary>Quantidade máxima de itens por batch (default 500).</summary>
     public int MaxBatchSize { get; set; } = 500;
 
+    /// <summary>Tamanho máximo do nome de um processo (default 256).</summary>
+    public int MaxProcessNameLength { get; set; } = 256;
+
+    /// <summary>Tamanho máximo da referência externa de um processo (default 128).</summary>
+    public int MaxExternalReferenceLength { get; set; } = 128;
+
     /// <summary>Capacidade da fila de ingestão em memória (default 10.000). Cheia → 503.</summary>
     public int QueueCapacity { get; set; } = 10_000;
 }

@@ -1,7 +1,8 @@
 using FluentAssertions;
 using Secco.LogStream.Application;
-using Secco.LogStream.Application.LogEntries;
+using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Domain.LogEntries;
+using Secco.LogStream.Domain.LogProcesses;
 using Secco.LogStream.Infrastructure.Ingestion;
 using Secco.SDK.AspNetCore.Tenancy;
 using Xunit;
@@ -46,5 +47,24 @@ public class LogEntryIngestionQueueTests
         var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(null));
 
         queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.TenantNotResolved);
+    }
+
+    [Fact]
+    public void TryEnqueue_ProcessThenDetails_PreservesFifoOrder()
+    {
+        var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions());
+        var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
+
+        var process = new LogProcess("Importacao");
+        var detail = new LogProcessDetail(process.Id, LogEntryLevel.Information, "passo 1");
+
+        queue.TryEnqueue(process).Should().Be(EnqueueOutcome.Enqueued);
+        queue.TryEnqueue(detail).Should().Be(EnqueueOutcome.Enqueued);
+
+        channel.Reader.TryRead(out var first).Should().BeTrue();
+        channel.Reader.TryRead(out var second).Should().BeTrue();
+
+        first.Should().BeOfType<LogProcessWorkItem>("o pai entra antes — FIFO garante persistência antes dos details");
+        second.Should().BeOfType<LogProcessDetailWorkItem>();
     }
 }

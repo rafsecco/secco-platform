@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Application.LogEntries;
+using Secco.LogStream.Application.LogProcesses;
 using Secco.LogStream.Infrastructure.Contexts;
 using Secco.LogStream.Infrastructure.Ingestion;
 using Secco.LogStream.Infrastructure.Repositories;
@@ -33,10 +35,11 @@ public static class LogStreamInfrastructureExtensions
         });
 
         services.AddScoped<ILogEntryRepository, LogEntryRepository>();
+        services.AddScoped<ILogProcessRepository, LogProcessRepository>();
 
         // Ingestão assíncrona: canal bounded compartilhado + adaptador por request + worker
         services.AddSingleton<LogEntryIngestionChannel>();
-        services.AddScoped<ILogEntryIngestionQueue, LogEntryIngestionQueue>();
+        services.AddScoped<ILogIngestionQueue, LogEntryIngestionQueue>();
         services.AddHostedService<LogEntryIngestionWorker>();
 
         return services;

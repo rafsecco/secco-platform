@@ -1,3 +1,4 @@
+using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.SharedKernel.Results;
 
@@ -18,7 +19,7 @@ public sealed record CreateLogEntryCommand(
 /// Valida os limites de ingestão (ADR-0020) e enfileira o registro — a persistência é
 /// assíncrona (worker), por isso o sucesso devolve apenas o Id (Guid v7 já definitivo).
 /// </summary>
-public sealed class CreateLogEntryHandler(ILogEntryIngestionQueue queue, LogStreamIngestionOptions options)
+public sealed class CreateLogEntryHandler(ILogIngestionQueue queue, LogStreamIngestionOptions options)
 {
     /// <summary>Executa o caso de uso.</summary>
     /// <param name="command">Comando de criação.</param>

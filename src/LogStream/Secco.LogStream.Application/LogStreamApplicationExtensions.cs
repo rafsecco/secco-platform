@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Secco.LogStream.Application.LogEntries;
+using Secco.LogStream.Application.LogProcesses;
 
 namespace Secco.LogStream.Application;
 
@@ -26,6 +27,12 @@ public static class LogStreamApplicationExtensions
         services.AddScoped<CreateLogEntryBatchHandler>();
         services.AddScoped<GetLogEntryByIdHandler>();
         services.AddScoped<SearchLogEntriesHandler>();
+
+        services.AddScoped<CreateLogProcessHandler>();
+        services.AddScoped<CreateLogProcessDetailHandler>();
+        services.AddScoped<GetLogProcessByIdHandler>();
+        services.AddScoped<SearchLogProcessesHandler>();
+        services.AddScoped<GetLogProcessDetailsHandler>();
 
         return services;
     }

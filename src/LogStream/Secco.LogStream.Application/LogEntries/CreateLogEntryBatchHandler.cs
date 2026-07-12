@@ -1,3 +1,4 @@
+using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.SharedKernel.Results;
 
@@ -9,7 +10,7 @@ namespace Secco.LogStream.Application.LogEntries;
 /// chamador reenvia o lote inteiro — logs duplicados são preferíveis a logs perdidos
 /// (idempotência de escrita está no backlog de ADRs).
 /// </summary>
-public sealed class CreateLogEntryBatchHandler(ILogEntryIngestionQueue queue, LogStreamIngestionOptions options)
+public sealed class CreateLogEntryBatchHandler(ILogIngestionQueue queue, LogStreamIngestionOptions options)
 {
     /// <summary>Executa o caso de uso.</summary>
     /// <param name="commands">Itens do lote.</param>

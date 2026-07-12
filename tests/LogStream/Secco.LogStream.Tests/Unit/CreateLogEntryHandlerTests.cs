@@ -1,7 +1,9 @@
 using FluentAssertions;
 using Secco.LogStream.Application;
+using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Application.LogEntries;
 using Secco.LogStream.Domain.LogEntries;
+using Secco.LogStream.Domain.LogProcesses;
 using Secco.SharedKernel.Results;
 using Xunit;
 
@@ -9,7 +11,7 @@ namespace Secco.LogStream.Tests.Unit;
 
 public class CreateLogEntryHandlerTests
 {
-    private sealed class FakeQueue(EnqueueOutcome outcome) : ILogEntryIngestionQueue
+    private sealed class FakeQueue(EnqueueOutcome outcome) : ILogIngestionQueue
     {
         public List<LogEntry> Enqueued { get; } = [];
 
@@ -22,6 +24,10 @@ public class CreateLogEntryHandlerTests
 
             return outcome;
         }
+
+        public EnqueueOutcome TryEnqueue(LogProcess logProcess) => outcome;
+
+        public EnqueueOutcome TryEnqueue(LogProcessDetail detail) => outcome;
     }
 
     private static readonly LogStreamIngestionOptions Options = new();
