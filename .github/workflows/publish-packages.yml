@@ -14,6 +14,7 @@ on:
       - "sdk/v*"
       - "sdk-efcore/v*"
       - "logstream-client/v*"
+      - "templates/v*"
 
 permissions:
   contents: read
@@ -37,6 +38,7 @@ jobs:
             sdk/v*)          echo "project=src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-efcore/v*)   echo "project=src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" >> "$GITHUB_OUTPUT" ;;
             logstream-client/v*) echo "project=src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" >> "$GITHUB_OUTPUT" ;;
+            templates/v*)    echo "project=templates/Secco.Templates.csproj" >> "$GITHUB_OUTPUT" ;;
             *) echo "Tag ${GITHUB_REF_NAME} sem mapeamento de pacote" >&2; exit 1 ;;
           esac
 

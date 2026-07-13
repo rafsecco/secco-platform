@@ -11,7 +11,9 @@
     <RepositoryUrl>https://github.com/rafsecco/secco-platform.git</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <IncludeSymbols>true</IncludeSymbols>
+    <!-- Default com respeito a valor explícito do projeto (pacotes só de conteúdo,
+         como Secco.Templates, desligam símbolos) -->
+    <IncludeSymbols Condition="'$(IncludeSymbols)' == ''">true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- Versionamento por tag git (ADR-0011). Prefixo definido em cada projeto empacotável:
          <MinVerTagPrefix>sharedkernel/v</MinVerTagPrefix> -->

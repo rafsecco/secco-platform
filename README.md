@@ -10,7 +10,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability | Em desenvolvimento (Fase 4) |
 | Secco.SecureGate | Identity & Access Management (OIDC) | Planejado (Fase 6) |
 | Secco.AdminPortal | Portal administrativo da plataforma | Planejado (Fase 7) |
-| Secco.Templates | `dotnet new secco-service` | Planejado (Fase 5) |
+| [Secco.Templates](templates/README.md) | `dotnet new secco-service` | Disponível |
 
 ## Documentação
 

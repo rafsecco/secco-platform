@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote de templates (ADR-0013): dotnet new secco-service.
+       Só empacota conteúdo — nada é compilado aqui. Tag: templates/v -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>templates/v</MinVerTagPrefix>
+    <PackageId>Secco.Templates</PackageId>
+    <Description>Templates da Secco Platform: dotnet new secco-service gera um produto completo conforme todas as ADRs (4 camadas, SDK plugado, OpenAPI + client NSwag, multi-tenancy, migrations por engine, testes e Docker).</Description>
+    <PackageTags>secco;templates;dotnet-new</PackageTags>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <!-- Pacote só de conteúdo: sem assemblies, sem símbolos (snupkg vazio geraria NU5017) -->
+    <IncludeSymbols>false</IncludeSymbols>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="secco-service\**\*" Exclude="secco-service\**\bin\**;secco-service\**\obj\**" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

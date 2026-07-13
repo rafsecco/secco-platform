@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Rafael Secco",
+  "classifications": ["Web", "API", "Secco Platform"],
+  "identity": "Secco.Templates.Service",
+  "name": "Secco Platform Service",
+  "description": "Produto completo da Secco Platform: 4 camadas (ADR-0002), SDK plugado, OpenAPI + Scalar, client NSwag, migrations por engine, testes e Docker — com um recurso Sample de exemplo executável.",
+  "shortName": "secco-service",
+  "sourceName": "Secco.SampleService",
+  "preferNameDirectory": false,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "symbols": {
+    "shortProductName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "stripSeccoPrefix",
+      "replaces": "SampleService",
+      "fileRename": "SampleService",
+      "description": "Nome curto do produto (sem o prefixo Secco.), usado em nomes de classes, arquivos e seções de configuração."
+    }
+  },
+  "forms": {
+    "stripSeccoPrefix": {
+      "identifier": "replace",
+      "pattern": "^Secco\\.",
+      "replacement": ""
+    }
+  }
+}

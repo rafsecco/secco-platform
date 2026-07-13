@@ -56,8 +56,8 @@
 **Fase 4 concluída** — paridade funcional com o RS.Logging atingida, com as melhorias estruturais registradas acima. Desvios conscientes: MariaDB fora (ADR-0018), `TraceId` manual substituído por OpenTelemetry futuro (ADR-0008), full-text/webhook/dashboard no backlog.
 
 ## Fase 5 — Secco.Templates
-- [ ] Template `dotnet new secco-service` destilado do LogStream
-- [ ] Camadas, SDK plugado, OpenAPI + Scalar, client NSwag, testes, Dockerfile, pipeline
+- [x] Template `dotnet new secco-service` destilado do LogStream (`templates/secco-service`; sourceName `Secco.SampleService` + símbolo derivado para nomes curtos; **monorepo-first**: ProjectReference — variante NuGet quando houver adotante externo)
+- [x] Camadas, SDK plugado, OpenAPI + Scalar, client NSwag, migrations por engine, testes (unit + Testcontainers + contrato), Dockerfile/compose — com recurso **Sample** completo como referência executável (apagável); pacote `Secco.Templates` (tag `templates/v*`); job `validate-template` no CI instancia + gera migrations + builda + testa o produto gerado quando template OU plataforma mudam (ADR-0013: divergência é bug)
 
 ## Fase 6 — Secco.SecureGate
 - [ ] Nasce do template (prova real do padrão)

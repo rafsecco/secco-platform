@@ -22,6 +22,7 @@ jobs:
     outputs:
       platform: ${{ steps.filter.outputs.platform }}
       logstream: ${{ steps.filter.outputs.logstream }}
+      templates: ${{ steps.filter.outputs.templates }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,6 +47,8 @@ jobs:
             logstream:
               - 'src/LogStream/**'
               - 'tests/LogStream/**'
+            templates:
+              - 'templates/**'
 
   build-all:
     # Kernel/SDK/build mudaram: tudo é rebuildado — consumidores validam a mudança
@@ -92,3 +95,40 @@ jobs:
 
       - name: Test LogStream
         run: dotnet test tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj --configuration Release --verbosity normal
+
+  validate-template:
+    # ADR-0013: divergência entre template e ADRs é bug — instancia, builda e testa o
+    # produto gerado quando o template OU a plataforma (kernel/SDK) mudarem
+    needs: changes
+    if: needs.changes.outputs.templates == 'true' || needs.changes.outputs.platform == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Instantiate template
+        run: |
+          dotnet new install ./templates/secco-service
+          dotnet new secco-service -n Secco.TemplateSmoke -o src/TemplateSmoke
+
+      - name: Generate migrations (both engines)
+        run: |
+          dotnet tool restore
+          dotnet restore src/TemplateSmoke/Secco.TemplateSmoke.Api/Secco.TemplateSmoke.Api.csproj
+          dotnet ef migrations add Initial --project src/TemplateSmoke/Secco.TemplateSmoke.Migrations.SqlServer/Secco.TemplateSmoke.Migrations.SqlServer.csproj --output-dir Migrations
+          dotnet ef migrations add Initial --project src/TemplateSmoke/Secco.TemplateSmoke.Migrations.Postgres/Secco.TemplateSmoke.Migrations.Postgres.csproj --output-dir Migrations
+
+      - name: Test generated product
+        env:
+          SECCO_UPDATE_OPENAPI: "true"
+        run: dotnet test src/TemplateSmoke/tests/Secco.TemplateSmoke.Tests/Secco.TemplateSmoke.Tests.csproj --configuration Release --verbosity normal
+
+      - name: Build generated client from generated contract
+        run: dotnet build src/TemplateSmoke/Secco.TemplateSmoke.Client/Secco.TemplateSmoke.Client.csproj --configuration Release
