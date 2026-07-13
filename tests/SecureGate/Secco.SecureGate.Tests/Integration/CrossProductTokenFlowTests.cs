@@ -48,6 +48,9 @@ public class CrossProductTokenFlowTests(SecureGateApiFactory secureGate) : IClas
                     ["Secco:Authentication:RequireHttpsMetadata"] = "false",
                     [$"Secco:Tenancy:Tenants:{tenantId}:ConnectionString"] =
                         secureGate.GetConnectionStringFor("secco_logstream_e2e"),
+                    // Permissões do role do client (Fase 6.4) — resolver por configuração
+                    ["Secco:Authorization:Roles:writer:Permissions:0"] = "log-entries:read",
+                    ["Secco:Authorization:Roles:writer:Permissions:1"] = "log-entries:write",
                 }));
 
             builder.ConfigureServices(services =>
@@ -62,7 +65,9 @@ public class CrossProductTokenFlowTests(SecureGateApiFactory secureGate) : IClas
     public async Task InitializeAsync()
     {
         await secureGate.EnsureDatabaseMigratedAsync();
-        await secureGate.CreateClientAsync(ClientId, ClientSecret, "logstream");
+
+        // Role no client (Fase 6.4): a claim curta 'role' sai no token de máquina
+        await secureGate.CreateClientWithRolesAsync(ClientId, ClientSecret, roles: "writer", "logstream");
 
         _logStream = new LogStreamHost(secureGate, TenantId);
         await _logStream.Services.MigrateLogStreamTenantDatabasesAsync();

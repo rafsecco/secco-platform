@@ -11,3 +11,11 @@ public sealed record CreateTenantRequest(string? Name, string? Slug);
 /// </summary>
 /// <param name="ConnectionString">Connection string do banco dedicado. Obrigatória.</param>
 public sealed record UpsertTenantDatabaseRequest(string? ConnectionString);
+
+/// <summary>Payload de criação de role (ADR-0021).</summary>
+/// <param name="Name">Nome do role (sem espaços). Obrigatório.</param>
+public sealed record CreateRoleRequest(string? Name);
+
+/// <summary>Payload de substituição das permissões de um role (PUT idempotente).</summary>
+/// <param name="Permissions">Conjunto completo de permissões <c>recurso:acao</c> desejado.</param>
+public sealed record SetRolePermissionsRequest(IReadOnlyList<string?>? Permissions);

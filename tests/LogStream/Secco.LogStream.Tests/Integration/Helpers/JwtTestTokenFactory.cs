@@ -12,7 +12,10 @@ internal static class JwtTestTokenFactory
     public const string Issuer = "secco-tests";
     public const string Audience = "secco-logstream";
 
-    public static string CreateToken(Guid tenantId, string subject = "test-user") =>
+    /// <summary>Role padrão dos tokens de teste — permissões concedidas via configuração da factory (ADR-0021).</summary>
+    public const string DefaultRole = "test-admin";
+
+    public static string CreateToken(Guid tenantId, string subject = "test-user", string role = DefaultRole) =>
         new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
             Issuer = Issuer,
@@ -21,6 +24,7 @@ internal static class JwtTestTokenFactory
             {
                 [SeccoClaims.Subject] = subject,
                 [SeccoClaims.TenantId] = tenantId.ToString(),
+                [SeccoClaims.Role] = role,
             },
             Expires = DateTime.UtcNow.AddMinutes(10),
             SigningCredentials = new SigningCredentials(

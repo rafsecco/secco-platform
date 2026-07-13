@@ -52,6 +52,16 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
         builder.Entity<Role>(role =>
         {
             role.ToTable("tb_roles");
+
+            // O Identity cria RoleNameIndex ÚNICO GLOBAL em NormalizedName — errado no modelo
+            // multi-tenant: o MESMO nome de role existe em vários tenants (ADR-0021). A
+            // unicidade real é o índice por (TenantId, NormalizedName) abaixo.
+            if (role.Metadata.FindProperty(nameof(Role.NormalizedName)) is { } normalizedName
+                && role.Metadata.FindIndex([normalizedName]) is { } globalNameIndex)
+            {
+                role.Metadata.RemoveIndex(globalNameIndex);
+            }
+
             // Nome de role é único POR TENANT (ADR-0021), não globalmente
             role.HasIndex(r => new { r.TenantId, r.NormalizedName }).IsUnique()
                 .HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
@@ -64,7 +74,11 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
         builder.Entity<RoleClaim>().ToTable("tb_role_claims");
         builder.Entity<UserToken>().ToTable("tb_user_tokens");
 
-        builder.Entity<OidcApplication>().ToTable("tb_oidc_applications");
+        builder.Entity<OidcApplication>(application =>
+        {
+            application.ToTable("tb_oidc_applications");
+            application.Property(a => a.Roles).HasMaxLength(OidcApplication.RolesMaxLength);
+        });
         builder.Entity<OidcAuthorization>().ToTable("tb_oidc_authorizations");
         builder.Entity<OidcScope>().ToTable("tb_oidc_scopes");
         builder.Entity<OidcToken>().ToTable("tb_oidc_tokens");

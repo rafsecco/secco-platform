@@ -5,6 +5,7 @@ using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Client.Authorization;
 using Secco.SecureGate.Client.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +28,10 @@ builder.Services.AddLogStreamInfrastructure();
 // Catálogo de tenants central (Fase 6.3, ADR-0005): com a seção Secco:SecureGate configurada,
 // o catálogo servido pelo SecureGate assume; sem ela (DEV), segue o catálogo por configuração
 builder.Services.AddSecureGateTenantCatalog();
+
+// Resolução de permissões central (Fase 6.4, ADR-0021): mesma decisão lazy — sem a seção,
+// o resolver por configuração do SDK (Secco:Authorization:Roles) segue valendo em DEV
+builder.Services.AddSecureGatePermissionResolver();
 
 var app = builder.Build();
 

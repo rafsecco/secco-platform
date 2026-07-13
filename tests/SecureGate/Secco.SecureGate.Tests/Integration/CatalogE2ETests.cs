@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.LogStream.Infrastructure;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Client.Authorization;
 using Secco.SecureGate.Client.Catalog;
 using Secco.SharedKernel.Constants;
 using Xunit;
@@ -60,17 +61,22 @@ public class CatalogE2ETests(SelfIssuedAuthSecureGateApiFactory secureGate) : IA
                     ["Secco:SecureGate:ClientId"] = ServiceClientId,
                     ["Secco:SecureGate:ClientSecret"] = ServiceClientSecret,
                     ["Secco:SecureGate:Product"] = "logstream",
-                    // TTL mínimo: os testes verificam a propagação de desativação
+                    // TTL mínimo: os testes verificam a propagação de desativação/revogação
                     ["Secco:SecureGate:CacheTtlSeconds"] = "1",
+                    ["Secco:Authorization:CacheTtlSeconds"] = "1",
                 }));
 
             builder.ConfigureServices(services =>
             {
-                // Discovery/JWKS e catálogo trafegam pelo handler in-memory do SecureGate
+                // Discovery/JWKS, catálogo e resolução de permissões trafegam pelo handler
+                // in-memory do SecureGate
                 services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
                     options.BackchannelHttpHandler = secureGate.Server.CreateHandler());
 
                 services.AddHttpClient(SecureGateTenantCatalog.HttpClientName)
+                    .ConfigurePrimaryHttpMessageHandler(() => secureGate.Server.CreateHandler());
+
+                services.AddHttpClient(SecureGatePermissionResolver.HttpClientName)
                     .ConfigurePrimaryHttpMessageHandler(() => secureGate.Server.CreateHandler());
             });
         }
@@ -80,8 +86,9 @@ public class CatalogE2ETests(SelfIssuedAuthSecureGateApiFactory secureGate) : IA
     {
         await secureGate.EnsureDatabaseMigratedAsync();
         await secureGate.CreateClientAsync(AdminClientId, AdminClientSecret, SecureGateScopes.Admin);
-        await secureGate.CreateClientAsync(ServiceClientId, ServiceClientSecret, "catalog:logstream");
-        await secureGate.CreateClientAsync(AppClientId, AppClientSecret, "logstream");
+        await secureGate.CreateClientAsync(ServiceClientId, ServiceClientSecret,
+            "catalog:logstream", SecureGateScopes.AuthorizationRead);
+        await secureGate.CreateClientWithRolesAsync(AppClientId, AppClientSecret, roles: AppRoleName, "logstream");
 
         // 1. O operador provisiona o tenant e o banco do LogStream via API de gestão
         _admin = await CreateAuthenticatedClientAsync(AdminClientId, AdminClientSecret, SecureGateScopes.Admin);
@@ -95,10 +102,23 @@ public class CatalogE2ETests(SelfIssuedAuthSecureGateApiFactory secureGate) : IA
             new { connectionString = secureGate.GetConnectionStringFor("secco_logstream_catalog_e2e") });
         upsert.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // 2. O LogStream sobe e aplica migrations iterando o catálogo REMOTO (ListAsync)
+        // 2. O role do client de aplicação nasce no tenant com as permissões do LogStream
+        //    (Fase 6.4, ADR-0021) — tudo pela API de gestão
+        (await _admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles", new { name = AppRoleName }))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+        await SetAppRolePermissionsAsync("log-entries:read", "log-entries:write");
+
+        // 3. O LogStream sobe e aplica migrations iterando o catálogo REMOTO (ListAsync)
         _logStream = new LogStreamHost(secureGate);
         await _logStream.Services.MigrateLogStreamTenantDatabasesAsync();
     }
+
+    private const string AppRoleName = "writer";
+
+    private async Task SetAppRolePermissionsAsync(params string[] permissions) =>
+        (await _admin.PutAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles/{AppRoleName}/permissions",
+            new { permissions }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
 
     public async Task DisposeAsync()
     {
@@ -201,5 +221,31 @@ public class CatalogE2ETests(SelfIssuedAuthSecureGateApiFactory secureGate) : IA
         // Reativa: o tenant volta a resolver no próximo refresh (e não suja os demais testes)
         (await _admin.PostAsync($"/api/v1/tenants/{_tenantId}/activate", content: null))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task RevokedPermission_StopsAuthorizingWithinOneTtl_WithoutWaitingTokenExpiry()
+    {
+        var app = await CreateAppClientAsync();
+
+        // Com log-entries:write concedida ao role, a ingestão autoriza
+        (await app.PostAsJsonAsync("/api/v1/log-entries",
+            new { level = "Information", message = "antes da revogação" }))
+            .StatusCode.Should().Be(HttpStatusCode.Accepted);
+
+        // O operador revoga a escrita (PUT idempotente: o conjunto novo não a contém)
+        await SetAppRolePermissionsAsync("log-entries:read");
+
+        // Expira o TTL de 1s do cache de permissões do LogStream
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        (await app.PostAsJsonAsync("/api/v1/log-entries",
+            new { level = "Information", message = "depois da revogação" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden,
+                "a razão de ser da ADR-0021: revogação propaga em ≤ 1 TTL com o MESMO token ainda válido");
+
+        // A leitura segue autorizada — a revogação é granular por permissão
+        (await app.GetAsync($"/api/v1/log-entries/{Guid.NewGuid()}"))
+            .StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }

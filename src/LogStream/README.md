@@ -83,11 +83,13 @@ Em **Development** o startup aplica as migrations em todos os bancos de tenant d
 - Scalar UI: `/scalar/v1` (apenas DEV)
 - Health: `GET /health/live` e `GET /health/ready` (anônimos)
 
-## Autenticação (ADR-0007)
+## Autenticação e autorização (ADR-0007/0021)
 
-Todos os endpoints de negócio exigem JWT (`Authorization: Bearer <token>`) — a `FallbackPolicy` da plataforma protege por default qualquer endpoint sem metadata explícita. Enquanto o SecureGate (Fase 6) não existe, DEV/Staging usam chave simétrica HS256 (`Secco:Authentication:DevelopmentSigningKey`) — **proibida em Production** (a API não sobe).
+Todos os endpoints de negócio exigem JWT (`Authorization: Bearer <token>`) — a `FallbackPolicy` da plataforma protege por default qualquer endpoint sem metadata explícita. Em produção a Authority é o SecureGate (JWKS); DEV/Staging podem usar chave simétrica HS256 (`Secco:Authentication:DevelopmentSigningKey`) — **proibida em Production** (a API não sobe).
 
-Gerando um token de teste em PowerShell (claims curtas: `sub`, `role`, `tenant_id`):
+Desde a Fase 6.4, os endpoints também exigem **permissão** (ADR-0021): ingestão pede `log-entries:write` / `log-processes:write` / `api-call-logs:write` e consulta pede as `*:read` correspondentes, resolvidas do `role` do token em runtime (cache TTL curto, fail-closed). Em DEV o mapeamento vem de `Secco:Authorization:Roles` (o role `dev-admin` já vem com todas); em produção, do SecureGate via `AddSecureGatePermissionResolver()`.
+
+Gerando um token de teste em PowerShell (claims curtas: `sub`, `role`, `tenant_id` — o role precisa ter as permissões):
 
 ```powershell
 $secret  = "secco-logstream-dev-key-minimo-32-chars!"   # DevelopmentSigningKey do ambiente
@@ -95,7 +97,7 @@ $tenant  = "018f0000-0000-7000-8000-000000000001"        # tenant do catálogo D
 $b64 = { param($s) [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($s)) -replace '=+$' -replace '\+','-' -replace '/','_' }
 $header  = & $b64 '{"alg":"HS256","typ":"JWT"}'
 $exp     = [DateTimeOffset]::UtcNow.AddHours(1).ToUnixTimeSeconds()
-$payload = & $b64 "{`"iss`":`"secco-dev`",`"aud`":`"secco-logstream`",`"sub`":`"dev-user`",`"role`":`"Admin`",`"tenant_id`":`"$tenant`",`"exp`":$exp}"
+$payload = & $b64 "{`"iss`":`"secco-dev`",`"aud`":`"secco-logstream`",`"sub`":`"dev-user`",`"role`":`"dev-admin`",`"tenant_id`":`"$tenant`",`"exp`":$exp}"
 $hmac    = [Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret))
 $sig     = [Convert]::ToBase64String($hmac.ComputeHash([Text.Encoding]::ASCII.GetBytes("$header.$payload"))) -replace '=+$' -replace '\+','-' -replace '/','_'
 "$header.$payload.$sig"

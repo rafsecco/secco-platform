@@ -14,7 +14,7 @@ namespace Secco.SecureGate.Client.Catalog;
 /// </summary>
 public sealed class SecureGateTenantCatalog(
     IHttpClientFactory httpClientFactory,
-    SecureGateTenantCatalogOptions options,
+    SecureGateClientCredentialsOptions options,
     ILogger<SecureGateTenantCatalog> logger) : ITenantCatalog
 {
     /// <summary>Nome do <c>HttpClient</c> nomeado usado pelo catálogo remoto.</summary>

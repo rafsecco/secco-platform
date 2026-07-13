@@ -4,32 +4,33 @@ using System.Text.Json;
 namespace Secco.SecureGate.Client.Catalog;
 
 /// <summary>
-/// Estado compartilhado do token de acesso ao catálogo (singleton): o pipeline de handlers
-/// do <c>IHttpClientFactory</c> é reciclado periodicamente — o cache do token não pode
-/// morrer com ele.
+/// Estado compartilhado de um token de acesso (singleton POR PIPELINE): o pipeline de
+/// handlers do <c>IHttpClientFactory</c> é reciclado periodicamente — o cache do token
+/// não pode morrer com ele. Cada recurso (catálogo, autorização) tem o próprio store,
+/// pois pede um token com o próprio scope (least privilege).
 /// </summary>
-internal sealed class SecureGateAccessTokenStore
+public sealed class SecureGateAccessTokenStore
 {
     /// <summary>Serializa a renovação do token entre requisições concorrentes.</summary>
-    public SemaphoreSlim RefreshLock { get; } = new(1, 1);
+    internal SemaphoreSlim RefreshLock { get; } = new(1, 1);
 
     /// <summary>Token vigente; nulo antes da primeira aquisição.</summary>
-    public string? AccessToken { get; set; }
+    internal string? AccessToken { get; set; }
 
     /// <summary>Expiração do token vigente.</summary>
-    public DateTimeOffset ExpiresAt { get; set; }
+    internal DateTimeOffset ExpiresAt { get; set; }
 }
 
 /// <summary>
-/// Client credentials do OAuth 2 no caminho do catálogo: anexa o Bearer emitido pelo
-/// próprio SecureGate (scope <c>catalog:&lt;produto&gt;</c> apenas — least privilege,
-/// ADR-0020) e renova antes de expirar. O endpoint <c>/connect/token</c> é protocolo
-/// OAuth padrão, não contrato de produto — por isso a chamada é HTTP direta e não passa
-/// pelo client NSwag (exceção consciente à ADR-0006).
+/// Client credentials do OAuth 2 nos caminhos de plataforma: anexa o Bearer emitido pelo
+/// próprio SecureGate com o scope MÍNIMO do recurso (ADR-0020) e renova antes de expirar.
+/// O endpoint <c>/connect/token</c> é protocolo OAuth padrão, não contrato de produto —
+/// por isso a chamada é HTTP direta e não passa pelo client NSwag (exceção consciente à ADR-0006).
 /// </summary>
 internal sealed class SecureGateClientCredentialsHandler(
-    SecureGateTenantCatalogOptions options,
-    SecureGateAccessTokenStore store) : DelegatingHandler
+    SecureGateClientCredentialsOptions options,
+    SecureGateAccessTokenStore store,
+    string scope) : DelegatingHandler
 {
     /// <summary>Margem antes da expiração para renovar o token proativamente.</summary>
     private static readonly TimeSpan ExpiryMargin = TimeSpan.FromSeconds(30);
@@ -69,7 +70,7 @@ internal sealed class SecureGateClientCredentialsHandler(
                     ["grant_type"] = "client_credentials",
                     ["client_id"] = options.ClientId!,
                     ["client_secret"] = options.ClientSecret!,
-                    ["scope"] = options.CatalogScope,
+                    ["scope"] = scope,
                 }),
             };
 
@@ -79,7 +80,7 @@ internal sealed class SecureGateClientCredentialsHandler(
             {
                 // O corpo da resposta não entra na mensagem (ADR-0020)
                 throw new HttpRequestException(
-                    $"O SecureGate recusou a emissão de token para o catálogo (HTTP {(int)response.StatusCode}).");
+                    $"O SecureGate recusou a emissão de token (HTTP {(int)response.StatusCode}).");
             }
 
             using var payload = JsonDocument.Parse(

@@ -62,6 +62,13 @@ public sealed class LogStreamApiFactory : WebApplicationFactory<Program>, IAsync
                     GetTenantConnectionString("secco_logstream_alfa"),
                 [$"Secco:Tenancy:Tenants:{TenantBeta}:ConnectionString"] =
                     GetTenantConnectionString("secco_logstream_beta"),
+                // Permissões do role dos tokens de teste (Fase 6.4, ADR-0021) — resolver por configuração
+                ["Secco:Authorization:Roles:test-admin:Permissions:0"] = "log-entries:read",
+                ["Secco:Authorization:Roles:test-admin:Permissions:1"] = "log-entries:write",
+                ["Secco:Authorization:Roles:test-admin:Permissions:2"] = "log-processes:read",
+                ["Secco:Authorization:Roles:test-admin:Permissions:3"] = "log-processes:write",
+                ["Secco:Authorization:Roles:test-admin:Permissions:4"] = "api-call-logs:read",
+                ["Secco:Authorization:Roles:test-admin:Permissions:5"] = "api-call-logs:write",
             }));
     }
 

@@ -1,4 +1,5 @@
 using Secco.LogStream.Api.Requests;
+using Secco.LogStream.Application;
 using Secco.LogStream.Application.LogEntries;
 using Secco.LogStream.Domain.LogEntries;
 using Secco.SDK.AspNetCore.Correlation;
@@ -8,8 +9,9 @@ using Secco.SharedKernel.Pagination;
 namespace Secco.LogStream.Api.Endpoints;
 
 /// <summary>
-/// Endpoints de registros de log (<c>/api/v1/log-entries</c>, ADR-0010). Protegidos pela
-/// <c>FallbackPolicy</c> da plataforma — nenhuma metadata de autorização é necessária.
+/// Endpoints de registros de log (<c>/api/v1/log-entries</c>, ADR-0010). Autorização
+/// granular por permissão (Fase 6.4, ADR-0021): ingestão exige <c>log-entries:write</c>
+/// e consulta <c>log-entries:read</c>, resolvidas do role do token em runtime.
 /// Ingestão responde <c>202</c>: a persistência é assíncrona (fila + worker).
 /// </summary>
 public static class LogEntryEndpoints
@@ -26,6 +28,7 @@ public static class LogEntryEndpoints
                 ICorrelationContext correlation) =>
             handler.Handle(ToCommand(request, correlation))
                 .ToHttpResult(id => Results.Accepted($"/api/v1/log-entries/{id}", new LogEntryAcceptedResponse(id))))
+            .RequireAuthorization(LogStreamPermissions.LogEntries.Write)
             .WithSummary("Registra um log (ingestão assíncrona).")
             .Produces<LogEntryAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -37,6 +40,7 @@ public static class LogEntryEndpoints
                 ICorrelationContext correlation) =>
             handler.Handle(requests.Select(request => ToCommand(request, correlation)).ToList())
                 .ToHttpResult(ids => Results.Accepted("/api/v1/log-entries", new LogEntryBatchAcceptedResponse(ids))))
+            .RequireAuthorization(LogStreamPermissions.LogEntries.Write)
             .WithSummary("Registra um lote de logs (ingestão assíncrona; headers aplicados a todos os itens).")
             .Produces<LogEntryBatchAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -45,6 +49,7 @@ public static class LogEntryEndpoints
         group.MapGet("/{id:guid}", async (Guid id, GetLogEntryByIdHandler handler, CancellationToken cancellationToken) =>
             (await handler.HandleAsync(id, cancellationToken))
                 .ToHttpResult(dto => Results.Ok(dto)))
+            .RequireAuthorization(LogStreamPermissions.LogEntries.Read)
             .WithSummary("Busca um registro de log pelo identificador.")
             .Produces<LogEntryDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -64,6 +69,7 @@ public static class LogEntryEndpoints
                     new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
                 cancellationToken))
                 .ToHttpResult(result => Results.Ok(result)))
+            .RequireAuthorization(LogStreamPermissions.LogEntries.Read)
             .WithSummary("Busca paginada de registros de log (filtros opcionais, mais recentes primeiro).")
             .Produces<PagedResult<LogEntryDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);

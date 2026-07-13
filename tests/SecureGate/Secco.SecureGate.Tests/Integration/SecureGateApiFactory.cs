@@ -56,7 +56,15 @@ public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
     }
 
     /// <summary>Registra um client OIDC de teste (client credentials) com os scopes informados.</summary>
-    public async Task CreateClientAsync(string clientId, string clientSecret, params string[] scopes)
+    public Task CreateClientAsync(string clientId, string clientSecret, params string[] scopes) =>
+        CreateClientWithRolesAsync(clientId, clientSecret, roles: null, scopes);
+
+    /// <summary>
+    /// Registra um client OIDC de teste com scopes e roles (Fase 6.4, ADR-0021 —
+    /// máquinas carregam a claim curta <c>role</c> como os usuários). Nome distinto por
+    /// design: um overload posicional confundiria scope com roles.
+    /// </summary>
+    public async Task CreateClientWithRolesAsync(string clientId, string clientSecret, string? roles, params string[] scopes)
     {
         using var scope = Services.CreateScope();
         var applications = scope.ServiceProvider.GetRequiredService<OpenIddict.Abstractions.IOpenIddictApplicationManager>();
@@ -82,6 +90,14 @@ public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         }
 
         await applications.CreateAsync(descriptor);
+
+        if (!string.IsNullOrWhiteSpace(roles)
+            && await applications.FindByClientIdAsync(clientId)
+                is Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication application)
+        {
+            application.Roles = roles;
+            await applications.UpdateAsync(application);
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

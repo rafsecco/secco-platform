@@ -229,6 +229,6 @@ public class SecureGateCatalogClientTests(SelfIssuedAuthSecureGateApiFactory sec
             ["Secco:SecureGate:BaseUrl"] = "http://localhost",
         });
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*parcialmente configurado*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*parcialmente configurad*");
     }
 }

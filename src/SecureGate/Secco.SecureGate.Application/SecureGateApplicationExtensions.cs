@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using Secco.SecureGate.Application.Authorization;
 using Secco.SecureGate.Application.Catalog;
+using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Application.Tenants;
 
 namespace Secco.SecureGate.Application;
@@ -23,6 +25,12 @@ public static class SecureGateApplicationExtensions
         // Catálogo servido aos produtos (scope catalog:<produto>)
         services.AddScoped<GetCatalogTenantHandler>();
         services.AddScoped<ListCatalogTenantsHandler>();
+
+        // Roles + permissões (Fase 6.4, ADR-0021): gestão e resolução
+        services.AddScoped<CreateRoleHandler>();
+        services.AddScoped<ListRolesHandler>();
+        services.AddScoped<SetRolePermissionsHandler>();
+        services.AddScoped<GetRolePermissionsHandler>();
 
         return services;
     }

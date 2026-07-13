@@ -79,6 +79,25 @@ Configuração pela seção `Secco:Authentication`, validada no startup — fail
 
 Regras aplicadas centralmente: mapeamento automático de claims **desligado** (`MapInboundClaims = false`), `NameClaimType = "sub"`, `RoleClaimType = "role"`; `Authority` e `DevelopmentSigningKey` mutuamente exclusivos; chave de desenvolvimento em Production = startup falha. A `FallbackPolicy` exige usuário autenticado em todo endpoint sem metadata explícita — exceções (`AllowAnonymous`) são explícitas e auditáveis; os health checks já vêm anônimos do SDK.
 
+## Autorização granular (ADR-0021)
+
+Incluída no `AddSeccoPlatform()`. O token carrega apenas `role`; as permissões (`recurso:acao`) do par `(tenant, role)` são resolvidas em runtime. O endpoint declara a permissão direto como policy — o nome no formato canônico (validado pelo `SeccoPermissions` do kernel) vira uma policy dinâmica, sem registro:
+
+```csharp
+group.MapPost("/", ...)
+    .RequireAuthorization(LogStreamPermissions.LogEntries.Write);   // "log-entries:write"
+```
+
+As constantes de permissão vivem em **cada produto** (regra de admissão da ADR-0003 — o exemplo da ADR-0021 é lido como padrão, não como localização). Resolução com **cache obrigatório** por `(tenant_id, role)` (`Secco:Authorization:CacheTtlSeconds`, padrão 60s) — **estrito e fail-closed**: expirado + resolver indisponível = acesso negado; autorização nunca falha aberta, e o TTL é o teto da janela de revogação. Resolver padrão lê de configuração (DEV/testes, global — sem semântica por tenant):
+
+```json
+"Secco": { "Authorization": { "Roles": {
+    "dev-admin": { "Permissions": [ "log-entries:read", "log-entries:write" ] }
+} } }
+```
+
+Fora de DEV, `AddSecureGatePermissionResolver()` (pacote `Secco.SecureGate.Client`) resolve no SecureGate com scope `authorization:read` — ver o README do SecureGate. Ordem de pipeline: `UseSeccoPlatform()` posiciona a tenancy **antes** da autorização — as policies de permissão precisam do tenant resolvido.
+
 ## Health checks (ADR-0004)
 
 ```csharp

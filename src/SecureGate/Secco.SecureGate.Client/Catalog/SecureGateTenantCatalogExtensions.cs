@@ -22,52 +22,68 @@ public static class SecureGateTenantCatalogExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Bind lazy (as options do host de teste chegam depois do Program executar)
-        services.TryAddSingleton(serviceProvider =>
-        {
-            var options = new SecureGateTenantCatalogOptions();
-            serviceProvider.GetRequiredService<IConfiguration>()
-                .GetSection(SecureGateTenantCatalogOptions.SectionKey)
-                .Bind(options);
+        services.AddSecureGateClientCredentialsOptions();
 
-            if (options.IsConfigured)
-            {
-                options.Validate();
-            }
-
-            return options;
-        });
-
-        services.TryAddSingleton<SecureGateAccessTokenStore>();
-        services.TryAddTransient<SecureGateClientCredentialsHandler>();
+        // Store fora do pipeline do IHttpClientFactory: o token sobrevive à reciclagem dos handlers
+        var tokenStore = new SecureGateAccessTokenStore();
 
         // Com AddSeccoResilience() no host, o pipeline padrão da plataforma se aplica também
         // aqui (inclusive à aquisição de token, que atravessa o mesmo handler primário)
         services.AddHttpClient(SecureGateTenantCatalog.HttpClientName)
             .ConfigureHttpClient((serviceProvider, client) =>
             {
-                var options = serviceProvider.GetRequiredService<SecureGateTenantCatalogOptions>();
+                var options = serviceProvider.GetRequiredService<SecureGateClientCredentialsOptions>();
 
                 if (options.IsConfigured)
                 {
                     client.BaseAddress = new Uri(options.BaseUrl!, UriKind.Absolute);
                 }
             })
-            .AddHttpMessageHandler<SecureGateClientCredentialsHandler>();
+            .ConfigureAdditionalHttpMessageHandlers((handlers, serviceProvider) =>
+            {
+                var options = serviceProvider.GetRequiredService<SecureGateClientCredentialsOptions>();
+
+                if (options.IsConfigured)
+                {
+                    // Token com o scope MÍNIMO do catálogo (least privilege, ADR-0020)
+                    handlers.Add(new SecureGateClientCredentialsHandler(options, tokenStore, options.CatalogScope));
+                }
+            });
 
         // Substitui o registro do SDK (TryAdd lá, Replace aqui — independente da ordem)
         services.RemoveAll<ITenantCatalog>();
         services.AddSingleton<ITenantCatalog>(serviceProvider =>
         {
-            var options = serviceProvider.GetRequiredService<SecureGateTenantCatalogOptions>();
-            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var options = serviceProvider.GetRequiredService<SecureGateClientCredentialsOptions>();
 
-            return options.IsConfigured
-                ? new SecureGateTenantCatalog(
-                    serviceProvider.GetRequiredService<IHttpClientFactory>(),
-                    options,
-                    serviceProvider.GetRequiredService<ILogger<SecureGateTenantCatalog>>())
-                : new ConfigurationTenantCatalog(configuration);
+            if (!options.IsConfigured)
+            {
+                return new ConfigurationTenantCatalog(serviceProvider.GetRequiredService<IConfiguration>());
+            }
+
+            options.Validate(requireProduct: true);
+
+            return new SecureGateTenantCatalog(
+                serviceProvider.GetRequiredService<IHttpClientFactory>(),
+                options,
+                serviceProvider.GetRequiredService<ILogger<SecureGateTenantCatalog>>());
+        });
+
+        return services;
+    }
+
+    /// <summary>Bind lazy das opções de conexão (as options do host de teste chegam depois do Program executar).</summary>
+    /// <param name="services">Coleção de serviços da aplicação.</param>
+    internal static IServiceCollection AddSecureGateClientCredentialsOptions(this IServiceCollection services)
+    {
+        services.TryAddSingleton(serviceProvider =>
+        {
+            var options = new SecureGateClientCredentialsOptions();
+            serviceProvider.GetRequiredService<IConfiguration>()
+                .GetSection(SecureGateClientCredentialsOptions.SectionKey)
+                .Bind(options);
+
+            return options;
         });
 
         return services;

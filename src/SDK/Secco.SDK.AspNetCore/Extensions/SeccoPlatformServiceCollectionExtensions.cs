@@ -29,6 +29,7 @@ public static class SeccoPlatformServiceCollectionExtensions
 
         services.AddSeccoCorrelation();
         services.AddSeccoAuthentication();
+        services.AddSeccoAuthorization();
         services.AddSeccoTenancy();
         services.AddSeccoHealthChecks();
         services.AddSeccoResilience();

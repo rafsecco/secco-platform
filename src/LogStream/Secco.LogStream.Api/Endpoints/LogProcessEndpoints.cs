@@ -1,4 +1,5 @@
 using Secco.LogStream.Api.Requests;
+using Secco.LogStream.Application;
 using Secco.LogStream.Application.LogProcesses;
 using Secco.LogStream.Domain.LogProcesses;
 using Secco.SDK.AspNetCore.Correlation;
@@ -26,6 +27,7 @@ public static class LogProcessEndpoints
                 ICorrelationContext correlation) =>
             handler.Handle(new CreateLogProcessCommand(request.Name, request.ExternalReference, ParseCorrelation(correlation)))
                 .ToHttpResult(id => Results.Accepted($"/api/v1/log-processes/{id}", new LogEntryAcceptedResponse(id))))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Write)
             .WithSummary("Cria um processo (ingestão assíncrona) — o Id devolvido já serve para enviar details.")
             .Produces<LogEntryAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -34,6 +36,7 @@ public static class LogProcessEndpoints
         group.MapGet("/{id:guid}", async (Guid id, GetLogProcessByIdHandler handler, CancellationToken cancellationToken) =>
             (await handler.HandleAsync(id, cancellationToken))
                 .ToHttpResult(dto => Results.Ok(dto)))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Read)
             .WithSummary("Busca um processo pelo identificador, com status agregado e contagem de details.")
             .Produces<LogProcessDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -53,6 +56,7 @@ public static class LogProcessEndpoints
                     new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
                 cancellationToken))
                 .ToHttpResult(result => Results.Ok(result)))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Read)
             .WithSummary("Busca paginada de processos com status agregado (a auditoria) — filtrável por status.")
             .Produces<PagedResult<LogProcessDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);
@@ -64,6 +68,7 @@ public static class LogProcessEndpoints
                 ICorrelationContext correlation) =>
             handler.Handle(id, ToDetailCommand(request, correlation))
                 .ToHttpResult(detailId => Results.Accepted($"/api/v1/log-processes/{id}/details", new LogEntryAcceptedResponse(detailId))))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Write)
             .WithSummary("Registra um detail do processo (ingestão assíncrona).")
             .Produces<LogEntryAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -76,6 +81,7 @@ public static class LogProcessEndpoints
                 ICorrelationContext correlation) =>
             handler.HandleBatch(id, requests.Select(request => ToDetailCommand(request, correlation)).ToList())
                 .ToHttpResult(ids => Results.Accepted($"/api/v1/log-processes/{id}/details", new LogEntryBatchAcceptedResponse(ids))))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Write)
             .WithSummary("Registra um lote de details do processo (ingestão assíncrona).")
             .Produces<LogEntryBatchAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -92,6 +98,7 @@ public static class LogProcessEndpoints
                 new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize),
                 cancellationToken))
                 .ToHttpResult(result => Results.Ok(result)))
+            .RequireAuthorization(LogStreamPermissions.LogProcesses.Read)
             .WithSummary("Busca paginada dos details de um processo, mais recentes primeiro.")
             .Produces<PagedResult<LogProcessDetailDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);

@@ -1,4 +1,5 @@
 using Secco.LogStream.Api.Requests;
+using Secco.LogStream.Application;
 using Secco.LogStream.Application.ApiCalls;
 using Secco.SDK.AspNetCore.Correlation;
 using Secco.SDK.AspNetCore.Extensions;
@@ -34,6 +35,7 @@ public static class ApiCallLogEndpoints
                     request.ErrorMessage,
                     Guid.TryParse(correlation.CorrelationId, out var correlationId) ? correlationId : null))
                 .ToHttpResult(id => Results.Accepted($"/api/v1/api-call-logs/{id}", new LogEntryAcceptedResponse(id))))
+            .RequireAuthorization(LogStreamPermissions.ApiCallLogs.Write)
             .WithSummary("Registra uma chamada de API externa (ingestão assíncrona; headers sensíveis são redigidos no servidor).")
             .Produces<LogEntryAcceptedResponse>(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -42,6 +44,7 @@ public static class ApiCallLogEndpoints
         group.MapGet("/{id:guid}", async (Guid id, GetApiCallLogByIdHandler handler, CancellationToken cancellationToken) =>
             (await handler.HandleAsync(id, cancellationToken))
                 .ToHttpResult(dto => Results.Ok(dto)))
+            .RequireAuthorization(LogStreamPermissions.ApiCallLogs.Read)
             .WithSummary("Busca uma chamada de API pelo identificador.")
             .Produces<ApiCallLogDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -63,6 +66,7 @@ public static class ApiCallLogEndpoints
                     new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
                 cancellationToken))
                 .ToHttpResult(result => Results.Ok(result)))
+            .RequireAuthorization(LogStreamPermissions.ApiCallLogs.Read)
             .WithSummary("Busca paginada de chamadas de API (filtros opcionais, mais recentes primeiro).")
             .Produces<PagedResult<ApiCallLogDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status400BadRequest);

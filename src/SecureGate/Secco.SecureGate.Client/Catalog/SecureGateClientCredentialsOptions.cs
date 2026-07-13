@@ -1,12 +1,13 @@
 namespace Secco.SecureGate.Client.Catalog;
 
 /// <summary>
-/// Opções do catálogo remoto de tenants (seção <c>Secco:SecureGate</c>). Presença de
-/// QUALQUER chave da seção liga o modo remoto — e então todas passam a ser obrigatórias
-/// (fail-fast, ADR-0020: configuração parcial nunca degrada silenciosamente para o
-/// catálogo por configuração).
+/// Opções de conexão dos serviços da plataforma com o SecureGate (seção <c>Secco:SecureGate</c>) —
+/// compartilhadas pelo catálogo de tenants (Fase 6.3) e pela resolução de permissões
+/// (Fase 6.4). Presença de QUALQUER chave da seção liga o modo remoto — e então as chaves
+/// exigidas pelo recurso passam a ser obrigatórias (fail-fast, ADR-0020: configuração
+/// parcial nunca degrada silenciosamente para as implementações por configuração).
 /// </summary>
-public sealed class SecureGateTenantCatalogOptions
+public sealed class SecureGateClientCredentialsOptions
 {
     /// <summary>Chave da seção de configuração.</summary>
     public const string SectionKey = "Secco:SecureGate";
@@ -20,11 +21,14 @@ public sealed class SecureGateTenantCatalogOptions
     /// <summary>Client secret do serviço consumidor. Nunca logar.</summary>
     public string? ClientSecret { get; set; }
 
-    /// <summary>Produto cujo catálogo será lido (ex.: <c>logstream</c>) — define o scope <c>catalog:&lt;produto&gt;</c> solicitado.</summary>
+    /// <summary>Produto cujo catálogo será lido (ex.: <c>logstream</c>) — define o scope <c>catalog:&lt;produto&gt;</c>. Exigido só pelo catálogo.</summary>
     public string? Product { get; set; }
 
-    /// <summary>TTL do cache de entradas do catálogo, em segundos (padrão: 300).</summary>
+    /// <summary>TTL do cache de entradas do catálogo de tenants, em segundos (padrão: 300).</summary>
     public int CacheTtlSeconds { get; set; } = 300;
+
+    /// <summary>Scope de resolução de permissões (ADR-0021, Fase 6.4).</summary>
+    internal const string AuthorizationScope = "authorization:read";
 
     /// <summary>Indica se alguma chave da seção foi configurada (modo remoto ligado).</summary>
     public bool IsConfigured =>
@@ -39,9 +43,10 @@ public sealed class SecureGateTenantCatalogOptions
     /// <summary>Produto normalizado (minúsculo, sem espaços).</summary>
     internal string NormalizedProduct => Product?.Trim().ToLowerInvariant() ?? string.Empty;
 
-    /// <summary>Valida o conjunto completo quando o modo remoto está ligado.</summary>
+    /// <summary>Valida o conjunto exigido quando o modo remoto está ligado.</summary>
+    /// <param name="requireProduct"><c>true</c> para o catálogo (o produto define o scope); a resolução de permissões não o exige.</param>
     /// <exception cref="InvalidOperationException">Se alguma chave obrigatória estiver ausente ou inválida.</exception>
-    internal void Validate()
+    internal void Validate(bool requireProduct)
     {
         var missing = new List<string>();
 
@@ -60,7 +65,7 @@ public sealed class SecureGateTenantCatalogOptions
             missing.Add(nameof(ClientSecret));
         }
 
-        if (string.IsNullOrWhiteSpace(Product))
+        if (requireProduct && string.IsNullOrWhiteSpace(Product))
         {
             missing.Add(nameof(Product));
         }
@@ -68,8 +73,8 @@ public sealed class SecureGateTenantCatalogOptions
         if (missing.Count > 0)
         {
             throw new InvalidOperationException(
-                $"Catálogo remoto do SecureGate parcialmente configurado — faltam: {string.Join(", ", missing)} " +
-                $"(seção '{SectionKey}'). Configure todas as chaves ou remova a seção para usar o catálogo por configuração.");
+                $"Conexão com o SecureGate parcialmente configurada — faltam: {string.Join(", ", missing)} " +
+                $"(seção '{SectionKey}'). Configure todas as chaves ou remova a seção para usar as implementações por configuração.");
         }
 
         if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri)

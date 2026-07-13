@@ -12,6 +12,13 @@ public static class SecureGateScopes
     /// </summary>
     public const string Admin = "securegate:admin";
 
+    /// <summary>
+    /// Scope de leitura da resolução role→permissions (ADR-0021, Fase 6.4). Único para a
+    /// plataforma: permissões são configuração de acesso, não segredos — todo serviço que
+    /// usa <c>AddSeccoAuthorization()</c> o recebe; a GESTÃO segue exclusiva do admin.
+    /// </summary>
+    public const string AuthorizationRead = "authorization:read";
+
     /// <summary>Prefixo dos scopes de leitura de catálogo por produto (<c>catalog:&lt;produto&gt;</c>).</summary>
     public const string CatalogPrefix = "catalog:";
 

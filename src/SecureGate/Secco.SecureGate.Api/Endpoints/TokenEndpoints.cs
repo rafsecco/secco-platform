@@ -18,7 +18,10 @@ public static class TokenEndpoints
     /// <param name="endpoints">Builder de rotas de endpoints da aplicação.</param>
     public static IEndpointRouteBuilder MapTokenEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/connect/token", async (HttpContext context, IOpenIddictScopeManager scopeManager) =>
+        endpoints.MapPost("/connect/token", async (
+            HttpContext context,
+            IOpenIddictScopeManager scopeManager,
+            IOpenIddictApplicationManager applicationManager) =>
         {
             var request = context.GetOpenIddictServerRequest()
                 ?? throw new InvalidOperationException("Requisição OIDC não encontrada no contexto.");
@@ -42,6 +45,15 @@ public static class TokenEndpoints
             // o tenant alvo viaja no header X-Tenant-Id (cenário interno, ADR-0005)
             identity.SetClaim(Claims.Subject, request.ClientId);
             identity.SetScopes(request.GetScopes());
+
+            // Roles do client (Fase 6.4, ADR-0021): máquinas usam o MESMO modelo
+            // Role + Permission dos usuários — a claim curta 'role' sai no access token
+            if (await applicationManager.FindByClientIdAsync(request.ClientId!, context.RequestAborted)
+                is Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication { Roles.Length: > 0 } application)
+            {
+                identity.SetClaims(Claims.Role,
+                    [.. application.Roles.Split(' ', StringSplitOptions.RemoveEmptyEntries)]);
+            }
 
             // Scope → audiences (resources): "logstream" → "secco-logstream" (o que os produtos validam)
             var resources = new List<string>();

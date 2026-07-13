@@ -47,6 +47,9 @@ public sealed class LogStreamPostgresApiFactory : WebApplicationFactory<Program>
                 ["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
                 [$"Secco:Tenancy:Tenants:{TenantAlfa}:ConnectionString"] =
                     GetTenantConnectionString("secco_logstream_pg_alfa"),
+                // Permissões do role dos tokens de teste (Fase 6.4, ADR-0021)
+                ["Secco:Authorization:Roles:test-admin:Permissions:0"] = "log-entries:read",
+                ["Secco:Authorization:Roles:test-admin:Permissions:1"] = "log-entries:write",
             }));
     }
 

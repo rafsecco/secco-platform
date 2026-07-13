@@ -51,6 +51,33 @@ public static class SecureGateErrors
                 $"A connection string excede o limite de {TenantDatabase.ConnectionStringMaxLength} caracteres.");
     }
 
+    /// <summary>Erros de roles e permissões (ADR-0021).</summary>
+    public static class Roles
+    {
+        /// <summary>Role não encontrado no tenant.</summary>
+        public static readonly Error NotFound =
+            Error.NotFound("SecureGate.Role.NotFound", "Role não encontrado neste tenant.");
+
+        /// <summary>Nome de role ausente ou fora do formato aceito.</summary>
+        public static readonly Error NameInvalid =
+            Error.Validation("SecureGate.Role.NameInvalid",
+                "O nome do role deve conter apenas letras, dígitos, '.', '_' e '-' (sem espaços), com até 100 caracteres.");
+
+        /// <summary>Já existe role com este nome no tenant.</summary>
+        public static readonly Error AlreadyExists =
+            Error.Conflict("SecureGate.Role.AlreadyExists", "Já existe um role com este nome neste tenant.");
+
+        /// <summary>Permissão fora do formato canônico.</summary>
+        public static readonly Error PermissionInvalid =
+            Error.Validation("SecureGate.Role.PermissionInvalid",
+                "Cada permissão deve estar no formato canônico 'recurso:acao' (kebab-case minúsculo).");
+
+        /// <summary>Conjunto de permissões acima do limite.</summary>
+        public static readonly Error TooManyPermissions =
+            Error.Validation("SecureGate.Role.TooManyPermissions",
+                "O conjunto de permissões excede o limite por role.");
+    }
+
     /// <summary>Erros do endpoint de catálogo (leitura pelos produtos).</summary>
     public static class Catalog
     {

@@ -48,6 +48,13 @@ public sealed class SecureGateReferenceDataSeeder(IOpenIddictScopeManager scopeM
             "Gestão do SecureGate (tenants e bancos)",
             SecureGateResource,
             cancellationToken).ConfigureAwait(false);
+
+        // Fase 6.4 (ADR-0021): resolução role→permissions — scope único de plataforma
+        await UpsertScopeAsync(
+            SecureGateScopes.AuthorizationRead,
+            "Leitura da resolução role→permissions",
+            SecureGateResource,
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task UpsertScopeAsync(

@@ -45,6 +45,9 @@ public static class SecureGateInfrastructureExtensions
         // Catálogo de tenants (Fase 6.3)
         services.AddScoped<Application.Tenants.ITenantRepository, Tenants.TenantRepository>();
 
+        // Roles + permissões (Fase 6.4, ADR-0021)
+        services.AddScoped<Application.Roles.IRoleRepository, Roles.RoleRepository>();
+
         // Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
         services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
         services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();

@@ -51,6 +51,22 @@ builder.Services.AddSecureGateTenantCatalog();   // decisão por configuração,
 - Cache in-memory por tenant com TTL curto e **stale em falha**: SecureGate indisponível não derruba produto que já resolveu o tenant (warning no log); tenant nunca visto com SecureGate fora = `TenantCatalogUnavailableException` → **503 + Retry-After** pelo pipeline de tenancy do SDK. Desativação de tenant propaga em até um TTL.
 - Connection strings jamais aparecem em logs ou erros (ADR-0020).
 
+### Roles + permissões (Fase 6.4, ADR-0021)
+
+O token carrega apenas `role`; o mapeamento role→permissions é **por tenant** e vive aqui (padrão Identity: `tb_roles` + claims de ação em `tb_role_claims`). **Clients OIDC também têm roles** (`ds_roles`, emitidos na claim curta `role` do client credentials) — máquinas e usuários no MESMO modelo de autorização, sem caso especial.
+
+**Gestão** (`/api/v1/tenants/{tenantId}/roles`, scope `securegate:admin`): criar role, listar com permissões e `PUT /{role}/permissions` **idempotente** (revogar = enviar o conjunto sem a permissão — propaga aos produtos em ≤ 1 TTL de cache, com o token ainda válido).
+
+**Resolução** (`/api/v1/authorization/tenants/{tenantId}/roles/{role}/permissions`, scope único `authorization:read`): a fonte do `IPermissionResolver` remoto do SDK. Role desconhecido responde lista vazia — equivalente para autorização, e não revela o modelo de roles do tenant (ADR-0020).
+
+No produto consumidor:
+
+```csharp
+builder.Services.AddSecureGatePermissionResolver();   // mesma seção Secco:SecureGate; Product não é exigido
+```
+
+Sem a seção, o resolver por configuração do SDK segue valendo (DEV). O token de autorização é separado do token do catálogo — cada recurso pede só o próprio scope (least privilege).
+
 ## Configuração
 
 | Seção | Uso |
@@ -65,5 +81,4 @@ builder.Services.AddSecureGateTenantCatalog();   // decisão por configuração,
 
 ## Próximas fases
 
-- **6.4** — `AddSeccoAuthorization()` (ADR-0021): role→permissions por tenant, cache curto, fail-closed.
 - **6.5** — Login de usuário: authorization code + PKCE + telas (para o AdminPortal, Fase 7).

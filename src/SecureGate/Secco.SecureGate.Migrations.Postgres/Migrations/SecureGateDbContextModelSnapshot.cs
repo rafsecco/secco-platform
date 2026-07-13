@@ -127,10 +127,6 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.HasKey("Id")
                         .HasName("pk_roles");
 
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasDatabaseName("RoleNameIndex");
-
                     b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique()
                         .HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
@@ -424,6 +420,11 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.Property<string>("Requirements")
                         .HasColumnType("text")
                         .HasColumnName("ds_requirements");
+
+                    b.Property<string>("Roles")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ds_roles");
 
                     b.Property<string>("Settings")
                         .HasColumnType("text")
