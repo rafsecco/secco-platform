@@ -3,6 +3,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Scalar.AspNetCore" />
+    <!-- Servidor OIDC (ADR-0022): OpenIddict só é referenciado pelo SecureGate -->
+    <PackageReference Include="OpenIddict.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>

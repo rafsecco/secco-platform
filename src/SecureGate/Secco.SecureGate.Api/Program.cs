@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
+using Secco.SecureGate.Api.Endpoints;
+using Secco.SecureGate.Api.Extensions;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
@@ -21,11 +23,14 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSecureGateApplication();
 builder.Services.AddSecureGateInfrastructure();
 
+// Servidor OIDC (ADR-0022): client credentials + JWKS/discovery
+builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configuration);
+
 var app = builder.Build();
 
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
-// Endpoints OIDC/gestão chegam com as fases 6.2+ (client credentials, catálogo, autorização)
+app.MapTokenEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

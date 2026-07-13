@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
+using Secco.SecureGate.Infrastructure.Seeding;
 
 namespace Secco.SecureGate.Infrastructure;
 
@@ -39,6 +41,10 @@ public static class SecureGateInfrastructureExtensions
             SecureGateDatabaseProviderConfigurator.Configure(
                 options, databaseOptions.Provider, databaseOptions.ConnectionString!);
         });
+
+        // Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
+        services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
+        services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();
 
         return services;
     }

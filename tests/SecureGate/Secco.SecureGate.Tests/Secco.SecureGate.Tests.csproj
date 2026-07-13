@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\SecureGate\Secco.SecureGate.Api\Secco.SecureGate.Api.csproj" />
+    <!-- E2E cross-produto: LogStream valida tokens emitidos pelo SecureGate.
+         Alias: as duas classes Program (top-level) colidem no namespace global. -->
+    <ProjectReference Include="..\..\..\src\LogStream\Secco.LogStream.Api\Secco.LogStream.Api.csproj" Aliases="logstream" />
   </ItemGroup>
 
 </Project>

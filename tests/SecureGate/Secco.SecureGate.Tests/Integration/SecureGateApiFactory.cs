@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.MsSql;
 using Xunit;
 
@@ -18,13 +19,16 @@ public sealed class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyn
     private readonly SemaphoreSlim _migrationLock = new(1, 1);
     private bool _migrated;
 
-    public string GetPlatformConnectionString() =>
+    public string GetPlatformConnectionString() => GetConnectionStringFor("secco_securegate");
+
+    /// <summary>Connection string para um banco adicional no mesmo container (ex.: tenant de outro produto no E2E).</summary>
+    public string GetConnectionStringFor(string databaseName) =>
         new SqlConnectionStringBuilder(_container.GetConnectionString())
         {
-            InitialCatalog = "secco_securegate",
+            InitialCatalog = databaseName,
         }.ConnectionString;
 
-    /// <summary>Aplica as migrations no banco de plataforma uma única vez por factory.</summary>
+    /// <summary>Aplica migrations + seed de referência (scopes) uma única vez por factory.</summary>
     public async Task EnsureDatabaseMigratedAsync()
     {
         await _migrationLock.WaitAsync();
@@ -35,6 +39,11 @@ public sealed class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyn
             {
                 await Secco.SecureGate.Infrastructure.SecureGateInfrastructureExtensions
                     .MigrateSecureGateDatabaseAsync(Services);
+
+                // Seed de referência (scopes de produto); o de DEV não roda em Testing (guarda dupla)
+                await Secco.SDK.EntityFrameworkCore.Seeding.SeccoSeedingExtensions
+                    .SeedSeccoDataAsync(Services);
+
                 _migrated = true;
             }
         }
@@ -42,6 +51,35 @@ public sealed class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyn
         {
             _migrationLock.Release();
         }
+    }
+
+    /// <summary>Registra um client OIDC de teste (client credentials) com os scopes informados.</summary>
+    public async Task CreateClientAsync(string clientId, string clientSecret, params string[] scopes)
+    {
+        using var scope = Services.CreateScope();
+        var applications = scope.ServiceProvider.GetRequiredService<OpenIddict.Abstractions.IOpenIddictApplicationManager>();
+
+        if (await applications.FindByClientIdAsync(clientId) is not null)
+        {
+            return;
+        }
+
+        var descriptor = new OpenIddict.Abstractions.OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            DisplayName = $"Client de teste {clientId}",
+        };
+
+        descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Token);
+        descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.ClientCredentials);
+
+        foreach (var scopeName in scopes)
+        {
+            descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+        }
+
+        await applications.CreateAsync(descriptor);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
