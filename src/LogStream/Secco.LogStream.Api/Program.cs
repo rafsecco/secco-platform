@@ -5,6 +5,7 @@ using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Client.Catalog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // lazy pela Infrastructure a partir do IConfiguration do host
 builder.Services.AddLogStreamApplication();
 builder.Services.AddLogStreamInfrastructure();
+
+// Catálogo de tenants central (Fase 6.3, ADR-0005): com a seção Secco:SecureGate configurada,
+// o catálogo servido pelo SecureGate assume; sem ela (DEV), segue o catálogo por configuração
+builder.Services.AddSecureGateTenantCatalog();
 
 var app = builder.Build();
 

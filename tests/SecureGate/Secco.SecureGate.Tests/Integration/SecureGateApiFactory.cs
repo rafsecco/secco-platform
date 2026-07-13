@@ -12,8 +12,10 @@ namespace Secco.SecureGate.Tests.Integration;
 /// Sobe a API real (ambiente <c>Testing</c> — sem migrations/seed automáticos de DEV)
 /// com um SQL Server real via Testcontainers (ADR-0012) hospedando o banco de
 /// PLATAFORMA <c>secco_securegate</c> (ADR-0022 — identidade não é dado de tenant).
+/// Herdável: <see cref="SelfIssuedAuthSecureGateApiFactory"/> troca a chave HS256 de
+/// testes pela Authority do próprio servidor.
 /// </summary>
-public sealed class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
     private readonly SemaphoreSlim _migrationLock = new(1, 1);

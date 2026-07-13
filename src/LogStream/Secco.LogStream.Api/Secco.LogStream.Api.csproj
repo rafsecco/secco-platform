@@ -12,6 +12,9 @@
          para o MigrationsAssembly selecionado em runtime estar no output -->
     <ProjectReference Include="..\Secco.LogStream.Migrations.SqlServer\Secco.LogStream.Migrations.SqlServer.csproj" />
     <ProjectReference Include="..\Secco.LogStream.Migrations.Postgres\Secco.LogStream.Migrations.Postgres.csproj" />
+    <!-- Catálogo de tenants central via SecureGate (Fase 6.3) — comunicação entre produtos
+         exclusivamente pelo client NSwag (ADR-0006) -->
+    <ProjectReference Include="..\..\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
   </ItemGroup>
 
 </Project>

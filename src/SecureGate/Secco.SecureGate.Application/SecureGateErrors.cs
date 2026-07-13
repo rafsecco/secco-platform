@@ -1,3 +1,4 @@
+using Secco.SecureGate.Domain.Tenants;
 using Secco.SharedKernel.Results;
 
 namespace Secco.SecureGate.Application;
@@ -5,11 +6,65 @@ namespace Secco.SecureGate.Application;
 /// <summary>Erros de negócio do SecureGate (ADR-0004): códigos estáveis <c>SecureGate.*</c>.</summary>
 public static class SecureGateErrors
 {
-    /// <summary>Erros do catálogo de tenants.</summary>
+    /// <summary>Erros do catálogo de tenants (gestão).</summary>
     public static class Tenants
     {
         /// <summary>Tenant não encontrado no catálogo.</summary>
         public static readonly Error NotFound =
             Error.NotFound("SecureGate.Tenant.NotFound", "Tenant não encontrado.");
+
+        /// <summary>Nome do tenant ausente.</summary>
+        public static readonly Error NameRequired =
+            Error.Validation("SecureGate.Tenant.NameRequired", "O nome do tenant é obrigatório.");
+
+        /// <summary>Nome do tenant acima do limite.</summary>
+        public static readonly Error NameTooLong =
+            Error.Validation("SecureGate.Tenant.NameTooLong",
+                $"O nome do tenant excede o limite de {Tenant.NameMaxLength} caracteres.");
+
+        /// <summary>Slug ausente ou fora do formato aceito.</summary>
+        public static readonly Error SlugInvalid =
+            Error.Validation("SecureGate.Tenant.SlugInvalid",
+                $"O slug deve ser kebab-case minúsculo (letras, dígitos e hífens) com até {Tenant.SlugMaxLength} caracteres.");
+
+        /// <summary>Já existe tenant com o slug informado.</summary>
+        public static readonly Error SlugAlreadyExists =
+            Error.Conflict("SecureGate.Tenant.SlugAlreadyExists", "Já existe um tenant com este slug.");
+    }
+
+    /// <summary>Erros de bancos de tenant (gestão).</summary>
+    public static class TenantDatabases
+    {
+        /// <summary>Produto ausente ou fora do formato aceito.</summary>
+        public static readonly Error ProductInvalid =
+            Error.Validation("SecureGate.TenantDatabase.ProductInvalid",
+                $"O produto deve ser kebab-case minúsculo (letras, dígitos e hífens) com até {TenantDatabase.ProductMaxLength} caracteres.");
+
+        /// <summary>Connection string ausente.</summary>
+        public static readonly Error ConnectionStringRequired =
+            Error.Validation("SecureGate.TenantDatabase.ConnectionStringRequired",
+                "A connection string é obrigatória.");
+
+        /// <summary>Connection string acima do limite (o valor nunca entra na mensagem — ADR-0020).</summary>
+        public static readonly Error ConnectionStringTooLong =
+            Error.Validation("SecureGate.TenantDatabase.ConnectionStringTooLong",
+                $"A connection string excede o limite de {TenantDatabase.ConnectionStringMaxLength} caracteres.");
+    }
+
+    /// <summary>Erros do endpoint de catálogo (leitura pelos produtos).</summary>
+    public static class Catalog
+    {
+        /// <summary>Produto da rota fora do formato aceito.</summary>
+        public static readonly Error ProductInvalid =
+            Error.Validation("SecureGate.Catalog.ProductInvalid",
+                "O produto informado na rota é inválido.");
+
+        /// <summary>
+        /// Entrada de catálogo inexistente — mensagem única para tenant desconhecido,
+        /// desativado ou sem banco no produto (não revelar qual caso ocorreu, ADR-0020).
+        /// </summary>
+        public static readonly Error EntryNotFound =
+            Error.NotFound("SecureGate.Catalog.EntryNotFound",
+                "Não há banco cadastrado para este tenant neste produto.");
     }
 }

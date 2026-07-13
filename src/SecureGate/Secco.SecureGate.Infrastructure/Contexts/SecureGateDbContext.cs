@@ -21,6 +21,9 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
     /// <summary>Catálogo de tenants da plataforma (tabela <c>tb_tenants</c>).</summary>
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
+    /// <summary>Bancos por (tenant, produto) do catálogo (tabela <c>tb_tenant_databases</c>).</summary>
+    public DbSet<TenantDatabase> TenantDatabases => Set<TenantDatabase>();
+
     /// <inheritdoc />
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -68,5 +71,17 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
 
         builder.Entity<Tenant>(tenant =>
             tenant.HasIndex(t => t.Slug).IsUnique());
+
+        builder.Entity<TenantDatabase>(database =>
+        {
+            database.Property(d => d.Product).HasMaxLength(TenantDatabase.ProductMaxLength);
+            database.Property(d => d.ConnectionString).HasMaxLength(TenantDatabase.ConnectionStringMaxLength);
+
+            // Um banco por (tenant, produto) — o par é a identidade natural do catálogo
+            database.HasIndex(d => new { d.TenantId, d.Product }).IsUnique();
+
+            // Cascade: o banco é dado intrínseco do tenant (diferente de users/roles, Restrict)
+            database.HasOne<Tenant>().WithMany().HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }

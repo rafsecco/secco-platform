@@ -4,18 +4,21 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 
 /// <summary>
 /// Implementação padrão do <see cref="ITenantCatalog"/> sobre <c>IConfiguration</c>:
-/// funciona com appsettings, variáveis de ambiente, Key Vault etc. Formato esperado:
+/// funciona com appsettings, variáveis de ambiente, Key Vault etc. Pública por design —
+/// catálogos remotos (ex.: <c>Secco.SecureGate.Client</c>) a usam como fallback quando a
+/// conexão com o catálogo central não está configurada no ambiente. Formato esperado:
 /// <code>
 /// "Secco": { "Tenancy": { "Tenants": {
 ///     "&lt;guid-do-tenant&gt;": { "ConnectionString": "..." }
 /// } } }
 /// </code>
 /// </summary>
-internal sealed class ConfigurationTenantCatalog(IConfiguration configuration) : ITenantCatalog
+public sealed class ConfigurationTenantCatalog(IConfiguration configuration) : ITenantCatalog
 {
     /// <summary>Chave da seção de configuração onde os tenants são declarados.</summary>
     internal const string TenantsSectionKey = "Secco:Tenancy:Tenants";
 
+    /// <inheritdoc />
     public ValueTask<TenantInfo?> FindAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var connectionString = configuration[$"{TenantsSectionKey}:{tenantId}:ConnectionString"];
@@ -25,6 +28,7 @@ internal sealed class ConfigurationTenantCatalog(IConfiguration configuration) :
             : new TenantInfo(tenantId, connectionString));
     }
 
+    /// <inheritdoc />
     public ValueTask<IReadOnlyList<TenantInfo>> ListAsync(CancellationToken cancellationToken = default)
     {
         var tenants = new List<TenantInfo>();

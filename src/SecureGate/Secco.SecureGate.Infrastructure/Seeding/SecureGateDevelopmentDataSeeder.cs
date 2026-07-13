@@ -48,6 +48,9 @@ public sealed class SecureGateDevelopmentDataSeeder(
                     Permissions.GrantTypes.ClientCredentials,
                     Permissions.Prefixes.Scope + "logstream",
                     Permissions.Prefixes.Scope + "securegate",
+                    // Fase 6.3 — console de DEV também exercita catálogo e gestão localmente
+                    Permissions.Prefixes.Scope + Application.SecureGateScopes.CatalogFor("logstream"),
+                    Permissions.Prefixes.Scope + Application.SecureGateScopes.Admin,
                 },
             }, cancellationToken).ConfigureAwait(false);
         }

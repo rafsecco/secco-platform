@@ -48,9 +48,14 @@ jobs:
             logstream:
               - 'src/LogStream/**'
               - 'tests/LogStream/**'
+              # O LogStream consome o catálogo remoto via Secco.SecureGate.Client (Fase 6.3)
+              - 'src/SecureGate/Secco.SecureGate.Client/**'
+              - 'src/SecureGate/Secco.SecureGate.Api/openapi/**'
             securegate:
               - 'src/SecureGate/**'
               - 'tests/SecureGate/**'
+              # Os testes E2E cross-produto do SecureGate embarcam o LogStream.Api real
+              - 'src/LogStream/**'
             templates:
               - 'templates/**'
 

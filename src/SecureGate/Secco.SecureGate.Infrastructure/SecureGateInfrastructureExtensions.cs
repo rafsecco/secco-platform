@@ -42,6 +42,9 @@ public static class SecureGateInfrastructureExtensions
                 options, databaseOptions.Provider, databaseOptions.ConnectionString!);
         });
 
+        // Catálogo de tenants (Fase 6.3)
+        services.AddScoped<Application.Tenants.ITenantRepository, Tenants.TenantRepository>();
+
         // Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
         services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
         services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();

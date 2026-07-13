@@ -6,6 +6,7 @@ name: Publish NuGet
 #   sdk/v0.1.0            → Secco.SDK.AspNetCore 0.1.0
 #   sdk-efcore/v0.1.0     → Secco.SDK.EntityFrameworkCore 0.1.0
 #   logstream-client/v0.1.0 → Secco.LogStream.Client 0.1.0
+#   securegate-client/v0.1.0 → Secco.SecureGate.Client 0.1.0
 
 on:
   push:
@@ -14,6 +15,7 @@ on:
       - "sdk/v*"
       - "sdk-efcore/v*"
       - "logstream-client/v*"
+      - "securegate-client/v*"
       - "templates/v*"
 
 permissions:
@@ -38,6 +40,7 @@ jobs:
             sdk/v*)          echo "project=src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-efcore/v*)   echo "project=src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" >> "$GITHUB_OUTPUT" ;;
             logstream-client/v*) echo "project=src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" >> "$GITHUB_OUTPUT" ;;
+            securegate-client/v*) echo "project=src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             templates/v*)    echo "project=templates/Secco.Templates.csproj" >> "$GITHUB_OUTPUT" ;;
             *) echo "Tag ${GITHUB_REF_NAME} sem mapeamento de pacote" >&2; exit 1 ;;
           esac

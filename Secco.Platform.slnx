@@ -16,6 +16,7 @@
   <Folder Name="/src/SecureGate/">
     <Project Path="src/SecureGate/Secco.SecureGate.Api/Secco.SecureGate.Api.csproj" />
     <Project Path="src/SecureGate/Secco.SecureGate.Application/Secco.SecureGate.Application.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj" />
     <Project Path="src/SecureGate/Secco.SecureGate.Domain/Secco.SecureGate.Domain.csproj" />
     <Project Path="src/SecureGate/Secco.SecureGate.Infrastructure/Secco.SecureGate.Infrastructure.csproj" />
     <Project Path="src/SecureGate/Secco.SecureGate.Migrations.Postgres/Secco.SecureGate.Migrations.Postgres.csproj" />

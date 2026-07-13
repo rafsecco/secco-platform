@@ -10,6 +10,12 @@ namespace Secco.SecureGate.Domain.Tenants;
 /// </summary>
 public sealed class Tenant : BaseEntity
 {
+    /// <summary>Tamanho máximo aceito para o nome de exibição.</summary>
+    public const int NameMaxLength = 200;
+
+    /// <summary>Tamanho máximo aceito para o slug.</summary>
+    public const int SlugMaxLength = 50;
+
     private Tenant()
     {
         // Construtor de rehidratação do EF Core

@@ -57,6 +57,47 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                     b.ToTable("tb_tenants");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantDatabase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_tenant_database");
+
+                    b.Property<string>("ConnectionString")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("ds_connection_string");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("ds_product");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenant_databases");
+
+                    b.HasIndex("TenantId", "Product")
+                        .IsUnique()
+                        .HasDatabaseName("uk_tenant_databases_id_fk_tenant_ds_product");
+
+                    b.ToTable("tb_tenant_databases");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -584,6 +625,16 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .HasDatabaseName("idx_oidc_tokens_id_fk_application_ds_status_ds_subject_ds_type");
 
                     b.ToTable("tb_oidc_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantDatabase", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_databases_tenant");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>

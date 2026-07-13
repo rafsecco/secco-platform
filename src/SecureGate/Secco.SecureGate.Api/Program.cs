@@ -31,6 +31,8 @@ var app = builder.Build();
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
 app.MapTokenEndpoints();
+app.MapTenantEndpoints();
+app.MapCatalogEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

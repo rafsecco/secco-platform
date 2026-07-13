@@ -10,4 +10,10 @@ internal static partial class TenancyLog
         Level = LogLevel.Warning,
         Message = "Requisição rejeitada: o header X-Tenant-Id diverge da claim tenant_id do token — possível tentativa de acesso cross-tenant.")]
     public static partial void TenantConflict(ILogger logger);
+
+    [LoggerMessage(
+        EventId = 2,
+        Level = LogLevel.Error,
+        Message = "Catálogo de tenants indisponível — requisição respondida com 503 + Retry-After.")]
+    public static partial void CatalogUnavailable(ILogger logger, Exception exception);
 }

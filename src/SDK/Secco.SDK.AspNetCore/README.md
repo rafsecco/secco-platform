@@ -59,6 +59,10 @@ Catálogo padrão via configuração (substituível registrando outro `ITenantCa
 
 Regras de confiança (ADR-0020): claim assinada vence sempre; header `X-Tenant-Id` só é considerado sem claim e se for `Guid` válido; claim e header divergentes → 400 (possível tentativa cross-tenant, logada como warning); claim presente porém inválida **não** cai para o header. O middleware não bloqueia requisições sem tenant (health checks funcionam) — a barreira é o `ITenantConnectionFactory`, que lança `TenantNotResolvedException` sem tenant resolvido.
 
+As exceções de tenancy viram ProblemDetails no pipeline (`UseSeccoTenancy()` inclui o middleware de tradução): `TenantNotResolvedException` e `TenantNotFoundException` → **400** (sem ecoar o identificador recebido); `TenantCatalogUnavailableException` → **503 + Retry-After** (condição transitória — o retry da plataforma se recupera sozinho). Qualquer outra exceção segue intocada — não é um exception handler global.
+
+Fora de DEV, o catálogo por configuração dá lugar ao catálogo central servido pelo **SecureGate**: o pacote `Secco.SecureGate.Client` traz `AddSecureGateTenantCatalog()` (seção `Secco:SecureGate`), com cache por TTL e stale em falha — ver o README do SecureGate.
+
 ## Autenticação (ADR-0007)
 
 Configuração pela seção `Secco:Authentication`, validada no startup — fail-fast (ADR-0020):

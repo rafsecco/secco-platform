@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\SecureGate\Secco.SecureGate.Api\Secco.SecureGate.Api.csproj" />
+    <!-- Catálogo remoto (Fase 6.3): testes do SecureGateTenantCatalog e do fluxo E2E -->
+    <ProjectReference Include="..\..\..\src\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
     <!-- E2E cross-produto: LogStream valida tokens emitidos pelo SecureGate.
          Alias: as duas classes Program (top-level) colidem no namespace global. -->
     <ProjectReference Include="..\..\..\src\LogStream\Secco.LogStream.Api\Secco.LogStream.Api.csproj" Aliases="logstream" />

@@ -14,6 +14,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ITenantCatalog/TenantInfo vivem no SDK (ADR-0005) — o pacote entrega a
+         implementação remota pronta para os produtos (Fase 6.3) -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <OpenApiReference Include="..\Secco.SecureGate.Api\openapi\openapi.json"
                       CodeGenerator="NSwagCSharp"
                       Namespace="Secco.SecureGate.Client"

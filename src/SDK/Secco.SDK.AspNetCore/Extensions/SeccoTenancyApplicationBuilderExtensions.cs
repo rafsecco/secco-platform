@@ -7,9 +7,10 @@ namespace Secco.SDK.AspNetCore.Extensions;
 public static class SeccoTenancyApplicationBuilderExtensions
 {
     /// <summary>
-    /// Adiciona o <see cref="SeccoTenancyMiddleware"/> ao pipeline. Deve vir <b>após</b>
-    /// <c>UseAuthentication()</c> (a claim <c>tenant_id</c> é a fonte primária) e antes
-    /// de qualquer middleware/endpoint que acesse dados de tenant.
+    /// Adiciona o <see cref="SeccoTenancyExceptionMiddleware"/> (exceções de tenancy →
+    /// ProblemDetails 400/503) e o <see cref="SeccoTenancyMiddleware"/> ao pipeline.
+    /// Deve vir <b>após</b> <c>UseAuthentication()</c> (a claim <c>tenant_id</c> é a fonte
+    /// primária) e antes de qualquer middleware/endpoint que acesse dados de tenant.
     /// Requer <c>AddSeccoTenancy()</c> registrado no DI.
     /// </summary>
     /// <param name="app">Pipeline de middlewares da aplicação.</param>
@@ -17,6 +18,8 @@ public static class SeccoTenancyApplicationBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        return app.UseMiddleware<SeccoTenancyMiddleware>();
+        return app
+            .UseMiddleware<SeccoTenancyExceptionMiddleware>()
+            .UseMiddleware<SeccoTenancyMiddleware>();
     }
 }
