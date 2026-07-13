@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-09 (ADR-0007 detalhada, ADR-0021 adicionada)
+**Última atualização:** 2026-07-13 (ADR-0022 adicionada)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -571,6 +571,27 @@ Essa análise é parte do design, não uma revisão posterior: ao propor uma dec
 - SecureGate ganha responsabilidade de servir consultas de permissão em alta frequência (mitigada pelo cache) — reforça a exigência de SLA/HA já registrada na ADR-0007.
 - Cache introduz uma janela (o TTL) onde uma permissão revogada ainda pode estar em vigor — aceito conscientemente; TTL deve ser calibrado por sensibilidade da operação (ex.: TTL menor para permissões financeiras).
 - Nenhum produto implementa checagem de permissão própria; tudo passa por `AddSeccoAuthorization()`.
+
+---
+
+## ADR-0022: Secco.SecureGate — OpenIddict e identidade como dado de plataforma
+
+**Status:** Aceita
+**Data:** 2026-07-13
+
+### Contexto
+O SecureGate é o único emissor de tokens da plataforma (ADR-0007) — o componente que protege todos os outros. Três forças: (1) implementar OIDC/OAuth2 manualmente é terreno clássico de vulnerabilidade (rotação de chaves, PKCE, replay — ADR-0020 manda não reinventar criptografia); (2) o Duende IdentityServer tem licença comercial para produção — a mesma armadilha já rejeitada duas vezes (FluentAssertions v8, MassTransit v9), incompatível com adotantes self-hosted; (3) é preciso decidir onde vivem usuários/credenciais num mundo database-per-tenant (ADR-0005).
+
+### Decisão
+- **OpenIddict** (Apache 2.0, manutenção ativa) como base do OIDC provider, integrado a **ASP.NET Core Identity** (cujo padrão Role+Permission a ADR-0021 já adota) sobre EF Core.
+- **Identidade é dado de plataforma, não dado de negócio de tenant**: um banco próprio do SecureGate (`secco_securegate`) contém usuários (com `tenant_id`), roles e permissões **por tenant** (ADR-0021), clients OIDC e o catálogo de tenants (ADR-0005). Nenhum produto acessa esse banco — o consumo é exclusivamente via tokens e `Secco.SecureGate.Client` (ADR-0006).
+- **Sequência de entrega**: client credentials + JWKS/discovery primeiro (produtos validam contra Authority real, aposentando a chave HS256 de desenvolvimento); authorization code + PKCE e telas de login entram na sequência, a tempo do AdminPortal (Fase 7), seu primeiro consumidor.
+
+### Consequências
+- Nenhum custo de licença repassado a adotantes; flows auditados pela comunidade em vez de implementados à mão.
+- Login resolve o tenant do usuário sem descoberta ambígua (o registro do usuário carrega o tenant).
+- O banco do SecureGate vira o dado mais sensível da plataforma: backup, LGPD e HA tratados como plataforma (reforça o SLA superior da ADR-0007).
+- Acoplamento ao OpenIddict fica confinado ao SecureGate — os produtos só conhecem JWT/JWKS padrão.
 
 ---
 

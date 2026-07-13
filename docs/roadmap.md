@@ -60,8 +60,16 @@
 - [x] Camadas, SDK plugado, OpenAPI + Scalar, client NSwag, migrations por engine, testes (unit + Testcontainers + contrato), Dockerfile/compose — com recurso **Sample** completo como referência executável (apagável); pacote `Secco.Templates` (tag `templates/v*`); job `validate-template` no CI instancia + gera migrations + builda + testa o produto gerado quando template OU plataforma mudam (ADR-0013: divergência é bug)
 
 ## Fase 6 — Secco.SecureGate
-- [ ] Nasce do template (prova real do padrão)
-- [ ] OIDC provider, JWT, client credentials, catálogo de tenants
+
+> Arquitetura na ADR-0022: OpenIddict + ASP.NET Identity, identidade como dado de plataforma
+> (banco próprio `secco_securegate` com usuários/roles/permissions por tenant, clients OIDC e
+> catálogo de tenants); client credentials primeiro.
+
+- [ ] 6.1 Nasce do template (prova real do padrão) + banco de plataforma: Identity + OpenIddict + migrations (users com `tenant_id`, roles/permissions por tenant — ADR-0021, clients OIDC, catálogo de tenants)
+- [ ] 6.2 Client credentials + JWKS/discovery: produtos validam contra Authority real (LogStream E2E com token emitido pelo SecureGate; HS256 segue apenas para DEV local)
+- [ ] 6.3 Catálogo de tenants servido pelo SecureGate: API + `Secco.SecureGate.Client` (NSwag) + implementação de `ITenantCatalog` consumível pelos produtos (substitui o catálogo por configuração fora de DEV)
+- [ ] 6.4 `AddSeccoAuthorization()` (ADR-0021): endpoint role→permissions por tenant, cache `(tenant_id, role)` com TTL curto, fail-closed no SDK, policies por constantes de permissão
+- [ ] 6.5 Login de usuário: authorization code + PKCE + telas (a tempo do AdminPortal, Fase 7)
 
 ## Fase 7 — Secco.AdminPortal
 - [ ] Consome os clients de todos os produtos
