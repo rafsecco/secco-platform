@@ -580,18 +580,29 @@ Essa análise é parte do design, não uma revisão posterior: ao propor uma dec
 **Data:** 2026-07-13
 
 ### Contexto
-O SecureGate é o único emissor de tokens da plataforma (ADR-0007) — o componente que protege todos os outros. Três forças: (1) implementar OIDC/OAuth2 manualmente é terreno clássico de vulnerabilidade (rotação de chaves, PKCE, replay — ADR-0020 manda não reinventar criptografia); (2) o Duende IdentityServer tem licença comercial para produção — a mesma armadilha já rejeitada duas vezes (FluentAssertions v8, MassTransit v9), incompatível com adotantes self-hosted; (3) é preciso decidir onde vivem usuários/credenciais num mundo database-per-tenant (ADR-0005).
+`Secco.SecureGate` é o único emissor de tokens da plataforma (ADR-0007) e precisa implementar um servidor OIDC completo: fluxos de autorização (authorization code + PKCE, client credentials), emissão e assinatura de tokens, endpoint de descoberta, rotação de chaves via JWKS, revogação e introspecção. Implementar esse protocolo manualmente é exatamente o risco que a ADR-0020 manda evitar — é criptografia aplicada, com margem estreita para erro grave (validação de `nonce`, PKCE, gestão de chaves). Além da biblioteca, é preciso decidir onde vivem usuários e credenciais num mundo database-per-tenant (ADR-0005).
+
+Alternativas avaliadas para a base OIDC:
+- **Escrever na mão** sobre ASP.NET Core Identity puro — descartado por ADR-0020 (reimplementar protocolo criptográfico).
+- **Duende IdentityServer** (sucessor comercial do IdentityServer4) — licenciamento pago escalando por receita; mesmo padrão de armadilha já registrado para FluentAssertions v8+ (ADR-0012) e MassTransit v9 (ADR-0015).
+- **IdentityServer4** — end-of-life, sem patches de segurança desde 2022; descartado por risco ativo.
+- **IdP externo hospedado** (Keycloak self-hosted, Auth0/Entra ID como IdP único) — contradiz a ADR-0007 (SecureGate como único emissor); Keycloak introduz stack Java estranha ao ecossistema; SaaS externo cria dependência de vendor incompatível com adotantes self-hosted (mesmo motivo que descartou opções cloud-native na ADR-0015).
+- **OpenIddict** — OSS sem tiers pagos (Apache 2.0), manutenção ativa, integração nativa com EF Core e ASP.NET Core Identity (`UserManager`/`RoleManager`), que é o mesmo modelo já adotado pela ADR-0021 para Role + Permission.
 
 ### Decisão
-- **OpenIddict** (Apache 2.0, manutenção ativa) como base do OIDC provider, integrado a **ASP.NET Core Identity** (cujo padrão Role+Permission a ADR-0021 já adota) sobre EF Core.
+- `Secco.SecureGate` usa **OpenIddict** como base do servidor OIDC, integrado a **ASP.NET Core Identity** (`IdentityRole`, `IdentityUserClaim`) — o mesmo modelo da ADR-0021, sem reconciliar dois sistemas de identidade distintos.
+- OpenIddict é um **framework, não um produto pronto**: a tela de login, o fluxo de consentimento, o modelo de tenant e as regras de negócio são responsabilidade do SecureGate, construídos sobre ele — a ADR não encerra o trabalho de autenticação, apenas evita reimplementar o núcleo criptográfico do protocolo.
 - **Identidade é dado de plataforma, não dado de negócio de tenant**: um banco próprio do SecureGate (`secco_securegate`) contém usuários (com `tenant_id`), roles e permissões **por tenant** (ADR-0021), clients OIDC e o catálogo de tenants (ADR-0005). Nenhum produto acessa esse banco — o consumo é exclusivamente via tokens e `Secco.SecureGate.Client` (ADR-0006).
+- **Isolamento de dependência:** OpenIddict só é referenciado pelo `Secco.SecureGate`. As demais APIs seguem validando JWT via `AddSeccoAuthentication()` do SDK (`JwtBearer` padrão, lendo JWKS do SecureGate) — nenhum outro produto depende do OpenIddict, direta ou indiretamente.
+- Claims emitidos seguem a convenção curta já fixada na ADR-0007 (`sub`, `role`, `tenant_id`, `scope`).
 - **Sequência de entrega**: client credentials + JWKS/discovery primeiro (produtos validam contra Authority real, aposentando a chave HS256 de desenvolvimento); authorization code + PKCE e telas de login entram na sequência, a tempo do AdminPortal (Fase 7), seu primeiro consumidor.
 
 ### Consequências
-- Nenhum custo de licença repassado a adotantes; flows auditados pela comunidade em vez de implementados à mão.
+- Evita reimplementar protocolo criptográfico (ADR-0020) e a armadilha de licenciamento comercial já observada em outras dependências; nenhum custo de licença repassado a adotantes.
+- SecureGate herda a obrigação de configurar corretamente PKCE, rotação de chaves e expiração de token — responsabilidade real de implementação, não eliminada pela escolha da biblioteca.
 - Login resolve o tenant do usuário sem descoberta ambígua (o registro do usuário carrega o tenant).
 - O banco do SecureGate vira o dado mais sensível da plataforma: backup, LGPD e HA tratados como plataforma (reforça o SLA superior da ADR-0007).
-- Acoplamento ao OpenIddict fica confinado ao SecureGate — os produtos só conhecem JWT/JWKS padrão.
+- Acoplamento a uma biblioteca .NET específica para emissão; migração futura exigiria nova ADR, mas o isolamento (só o SecureGate a referencia) limita o raio de impacto — os demais produtos só falam OIDC/JWT padrão.
 
 ---
 
