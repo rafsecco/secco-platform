@@ -65,7 +65,7 @@
 > (banco próprio `secco_securegate` com usuários/roles/permissions por tenant, clients OIDC e
 > catálogo de tenants); client credentials primeiro.
 
-- [ ] 6.1 Nasce do template (prova real do padrão) + banco de plataforma: Identity + OpenIddict + migrations (users com `tenant_id`, roles/permissions por tenant — ADR-0021, clients OIDC, catálogo de tenants)
+- [x] 6.1 Nasceu do template (prova real do padrão — inclusive achou e corrigiu um bug do template: descoberta do snapshot pós-mudança dos testes) + banco de plataforma `secco_securegate`: Identity + OpenIddict (entidades próprias com nomes curtos e chave Guid) + migrations nos 2 engines com **ADR-0017 completa** (`tb_users`, `id_pk_user`, `fl_email_confirmed`, `id_pfk_*` na associativa, `tb_oidc_*` — provado por testes de schema), `Tenant` do catálogo com FKs de users/roles, role único por tenant (ADR-0021); Client NSwag fora da solution até o 1º contrato (6.3)
 - [ ] 6.2 Client credentials + JWKS/discovery: produtos validam contra Authority real (LogStream E2E com token emitido pelo SecureGate; HS256 segue apenas para DEV local)
 - [ ] 6.3 Catálogo de tenants servido pelo SecureGate: API + `Secco.SecureGate.Client` (NSwag) + implementação de `ITenantCatalog` consumível pelos produtos (substitui o catálogo por configuração fora de DEV)
 - [ ] 6.4 `AddSeccoAuthorization()` (ADR-0021): endpoint role→permissions por tenant, cache `(tenant_id, role)` com TTL curto, fail-closed no SDK, policies por constantes de permissão

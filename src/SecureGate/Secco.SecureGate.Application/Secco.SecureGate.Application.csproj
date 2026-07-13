@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Application (ADR-0002): casos de uso e portas; retorna Result<T>.
+       Única dependência externa: abstrações de DI (puras, sem I/O). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.SecureGate.Domain\Secco.SecureGate.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

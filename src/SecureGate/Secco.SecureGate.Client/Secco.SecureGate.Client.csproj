@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Client NSwag (ADR-0006): GERADO no build a partir do openapi.json versionado —
+       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração. -->
+  <PropertyGroup>
+    <!-- Código gerado: sem enforcement de estilo/docs -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="NSwag.ApiDescription.Client" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <OpenApiReference Include="..\Secco.SecureGate.Api\openapi\openapi.json"
+                      CodeGenerator="NSwagCSharp"
+                      Namespace="Secco.SecureGate.Client"
+                      ClassName="SecureGateClient">
+      <Options>/JsonLibrary:SystemTextJson /GenerateClientInterfaces:true /UseBaseUrl:false /GenerateBaseUrlProperty:false</Options>
+    </OpenApiReference>
+  </ItemGroup>
+
+</Project>

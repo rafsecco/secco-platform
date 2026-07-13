@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.SecureGate.Application\Secco.SecureGate.Application.csproj" />
+    <ProjectReference Include="..\Secco.SecureGate.Infrastructure\Secco.SecureGate.Infrastructure.csproj" />
+    <!-- Assemblies de migrations por engine (ADR-0018): a raiz de composição os carrega -->
+    <ProjectReference Include="..\Secco.SecureGate.Migrations.SqlServer\Secco.SecureGate.Migrations.SqlServer.csproj" />
+    <ProjectReference Include="..\Secco.SecureGate.Migrations.Postgres\Secco.SecureGate.Migrations.Postgres.csproj" />
+  </ItemGroup>
+
+</Project>

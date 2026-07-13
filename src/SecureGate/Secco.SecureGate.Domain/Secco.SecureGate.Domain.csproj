@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain (ADR-0002): apenas SharedKernel — zero infraestrutura. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

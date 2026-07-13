@@ -2,7 +2,7 @@ using System.Net;
 using FluentAssertions;
 using Xunit;
 
-namespace Secco.SampleService.Tests.Integration;
+namespace Secco.SecureGate.Tests.Integration;
 
 /// <summary>
 /// Teste de contrato (ADR-0006/0012): o openapi.json versionado É o contrato.
@@ -10,12 +10,12 @@ namespace Secco.SampleService.Tests.Integration;
 /// Para atualizar o snapshot intencionalmente: rodar com SECCO_UPDATE_OPENAPI=true e
 /// commitar o diff junto do client regenerado, no mesmo PR.
 /// </summary>
-public class OpenApiContractTests(SampleServiceApiFactory factory) : IClassFixture<SampleServiceApiFactory>
+public class OpenApiContractTests(SecureGateApiFactory factory) : IClassFixture<SecureGateApiFactory>
 {
     private const string UpdateSnapshotVariable = "SECCO_UPDATE_OPENAPI";
 
     private static readonly string SnapshotPath = Path.Combine(
-        FindProjectRoot(), "Secco.SampleService.Api", "openapi", "openapi.json");
+        FindProjectRoot(), "Secco.SecureGate.Api", "openapi", "openapi.json");
 
     [Fact]
     public async Task OpenApiDocument_Always_IsExposedByTheApi()
@@ -62,14 +62,14 @@ public class OpenApiContractTests(SampleServiceApiFactory factory) : IClassFixtu
 
         while (directory is not null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, "Secco.SampleService.Api")))
+            if (Directory.Exists(Path.Combine(directory.FullName, "Secco.SecureGate.Api")))
             {
                 return directory.FullName;
             }
 
             if (File.Exists(Path.Combine(directory.FullName, "Secco.Platform.slnx")))
             {
-                return Directory.GetDirectories(directory.FullName, "Secco.SampleService.Api", SearchOption.AllDirectories)
+                return Directory.GetDirectories(directory.FullName, "Secco.SecureGate.Api", SearchOption.AllDirectories)
                     .Select(Path.GetDirectoryName)
                     .First(parent => parent is not null)!;
             }
@@ -77,6 +77,6 @@ public class OpenApiContractTests(SampleServiceApiFactory factory) : IClassFixtu
             directory = directory.Parent;
         }
 
-        throw new InvalidOperationException("Raiz do produto (Secco.SampleService.Api) não encontrada.");
+        throw new InvalidOperationException("Raiz do produto (Secco.SecureGate.Api) não encontrada.");
     }
 }

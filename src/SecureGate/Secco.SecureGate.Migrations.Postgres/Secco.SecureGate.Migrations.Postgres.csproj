@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Migrations do provider PostgreSQL (ADR-0018: assemblies separados por engine).
+       Gerar a primeira migration após instanciar o template:
+       dotnet ef migrations add Initial (ver README do produto) -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.SecureGate.Infrastructure\Secco.SecureGate.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

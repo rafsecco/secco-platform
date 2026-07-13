@@ -13,6 +13,14 @@
     <Project Path="src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" />
     <Project Path="src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/SecureGate/">
+    <Project Path="src/SecureGate/Secco.SecureGate.Api/Secco.SecureGate.Api.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Application/Secco.SecureGate.Application.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Domain/Secco.SecureGate.Domain.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Infrastructure/Secco.SecureGate.Infrastructure.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Migrations.Postgres/Secco.SecureGate.Migrations.Postgres.csproj" />
+    <Project Path="src/SecureGate/Secco.SecureGate.Migrations.SqlServer/Secco.SecureGate.Migrations.SqlServer.csproj" />
+  </Folder>
   <Folder Name="/src/SharedKernel/">
     <Project Path="src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" />
   </Folder>
@@ -23,6 +31,9 @@
   <Folder Name="/tests/SDK/">
     <Project Path="tests/SDK/Secco.SDK.AspNetCore.Tests/Secco.SDK.AspNetCore.Tests.csproj" />
     <Project Path="tests/SDK/Secco.SDK.EntityFrameworkCore.Tests/Secco.SDK.EntityFrameworkCore.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/SecureGate/">
+    <Project Path="tests/SecureGate/Secco.SecureGate.Tests/Secco.SecureGate.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/SharedKernel/">
     <Project Path="tests/SharedKernel/Secco.SharedKernel.Tests/Secco.SharedKernel.Tests.csproj" />

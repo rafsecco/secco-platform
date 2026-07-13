@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Infrastructure (ADR-0002): EF Core + implementações de portas.
+       Dois providers suportados (ADR-0018): SQL Server (padrão) e PostgreSQL;
+       migrations vivem em assemblies próprios por engine. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- Identidade e OIDC (ADR-0022): OpenIddict só é referenciado pelo SecureGate -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.SecureGate.Application\Secco.SecureGate.Application.csproj" />
+    <ProjectReference Include="..\..\SDK\Secco.SDK.EntityFrameworkCore\Secco.SDK.EntityFrameworkCore.csproj" />
+    <!-- Tenancy (ITenantConnectionFactory/ITenantCatalog) vive no SDK.AspNetCore (ADR-0004/0005) -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+  </ItemGroup>
+
+</Project>

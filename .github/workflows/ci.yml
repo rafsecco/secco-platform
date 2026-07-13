@@ -22,6 +22,7 @@ jobs:
     outputs:
       platform: ${{ steps.filter.outputs.platform }}
       logstream: ${{ steps.filter.outputs.logstream }}
+      securegate: ${{ steps.filter.outputs.securegate }}
       templates: ${{ steps.filter.outputs.templates }}
     steps:
       - name: Checkout
@@ -47,6 +48,9 @@ jobs:
             logstream:
               - 'src/LogStream/**'
               - 'tests/LogStream/**'
+            securegate:
+              - 'src/SecureGate/**'
+              - 'tests/SecureGate/**'
             templates:
               - 'templates/**'
 
@@ -95,6 +99,25 @@ jobs:
 
       - name: Test LogStream
         run: dotnet test tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj --configuration Release --verbosity normal
+
+  build-securegate:
+    # Só o SecureGate mudou: builda apenas o produto (a cadeia kernel/SDK entra por referência)
+    needs: changes
+    if: needs.changes.outputs.platform != 'true' && needs.changes.outputs.securegate == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test SecureGate
+        run: dotnet test tests/SecureGate/Secco.SecureGate.Tests/Secco.SecureGate.Tests.csproj --configuration Release --verbosity normal
 
   validate-template:
     # ADR-0013: divergência entre template e ADRs é bug — instancia, builda e testa o

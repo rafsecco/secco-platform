@@ -1,0 +1,72 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore.Conventions;
+using Secco.SecureGate.Domain.Tenants;
+using Secco.SecureGate.Infrastructure.Identity;
+using Secco.SecureGate.Infrastructure.OpenIddict;
+
+namespace Secco.SecureGate.Infrastructure.Contexts;
+
+/// <summary>
+/// Contexto do banco de PLATAFORMA do SecureGate (<c>secco_securegate</c>, ADR-0022) —
+/// identidade não é dado de tenant: usuários, roles/permissões por tenant, clients OIDC
+/// e o catálogo de tenants vivem aqui, e nenhum outro produto acessa este banco.
+/// Herda de <c>IdentityDbContext</c> (exigência do ASP.NET Identity); a
+/// <see cref="SeccoNamingConvention"/> é registrada pelo caminho público do SDK —
+/// exatamente o cenário para o qual ela foi mantida pública.
+/// </summary>
+public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> options)
+    : IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options)
+{
+    /// <summary>Catálogo de tenants da plataforma (tabela <c>tb_tenants</c>).</summary>
+    public DbSet<Tenant> Tenants => Set<Tenant>();
+
+    /// <inheritdoc />
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        // ADR-0017 nas colunas: automática (Identity/OpenIddict não fixam nomes de coluna)
+        configurationBuilder.Conventions.Add(_ => new SeccoNamingConvention());
+    }
+
+    /// <inheritdoc />
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        // ADR-0017 nas TABELAS: Identity/OpenIddict as nomeiam explicitamente (AspNetUsers,
+        // OpenIddictApplications...) e configuração explícita vence a convention — re-nomeamos.
+        builder.Entity<User>(user =>
+        {
+            user.ToTable("tb_users");
+            user.HasIndex(u => u.NormalizedUserName).IsUnique().HasDatabaseName("uk_users_ds_normalized_user_name");
+            user.HasIndex(u => u.NormalizedEmail).HasDatabaseName("idx_users_ds_normalized_email");
+            user.HasIndex(u => u.TenantId).HasDatabaseName("idx_users_id_fk_tenant");
+            user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<Role>(role =>
+        {
+            role.ToTable("tb_roles");
+            // Nome de role é único POR TENANT (ADR-0021), não globalmente
+            role.HasIndex(r => new { r.TenantId, r.NormalizedName }).IsUnique()
+                .HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
+            role.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UserClaim>().ToTable("tb_user_claims");
+        builder.Entity<UserRole>().ToTable("tb_user_roles");
+        builder.Entity<UserLogin>().ToTable("tb_user_logins");
+        builder.Entity<RoleClaim>().ToTable("tb_role_claims");
+        builder.Entity<UserToken>().ToTable("tb_user_tokens");
+
+        builder.Entity<OidcApplication>().ToTable("tb_oidc_applications");
+        builder.Entity<OidcAuthorization>().ToTable("tb_oidc_authorizations");
+        builder.Entity<OidcScope>().ToTable("tb_oidc_scopes");
+        builder.Entity<OidcToken>().ToTable("tb_oidc_tokens");
+
+        builder.Entity<Tenant>(tenant =>
+            tenant.HasIndex(t => t.Slug).IsUnique());
+    }
+}
