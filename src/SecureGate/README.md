@@ -96,6 +96,6 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 
 `tests/SecureGate/Secco.SecureGate.Tests` — Testcontainers (ADR-0012): schema ADR-0017 provado por INFORMATION_SCHEMA, fluxo client credentials/JWKS, gestão e catálogo com autorização por scope, cache TTL/stale do client, gestão de roles/usuários, os E2E cross-produto (o LogStream valida token do SecureGate **e resolve tenant pelo catálogo remoto sem nenhum tenant em configuração**, inclusive migrations via `ListAsync`) e o **E2E de login**: authorization code + PKCE ponta a ponta pelo fluxo real do navegador (desafio → login antiforgery → code → troca com `code_verifier` → userinfo → refresh).
 
-## Próximas fases
+## Operador de plataforma (ADR-0023/0024)
 
-- **Fase 7 — `Secco.AdminPortal`**: consome os clients de todos os produtos (gestão de tenants, logs, identidade).
+O [`Secco.AdminPortal`](../AdminPortal/README.md) consome o SecureGate on-behalf-of um **operador de plataforma** (usuário com o role `platform-operator` num tenant de plataforma). Duas mecânicas sustentam isso: o `/connect/authorize` **filtra o scope `securegate:admin`** — só operadores o recebem (login comum não escala, ADR-0023); e o token do operador é **tenant-less** (escolhe o tenant por requisição via `X-Tenant-Id`) e recebe um **read-set cross-tenant** somente leitura, resolvido no SecureGate para o papel `platform-operator` (ADR-0024).

@@ -9,6 +9,7 @@ Primitivas estáveis e puras da Secco Platform, compartilhadas por todos os prod
 - `AuditableEntity` / `ISoftDeletable` — trilha de auditoria preenchida pelo interceptor do Secco.SDK; exclusão lógica opt-in.
 - `SeccoException` / `DomainInvariantException` — exceções reservadas a infraestrutura e bugs (invariantes), nunca a fluxo de negócio.
 - `SeccoClaims` / `SeccoHeaders` — nomes padronizados de claims (ADR-0007) e headers de correlação/tenancy.
+- `SeccoPermissions` — formato canônico de permissão `recurso:acao` (validação + composição, ADR-0021); as **constantes** de permissão vivem em cada produto (regra de admissão da ADR-0003), o kernel só fornece o formato.
 
 ## Regras de admissão (ADR-0003)
 

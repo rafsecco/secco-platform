@@ -5,14 +5,14 @@ Comportamento transversal de runtime da Secco Platform (ADR-0004): nenhum produt
 ## Uso recomendado — composição completa
 
 ```csharp
-builder.Services.AddSeccoPlatform();   // correlation + tenancy + health + resilience
+builder.Services.AddSeccoPlatform();   // correlation + auth + tenancy + authorization + health + resilience
 
 var app = builder.Build();
-app.UseSeccoPlatform();                // ordem correta: correlation → [auth, Fase 6] → tenancy
+app.UseSeccoPlatform();                // ordem fixa: correlation → auth → tenancy → authorization
 app.MapSeccoPlatform();                // /health/live e /health/ready
 ```
 
-Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a extensão individual (ex.: `AddSeccoResilience(o => ...)`) **antes** — a composição não duplica o que já existe. `AddSeccoAuthentication()` entrará no agregado quando o SecureGate existir (Fase 6), de forma aditiva.
+Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a extensão individual (ex.: `AddSeccoResilience(o => ...)`) **antes** — a composição não duplica o que já existe.
 
 ## Disponível nesta versão
 
@@ -21,7 +21,9 @@ Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a ext
 - `AddSeccoHealthChecks()` / `MapSeccoHealthChecks()` — `/health/live` (processo vivo, nenhum check) e `/health/ready` (todos os checks, JSON sem detalhes sensíveis).
 - `AddSeccoResilience()` — pipeline padrão de resiliência (retry + circuit breaker + timeouts) em todo `HttpClient`; retry automático só para métodos idempotentes.
 - `AddSeccoAuthentication()` — JWT Bearer conforme ADR-0007: claims curtas sem remapeamento (`sub`/`role`/`tenant_id`/`scope`), `FallbackPolicy` fail-closed; Authority OIDC ou chave HS256 de desenvolvimento (proibida em Production).
-- `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada (correlation → auth → tenancy) e guarda contra registro duplicado.
+- `AddSeccoAuthorization()` — autorização granular Role + Permission (ADR-0021): policies dinâmicas por permissão (`RequireAuthorization("recurso:acao")`), resolução `(tenant, role) → permissões` com cache de TTL curto e **fail-closed**. Resolver por `IConfiguration` (DEV) ou remoto via `Secco.SecureGate.Client`.
+- `AddSeccoOpenApi()` — OpenAPI com as convenções da plataforma (enums como `type: string`, ADR-0006).
+- `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada (correlation → auth → tenancy → authorization) e guarda contra registro duplicado.
 
 ## Uso
 
