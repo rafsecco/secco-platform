@@ -9,11 +9,18 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - **On-behalf-of**: chama as APIs de produto com o **access token do operador** (um `IOperatorTokenProvider` lê o token custodiado como claim no cookie de sessão e o anexa às chamadas). Cada ação carrega a identidade e as permissões reais do operador; a auditoria é a pessoa, não o AdminPortal.
 - **Operador cross-tenant**: o usuário do AdminPortal é o operador de plataforma — um usuário com o role `platform-operator` no tenant de plataforma. O SecureGate **filtra o scope `securegate:admin` no login** (só operadores o recebem, ADR-0020): login de usuário comum não escala para admin. As telas exigem a policy `Operator` (`RequireRole("platform-operator")`).
 
-## O que está entregue (7.1)
+## O que está entregue
 
+**7.1 — fundação**
 - Login OIDC + shell autenticado (layout, navegação, badge do usuário, logout) — exercita o authorization code/PKCE da 6.5.
 - Fatia vertical de **gestão de tenants**: a página `/tenants` lista os tenants via `Secco.SecureGate.Client` on-behalf-of o operador.
 - Liveness/readiness anônimos (`/health/live`, `/health/ready`).
+
+**7.2 — administração de identidade**
+- Drill-in da lista de tenants para `/tenants/{id}` (página de gestão), com o contexto de tenant explícito na URL.
+- Seção **Usuários**: listar + criar (e-mail / senha inicial / roles).
+- Seção **Roles & permissões**: listar, criar role, e editar permissões em **texto livre** (`recurso:acao`, uma por linha) — enviadas no PUT idempotente do SecureGate.
+- Um `ISecureGateClientFactory` central constrói o client autenticado (anexa o token do operador); erros do client (400/409) são traduzidos em mensagens amigáveis a partir do `detail` do ProblemDetails (ADR-0020).
 
 ## Configuração (`Secco:SecureGate`)
 
@@ -27,10 +34,9 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 ## Próximas fases
 
-- **7.2** — Administração de identidade (usuários, roles, permissões por tenant).
 - **7.3** — Visualização de logs por tenant (o LogStream é gated por permissão por tenant — a forma de o operador cross-tenant ler logs está registrada como questão em aberto na ADR-0023).
 - **7.4** — Gestão de bancos de tenant (connection strings, write-only).
 
 ## Testes
 
-`tests/AdminPortal/Secco.AdminPortal.Tests` (ADR-0012): `OperatorTokenProvider` (custódia do token no principal), `SecureGateTenantAdminService` (encaminhamento do token on-behalf-of + projeção) e smoke de composição (o app sobe e expõe o liveness sem depender do SecureGate no ar).
+`tests/AdminPortal/Secco.AdminPortal.Tests` (ADR-0012): `OperatorTokenProvider` (custódia do token no principal), `SecureGateClientFactory` (encaminhamento do token on-behalf-of), serviços de tenant/usuário/role (projeção dos DTOs, client substituído) e smoke de composição (o app sobe e expõe o liveness sem depender do SecureGate no ar).

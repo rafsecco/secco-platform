@@ -1,0 +1,232 @@
+@page "/tenants/{TenantId:guid}"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject ITenantAdminService TenantAdminService
+@inject IUserAdminService UserAdminService
+@inject IRoleAdminService RoleAdminService
+@inject ILogger<TenantManagement> Logger
+@using Secco.SecureGate.Client
+
+<PageTitle>@(_tenant?.Name ?? "Tenant") — Secco AdminPortal</PageTitle>
+
+<p><a href="tenants">&larr; Tenants</a></p>
+
+@if (_loadError is not null)
+{
+    <p class="error" role="alert">@_loadError</p>
+}
+else if (_tenant is null)
+{
+    <p>Carregando…</p>
+}
+else
+{
+    <h1>@_tenant.Name</h1>
+    <p class="muted">@_tenant.Slug · @(_tenant.IsActive ? "Ativo" : "Inativo")</p>
+
+    @if (_message is not null)
+    {
+        <p class="success" role="status">@_message</p>
+    }
+    @if (_actionError is not null)
+    {
+        <p class="error" role="alert">@_actionError</p>
+    }
+
+    <section>
+        <h2>Usuários</h2>
+        @if (_users is null)
+        {
+            <p>Carregando…</p>
+        }
+        else if (_users.Count == 0)
+        {
+            <p>Nenhum usuário cadastrado.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>E-mail</th><th>Roles</th></tr></thead>
+                <tbody>
+                    @foreach (var user in _users)
+                    {
+                        <tr>
+                            <td>@user.Email</td>
+                            <td>@(user.Roles.Count == 0 ? "—" : string.Join(", ", user.Roles))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="form-card">
+            <h3>Novo usuário</h3>
+            <label>E-mail<input type="email" @bind="_newUserEmail" autocomplete="off" /></label>
+            <label>Senha inicial<input type="password" @bind="_newUserPassword" autocomplete="new-password" /></label>
+            <label>Roles (separados por vírgula)<input type="text" @bind="_newUserRoles" placeholder="ex.: leitor, operador" /></label>
+            <button @onclick="CreateUserAsync" disabled="@_busy">Criar usuário</button>
+        </div>
+    </section>
+
+    <section>
+        <h2>Roles &amp; permissões</h2>
+        @if (_roles is null)
+        {
+            <p>Carregando…</p>
+        }
+        else if (_roles.Count == 0)
+        {
+            <p>Nenhum role cadastrado.</p>
+        }
+        else
+        {
+            @foreach (var edit in _roleEdits)
+            {
+                <div class="form-card">
+                    <h3>@edit.Name</h3>
+                    <label>Permissões (uma <code>recurso:acao</code> por linha)
+                        <textarea rows="4" @bind="edit.PermissionsText"></textarea>
+                    </label>
+                    <button @onclick="() => SavePermissionsAsync(edit)" disabled="@_busy">Salvar permissões</button>
+                </div>
+            }
+        }
+
+        <div class="form-card">
+            <h3>Novo role</h3>
+            <label>Nome<input type="text" @bind="_newRoleName" placeholder="ex.: operador" /></label>
+            <button @onclick="CreateRoleAsync" disabled="@_busy">Criar role</button>
+        </div>
+    </section>
+}
+
+@code {
+    /// <summary>Tenant alvo (rota).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+
+    private TenantDetail? _tenant;
+    private IReadOnlyList<UserSummary>? _users;
+    private IReadOnlyList<RoleSummary>? _roles;
+    private readonly List<RoleEdit> _roleEdits = [];
+
+    private string? _loadError;
+    private string? _actionError;
+    private string? _message;
+    private bool _busy;
+
+    private string _newUserEmail = string.Empty;
+    private string _newUserPassword = string.Empty;
+    private string _newUserRoles = string.Empty;
+    private string _newRoleName = string.Empty;
+
+    private sealed class RoleEdit
+    {
+        public required string Name { get; init; }
+        public string PermissionsText { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenant = await TenantAdminService.GetTenantAsync(TenantId);
+            await ReloadUsersAsync();
+            await ReloadRolesAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao carregar o tenant {TenantId}.", TenantId);
+            _loadError = "Não foi possível carregar o tenant.";
+        }
+    }
+
+    private async Task ReloadUsersAsync() => _users = await UserAdminService.ListUsersAsync(TenantId);
+
+    private async Task ReloadRolesAsync()
+    {
+        _roles = await RoleAdminService.ListRolesAsync(TenantId);
+        _roleEdits.Clear();
+        foreach (var role in _roles)
+        {
+            _roleEdits.Add(new RoleEdit { Name = role.Name, PermissionsText = string.Join('\n', role.Permissions) });
+        }
+    }
+
+    private async Task CreateUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newUserEmail) || string.IsNullOrWhiteSpace(_newUserPassword))
+        {
+            SetError("Informe e-mail e senha.");
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await UserAdminService.CreateUserAsync(TenantId, _newUserEmail.Trim(), _newUserPassword, ParseCsv(_newUserRoles));
+            _newUserEmail = _newUserPassword = _newUserRoles = string.Empty;
+            await ReloadUsersAsync();
+            _message = "Usuário criado.";
+        });
+    }
+
+    private async Task CreateRoleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newRoleName))
+        {
+            SetError("Informe o nome do role.");
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await RoleAdminService.CreateRoleAsync(TenantId, _newRoleName.Trim());
+            _newRoleName = string.Empty;
+            await ReloadRolesAsync();
+            _message = "Role criado.";
+        });
+    }
+
+    private async Task SavePermissionsAsync(RoleEdit edit)
+    {
+        await RunAsync(async () =>
+        {
+            await RoleAdminService.SetPermissionsAsync(TenantId, edit.Name, ParseLines(edit.PermissionsText));
+            await ReloadRolesAsync();
+            _message = $"Permissões de '{edit.Name}' salvas.";
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _actionError = _message = null;
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _actionError = SecureGateErrorFormatter.Describe(exception);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha na operação de gestão do tenant {TenantId}.", TenantId);
+            _actionError = "Falha inesperada. Tente novamente.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void SetError(string message)
+    {
+        _actionError = message;
+        _message = null;
+    }
+
+    private static IReadOnlyList<string> ParseCsv(string value) =>
+        [.. value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+    private static IReadOnlyList<string> ParseLines(string value) =>
+        [.. value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+}

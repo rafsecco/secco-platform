@@ -28,6 +28,7 @@ else
                 <th>Slug</th>
                 <th>Situação</th>
                 <th>Criado em</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -38,6 +39,7 @@ else
                     <td>@tenant.Slug</td>
                     <td>@(tenant.IsActive ? "Ativo" : "Inativo")</td>
                     <td>@tenant.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td><a href="@($"tenants/{tenant.Id}")">Gerir identidade</a></td>
                 </tr>
             }
         </tbody>

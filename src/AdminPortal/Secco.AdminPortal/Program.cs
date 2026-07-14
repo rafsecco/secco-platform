@@ -29,7 +29,11 @@ builder.Services.AddHttpClient(AdminPortalDefaults.SecureGateHttpClient, (servic
     client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
 });
 
+// Client autenticado on-behalf-of + serviços de gestão (Fase 7.1/7.2)
+builder.Services.AddScoped<ISecureGateClientFactory, SecureGateClientFactory>();
 builder.Services.AddScoped<ITenantAdminService, SecureGateTenantAdminService>();
+builder.Services.AddScoped<IUserAdminService, SecureGateUserAdminService>();
+builder.Services.AddScoped<IRoleAdminService, SecureGateRoleAdminService>();
 
 var app = builder.Build();
 

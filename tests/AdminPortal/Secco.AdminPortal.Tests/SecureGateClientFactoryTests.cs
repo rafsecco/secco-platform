@@ -10,10 +10,10 @@ using Xunit;
 namespace Secco.AdminPortal.Tests;
 
 /// <summary>
-/// O <see cref="SecureGateTenantAdminService"/> anexa o token do operador à chamada do
-/// <c>Secco.SecureGate.Client</c> (on-behalf-of, ADR-0023) e projeta o resultado.
+/// A <see cref="SecureGateClientFactory"/> anexa o access token do operador ao client do
+/// SecureGate (on-behalf-of, ADR-0023) — a custódia central do token para toda a gestão.
 /// </summary>
-public class SecureGateTenantAdminServiceTests
+public class SecureGateClientFactoryTests
 {
     private sealed class CapturingHandler : HttpMessageHandler
     {
@@ -23,18 +23,14 @@ public class SecureGateTenantAdminServiceTests
         {
             AuthorizationHeader = request.Headers.Authorization?.ToString();
 
-            const string json = """
-                [{"id":"018f0000-0000-7000-8000-000000000abc","name":"Acme","slug":"acme","isActive":true,"createdAt":"2026-01-02T03:04:05+00:00"}]
-                """;
-
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+                Content = new StringContent("[]", Encoding.UTF8, "application/json"),
             });
         }
     }
 
-    private static (SecureGateTenantAdminService Service, CapturingHandler Handler) BuildService(string? token)
+    private static (SecureGateClientFactory Factory, CapturingHandler Handler) Build(string? token)
     {
         var handler = new CapturingHandler();
 
@@ -48,30 +44,27 @@ public class SecureGateTenantAdminServiceTests
         var tokenProvider = Substitute.For<IOperatorTokenProvider>();
         tokenProvider.GetAccessTokenAsync().Returns(token);
 
-        return (new SecureGateTenantAdminService(httpClientFactory, tokenProvider), handler);
+        return (new SecureGateClientFactory(httpClientFactory, tokenProvider), handler);
     }
 
     [Fact]
-    public async Task ListTenantsAsync_ForwardsOperatorTokenAndProjectsResult()
+    public async Task CreateAsync_WithToken_AttachesBearer()
     {
-        var (service, handler) = BuildService("operator-token");
+        var (factory, handler) = Build("operator-token");
 
-        var tenants = await service.ListTenantsAsync();
+        var client = await factory.CreateAsync();
+        await client.ListTenantsAsync(CancellationToken.None);
 
-        handler.AuthorizationHeader.Should().Be("Bearer operator-token",
-            "cada chamada carrega a identidade do operador (ADR-0023)");
-        tenants.Should().ContainSingle();
-        tenants[0].Name.Should().Be("Acme");
-        tenants[0].Slug.Should().Be("acme");
-        tenants[0].IsActive.Should().BeTrue();
+        handler.AuthorizationHeader.Should().Be("Bearer operator-token");
     }
 
     [Fact]
-    public async Task ListTenantsAsync_WithoutToken_DoesNotSendAuthorizationHeader()
+    public async Task CreateAsync_WithoutToken_DoesNotAttachAuthorization()
     {
-        var (service, handler) = BuildService(token: null);
+        var (factory, handler) = Build(token: null);
 
-        await service.ListTenantsAsync();
+        var client = await factory.CreateAsync();
+        await client.ListTenantsAsync(CancellationToken.None);
 
         handler.AuthorizationHeader.Should().BeNull();
     }
