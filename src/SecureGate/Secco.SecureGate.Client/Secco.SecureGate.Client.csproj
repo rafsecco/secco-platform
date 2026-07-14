@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Client NSwag (ADR-0006): GERADO no build a partir do openapi.json versionado —
-       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração. -->
+       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração.
+       Pacote publicável (ADR-0011): tag securegate-client/v -->
   <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>securegate-client/v</MinVerTagPrefix>
+    <Description>Client HTTP gerado (NSwag) do Secco.SecureGate — comunicação entre produtos da Secco Platform (ADR-0006) — mais as implementações prontas de ITenantCatalog (catálogo de tenants) e IPermissionResolver (autorização) via AddSecureGateTenantCatalog()/AddSecureGatePermissionResolver().</Description>
+    <PackageTags>secco;securegate;client;nswag;oidc</PackageTags>
     <!-- Código gerado: sem enforcement de estilo/docs -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -17,6 +22,10 @@
     <!-- ITenantCatalog/TenantInfo vivem no SDK (ADR-0005) — o pacote entrega a
          implementação remota pronta para os produtos (Fase 6.3) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
