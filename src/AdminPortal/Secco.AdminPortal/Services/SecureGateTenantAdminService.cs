@@ -1,3 +1,5 @@
+using Secco.SecureGate.Client;
+
 namespace Secco.AdminPortal.Services;
 
 /// <summary>Gestão de tenants via <c>Secco.SecureGate.Client</c> autenticado (on-behalf-of, ADR-0023).</summary>
@@ -22,5 +24,15 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 
         return new TenantDetail(
             tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt, [.. tenant.Products]);
+    }
+
+    public async Task UpsertDatabaseAsync(
+        Guid tenantId, string product, string connectionString, CancellationToken cancellationToken = default)
+    {
+        var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+        await client.UpsertTenantDatabaseAsync(
+            tenantId, product, new UpsertTenantDatabaseRequest { ConnectionString = connectionString }, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

@@ -26,6 +26,10 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - Página `/tenants/{id}/logs` (drill-in): busca paginada de `log-entries` de um tenant, com filtros de nível e mensagem, via `Secco.LogStream.Client` on-behalf-of o operador.
 - O `LogQueryService` anexa o **token do operador** e o header **`X-Tenant-Id`** do tenant alvo. O operador é **tenant-less** no token (ADR-0024): escolhe o tenant por requisição (caminho "sem claim → header" da ADR-0005), e a autorização de leitura vem do **read-set cross-tenant** que o SecureGate resolve para o papel `platform-operator` — somente leitura.
 
+**7.4 — gestão de bancos de tenant**
+- Seção **Bancos** na página do tenant: lista os produtos que têm banco (a partir de `Products`) e cadastra/rotaciona a connection string via o PUT idempotente do SecureGate (produto em texto livre + input password).
+- **Write-only** (ADR-0020): a connection string nunca é exibida em nenhuma leitura — só se envia.
+
 ## Configuração (`Secco:SecureGate`)
 
 | Chave | Uso |
@@ -35,10 +39,6 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 | `ClientId` / `ClientSecret` | Client confidencial do AdminPortal (`secco-adminportal`) |
 
 > Em DEV, `Authority`/`ApiBaseUrl` apontam para a URL do SecureGate em execução — ajuste conforme a porta local do SecureGate (o seed de DEV registra o client `secco-adminportal` e o operador `operador@secco.local`). O redirect URI registrado é `https://localhost:7180/signin-oidc`.
-
-## Próximas fases
-
-- **7.4** — Gestão de bancos de tenant (connection strings, write-only).
 
 ## Testes
 

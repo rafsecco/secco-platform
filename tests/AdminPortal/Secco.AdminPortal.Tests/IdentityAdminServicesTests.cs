@@ -88,6 +88,22 @@ public class IdentityAdminServicesTests
     }
 
     [Fact]
+    public async Task UpsertDatabase_SendsConnectionStringWriteOnly()
+    {
+        var (factory, client) = BuildFactory();
+        var tenantId = Guid.NewGuid();
+
+        await new SecureGateTenantAdminService(factory)
+            .UpsertDatabaseAsync(tenantId, "logstream", "Server=segredo;Database=x;");
+
+        await client.Received(1).UpsertTenantDatabaseAsync(
+            tenantId,
+            "logstream",
+            Arg.Is<UpsertTenantDatabaseRequest>(r => r.ConnectionString == "Server=segredo;Database=x;"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetTenant_ProjectsDetail()
     {
         var (factory, client) = BuildFactory();

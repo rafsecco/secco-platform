@@ -97,6 +97,36 @@ else
             <button @onclick="CreateRoleAsync" disabled="@_busy">Criar role</button>
         </div>
     </section>
+
+    <section>
+        <h2>Bancos de tenant</h2>
+        @if (_tenant.Products.Count == 0)
+        {
+            <p>Nenhum banco cadastrado.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>Produto</th><th>Banco</th></tr></thead>
+                <tbody>
+                    @foreach (var product in _tenant.Products)
+                    {
+                        <tr>
+                            <td>@product</td>
+                            <td class="muted">cadastrado</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="form-card">
+            <h3>Cadastrar / rotacionar banco</h3>
+            <label>Produto<input type="text" @bind="_newDbProduct" placeholder="ex.: logstream" /></label>
+            <label>Connection string (write-only)<input type="password" @bind="_newDbConnectionString" autocomplete="off" /></label>
+            <button @onclick="UpsertDatabaseAsync" disabled="@_busy">Salvar banco</button>
+        </div>
+    </section>
 }
 
 @code {
@@ -117,6 +147,8 @@ else
     private string _newUserPassword = string.Empty;
     private string _newUserRoles = string.Empty;
     private string _newRoleName = string.Empty;
+    private string _newDbProduct = string.Empty;
+    private string _newDbConnectionString = string.Empty;
 
     private sealed class RoleEdit
     {
@@ -182,6 +214,24 @@ else
             _newRoleName = string.Empty;
             await ReloadRolesAsync();
             _message = "Role criado.";
+        });
+    }
+
+    private async Task UpsertDatabaseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newDbProduct) || string.IsNullOrWhiteSpace(_newDbConnectionString))
+        {
+            SetError("Informe o produto e a connection string.");
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await TenantAdminService.UpsertDatabaseAsync(
+                TenantId, _newDbProduct.Trim().ToLowerInvariant(), _newDbConnectionString);
+            _newDbProduct = _newDbConnectionString = string.Empty;
+            _tenant = await TenantAdminService.GetTenantAsync(TenantId); // atualiza os Products
+            _message = "Banco salvo.";
         });
     }
 
