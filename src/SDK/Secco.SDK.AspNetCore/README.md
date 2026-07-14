@@ -118,3 +118,11 @@ builder.Services.AddSeccoResilience(o => o.Retry.MaxRetryAttempts = 5);
 ```
 
 Aplica o `AddStandardResilienceHandler` da Microsoft (rate limiter → timeout total 30s → retry 3x exponencial com jitter → circuit breaker → timeout 10s/tentativa) a **todo** `HttpClient` registrado via `AddHttpClient` — incluindo os clients NSwag dos produtos (ADR-0006), sem opt-in. Retry automático **só para métodos idempotentes** (RFC 9110: GET/HEAD/PUT/DELETE/OPTIONS/TRACE): repetir POST/PATCH após timeout pode duplicar o efeito no servidor — eles seguem protegidos por timeout e circuit breaker. Quando a plataforma tiver idempotency keys (ADR futura), a regra será revista.
+
+## OpenAPI (ADR-0006)
+
+```csharp
+builder.Services.AddSeccoOpenApi();   // drop-in do AddOpenApi() com as convenções da plataforma
+```
+
+Convenção atual: enums serializados como string (`JsonStringEnumConverter`) são declarados no schema com `type: string`. Sem isso, o .NET 10 emite os valores string mas **omite o tipo**, e o gerador de client (NSwag) assume enum numérico — quebrando a desserialização no consumidor. Corrige o contrato **na fonte** (o client gerado passa a emitir `[JsonConverter(typeof(JsonStringEnumConverter))]`), sem correções manuais no código gerado.

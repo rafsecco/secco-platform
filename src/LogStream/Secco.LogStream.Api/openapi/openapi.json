@@ -1120,7 +1120,8 @@
           "Warning",
           "Error",
           "Critical"
-        ]
+        ],
+        "type": "string"
       },
       "LogProcessDetailDto": {
         "required": [
@@ -1512,7 +1513,8 @@
           "Warning",
           "Error",
           "Critical"
-        ]
+        ],
+        "type": "string"
       }
     }
   },

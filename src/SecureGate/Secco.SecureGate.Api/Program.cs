@@ -12,8 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Cross-cutting da plataforma: correlation + auth + tenancy + health checks + resilience (ADR-0004)
 builder.Services.AddSeccoPlatform();
 
-// OpenAPI nativo (.NET 10); o snapshot versionado é validado por teste de contrato (ADR-0006)
-builder.Services.AddOpenApi();
+// OpenAPI nativo (.NET 10) com as convenções da plataforma (enums como type:string —
+// ADR-0006); o snapshot versionado é validado por teste de contrato
+builder.Services.AddSeccoOpenApi();
 
 // Enums viajam como string no contrato
 builder.Services.ConfigureHttpJsonOptions(options =>
