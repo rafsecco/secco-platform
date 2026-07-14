@@ -48,6 +48,9 @@ public static class SecureGateInfrastructureExtensions
         // Roles + permissões (Fase 6.4, ADR-0021)
         services.AddScoped<Application.Roles.IRoleRepository, Roles.RoleRepository>();
 
+        // Provisionamento de usuários (Fase 6.5) — sobre o ASP.NET Identity
+        services.AddScoped<Application.Users.IUserDirectory, Users.UserAccountService>();
+
         // Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
         services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
         services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();

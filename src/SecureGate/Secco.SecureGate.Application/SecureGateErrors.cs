@@ -94,4 +94,29 @@ public static class SecureGateErrors
             Error.NotFound("SecureGate.Catalog.EntryNotFound",
                 "Não há banco cadastrado para este tenant neste produto.");
     }
+
+    /// <summary>Erros de provisionamento de usuários (Fase 6.5).</summary>
+    public static class Users
+    {
+        /// <summary>E-mail ausente ou fora do formato aceito.</summary>
+        public static readonly Error EmailInvalid =
+            Error.Validation("SecureGate.User.EmailInvalid", "Informe um e-mail válido.");
+
+        /// <summary>Senha ausente.</summary>
+        public static readonly Error PasswordRequired =
+            Error.Validation("SecureGate.User.PasswordRequired", "A senha é obrigatória.");
+
+        /// <summary>Algum role informado não existe no tenant.</summary>
+        public static readonly Error RoleNotFound =
+            Error.Validation("SecureGate.User.RoleNotFound", "Um dos roles informados não existe neste tenant.");
+
+        /// <summary>Já existe usuário com este e-mail.</summary>
+        public static readonly Error AlreadyExists =
+            Error.Conflict("SecureGate.User.AlreadyExists", "Já existe um usuário com este e-mail.");
+
+        /// <summary>Falha de validação do Identity (senha fraca etc.); o detalhe vem do Identity.</summary>
+        /// <param name="detail">Descrição agregada das regras violadas (nunca revela se o e-mail existe).</param>
+        public static Error CreationFailed(string detail) =>
+            Error.Validation("SecureGate.User.CreationFailed", detail);
+    }
 }

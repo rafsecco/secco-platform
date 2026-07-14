@@ -3,6 +3,7 @@ using Secco.SecureGate.Application.Authorization;
 using Secco.SecureGate.Application.Catalog;
 using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Application.Tenants;
+using Secco.SecureGate.Application.Users;
 
 namespace Secco.SecureGate.Application;
 
@@ -31,6 +32,10 @@ public static class SecureGateApplicationExtensions
         services.AddScoped<ListRolesHandler>();
         services.AddScoped<SetRolePermissionsHandler>();
         services.AddScoped<GetRolePermissionsHandler>();
+
+        // Provisionamento de usuários (Fase 6.5)
+        services.AddScoped<CreateUserHandler>();
+        services.AddScoped<ListUsersHandler>();
 
         return services;
     }

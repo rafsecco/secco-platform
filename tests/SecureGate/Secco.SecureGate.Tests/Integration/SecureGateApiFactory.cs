@@ -100,6 +100,49 @@ public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         }
     }
 
+    /// <summary>
+    /// Registra um client PÚBLICO de teste (authorization code + PKCE + refresh, sem secret) —
+    /// o modelo de uma aplicação web/SPA (Fase 6.5). Consent implícito (first-party).
+    /// </summary>
+    public async Task CreatePublicClientAsync(string clientId, string redirectUri, params string[] scopes)
+    {
+        using var scope = Services.CreateScope();
+        var applications = scope.ServiceProvider.GetRequiredService<OpenIddict.Abstractions.IOpenIddictApplicationManager>();
+
+        if (await applications.FindByClientIdAsync(clientId) is not null)
+        {
+            return;
+        }
+
+        var descriptor = new OpenIddict.Abstractions.OpenIddictApplicationDescriptor
+        {
+            ClientId = clientId,
+            ClientType = OpenIddict.Abstractions.OpenIddictConstants.ClientTypes.Public,
+            ConsentType = OpenIddict.Abstractions.OpenIddictConstants.ConsentTypes.Implicit,
+            DisplayName = $"Client público de teste {clientId}",
+            RedirectUris = { new Uri(redirectUri) },
+            Permissions =
+            {
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Authorization,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.EndSession,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.ResponseTypes.Code,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Email,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Profile,
+                OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Roles,
+            },
+        };
+
+        foreach (var scopeName in scopes)
+        {
+            descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+        }
+
+        await applications.CreateAsync(descriptor);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");

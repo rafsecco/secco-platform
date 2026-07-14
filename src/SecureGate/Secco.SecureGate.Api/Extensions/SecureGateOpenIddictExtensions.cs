@@ -1,13 +1,15 @@
 using System.Security.Cryptography.X509Certificates;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.OpenIddict;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Secco.SecureGate.Api.Extensions;
 
 /// <summary>
-/// Composição do servidor OIDC (ADR-0022): client credentials + JWKS/discovery.
-/// Access tokens são JWT assinados <b>sem</b> criptografia de conteúdo — os produtos
-/// os validam com o <c>JwtBearer</c> padrão do SDK, sem conhecer o OpenIddict.
+/// Composição do servidor OIDC (ADR-0022): client credentials (máquinas, Fase 6.2) e
+/// authorization code + PKCE + refresh token (login de usuário, Fase 6.5). Access tokens
+/// são JWT assinados <b>sem</b> criptografia de conteúdo — os produtos os validam com o
+/// <c>JwtBearer</c> padrão do SDK, sem conhecer o OpenIddict.
 /// </summary>
 public static class SecureGateOpenIddictExtensions
 {
@@ -39,7 +41,22 @@ public static class SecureGateOpenIddictExtensions
             .AddServer(server =>
             {
                 server.SetTokenEndpointUris("connect/token");
+
+                // Fase 6.2 — máquinas; Fase 6.5 — usuários (authorization code + PKCE + refresh)
                 server.AllowClientCredentialsFlow();
+                server.AllowAuthorizationCodeFlow();
+                server.AllowRefreshTokenFlow();
+
+                // PKCE OBRIGATÓRIO em todo authorization code (ADR-0020): protege o code de
+                // interceptação inclusive em clients públicos (SPA/nativo, sem client_secret)
+                server.RequireProofKeyForCodeExchange();
+
+                server.SetAuthorizationEndpointUris("connect/authorize");
+                server.SetUserInfoEndpointUris("connect/userinfo");
+                server.SetEndSessionEndpointUris("connect/logout");
+
+                // Scopes padrão OIDC além dos scopes de produto (esses vivem no scope manager)
+                server.RegisterScopes(Scopes.Profile, Scopes.Email, Scopes.Roles);
 
                 // JWT puro: validável por qualquer JwtBearer via JWKS (ADR-0022 — produtos
                 // agnósticos do OpenIddict). O conteúdo do access token não carrega segredos.
@@ -51,6 +68,9 @@ public static class SecureGateOpenIddictExtensions
 
                 var aspNetCore = server.UseAspNetCore();
                 aspNetCore.EnableTokenEndpointPassthrough();
+                aspNetCore.EnableAuthorizationEndpointPassthrough();
+                aspNetCore.EnableUserInfoEndpointPassthrough();
+                aspNetCore.EnableEndSessionEndpointPassthrough();
 
                 if (!environment.IsProduction())
                 {

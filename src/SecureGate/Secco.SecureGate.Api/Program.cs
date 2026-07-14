@@ -19,22 +19,31 @@ builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Telas de login/logout (Fase 6.5) — únicas páginas server-rendered do produto
+builder.Services.AddRazorPages(options => options.Conventions.AllowAnonymousToPage("/Login"));
+
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
 builder.Services.AddSecureGateApplication();
 builder.Services.AddSecureGateInfrastructure();
 
-// Servidor OIDC (ADR-0022): client credentials + JWKS/discovery
+// ASP.NET Identity para o login interativo (cookie não-default; o padrão segue JwtBearer)
+builder.Services.AddSecureGateIdentity();
+
+// Servidor OIDC (ADR-0022): client credentials (máquinas) + authorization code/PKCE (usuários)
 builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configuration);
 
 var app = builder.Build();
 
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
+app.MapRazorPages();
 app.MapTokenEndpoints();
+app.MapInteractiveEndpoints();
 app.MapTenantEndpoints();
 app.MapCatalogEndpoints();
 app.MapRoleEndpoints();
 app.MapAuthorizationEndpoints();
+app.MapUserEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

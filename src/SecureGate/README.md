@@ -67,6 +67,23 @@ builder.Services.AddSecureGatePermissionResolver();   // mesma seção Secco:Sec
 
 Sem a seção, o resolver por configuração do SDK segue valendo (DEV). O token de autorização é separado do token do catálogo — cada recurso pede só o próprio scope (least privilege).
 
+### Login de usuário (Fase 6.5, ADR-0022)
+
+Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públicos) + refresh token. ASP.NET Identity via `AddIdentityCore` com cookie **não-default** — o esquema padrão da API segue sendo o JwtBearer da ADR-0007; o cookie serve só às telas e ao `/connect/authorize`.
+
+| Endpoint | Papel |
+|---|---|
+| `/connect/authorize` | Sem sessão → desafia o cookie → tela de login; autenticado → emite o authorization code |
+| `/connect/token` (`authorization_code`/`refresh_token`) | Troca o code/refresh por tokens, **re-derivando as claims do banco** a cada emissão |
+| `/connect/userinfo` | Claims do usuário conforme os scopes concedidos |
+| `/connect/logout` | Encerra a sessão (cookie) + end-session OIDC |
+| `/login` (Razor Page) | Tela server-rendered, self-contained, antiforgery |
+
+- **Tenant no login**: email/username é único **global** — o usuário digita e-mail + senha e o tenant vem do registro (`User.TenantId`); sem seletor de tenant.
+- **Provisionamento** (`POST /api/v1/tenants/{tenantId}/users`, scope `securegate:admin`): usuários são criados por administradores (hash de senha do Identity, roles atribuídos no tenant), **sem auto-registro público** (ADR-0020). Senhas nunca voltam nas respostas.
+- **Segurança**: PKCE obrigatório, bloqueio contra força bruta (lockout do Identity), `LocalRedirect` (sem open redirect), mensagens de login genéricas (sem enumeração de e-mail), re-derivação de claims no refresh (usuário desativado/role alterado reflete em ≤ vida do refresh).
+- **Consent**: implícito para clients first-party confiáveis (AdminPortal) — a tela de consent entra quando houver um client de terceiros real.
+
 ## Configuração
 
 | Seção | Uso |
@@ -77,8 +94,8 @@ Sem a seção, o resolver por configuração do SDK segue valendo (DEV). O token
 
 ## Testes
 
-`tests/SecureGate/Secco.SecureGate.Tests` — Testcontainers (ADR-0012): schema ADR-0017 provado por INFORMATION_SCHEMA, fluxo client credentials/JWKS, gestão e catálogo com autorização por scope, cache TTL/stale do client e os E2E cross-produto: o LogStream valida token emitido pelo SecureGate **e resolve tenant pelo catálogo remoto sem nenhum tenant em configuração** (inclusive migrations via `ListAsync`).
+`tests/SecureGate/Secco.SecureGate.Tests` — Testcontainers (ADR-0012): schema ADR-0017 provado por INFORMATION_SCHEMA, fluxo client credentials/JWKS, gestão e catálogo com autorização por scope, cache TTL/stale do client, gestão de roles/usuários, os E2E cross-produto (o LogStream valida token do SecureGate **e resolve tenant pelo catálogo remoto sem nenhum tenant em configuração**, inclusive migrations via `ListAsync`) e o **E2E de login**: authorization code + PKCE ponta a ponta pelo fluxo real do navegador (desafio → login antiforgery → code → troca com `code_verifier` → userinfo → refresh).
 
 ## Próximas fases
 
-- **6.5** — Login de usuário: authorization code + PKCE + telas (para o AdminPortal, Fase 7).
+- **Fase 7 — `Secco.AdminPortal`**: consome os clients de todos os produtos (gestão de tenants, logs, identidade).

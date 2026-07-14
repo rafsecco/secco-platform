@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
@@ -9,13 +10,23 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 
 /// <summary>
 /// Seed de DESENVOLVIMENTO (ADR-0019, guarda dupla): um tenant demo (o mesmo Guid dos
-/// appsettings de DEV dos produtos) e um client OIDC de console com secret conhecido —
+/// appsettings de DEV dos produtos), um client de console (client credentials), um client
+/// web (authorization code + PKCE, Fase 6.5) e um usuário demo com senha conhecida —
 /// jamais chega a produção (a orquestração do SDK garante).
 /// </summary>
 public sealed class SecureGateDevelopmentDataSeeder(
     SecureGateDbContext context,
-    IOpenIddictApplicationManager applicationManager) : IDevelopmentDataSeeder
+    IOpenIddictApplicationManager applicationManager,
+    UserManager<Identity.User> userManager) : IDevelopmentDataSeeder
 {
+    /// <summary>Client web de desenvolvimento (authorization code + PKCE, público — sem secret).</summary>
+    public const string DevWebClientId = "secco-dev-webapp";
+
+    /// <summary>Usuário demo do tenant de desenvolvimento.</summary>
+    public const string DevUserEmail = "dev@secco.local";
+
+    /// <summary>Senha do usuário demo (conhecida — só existe em DEV; satisfaz a política do Identity).</summary>
+    public const string DevUserPassword = "Dev@Secco2026";
     /// <summary>Tenant demo — mesmo Guid usado nos appsettings.Development dos produtos.</summary>
     public static readonly Guid DemoTenantId = Guid.Parse("018f0000-0000-7000-8000-000000000001");
 
@@ -76,6 +87,79 @@ public sealed class SecureGateDevelopmentDataSeeder(
         {
             devClient.Roles = DevRoleName;
             await applicationManager.UpdateAsync(devClient, cancellationToken).ConfigureAwait(false);
+        }
+
+        await SeedWebClientAsync(cancellationToken).ConfigureAwait(false);
+        await SeedDevUserAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Client web de DEV: authorization code + PKCE + refresh, público (sem secret), consent implícito.</summary>
+    private async Task SeedWebClientAsync(CancellationToken cancellationToken)
+    {
+        if (await applicationManager.FindByClientIdAsync(DevWebClientId, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
+        {
+            ClientId = DevWebClientId,
+            ClientType = ClientTypes.Public,
+            // First-party confiável → sem tela de consent (Fase 6.5)
+            ConsentType = ConsentTypes.Implicit,
+            DisplayName = "Aplicação web de desenvolvimento Secco",
+            RedirectUris = { new Uri("https://localhost/callback"), new Uri("http://localhost/callback") },
+            PostLogoutRedirectUris = { new Uri("https://localhost/") },
+            Permissions =
+            {
+                Permissions.Endpoints.Authorization,
+                Permissions.Endpoints.Token,
+                Permissions.Endpoints.EndSession,
+                Permissions.GrantTypes.AuthorizationCode,
+                Permissions.GrantTypes.RefreshToken,
+                Permissions.ResponseTypes.Code,
+                Permissions.Scopes.Email,
+                Permissions.Scopes.Profile,
+                Permissions.Scopes.Roles,
+                Permissions.Prefixes.Scope + "logstream",
+            },
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Usuário demo no tenant de desenvolvimento, com o role demo (para exercitar o login).</summary>
+    private async Task SeedDevUserAsync(CancellationToken cancellationToken)
+    {
+        if (await userManager.FindByNameAsync(DevUserEmail).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        var user = new Identity.User
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = DemoTenantId,
+            UserName = DevUserEmail,
+            Email = DevUserEmail,
+            EmailConfirmed = true,
+        };
+
+        var created = await userManager.CreateAsync(user, DevUserPassword).ConfigureAwait(false);
+
+        if (!created.Succeeded)
+        {
+            return;
+        }
+
+        var normalizedRole = DevRoleName.ToUpperInvariant();
+
+        var role = await context.Roles
+            .FirstOrDefaultAsync(r => r.TenantId == DemoTenantId && r.NormalizedName == normalizedRole, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (role is not null)
+        {
+            context.UserRoles.Add(new Identity.UserRole { UserId = user.Id, RoleId = role.Id });
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
