@@ -21,7 +21,7 @@ else if (_tenant is null)
 else
 {
     <h1>@_tenant.Name</h1>
-    <p class="muted">@_tenant.Slug · @(_tenant.IsActive ? "Ativo" : "Inativo")</p>
+    <p class="muted">@_tenant.Slug · @(_tenant.IsActive ? "Ativo" : "Inativo") · <a href="@($"tenants/{TenantId}/logs")">Ver logs</a></p>
 
     @if (_message is not null)
     {
@@ -205,7 +205,7 @@ else
         }
         catch (ApiException exception)
         {
-            _actionError = SecureGateErrorFormatter.Describe(exception);
+            _actionError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
         }
         catch (Exception exception)
         {

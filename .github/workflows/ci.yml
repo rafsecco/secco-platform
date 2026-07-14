@@ -60,9 +60,11 @@ jobs:
             adminportal:
               - 'src/AdminPortal/**'
               - 'tests/AdminPortal/**'
-              # O AdminPortal consome o SecureGate.Client (ADR-0006/0023)
+              # O AdminPortal consome os clients do SecureGate e do LogStream (ADR-0006/0023/0024)
               - 'src/SecureGate/Secco.SecureGate.Client/**'
               - 'src/SecureGate/Secco.SecureGate.Api/openapi/**'
+              - 'src/LogStream/Secco.LogStream.Client/**'
+              - 'src/LogStream/Secco.LogStream.Api/openapi/**'
             templates:
               - 'templates/**'
 

@@ -27,6 +27,13 @@ public sealed class GetRolePermissionsHandler(IRoleRepository repository)
             return SecureGateErrors.Roles.NameInvalid;
         }
 
+        // ADR-0024: o operador de plataforma recebe o read-set em QUALQUER tenant — a
+        // capacidade cross-tenant é decidida aqui (IAM), sem o produto/SDK saberem disso.
+        if (string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.Ordinal))
+        {
+            return Result.Success(SecureGatePlatform.OperatorReadPermissions);
+        }
+
         var permissions = await repository.GetPermissionsAsync(tenantId, name, cancellationToken)
             .ConfigureAwait(false);
 

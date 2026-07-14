@@ -1,22 +1,21 @@
 using System.Text.Json;
-using Secco.SecureGate.Client;
 
 namespace Secco.AdminPortal.Services;
 
 /// <summary>
-/// Traduz uma <see cref="ApiException"/> do client do SecureGate numa mensagem amigável
-/// para o operador, extraindo o <c>detail</c> do ProblemDetails quando disponível. Não
-/// expõe corpo bruto nem stack traces (ADR-0020).
+/// Traduz uma falha de um client NSwag (status + corpo) numa mensagem amigável ao operador,
+/// extraindo o <c>detail</c> do ProblemDetails quando disponível. Genérico — serve para os
+/// <c>ApiException</c> do SecureGate e do LogStream (tipos distintos, mesmo formato de erro).
+/// Não expõe corpo bruto nem stack traces (ADR-0020).
 /// </summary>
-public static class SecureGateErrorFormatter
+public static class ApiErrorFormatter
 {
     /// <summary>Descreve a falha para exibição na UI.</summary>
-    /// <param name="exception">Exceção lançada pelo client gerado.</param>
-    public static string Describe(ApiException exception)
+    /// <param name="statusCode">Status HTTP da resposta.</param>
+    /// <param name="responseBody">Corpo da resposta (ProblemDetails, se houver).</param>
+    public static string Describe(int statusCode, string? responseBody)
     {
-        ArgumentNullException.ThrowIfNull(exception);
-
-        switch (exception.StatusCode)
+        switch (statusCode)
         {
             case 401:
                 return "Sessão expirada ou sem autorização. Faça login novamente.";
@@ -24,12 +23,12 @@ public static class SecureGateErrorFormatter
                 return "Você não tem permissão para esta operação.";
         }
 
-        if (TryReadProblemDetail(exception.Response) is { Length: > 0 } detail)
+        if (TryReadProblemDetail(responseBody) is { Length: > 0 } detail)
         {
             return detail;
         }
 
-        return $"Não foi possível concluir a operação (HTTP {exception.StatusCode}).";
+        return $"Não foi possível concluir a operação (HTTP {statusCode}).";
     }
 
     private static string? TryReadProblemDetail(string? body)

@@ -87,23 +87,45 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
     [Fact]
     public async Task OperatorLogin_ReceivesAdminScope()
     {
-        var scopes = await LoginAndReadAccessTokenScopesAsync(_operatorEmail);
+        var token = await LoginAndReadAccessTokenAsync(_operatorEmail);
 
-        scopes.Should().Contain(SecureGateScopes.Admin, "o operador de plataforma recebe o scope admin");
-        scopes.Should().Contain("logstream");
+        Scopes(token).Should().Contain(SecureGateScopes.Admin, "o operador de plataforma recebe o scope admin");
+        Scopes(token).Should().Contain("logstream");
     }
 
     [Fact]
     public async Task RegularUserLogin_DoesNotReceiveAdminScope()
     {
-        var scopes = await LoginAndReadAccessTokenScopesAsync(_regularEmail);
+        var token = await LoginAndReadAccessTokenAsync(_regularEmail);
 
-        scopes.Should().NotContain(SecureGateScopes.Admin,
+        Scopes(token).Should().NotContain(SecureGateScopes.Admin,
             "usuário comum não escala para admin, mesmo com o client permitindo o scope (ADR-0023)");
-        scopes.Should().Contain("logstream", "os demais scopes seguem sendo concedidos normalmente");
+        Scopes(token).Should().Contain("logstream", "os demais scopes seguem sendo concedidos normalmente");
     }
 
-    private async Task<IReadOnlyList<string>> LoginAndReadAccessTokenScopesAsync(string email)
+    [Fact]
+    public async Task OperatorLogin_TokenHasNoTenantClaim()
+    {
+        var token = await LoginAndReadAccessTokenAsync(_operatorEmail);
+
+        token.Claims.Should().NotContain(c => c.Type == "tenant_id",
+            "o operador é tenant-less para dados — escolhe o tenant por requisição via X-Tenant-Id (ADR-0024)");
+    }
+
+    [Fact]
+    public async Task RegularUserLogin_TokenCarriesTenantClaim()
+    {
+        var token = await LoginAndReadAccessTokenAsync(_regularEmail);
+
+        token.Claims.Should().Contain(c => c.Type == "tenant_id",
+            "usuário comum segue com tenant_id no token (isolamento da ADR-0005 intacto)");
+    }
+
+    // O JWT carrega um único claim 'scope' space-delimited (RFC padrão)
+    private static IReadOnlyList<string> Scopes(JsonWebToken token) =>
+        [.. token.Claims.Where(c => c.Type == "scope").SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))];
+
+    private async Task<JsonWebToken> LoginAndReadAccessTokenAsync(string email)
     {
         var browser = secureGate.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -152,10 +174,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
         var accessToken = (await tokenResponse.Content.ReadFromJsonAsync<JsonElement>(Json))
             .GetProperty("access_token").GetString();
 
-        // O JWT carrega um único claim 'scope' space-delimited (RFC padrão)
-        return [.. new JsonWebTokenHandler().ReadJsonWebToken(accessToken).Claims
-            .Where(c => c.Type == "scope")
-            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))];
+        return new JsonWebTokenHandler().ReadJsonWebToken(accessToken);
     }
 
     private static string Base64Url(byte[] bytes) =>

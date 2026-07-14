@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -27,14 +28,24 @@ internal static class OidcPrincipalBuilder
         IEnumerable<string> scopes,
         IEnumerable<string> resources)
     {
+        var roleList = roles as IReadOnlyList<string> ?? [.. roles];
+
         var identity = new ClaimsIdentity(
             TokenValidationParameters.DefaultAuthenticationType, Claims.Name, SeccoClaims.Role);
 
         identity.SetClaim(Claims.Subject, user.Id.ToString());
-        identity.SetClaim(SeccoClaims.TenantId, user.TenantId.ToString());
+
+        // ADR-0024: o operador de plataforma NÃO carrega tenant_id — escolhe o tenant por
+        // requisição via X-Tenant-Id (caminho "sem claim → header" da ADR-0005). Usuário
+        // comum segue com tenant_id (isolamento intacto).
+        if (!roleList.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal))
+        {
+            identity.SetClaim(SeccoClaims.TenantId, user.TenantId.ToString());
+        }
+
         identity.SetClaim(Claims.Email, user.Email);
         identity.SetClaim(Claims.Name, user.UserName);
-        identity.SetClaims(SeccoClaims.Role, [.. roles]);
+        identity.SetClaims(SeccoClaims.Role, [.. roleList]);
 
         identity.SetScopes(scopes);
         identity.SetResources(resources);

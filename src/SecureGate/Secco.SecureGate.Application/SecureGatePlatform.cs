@@ -19,4 +19,17 @@ public static class SecureGatePlatform
 
     /// <summary>Role que marca um usuário como operador de plataforma (gate do scope admin).</summary>
     public const string OperatorRole = "platform-operator";
+
+    /// <summary>
+    /// Conjunto READ-ONLY que o operador de plataforma recebe em QUALQUER tenant (ADR-0024) —
+    /// política de IAM sobre o que o operador pode ler (exceção consciente à ADR-0003:
+    /// referencia nomes de permissão de produto, mas aqui é política, não a constante do produto).
+    /// Somente leitura por princípio: o operador inspeciona, não escreve em tenant alheio.
+    /// </summary>
+    public static readonly IReadOnlyList<string> OperatorReadPermissions =
+    [
+        "log-entries:read",
+        "log-processes:read",
+        "api-call-logs:read",
+    ];
 }

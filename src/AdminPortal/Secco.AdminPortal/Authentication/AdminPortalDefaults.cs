@@ -17,6 +17,9 @@ public static class AdminPortalDefaults
     /// <summary>Nome do <c>HttpClient</c> tipado do SecureGate.</summary>
     public const string SecureGateHttpClient = "SecureGate";
 
+    /// <summary>Nome do <c>HttpClient</c> tipado do LogStream (leitura de logs, Fase 7.3).</summary>
+    public const string LogStreamHttpClient = "LogStream";
+
     /// <summary>Claim onde o access token do operador é custodiado no principal do cookie (ADR-0023).</summary>
     public const string AccessTokenClaim = "access_token";
 

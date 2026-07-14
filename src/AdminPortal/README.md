@@ -22,6 +22,10 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - Seção **Roles & permissões**: listar, criar role, e editar permissões em **texto livre** (`recurso:acao`, uma por linha) — enviadas no PUT idempotente do SecureGate.
 - Um `ISecureGateClientFactory` central constrói o client autenticado (anexa o token do operador); erros do client (400/409) são traduzidos em mensagens amigáveis a partir do `detail` do ProblemDetails (ADR-0020).
 
+**7.3 — visualização de logs por tenant (ADR-0024)**
+- Página `/tenants/{id}/logs` (drill-in): busca paginada de `log-entries` de um tenant, com filtros de nível e mensagem, via `Secco.LogStream.Client` on-behalf-of o operador.
+- O `LogQueryService` anexa o **token do operador** e o header **`X-Tenant-Id`** do tenant alvo. O operador é **tenant-less** no token (ADR-0024): escolhe o tenant por requisição (caminho "sem claim → header" da ADR-0005), e a autorização de leitura vem do **read-set cross-tenant** que o SecureGate resolve para o papel `platform-operator` — somente leitura.
+
 ## Configuração (`Secco:SecureGate`)
 
 | Chave | Uso |
@@ -34,7 +38,6 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 ## Próximas fases
 
-- **7.3** — Visualização de logs por tenant (o LogStream é gated por permissão por tenant — a forma de o operador cross-tenant ler logs está registrada como questão em aberto na ADR-0023).
 - **7.4** — Gestão de bancos de tenant (connection strings, write-only).
 
 ## Testes

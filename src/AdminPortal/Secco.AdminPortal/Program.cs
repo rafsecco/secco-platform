@@ -35,6 +35,16 @@ builder.Services.AddScoped<ITenantAdminService, SecureGateTenantAdminService>();
 builder.Services.AddScoped<IUserAdminService, SecureGateUserAdminService>();
 builder.Services.AddScoped<IRoleAdminService, SecureGateRoleAdminService>();
 
+// Leitura de logs por tenant (Fase 7.3): client do LogStream + serviço de consulta
+builder.Services.AddHttpClient(AdminPortalDefaults.LogStreamHttpClient, (serviceProvider, client) =>
+{
+    var baseUrl = serviceProvider.GetRequiredService<IConfiguration>()["Secco:LogStream:BaseUrl"]
+        ?? throw new InvalidOperationException("Configure 'Secco:LogStream:BaseUrl'.");
+
+    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+});
+builder.Services.AddScoped<ILogQueryService, LogStreamQueryService>();
+
 var app = builder.Build();
 
 app.UseStaticFiles();

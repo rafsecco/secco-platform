@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
     <!-- Comunicação entre produtos exclusivamente via clients NSwag (ADR-0006) -->
     <ProjectReference Include="..\..\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
+    <ProjectReference Include="..\..\LogStream\Secco.LogStream.Client\Secco.LogStream.Client.csproj" />
   </ItemGroup>
 
 </Project>

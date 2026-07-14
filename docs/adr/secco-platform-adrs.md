@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-14 (ADR-0023 adicionada)
+**Última atualização:** 2026-07-14 (ADR-0024 adicionada)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -632,6 +632,27 @@ Alternativas de stack avaliadas:
 - Tokens do operador custodiados **no servidor** (cookie de sessão com `SaveTokens`), nunca no browser.
 - Acoplamento do AdminPortal a `OpenIdConnect`/Blazor Server; por ser produto único e cliente OIDC padrão, o raio de impacto é local.
 - **Questão em aberto para a Fase 7.3 (visualização de logs)**: a autorização granular resolve permissões por `(tenant_id, role)` no tenant **alvo** (ADR-0021), mas o role do operador vive no **tenant de plataforma** — um operador cross-tenant não resolve permissões de log no tenant que está inspecionando. A forma de o operador ler logs cross-tenant fica **explicitamente não decidida** aqui e será resolvida na 7.3 (candidatos: uma permissão de plataforma reconhecida pelo produto; um role de operador semeado por tenant; ou um token de serviço com scope de leitura). A gestão de tenants/identidade da 7.1–7.2 não sofre desse problema: é gated por **scope** (`securegate:admin`), não por permissão por tenant.
+
+---
+
+## ADR-0024: Acesso de leitura cross-tenant do operador de plataforma
+
+**Status:** Aceita
+**Data:** 2026-07-14
+
+### Contexto
+Resolve a **questão em aberto da ADR-0023**. O operador de plataforma (AdminPortal) precisa **ler** dados de qualquer tenant (logs primeiro, Fase 7.3), mas dois mecanismos da plataforma barram isso: (1) a autorização granular resolve permissões por `(tenant_id, role)` no tenant **alvo** (ADR-0021), e o role do operador (`platform-operator`) vive no tenant de plataforma, não no alvo; (2) o token do operador carregaria o claim `tenant_id` da plataforma, que **conflita** com mirar outro tenant via header `X-Tenant-Id` (a regra de precedência da ADR-0005: claim vence, divergência = 400).
+
+### Decisão
+- **O token do operador de plataforma NÃO carrega o claim `tenant_id`.** Operador não é dado de um tenant — é uma identidade de plataforma que **escolhe o tenant por requisição** via `X-Tenant-Id`. Isso usa o caminho **"sem claim → header"** que a ADR-0005 **já permite** para identidades sem tenant (o mesmo caminho das máquinas em client credentials) — **sem reformar** a regra de conflito. Usuários comuns seguem com `tenant_id` no token; o isolamento da ADR-0005 permanece intacto: token **com** claim + header divergente continua 400; só tokens **sem** claim (operadores e serviços) usam o header livremente, e esses só são emitidos a identidades privilegiadas assinadas pelo SecureGate.
+- **A autorização concede ao papel `platform-operator` um conjunto READ-ONLY fixo** (`log-entries:read`, `log-processes:read`, `api-call-logs:read`) em **qualquer** tenant, via **caso especial na resolução `role → permissions` do SecureGate**: pedida a resolução de `platform-operator`, o SecureGate devolve o read-set independentemente do tenant. A autoridade de IAM decide (ADR-0021); **produtos e SDK ficam inalterados** — o produto só recebe uma lista de permissões e autoriza como sempre, sem saber que é operador.
+- **O read-set do operador vive no SecureGate** (política de IAM), referenciando nomes de permissão de produto. É uma **exceção consciente à ADR-0003** (constantes de produto ficam no produto): aqui não é a constante do produto, é a **política de plataforma** sobre o que o operador pode ler — um único lugar, versionado, para evoluir a capacidade.
+
+### Consequências
+- O operador lê logs (e futuros dados read-only) de qualquer tenant **on-behalf-of** — a auditoria no produto é a **pessoa** (o `sub` do token), não uma identidade de serviço.
+- Capacidade **super-leitor** ampla, mitigada por: ser **somente leitura**; ser gated ao papel `platform-operator` (que o SecureGate só concede a operadores reais, cujo scope admin já é filtrado no login, ADR-0023); e o read-set ser **explícito e num só lugar**.
+- **Escrita cross-tenant não é concedida** — o operador inspeciona, não altera dados de tenant alheio. Se algum dia for necessário, exige nova ADR.
+- Acoplamento pontual do SecureGate a nomes de permissão de produto no read-set; contido a uma constante de política, evolutível sem tocar produtos.
 
 ---
 

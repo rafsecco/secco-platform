@@ -1,0 +1,144 @@
+@page "/tenants/{TenantId:guid}/logs"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject ILogQueryService LogQueryService
+@inject ITenantAdminService TenantAdminService
+@inject ILogger<LogViewer> Logger
+@using Secco.LogStream.Client
+
+<PageTitle>Logs — Secco AdminPortal</PageTitle>
+
+<p><a href="@($"tenants/{TenantId}")">&larr; Voltar ao tenant</a></p>
+
+<h1>Logs @(_tenantName is null ? "" : $"· {_tenantName}")</h1>
+
+<div class="filters">
+    <label>Nível
+        <select @bind="_level">
+            <option value="">Todos</option>
+            @foreach (var name in Enum.GetNames<LogEntryLevel>())
+            {
+                <option value="@name">@name</option>
+            }
+        </select>
+    </label>
+    <label>Mensagem
+        <input type="text" @bind="_message" placeholder="trecho da mensagem" />
+    </label>
+    <button @onclick="SearchAsync" disabled="@_busy">Buscar</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+else if (_page is null)
+{
+    <p>Carregando…</p>
+}
+else if (_page.Items.Count == 0)
+{
+    <p>Nenhum log encontrado para os filtros.</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr><th>Data</th><th>Nível</th><th>Mensagem</th><th>Correlation</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in _page.Items)
+            {
+                <tr>
+                    <td>@entry.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@entry.Level</td>
+                    <td class="msg">@entry.Message</td>
+                    <td>@(entry.CorrelationId?.ToString()[..8] ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pager">
+        <button @onclick="PreviousAsync" disabled="@(_busy || _page.Page <= 1)">‹ Anterior</button>
+        <span>Página @_page.Page de @Math.Max(_page.TotalPages, 1) · @_page.TotalCount registros</span>
+        <button @onclick="NextAsync" disabled="@(_busy || _page.Page >= _page.TotalPages)">Próxima ›</button>
+    </div>
+}
+
+@code {
+    /// <summary>Tenant alvo (rota) — viaja no header X-Tenant-Id (ADR-0024).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+
+    private const int PageSize = 25;
+
+    private string? _tenantName;
+    private LogEntryPage? _page;
+    private string? _error;
+    private bool _busy;
+
+    private string _level = string.Empty;
+    private string _message = string.Empty;
+    private int _pageNumber = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenantName = (await TenantAdminService.GetTenantAsync(TenantId)).Name;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao carregar o nome do tenant {TenantId}.", TenantId);
+        }
+
+        await LoadAsync();
+    }
+
+    private Task SearchAsync()
+    {
+        _pageNumber = 1;
+        return LoadAsync();
+    }
+
+    private Task PreviousAsync()
+    {
+        _pageNumber = Math.Max(1, _pageNumber - 1);
+        return LoadAsync();
+    }
+
+    private Task NextAsync()
+    {
+        _pageNumber++;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var filter = new LogEntryFilter(
+                Level: string.IsNullOrEmpty(_level) ? null : _level,
+                Message: string.IsNullOrWhiteSpace(_message) ? null : _message.Trim(),
+                Page: _pageNumber,
+                Size: PageSize);
+
+            _page = await LogQueryService.SearchLogEntriesAsync(TenantId, filter);
+        }
+        catch (ApiException exception)
+        {
+            _error = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao buscar logs do tenant {TenantId}.", TenantId);
+            _error = "Não foi possível carregar os logs. Tente novamente.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
