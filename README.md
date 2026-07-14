@@ -9,7 +9,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding | v0.1 publicado |
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability | Disponível (v1 — paridade com o legado) |
 | [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário), catálogo de tenants, autorização Role+Permission | Disponível (Fase 6 concluída) |
-| Secco.AdminPortal | Portal administrativo da plataforma | Planejado (Fase 7) |
+| [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Em desenvolvimento (Fase 7 — 7.1 concluída) |
 | [Secco.Templates](templates/README.md) | `dotnet new secco-service` | Disponível |
 
 ## Documentação

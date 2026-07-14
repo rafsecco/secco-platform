@@ -1,0 +1,20 @@
+<nav class="nav">
+    <div class="brand">Secco AdminPortal</div>
+
+    <div class="links">
+        <NavLink href="" Match="NavLinkMatch.All">Início</NavLink>
+        <NavLink href="tenants">Tenants</NavLink>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="user">
+                <span class="user-name">@context.User.Identity?.Name</span>
+                <form action="authentication/logout" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit" class="logout">Sair</button>
+                </form>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</nav>

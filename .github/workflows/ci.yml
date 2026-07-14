@@ -23,6 +23,7 @@ jobs:
       platform: ${{ steps.filter.outputs.platform }}
       logstream: ${{ steps.filter.outputs.logstream }}
       securegate: ${{ steps.filter.outputs.securegate }}
+      adminportal: ${{ steps.filter.outputs.adminportal }}
       templates: ${{ steps.filter.outputs.templates }}
     steps:
       - name: Checkout
@@ -56,6 +57,12 @@ jobs:
               - 'tests/SecureGate/**'
               # Os testes E2E cross-produto do SecureGate embarcam o LogStream.Api real
               - 'src/LogStream/**'
+            adminportal:
+              - 'src/AdminPortal/**'
+              - 'tests/AdminPortal/**'
+              # O AdminPortal consome o SecureGate.Client (ADR-0006/0023)
+              - 'src/SecureGate/Secco.SecureGate.Client/**'
+              - 'src/SecureGate/Secco.SecureGate.Api/openapi/**'
             templates:
               - 'templates/**'
 
@@ -123,6 +130,25 @@ jobs:
 
       - name: Test SecureGate
         run: dotnet test tests/SecureGate/Secco.SecureGate.Tests/Secco.SecureGate.Tests.csproj --configuration Release --verbosity normal
+
+  build-adminportal:
+    # Só o AdminPortal mudou: builda apenas o produto (a cadeia SDK/Client entra por referência)
+    needs: changes
+    if: needs.changes.outputs.platform != 'true' && needs.changes.outputs.adminportal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test AdminPortal
+        run: dotnet test tests/AdminPortal/Secco.AdminPortal.Tests/Secco.AdminPortal.Tests.csproj --configuration Release --verbosity normal
 
   validate-template:
     # ADR-0013: divergência entre template e ADRs é bug — instancia, builda e testa o

@@ -74,8 +74,16 @@
 **Fase 6 concluída** — SecureGate cobre client credentials (máquinas), catálogo de tenants, autorização Role+Permission e login de usuário. O quarteto SharedKernel + SDK + LogStream + SecureGate provou o padrão da plataforma.
 
 ## Fase 7 — Secco.AdminPortal
-- [ ] Consome os clients de todos os produtos
-- [ ] Gestão de tenants, visualização de logs, administração de identidade
+
+> Arquitetura na ADR-0023: **Blazor Server** como relying party OIDC (não é produto de 4
+> camadas — sem domínio/banco próprios); autentica via authorization code + PKCE (Fase 6.5)
+> e chama os produtos **on-behalf-of** o operador (token do operador via clients NSwag);
+> operador **cross-tenant** (role `platform-operator` no tenant de plataforma).
+
+- [x] 7.1 Fundação: projeto Blazor Server + login OIDC (cookie + code/PKCE contra o SecureGate, `SaveTokens` como claim custodiada no cookie) + shell autenticado (layout, navegação, logout, badge do usuário) + gate de operador (policy `Operator` = `RequireRole("platform-operator")`) + fatia vertical de **tenants** (página `/tenants` lista via `Secco.SecureGate.Client` on-behalf-of). **SecureGate ganhou** (ADR-0023): tenant de plataforma + role `platform-operator` (seed de referência) e **filtro do scope `securegate:admin` no `/connect/authorize`** — só operadores o recebem (login comum não escala para admin, defesa em profundidade ADR-0020); seed de DEV com client confidencial `secco-adminportal` + operador `operador@secco.local`. Testes: token provider, encaminhamento on-behalf-of, smoke de composição; E2E do SecureGate prova operador↔usuário-comum no scope admin
+- [ ] 7.2 Administração de identidade: usuários, roles e permissões por tenant
+- [ ] 7.3 Visualização de logs por tenant (LogStream) — resolve a questão em aberto da ADR-0023 (autorização de leitura cross-tenant do operador)
+- [ ] 7.4 Gestão de bancos de tenant (connection strings, write-only)
 
 ## Backlog (só após Fase 7 estável)
 NotificationHub · Configuration · FeatureFlags · Audit

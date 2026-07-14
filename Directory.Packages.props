@@ -35,6 +35,11 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
   </ItemGroup>
 
+  <!-- AdminPortal: relying party OIDC (Fase 7, ADR-0023) -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.9" />
+  </ItemGroup>
+
   <!-- SecureGate: OpenIddict + ASP.NET Identity (Fase 6, ADR-0022) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.9" />

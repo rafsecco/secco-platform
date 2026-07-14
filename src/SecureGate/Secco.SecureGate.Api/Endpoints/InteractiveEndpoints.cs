@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -73,11 +74,22 @@ public static class InteractiveEndpoints
                 [IdentityConstants.ApplicationScheme]);
         }
 
-        var scopes = request.GetScopes();
-        var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
+        var roles = await userManager.GetRolesAsync(user);
+
+        // ADR-0023: o scope admin só é emitido a operadores de plataforma — login de usuário
+        // comum pelo client do AdminPortal NÃO escala para admin, mesmo com o scope permitido
+        var scopes = request.GetScopes().AsEnumerable();
+
+        if (!roles.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal))
+        {
+            scopes = scopes.Where(scope => scope != SecureGateScopes.Admin);
+        }
+
+        var granted = scopes.ToList();
+        var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, granted, context.RequestAborted);
 
         // Client first-party confiável (ConsentType Implicit no registro) → sem tela de consent (Fase 6.5)
-        var principal = OidcPrincipalBuilder.ForUser(user, await userManager.GetRolesAsync(user), scopes, resources);
+        var principal = OidcPrincipalBuilder.ForUser(user, roles, granted, resources);
 
         return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }

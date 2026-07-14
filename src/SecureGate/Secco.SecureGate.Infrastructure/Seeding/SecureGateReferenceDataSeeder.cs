@@ -1,17 +1,24 @@
+using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Domain.Tenants;
+using Secco.SecureGate.Infrastructure.Contexts;
 
 namespace Secco.SecureGate.Infrastructure.Seeding;
 
 /// <summary>
-/// Seed de REFERÊNCIA (ADR-0019): os scopes da plataforma. Um scope por produto (Fase 6.2,
-/// resource = audience validada pelo <c>AddSeccoAuthentication()</c> do produto) e os scopes
-/// do catálogo/gestão do SecureGate (Fase 6.3): <c>catalog:&lt;produto&gt;</c> concede leitura
-/// do catálogo daquele produto apenas, e <c>securegate:admin</c> a gestão — todos com resource
-/// <c>secco-securegate</c>, pois a API chamada é o próprio SecureGate. Idempotente por nome.
+/// Seed de REFERÊNCIA (ADR-0019): os scopes da plataforma e a estrutura do OPERADOR
+/// (ADR-0023). Scopes: um por produto (Fase 6.2, resource = audience validada pelo
+/// <c>AddSeccoAuthentication()</c> do produto) e os do catálogo/gestão do SecureGate
+/// (Fase 6.3): <c>catalog:&lt;produto&gt;</c> concede leitura do catálogo daquele produto
+/// apenas, e <c>securegate:admin</c> a gestão — todos com resource <c>secco-securegate</c>.
+/// Estrutura de operador: o tenant de plataforma e o role <c>platform-operator</c> que
+/// habilita o scope admin no login (Fase 7.1). Tudo idempotente por nome/id.
 /// </summary>
-public sealed class SecureGateReferenceDataSeeder(IOpenIddictScopeManager scopeManager) : IReferenceDataSeeder
+public sealed class SecureGateReferenceDataSeeder(
+    IOpenIddictScopeManager scopeManager,
+    SecureGateDbContext context) : IReferenceDataSeeder
 {
     /// <summary>Audience do próprio SecureGate — resource dos scopes de catálogo e gestão.</summary>
     private const string SecureGateResource = "secco-securegate";
@@ -55,6 +62,41 @@ public sealed class SecureGateReferenceDataSeeder(IOpenIddictScopeManager scopeM
             "Leitura da resolução role→permissions",
             SecureGateResource,
             cancellationToken).ConfigureAwait(false);
+
+        // Fase 7.1 (ADR-0023): estrutura do operador de plataforma
+        await SeedPlatformOperatorAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Tenant de plataforma + role <c>platform-operator</c> (gate do scope admin no login).</summary>
+    private async Task SeedPlatformOperatorAsync(CancellationToken cancellationToken)
+    {
+        if (!await context.Tenants.AnyAsync(t => t.Id == SecureGatePlatform.TenantId, cancellationToken).ConfigureAwait(false))
+        {
+            var tenant = new Tenant(SecureGatePlatform.TenantName, SecureGatePlatform.TenantSlug);
+            context.Entry(tenant).Property(nameof(Tenant.Id)).CurrentValue = SecureGatePlatform.TenantId;
+            context.Tenants.Add(tenant);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var normalized = SecureGatePlatform.OperatorRole.ToUpperInvariant();
+
+        var roleExists = await context.Roles
+            .AnyAsync(r => r.TenantId == SecureGatePlatform.TenantId && r.NormalizedName == normalized, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!roleExists)
+        {
+            // O role só marca o operador — os poderes vêm do scope admin, não de permissões (ADR-0023)
+            context.Roles.Add(new Identity.Role
+            {
+                Id = Guid.CreateVersion7(),
+                TenantId = SecureGatePlatform.TenantId,
+                Name = SecureGatePlatform.OperatorRole,
+                NormalizedName = normalized,
+                ConcurrencyStamp = Guid.NewGuid().ToString(),
+            });
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task UpsertScopeAsync(

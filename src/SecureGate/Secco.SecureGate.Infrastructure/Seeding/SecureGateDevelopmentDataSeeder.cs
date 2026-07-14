@@ -27,6 +27,18 @@ public sealed class SecureGateDevelopmentDataSeeder(
 
     /// <summary>Senha do usuário demo (conhecida — só existe em DEV; satisfaz a política do Identity).</summary>
     public const string DevUserPassword = "Dev@Secco2026";
+
+    /// <summary>Client confidencial do AdminPortal (authorization code + PKCE, Fase 7.1).</summary>
+    public const string AdminPortalClientId = "secco-adminportal";
+
+    /// <summary>Secret do client do AdminPortal (conhecido — só existe em DEV).</summary>
+    public const string AdminPortalClientSecret = "secco-adminportal-secret-32-chars-min!";
+
+    /// <summary>Usuário OPERADOR de plataforma (ADR-0023) — recebe o scope admin no login.</summary>
+    public const string OperatorEmail = "operador@secco.local";
+
+    /// <summary>Senha do operador demo (conhecida — só existe em DEV).</summary>
+    public const string OperatorPassword = "Op3rador@Secco!";
     /// <summary>Tenant demo — mesmo Guid usado nos appsettings.Development dos produtos.</summary>
     public static readonly Guid DemoTenantId = Guid.Parse("018f0000-0000-7000-8000-000000000001");
 
@@ -91,6 +103,82 @@ public sealed class SecureGateDevelopmentDataSeeder(
 
         await SeedWebClientAsync(cancellationToken).ConfigureAwait(false);
         await SeedDevUserAsync(cancellationToken).ConfigureAwait(false);
+
+        // Fase 7.1 (ADR-0023): client do AdminPortal + usuário operador de plataforma
+        await SeedAdminPortalClientAsync(cancellationToken).ConfigureAwait(false);
+        await SeedOperatorUserAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Client confidencial do AdminPortal: authorization code + PKCE + refresh, consent implícito.</summary>
+    private async Task SeedAdminPortalClientAsync(CancellationToken cancellationToken)
+    {
+        if (await applicationManager.FindByClientIdAsync(AdminPortalClientId, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        await applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
+        {
+            ClientId = AdminPortalClientId,
+            ClientSecret = AdminPortalClientSecret,
+            ClientType = ClientTypes.Confidential,
+            ConsentType = ConsentTypes.Implicit,
+            DisplayName = "Secco AdminPortal",
+            RedirectUris = { new Uri("https://localhost:7180/signin-oidc") },
+            PostLogoutRedirectUris = { new Uri("https://localhost:7180/signout-callback-oidc") },
+            Permissions =
+            {
+                Permissions.Endpoints.Authorization,
+                Permissions.Endpoints.Token,
+                Permissions.Endpoints.EndSession,
+                Permissions.GrantTypes.AuthorizationCode,
+                Permissions.GrantTypes.RefreshToken,
+                Permissions.ResponseTypes.Code,
+                Permissions.Scopes.Email,
+                Permissions.Scopes.Profile,
+                Permissions.Scopes.Roles,
+                // O scope admin é PERMITIDO ao client, mas só é EMITIDO a operadores (ADR-0023)
+                Permissions.Prefixes.Scope + Application.SecureGateScopes.Admin,
+                Permissions.Prefixes.Scope + "logstream",
+            },
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Usuário operador de plataforma no tenant de plataforma, com o role platform-operator.</summary>
+    private async Task SeedOperatorUserAsync(CancellationToken cancellationToken)
+    {
+        if (await userManager.FindByNameAsync(OperatorEmail).ConfigureAwait(false) is not null)
+        {
+            return;
+        }
+
+        var user = new Identity.User
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = Application.SecureGatePlatform.TenantId,
+            UserName = OperatorEmail,
+            Email = OperatorEmail,
+            EmailConfirmed = true,
+        };
+
+        if (!(await userManager.CreateAsync(user, OperatorPassword).ConfigureAwait(false)).Succeeded)
+        {
+            return;
+        }
+
+        var normalizedOperator = Application.SecureGatePlatform.OperatorRole.ToUpperInvariant();
+
+        var role = await context.Roles
+            .FirstOrDefaultAsync(
+                r => r.TenantId == Application.SecureGatePlatform.TenantId && r.NormalizedName == normalizedOperator,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (role is not null)
+        {
+            context.UserRoles.Add(new Identity.UserRole { UserId = user.Id, RoleId = role.Id });
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Client web de DEV: authorization code + PKCE + refresh, público (sem secret), consent implícito.</summary>

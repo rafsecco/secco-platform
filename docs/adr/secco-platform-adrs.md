@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-13 (ADR-0022 adicionada)
+**Última atualização:** 2026-07-14 (ADR-0023 adicionada)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -603,6 +603,35 @@ Alternativas avaliadas para a base OIDC:
 - Login resolve o tenant do usuário sem descoberta ambígua (o registro do usuário carrega o tenant).
 - O banco do SecureGate vira o dado mais sensível da plataforma: backup, LGPD e HA tratados como plataforma (reforça o SLA superior da ADR-0007).
 - Acoplamento a uma biblioteca .NET específica para emissão; migração futura exigiria nova ADR, mas o isolamento (só o SecureGate a referencia) limita o raio de impacto — os demais produtos só falam OIDC/JWT padrão.
+
+---
+
+## ADR-0023: Secco.AdminPortal — Blazor Server como relying party OIDC
+
+**Status:** Aceita
+**Data:** 2026-07-14
+
+### Contexto
+O `Secco.AdminPortal` (Fase 7) é o console de administração da plataforma e o **primeiro consumidor real do login de usuário** (ADR-0022, Fase 6.5). É também o primeiro produto que **não é uma API de quatro camadas** (ADR-0002): não tem domínio nem banco próprios — orquestra os demais produtos via seus clients (ADR-0006). Duas decisões precisam de registro: a stack de UI e o modelo de autenticação/autorização de um cliente que age em nome de um operador humano sobre múltiplos tenants.
+
+Alternativas de stack avaliadas:
+- **Razor Pages / MVC** — server-rendered simples, sem circuito com estado; porém grids/filtros/paginação interativos de um console exigem JavaScript e plumbing manual que o Blazor entrega nativamente.
+- **Blazor WebAssembly + BFF** — sensação de SPA, mas exige um Backend-for-Frontend para custodiar tokens (não expô-los no browser, ADR-0020) e um segundo processo — mais superfície para um console interno.
+- **SPA externa (React/Angular)** — fora do ecossistema .NET, duplica tooling e afasta o reuso direto dos clients NSwag.
+- **Blazor Server** — C# ponta a ponta, reuso direto dos `Secco.*.Client`, tokens custodiados no servidor, interatividade rica sem build JS; custo: circuito SignalR com estado.
+
+### Decisão
+- O `Secco.AdminPortal` é uma aplicação **Blazor Server**, um **relying party OIDC** (cliente confidencial) — **não** um resource server. Autentica via **authorization code + PKCE** (ADR-0022) com sessão em **cookie** (`OpenIdConnect` + `Cookie`, `SaveTokens`); **não** usa `AddSeccoAuthentication()` do SDK (validação JWT de resource server não se aplica a um cliente).
+- **Não é produto de quatro camadas**: é uma app de apresentação/orquestração sem domínio nem banco próprios. Reusa o cross-cutting não-de-auth do SDK (correlation, resilience, health checks); a auth é a do relying party.
+- **Comunicação com os produtos exclusivamente via clients NSwag** (ADR-0006), com um `DelegatingHandler` que anexa o **access token do OPERADOR** às chamadas (**on-behalf-of**): cada ação carrega a identidade e as permissões reais do operador, e cada produto autoriza no seu próprio boundary (ADR-0021). Nada de token de serviço amplo — a auditoria é a pessoa.
+- **Operador cross-tenant**: o AdminPortal serve o operador de plataforma, que cria/gerencia tenants, provisiona identidade em qualquer tenant e (Fase 7.3) navega logs de qualquer tenant. Operadores são **usuários com o role `platform-operator`** num **tenant de plataforma bem-conhecido** (seed de referência, Guid fixo). O bootstrap do primeiro operador é processo controlado (seed de DEV cria um; produção provisiona out-of-band).
+- **Escalada de privilégio barrada no token (ADR-0020, defesa em profundidade)**: o SecureGate **filtra o scope `securegate:admin` no `/connect/authorize`** — só usuários com o role `platform-operator` o recebem. Login de usuário comum pelo client do AdminPortal **não** produz token administrativo, mesmo que o client tenha o scope permitido. Client credentials (máquinas) seguem gated pelas permissões do client, sem alteração.
+
+### Consequências
+- Circuito Blazor Server com estado (SignalR): novo modelo de execução a operar e proteger; escalabilidade limitada por circuito — aceitável para um console interno de baixa escala.
+- Tokens do operador custodiados **no servidor** (cookie de sessão com `SaveTokens`), nunca no browser.
+- Acoplamento do AdminPortal a `OpenIdConnect`/Blazor Server; por ser produto único e cliente OIDC padrão, o raio de impacto é local.
+- **Questão em aberto para a Fase 7.3 (visualização de logs)**: a autorização granular resolve permissões por `(tenant_id, role)` no tenant **alvo** (ADR-0021), mas o role do operador vive no **tenant de plataforma** — um operador cross-tenant não resolve permissões de log no tenant que está inspecionando. A forma de o operador ler logs cross-tenant fica **explicitamente não decidida** aqui e será resolvida na 7.3 (candidatos: uma permissão de plataforma reconhecida pelo produto; um role de operador semeado por tenant; ou um token de serviço com scope de leitura). A gestão de tenants/identidade da 7.1–7.2 não sofre desse problema: é gated por **scope** (`securegate:admin`), não por permissão por tenant.
 
 ---
 

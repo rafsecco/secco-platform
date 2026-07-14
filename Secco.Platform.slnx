@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/src/AdminPortal/">
+    <Project Path="src/AdminPortal/Secco.AdminPortal/Secco.AdminPortal.csproj" />
+  </Folder>
   <Folder Name="/src/LogStream/">
     <Project Path="src/LogStream/Secco.LogStream.Api/Secco.LogStream.Api.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Application/Secco.LogStream.Application.csproj" />
@@ -26,6 +29,9 @@
     <Project Path="src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/tests/AdminPortal/">
+    <Project Path="tests/AdminPortal/Secco.AdminPortal.Tests/Secco.AdminPortal.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/LogStream/">
     <Project Path="tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj" />
   </Folder>

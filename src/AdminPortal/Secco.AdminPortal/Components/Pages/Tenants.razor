@@ -1,0 +1,64 @@
+@page "/tenants"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject ITenantAdminService TenantAdminService
+@inject ILogger<Tenants> Logger
+
+<PageTitle>Tenants — Secco AdminPortal</PageTitle>
+
+<h1>Tenants</h1>
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+else if (_tenants is null)
+{
+    <p>Carregando…</p>
+}
+else if (_tenants.Count == 0)
+{
+    <p>Nenhum tenant cadastrado.</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Slug</th>
+                <th>Situação</th>
+                <th>Criado em</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var tenant in _tenants)
+            {
+                <tr>
+                    <td>@tenant.Name</td>
+                    <td>@tenant.Slug</td>
+                    <td>@(tenant.IsActive ? "Ativo" : "Inativo")</td>
+                    <td>@tenant.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<TenantSummary>? _tenants;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenants = await TenantAdminService.ListTenantsAsync();
+        }
+        catch (Exception exception)
+        {
+            // O detalhe fica no log; o usuário vê mensagem genérica (ADR-0020)
+            Logger.LogError(exception, "Falha ao listar tenants no SecureGate.");
+            _error = "Não foi possível carregar os tenants. Tente novamente.";
+        }
+    }
+}
