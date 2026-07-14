@@ -60,9 +60,12 @@ jobs:
         run: dotnet test Secco.Platform.slnx --no-build --configuration Release
 
       - name: Pack
+        # Sem --no-build: o pacote de templates NÃO está na slnx (só produtos buildáveis),
+        # então o Build/Restore acima não o restaura — deixamos o pack restaurar/buildar o
+        # projeto alvo (incremental para os que já estão na slnx).
         run: >
           dotnet pack ${{ steps.map.outputs.project }}
-          --no-build --configuration Release --output ./artifacts
+          --configuration Release --output ./artifacts
 
       - name: Push to GitHub Packages
         run: >
