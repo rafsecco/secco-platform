@@ -4,9 +4,9 @@ Monorepo da Secco Platform — ecossistema corporativo modular para .NET. Produt
 
 ## Fonte da verdade
 
-- **`docs/adr/secco-platform-adrs.md`** — 19 ADRs ratificadas. Ler antes de qualquer decisão estrutural. **Nunca produzir código que contradiga uma ADR Aceita.** Decisão arquitetural nova (afeta 2+ produtos ou é difícil de reverter) → propor nova ADR antes de codificar; ADRs nunca são editadas retroativamente, são substituídas.
+- **`docs/adr/secco-platform-adrs.md`** — ADRs ratificadas (24 até o momento). Ler antes de qualquer decisão estrutural. **Nunca produzir código que contradiga uma ADR Aceita.** Decisão arquitetural nova (afeta 2+ produtos ou é difícil de reverter) → propor nova ADR antes de codificar; ADRs nunca são editadas retroativamente, são substituídas.
 - **`docs/roadmap.md`** — fase atual e próximos entregáveis. Atualizar os checkboxes ao concluir itens.
-- **`.claude/skills/`** — regras operacionais detalhadas (`secco-platform-standards` e `secco-db-naming`). Seguir sempre.
+- **`.claude/skills/`** — regras operacionais detalhadas (`secco-platform-standards`, `secco-db-naming` e `secco-platform-release`). Seguir sempre.
 
 ## Estado atual
 

@@ -1,6 +1,6 @@
 ---
 name: secco-platform-standards
-description: Padrões arquiteturais, convenções e regras de desenvolvimento do ecossistema Secco Platform. Usar SEMPRE que a tarefa envolver qualquer projeto com prefixo Secco.* ou o legado RS.* (Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates, RS.Logging, RS.LogStream), o monorepo secco-platform, ou quando o usuário mencionar "Secco Platform", "SecureGate", "LogStream", "SharedKernel", ADRs da plataforma, geração de clients NSwag, multi-tenancy database-per-tenant, ou criação de um novo serviço/produto da plataforma — mesmo que peça apenas "um endpoint", "uma entidade" ou "um teste" dentro desses projetos.
+description: Padrões arquiteturais, convenções e regras de desenvolvimento do ecossistema Secco Platform. Usar SEMPRE que a tarefa envolver qualquer projeto com prefixo Secco.* ou o legado RS.* (Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates, RS.Logging, RS.LogStream), o monorepo secco-platform, ou quando o usuário mencionar "Secco Platform", "SecureGate", "LogStream", "SharedKernel", ADRs da plataforma, geração de clients NSwag, multi-tenancy database-per-tenant, criação de um novo serviço/produto da plataforma, ou um produto de operação estilo "Blazor Server", "relying party" ou "console de operação" — mesmo que peça apenas "um endpoint", "uma entidade" ou "um teste" dentro desses projetos.
 ---
 
 # Secco Platform — Padrões de Desenvolvimento
@@ -9,14 +9,14 @@ Este skill garante que todo código produzido para o ecossistema Secco Platform 
 
 ## Regra zero: ADRs primeiro
 
-## Segurança é parte do design, não revisão posterior (ADR-0020)
-
-Antes de implementar, avaliar: confiança em input externo (validar formato/tamanho de tudo que vem de fora do processo — headers, payloads, mensagens), injeção (SQL, log forging, header injection), vazamento de informação (erros/logs/stack traces em produção), isolamento de tenant ("este código pode vazar ou aceitar dado de outro tenant?"), autenticação/autorização explícitas, negação de serviço (limites em input não confiável), dependências novas (manutenção ativa, CVEs). Ao apresentar opções de design, incluir o risco de segurança de cada uma.
-
 1. Se o repositório estiver acessível, ler `docs/adr/secco-platform-adrs.md` antes de decisões estruturais.
 2. Nunca produzir código que contradiga uma ADR **Aceita**. Se a tarefa pedida contradiz uma ADR, avisar o usuário e propor: (a) ajustar a tarefa, ou (b) redigir uma nova ADR que substitua a antiga.
 3. Decisão nova que afete mais de um produto ou seja difícil de reverter → propor o texto da ADR (template no próprio documento) antes de codificar.
 4. Não reabrir decisões já aceitas sem motivo novo — o objetivo das ADRs é justamente evitar re-discussão a cada sessão.
+
+## Segurança é parte do design, não revisão posterior (ADR-0020)
+
+Antes de implementar, avaliar: confiança em input externo (validar formato/tamanho de tudo que vem de fora do processo — headers, payloads, mensagens), injeção (SQL, log forging, header injection), vazamento de informação (erros/logs/stack traces em produção), isolamento de tenant ("este código pode vazar ou aceitar dado de outro tenant?"), autenticação/autorização explícitas, negação de serviço (limites em input não confiável), dependências novas (manutenção ativa, CVEs). Ao apresentar opções de design, incluir o risco de segurança de cada uma.
 
 ## Prefixo e migração (ADR-0016)
 
@@ -40,6 +40,17 @@ Proibições que valem sempre:
 - Nenhum produto grava logs em banco próprio — logging via `AddLogStream()` do SDK.
 - Cross-cutting (auth, correlation, tenancy, retry, health) vem do `Secco.SDK`, nunca é reimplementado localmente.
 - Background processing segue as camadas da ADR-0015: nativo (`BackgroundService`) só para manutenção in-process sem persistência; precisou de persistência/retry/visibilidade → Hangfire com storage SQL Server, sempre via abstração `IBackgroundJobScheduler` do SDK (nunca acoplar produto ao Hangfire); mensageria com broker exige ADR nova.
+
+### Exceção: produtos de operação / relying party (ADR-0023)
+
+Nem todo produto é uma API de 4 camadas. Um **console de operação** (ex.: `Secco.AdminPortal`) é uma exceção legítima, não um desvio a corrigir:
+
+- Sem Domain nem Infrastructure próprios, sem banco próprio — orquestra os demais produtos via `Secco.<Produto>.Client` gerados (ADR-0006), não tem estado de negócio para modelar.
+- É **relying party OIDC**, não resource server: autentica via cookie de sessão + authorization code/PKCE contra o SecureGate. Usa `AddSeccoAuthentication()`? **Não** — essa extensão é para produtos que validam JWT como resource server; um relying party reusa só o cross-cutting não-de-auth do SDK (correlation, resilience, health).
+- Chama os demais produtos **on-behalf-of** o operador: o token do próprio operador (custodiado na sessão, anexado via algo como `IOperatorTokenProvider`) vai em toda chamada — nunca client credentials do produto de operação em nome próprio. A auditoria é a pessoa, não o console.
+- Telas/ações são protegidas por `RequireRole` (ou policy equivalente) no papel de operador, não por scope de API.
+
+Referência concreta: `Secco.AdminPortal` (Blazor Server, ADR-0023/0024) — ver `src/AdminPortal/README.md`. Um produto novo nesse molde documenta a exceção citando a ADR-0023, sem inventar Domain/Infrastructure vazios só para "bater" com a estrutura padrão.
 
 ## SharedKernel: critério de admissão
 
@@ -68,6 +79,7 @@ Na API, `Result` é convertido para HTTP via extensão padrão (`ToActionResult(
 - Paginação sempre com `PageRequest` / `PagedResult<T>` do SharedKernel.
 - Header `X-Correlation-Id` aceito e propagado (o SDK cuida disso — não reimplementar).
 - Todo endpoint documentado no OpenAPI (summary + response types); Scalar como UI.
+- OpenAPI sempre via `AddSeccoOpenApi()` do SDK — nunca `AddOpenApi()` cru. Motivo: sem o schema transformer da plataforma, enums serializados como string saem do `AddOpenApi()` puro sem `type: string` no schema, e o NSwag gera o client com enum numérico — quebra a desserialização no consumidor (bug real, já corrigido uma vez no contrato do LogStream).
 - Composição de cross-cutting via `AddSeccoPlatform()` e extensões `AddSecco*()` do SDK.
 
 ### Multi-tenancy (Database per Tenant)
@@ -116,3 +128,5 @@ Nunca criar por cópia manual de outro produto. Usar `dotnet new secco-service` 
 - [ ] Análise de segurança feita (ADR-0020): input externo validado, sem injeção/vazamento, tenant isolado, auth explícita, limites contra DoS.
 - [ ] Testes incluídos; nomenclatura e commits nas convenções.
 - [ ] Se surgiu decisão arquitetural nova: ADR proposta ao usuário.
+- [ ] Produto novo é de operação/relying party (sem domínio/banco próprios)? Seguir a exceção da ADR-0023 — não inventar camadas fictícias.
+- [ ] Endpoint HTTP novo usa `AddSeccoOpenApi()` (nunca `AddOpenApi()` cru)?
