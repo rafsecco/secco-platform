@@ -85,11 +85,31 @@
 - [x] 7.3 Visualização de logs por tenant (LogStream) — **resolve a questão em aberto da ADR-0023 via ADR-0024**: o token do operador é **tenant-less** (não carrega `tenant_id`; escolhe o tenant por requisição via `X-Tenant-Id` — o caminho "sem claim → header" que a ADR-0005 já permite, sem reformar a regra de conflito), e a autorização concede ao papel `platform-operator` um **read-set fixo** (`log-entries:read`/`log-processes:read`/`api-call-logs:read`) em qualquer tenant via **caso especial na resolução do SecureGate** (produtos/SDK inalterados). AdminPortal: página `/tenants/{id}/logs` (drill-in) com busca paginada de log-entries (nível/mensagem) via `Secco.LogStream.Client` on-behalf-of, anexando token + `X-Tenant-Id`. Corrigido de passagem um mismatch de contrato do LogStream (enum sem `type: string` no OpenAPI → client desserializava enum como número; partial class no client adiciona `JsonStringEnumConverter`). Testes: resolução do read-set cross-tenant, token do operador sem `tenant_id`, `LogQueryService` (token+header+projeção)
 - [x] 7.4 Gestão de bancos de tenant: seção **Bancos** na página do tenant (drill-in) — lista os produtos que têm banco (a lista `Products` do tenant; connection strings **nunca** aparecem, write-only ADR-0020) e cadastra/rotaciona via o PUT idempotente existente (produto em texto livre + connection string em input password). Reusa o endpoint da 6.3, sem novos endpoints no SecureGate. Teste: `UpsertDatabaseAsync` encaminha a connection string ao client
 
-**Fase 7 concluída** — o AdminPortal cobre gestão de tenants, administração de identidade (usuários/roles/permissões), visualização de logs cross-tenant e gestão de bancos de tenant. A fundação da plataforma (SharedKernel + SDK + LogStream + SecureGate + AdminPortal) está completa; os demais produtos (NotificationHub, Configuration, FeatureFlags, Audit) ficam no backlog.
+**Fase 7 concluída** — o AdminPortal cobre gestão de tenants, administração de identidade (usuários/roles/permissões), visualização de logs cross-tenant e gestão de bancos de tenant. A fundação da plataforma (SharedKernel + SDK + LogStream + SecureGate + AdminPortal) está completa; o NotificationHub inicia na Fase 8, os demais produtos (Configuration, FeatureFlags, Audit) seguem no backlog.
 
-## Backlog (só após Fase 7 estável)
-NotificationHub · Configuration · FeatureFlags · Audit
+## Fase 8 — Secco.NotificationHub (em andamento)
+
+> Decisão (2026-07-16): v1 nasce enxuto e desacoplado — só canal e-mail (abstração
+> de canal interna pronta para um 2º canal futuro, sem prever a forma); sem motor
+> de templates (o chamador manda assunto/corpo prontos); sem acoplamento ao
+> SecureGate (o chamador resolve/informa o contato — e-mail — diretamente).
+> Broker de mensageria (ADR-0015 Camada 3, deixada em aberto para este produto)
+> continua adiado — v1 usa o mesmo padrão nativo/Hangfire já provado no
+> LogStream/SecureGate; a Camada 3 só abre quando um caso real de
+> multi-produtor/multi-consumidor justificar.
+
+- [ ] 8.1 Fundação: 4 camadas (ADR-0002) + `AddSeccoPlatform()` + `AddSeccoOpenApi()` + `openapi.json` versionado com teste de contrato + `NotificationHubDbContext` por tenant (`SeccoNamingConvention`, ADR-0017) + migrations SQL Server + Testcontainers — gerado a partir do `dotnet new secco-service`
+- [ ] 8.2 Envio de e-mail: `POST /api/v1/notifications` recebe destinatário (e-mail já resolvido pelo chamador) + assunto/corpo prontos; enfileira via `IBackgroundJobScheduler` (Hangfire/SQL Server, ADR-0015) com retry automático em falha transitória do provider (SMTP/SendGrid); `GET /api/v1/notifications/{id}` devolve status (`Pending`/`Sent`/`Failed` + motivo da falha); limites de tamanho de payload e taxa de ingestão (ADR-0020); `Secco.NotificationHub.Client` nasce com o 1º endpoint real (ADR-0006)
+- [ ] 8.3 Paridade: segundo provider de banco (PostgreSQL, ADR-0018), Dockerfile/compose de desenvolvimento
+
+## Backlog (só após Fase 8 estável)
+
+Descrições de trabalho — nenhuma ADR ainda define escopo real para estes produtos; detalhar via rounds de design (como o NotificationHub) só quando a vez de cada um chegar.
+
+- **Configuration** — configuração dinâmica por tenant (valores operacionais, não binários como feature flags) sem precisar de redeploy; um catálogo central de settings por tenant/produto, análogo em espírito ao catálogo de tenants do SecureGate.
+- **FeatureFlags** — ativação/desativação de funcionalidades em runtime, por tenant (ou por %, por role); controla rollout gradual e kill-switch de feature sem deploy.
+- **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade.
 
 ---
 
-*Regra de ouro: NotificationHub, Configuration, FeatureFlags e Audit ficam no backlog até o quarteto SharedKernel + SDK + LogStream + SecureGate provar o padrão. Paralelizar sete produtos impede que qualquer um amadureça.*
+*Regra de ouro: Configuration, FeatureFlags e Audit ficam no backlog até o NotificationHub provar o padrão de mais um produto adotando a fundação. Paralelizar produtos impede que qualquer um amadureça.*
