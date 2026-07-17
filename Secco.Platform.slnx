@@ -12,6 +12,15 @@
     <Project Path="src/LogStream/Secco.LogStream.Migrations.Postgres/Secco.LogStream.Migrations.Postgres.csproj" />
     <Project Path="src/LogStream/Secco.LogStream.Migrations.SqlServer/Secco.LogStream.Migrations.SqlServer.csproj" />
   </Folder>
+  <Folder Name="/src/NotificationHub/">
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Api/Secco.NotificationHub.Api.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Application/Secco.NotificationHub.Application.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Domain/Secco.NotificationHub.Domain.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Infrastructure/Secco.NotificationHub.Infrastructure.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Migrations.Postgres/Secco.NotificationHub.Migrations.Postgres.csproj" />
+    <Project Path="src/NotificationHub/Secco.NotificationHub.Migrations.SqlServer/Secco.NotificationHub.Migrations.SqlServer.csproj" />
+  </Folder>
   <Folder Name="/src/SDK/">
     <Project Path="src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" />
     <Project Path="src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" />
@@ -34,6 +43,9 @@
   </Folder>
   <Folder Name="/tests/LogStream/">
     <Project Path="tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/NotificationHub/">
+    <Project Path="tests/NotificationHub/Secco.NotificationHub.Tests/Secco.NotificationHub.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/SDK/">
     <Project Path="tests/SDK/Secco.SDK.AspNetCore.Tests/Secco.SDK.AspNetCore.Tests.csproj" />
