@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.NotificationHub.Application;
+using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Infrastructure.Contexts;
 using Secco.NotificationHub.Infrastructure.Email;
@@ -41,6 +42,7 @@ public static class NotificationHubInfrastructureExtensions
         });
 
         services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IInAppNotificationRepository, InAppNotificationRepository>();
         services.AddScoped<IEmailSender, MailKitEmailSender>();
         services.AddScoped<IEmailDispatchQueue, EmailDispatchScheduler>();
         services.AddScoped<SendEmailJob>();

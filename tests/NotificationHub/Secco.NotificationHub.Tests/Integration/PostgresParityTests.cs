@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
 using Secco.NotificationHub.Infrastructure.Contexts;
 using Secco.NotificationHub.Infrastructure.Repositories;
@@ -71,5 +72,32 @@ public sealed class PostgresParityTests : IAsyncLifetime
         fetched.Should().NotBeNull();
         fetched!.Status.Should().Be(NotificationStatus.Sent);
         fetched.SentAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Repository_OnPostgres_RoundTripsInAppNotificationCorrectly()
+    {
+        await using (var migrationContext = CreateContext())
+        {
+            await migrationContext.Database.MigrateAsync();
+        }
+
+        var userId = Guid.NewGuid();
+        Guid notificationId;
+
+        await using (var writeContext = CreateContext())
+        {
+            var repository = new InAppNotificationRepository(writeContext);
+            var notification = new InAppNotification(userId, "secco-intranet", "aviso", "Título", "Mensagem", "/pagina");
+            await repository.AddAsync(notification);
+            notificationId = notification.Id;
+        }
+
+        await using var readContext = CreateContext();
+        var fetched = await new InAppNotificationRepository(readContext).GetByIdAsync(notificationId);
+
+        fetched.Should().NotBeNull();
+        fetched!.UserId.Should().Be(userId);
+        fetched.IsRead.Should().BeFalse();
     }
 }

@@ -7,13 +7,23 @@ namespace Secco.NotificationHub.Application;
 /// </summary>
 public static class NotificationHubPermissions
 {
-    /// <summary>Permissões de notificações.</summary>
+    /// <summary>Permissões de despacho/consulta de notificações (e-mail).</summary>
     public static class Notifications
     {
         /// <summary>Consultar o status de uma notificação.</summary>
         public const string Read = "notifications:read";
 
-        /// <summary>Enviar (enfileirar) uma notificação.</summary>
+        /// <summary>Despachar (enviar) uma notificação para 1+ canais.</summary>
         public const string Write = "notifications:write";
+    }
+
+    /// <summary>Permissões do inbox in-app (Fase 8.4).</summary>
+    public static class InAppNotifications
+    {
+        /// <summary>Consultar não lidas / contagem de um usuário.</summary>
+        public const string Read = "in-app-notifications:read";
+
+        /// <summary>Marcar um item como lido.</summary>
+        public const string Write = "in-app-notifications:write";
     }
 }

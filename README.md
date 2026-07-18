@@ -10,7 +10,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.1.1** |
 | [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.1.0** |
 | [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Disponível (aplicação, não pacote) |
-| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações (e-mail no v1) | Disponível |
+| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail + inbox in-app) | Disponível |
 | [Secco.Templates](templates/README.md) | `dotnet new secco-service` | `Secco.Templates` **0.1.0** |
 
 ## Começando

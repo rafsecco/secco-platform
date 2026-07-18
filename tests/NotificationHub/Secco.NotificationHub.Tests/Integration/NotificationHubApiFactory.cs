@@ -95,6 +95,8 @@ public sealed class NotificationHubApiFactory : WebApplicationFactory<Program>, 
                 // Permissões do role dos tokens de teste (ADR-0021) — resolver por configuração
                 [$"Secco:Authorization:Roles:{TestRole}:Permissions:0"] = "notifications:read",
                 [$"Secco:Authorization:Roles:{TestRole}:Permissions:1"] = "notifications:write",
+                [$"Secco:Authorization:Roles:{TestRole}:Permissions:2"] = "in-app-notifications:read",
+                [$"Secco:Authorization:Roles:{TestRole}:Permissions:3"] = "in-app-notifications:write",
                 // Banco de PLATAFORMA do Hangfire (ADR-0015) — nunca por tenant
                 ["NotificationHub:BackgroundJobs:ConnectionString"] =
                     GetTenantConnectionString(PlatformDatabaseName),

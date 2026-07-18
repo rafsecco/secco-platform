@@ -22,6 +22,62 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Secco.NotificationHub.Domain.InAppNotifications.InAppNotification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pk_in_app_notification");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_read");
+
+                    b.Property<string>("Link")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_link");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_message");
+
+                    b.Property<DateTimeOffset?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_read_at");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_source");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_type");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_in_app_notifications");
+
+                    b.HasIndex("UserId", "IsRead")
+                        .HasDatabaseName("idx_in_app_notifications_user_id_fl_read");
+
+                    b.ToTable("tb_in_app_notifications");
+                });
+
             modelBuilder.Entity("Secco.NotificationHub.Domain.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")

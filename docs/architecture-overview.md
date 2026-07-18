@@ -24,7 +24,7 @@ A plataforma é um **ecossistema de produtos adotáveis de forma independente** 
 | **Secco.LogStream** | Logging & Observability (produto de referência): logs, processos, chamadas de API, retenção | 0002, 0018 |
 | **Secco.SecureGate** | Identity & Access Management (OIDC): emissor de tokens, catálogo de tenants, Role+Permission, login | 0007, 0021, 0022, 0023, 0024 |
 | **Secco.AdminPortal** | Console de operação (Blazor Server, relying party OIDC) | 0023, 0024 |
-| **Secco.NotificationHub** | Envio de notificações (e-mail no v1), assíncrono com retry | 0002, 0015 |
+| **Secco.NotificationHub** | Notificações multi-canal: e-mail assíncrono com retry + inbox in-app | 0002, 0015 |
 | **Secco.Templates** | `dotnet new secco-service` — destila um produto conforme todas as ADRs | 0013 |
 
 ## Como uma requisição flui

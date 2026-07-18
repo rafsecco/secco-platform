@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Secco.NotificationHub.Infrastructure.Contexts;
 
@@ -11,9 +12,11 @@ using Secco.NotificationHub.Infrastructure.Contexts;
 namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
 {
     [DbContext(typeof(NotificationHubDbContext))]
-    partial class NotificationHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718131103_AddInAppNotifications")]
+    partial class AddInAppNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
 using Secco.SDK.EntityFrameworkCore;
 
@@ -12,8 +13,11 @@ namespace Secco.NotificationHub.Infrastructure.Contexts;
 public sealed class NotificationHubDbContext(DbContextOptions<NotificationHubDbContext> options)
     : SeccoDbContext(options)
 {
-    /// <summary>Notificações (tabela <c>tb_notifications</c>).</summary>
+    /// <summary>Notificações por e-mail (tabela <c>tb_notifications</c>).</summary>
     public DbSet<Notification> Notifications => Set<Notification>();
+
+    /// <summary>Inbox in-app (tabela <c>tb_in_app_notifications</c>, Fase 8.4).</summary>
+    public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)

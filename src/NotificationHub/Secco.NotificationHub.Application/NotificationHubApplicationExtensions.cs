@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
 
 namespace Secco.NotificationHub.Application;
@@ -15,8 +16,12 @@ public static class NotificationHubApplicationExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddScoped<SendNotificationHandler>();
+        services.AddScoped<DispatchNotificationHandler>();
         services.AddScoped<GetNotificationByIdHandler>();
+
+        services.AddScoped<GetUnreadInAppNotificationsHandler>();
+        services.AddScoped<CountUnreadInAppNotificationsHandler>();
+        services.AddScoped<MarkInAppNotificationAsReadHandler>();
 
         return services;
     }

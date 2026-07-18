@@ -15,24 +15,24 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "Enfileira o envio de uma notificação por e-mail (assíncrono, com retry — ADR-0015).",
+        "summary": "Despacha uma notificação para 1+ canais (e-mail assíncrono com retry — ADR-0015; in-app gravado de imediato).",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendNotificationRequest"
+                "$ref": "#/components/schemas/DispatchNotificationRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "202": {
+            "description": "Accepted",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NotificationDto"
+                  "$ref": "#/components/schemas/DispatchNotificationResult"
                 }
               }
             }
@@ -55,7 +55,7 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "Consulta o status de uma notificação (Pending/Sent/Failed).",
+        "summary": "Consulta o status de uma notificação por e-mail (Pending/Sent/Failed).",
         "parameters": [
           {
             "name": "id",
@@ -90,10 +90,261 @@
           }
         }
       }
+    },
+    "/api/v1/in-app-notifications": {
+      "get": {
+        "tags": [
+          "InAppNotifications"
+        ],
+        "summary": "Lista o inbox não lido de um usuário, mais recentes primeiro.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InAppNotificationDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/in-app-notifications/count": {
+      "get": {
+        "tags": [
+          "InAppNotifications"
+        ],
+        "summary": "Conta o inbox não lido de um usuário — para o sino do header, sem a lista completa.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "pattern": "^-?(?:0|[1-9]\\d*)$",
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/in-app-notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "InAppNotifications"
+        ],
+        "summary": "Marca um item do inbox como lido (idempotente).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "DispatchNotificationRequest": {
+        "required": [
+          "userId",
+          "recipient",
+          "title",
+          "message",
+          "source",
+          "type",
+          "link",
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipient": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channels": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DispatchNotificationResult": {
+        "required": [
+          "emailNotificationId",
+          "inAppNotificationId"
+        ],
+        "type": "object",
+        "properties": {
+          "emailNotificationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inAppNotificationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "InAppNotificationDto": {
+        "required": [
+          "id",
+          "userId",
+          "source",
+          "type",
+          "title",
+          "message",
+          "link",
+          "isRead",
+          "createdAt",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "NotificationDto": {
         "required": [
           "id",
@@ -183,40 +434,15 @@
             ]
           }
         }
-      },
-      "SendNotificationRequest": {
-        "required": [
-          "recipient",
-          "subject",
-          "body"
-        ],
-        "type": "object",
-        "properties": {
-          "recipient": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "subject": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "body": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
       }
     }
   },
   "tags": [
     {
       "name": "Notifications"
+    },
+    {
+      "name": "InAppNotifications"
     }
   ]
 }
