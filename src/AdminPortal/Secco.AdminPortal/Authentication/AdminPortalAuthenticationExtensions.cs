@@ -37,7 +37,15 @@ public static class AdminPortalAuthenticationExtensions
                 options.Cookie.Name = "secco.adminportal.auth";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+
+                // ADR-0020: este cookie custodia o access token do operador (ver OnTokenValidated) —
+                // em Production não pode trafegar sem TLS. Mesmo critério de RequireHttpsMetadata
+                // logo abaixo: só Production força HTTPS (Development e Testing seguem SameAsRequest,
+                // hosts locais/TestServer normalmente são HTTP puro).
+                options.Cookie.SecurePolicy = environment.IsProduction()
+                    ? CookieSecurePolicy.Always
+                    : CookieSecurePolicy.SameAsRequest;
+
                 options.SlidingExpiration = true;
             })
             .AddOpenIdConnect(options =>
