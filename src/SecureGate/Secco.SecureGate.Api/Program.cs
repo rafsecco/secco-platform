@@ -28,7 +28,7 @@ builder.Services.AddSecureGateApplication();
 builder.Services.AddSecureGateInfrastructure();
 
 // ASP.NET Identity para o login interativo (cookie não-default; o padrão segue JwtBearer)
-builder.Services.AddSecureGateIdentity();
+builder.Services.AddSecureGateIdentity(builder.Environment);
 
 // Servidor OIDC (ADR-0022): client credentials (máquinas) + authorization code/PKCE (usuários)
 builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configuration);

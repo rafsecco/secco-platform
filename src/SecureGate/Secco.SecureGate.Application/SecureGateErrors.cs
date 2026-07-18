@@ -115,6 +115,14 @@ public static class SecureGateErrors
         public static readonly Error PasswordRequired =
             Error.Validation("SecureGate.User.PasswordRequired", "A senha é obrigatória.");
 
+        /// <summary>
+        /// Senha acima do limite superior aceito (ADR-0020): sem teto, uma senha muito longa
+        /// amplifica o custo do hashing PBKDF2 no Identity antes mesmo de validar a política —
+        /// vetor de negação de serviço. O mínimo/complexidade seguem a cargo do Identity.
+        /// </summary>
+        public static readonly Error PasswordTooLong =
+            Error.Validation("SecureGate.User.PasswordTooLong", "A senha deve ter no máximo 128 caracteres.");
+
         /// <summary>Algum role informado não existe no tenant.</summary>
         public static readonly Error RoleNotFound =
             Error.Validation("SecureGate.User.RoleNotFound", "Um dos roles informados não existe neste tenant.");

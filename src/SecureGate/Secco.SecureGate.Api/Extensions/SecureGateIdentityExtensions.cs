@@ -15,9 +15,11 @@ public static class SecureGateIdentityExtensions
 {
     /// <summary>Registra UserManager/SignInManager e os cookies de login (esquema não-default).</summary>
     /// <param name="services">Coleção de serviços da aplicação.</param>
-    public static IServiceCollection AddSecureGateIdentity(this IServiceCollection services)
+    /// <param name="environment">Ambiente de hospedagem (define a política de cookie Secure).</param>
+    public static IServiceCollection AddSecureGateIdentity(this IServiceCollection services, IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(environment);
 
         services.AddIdentityCore<User>(options =>
             {
@@ -55,7 +57,13 @@ public static class SecureGateIdentityExtensions
                 // O fluxo de autorização é same-site (login e authorize no mesmo host)
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+
+                // ADR-0020: cookie de sessão do login interativo — só em Production exige Secure
+                // (Always); Development e Testing seguem SameAsRequest (host local/TestServer
+                // tipicamente HTTP, sem TLS).
+                options.Cookie.SecurePolicy = environment.IsProduction()
+                    ? CookieSecurePolicy.Always
+                    : CookieSecurePolicy.SameAsRequest;
             })
             // Referenciado pelo SignInManager mesmo sem login externo configurado
             .AddCookie(IdentityConstants.ExternalScheme, options =>

@@ -21,6 +21,9 @@ public sealed class CreateUserHandler(IRoleRepository roleRepository, IUserDirec
     /// <summary>Tamanho máximo aceito para o e-mail.</summary>
     private const int EmailMaxLength = 256;
 
+    /// <summary>Tamanho máximo aceito para a senha (ADR-0020: teto contra amplificação de PBKDF2).</summary>
+    private const int PasswordMaxLength = 128;
+
     /// <summary>Executa o caso de uso.</summary>
     /// <param name="command">Comando de criação.</param>
     /// <param name="cancellationToken">Token de cancelamento.</param>
@@ -38,6 +41,11 @@ public sealed class CreateUserHandler(IRoleRepository roleRepository, IUserDirec
         if (string.IsNullOrEmpty(command.Password))
         {
             return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordRequired);
+        }
+
+        if (command.Password.Length > PasswordMaxLength)
+        {
+            return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordTooLong);
         }
 
         if (!await roleRepository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))

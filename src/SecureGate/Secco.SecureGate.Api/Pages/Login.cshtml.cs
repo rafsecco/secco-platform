@@ -35,6 +35,9 @@ public sealed class LoginModel(SignInManager<User> signInManager) : PageModel
 
         /// <summary>Senha do usuário.</summary>
         [Required(ErrorMessage = "Informe a senha.")]
+        // ADR-0020: limite superior contra amplificação de custo no hashing PBKDF2 do Identity
+        // (DoS) — a política de mínimo/complexidade é do Identity, isto é só um teto.
+        [StringLength(128, ErrorMessage = "A senha deve ter no máximo 128 caracteres.")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
     }
