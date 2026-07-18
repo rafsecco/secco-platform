@@ -4,7 +4,7 @@ Canal único de notificações da Secco Platform (Fase 8): os demais produtos pe
 
 ## O que está entregue
 
-### v1 — Envio de e-mail (8.1/8.2)
+### v1 — Envio de e-mail (Fase 8 completa)
 
 Escopo decidido: só canal e-mail (abstração interna pronta para um 2º canal futuro, sem prever a forma); sem motor de templates (o chamador manda assunto/corpo prontos); sem acoplamento ao SecureGate (o chamador resolve/informa o e-mail do destinatário diretamente); broker de mensageria continua adiado (ADR-0015 Camada 3, reservada para este produto, só abre com um caso real de multi-produtor/consumidor).
 
@@ -26,14 +26,21 @@ Escopo decidido: só canal e-mail (abstração interna pronta para um 2º canal 
 | `NotificationHub:Limits` | `MaxRecipientLength`/`MaxSubjectLength`/`MaxBodyLength` (ADR-0020) |
 | `NotificationHub:Database` | Engine dos bancos de tenant (`SqlServer` padrão / `Postgres`, ADR-0018) |
 
+### Paridade de banco (8.3, ADR-0018)
+
+PostgreSQL como segundo provider **do banco de tenant** — migrations do assembly próprio (`Secco.NotificationHub.Migrations.Postgres`), schema idêntico (minúsculo, sem aspas). O Hangfire (banco de **plataforma**) é **SQL-Server-only no v1**: é infraestrutura de fila, não dado de tenant, e não é alvo da paridade de provider da ADR-0018 — mudar isso exigiria o pacote `Hangfire.PostgreSql`, fora do escopo atual.
+
+### Ambiente de desenvolvimento
+
+`docker-compose.yml`: SQL Server (bancos de tenant + plataforma do Hangfire, criado por um serviço `sqlserver-init` — diferente do EF, o Hangfire não cria o banco sozinho) + MailHog (SMTP fake local, `localhost:8025` para ver os e-mails "enviados").
+
 ## Testes
 
-`tests/NotificationHub/Secco.NotificationHub.Tests` (ADR-0012): Testcontainers reais (SQL Server) para os bancos de tenant **e** para o banco de plataforma do Hangfire — o job de envio é processado de verdade pelo Hangfire; só o SMTP é substituído por um fake (sem servidor de e-mail real em teste). Cobre: envio bem-sucedido (`Pending` → `Sent`), falha marcada com motivo, isolamento entre tenants, validação de entrada, autorização por permissão. `TenantJobRunner` também tem teste isolado no SDK (`Secco.SDK.AspNetCore.Tests`).
+`tests/NotificationHub/Secco.NotificationHub.Tests` (ADR-0012): Testcontainers reais (SQL Server) para os bancos de tenant **e** para o banco de plataforma do Hangfire — o job de envio é processado de verdade pelo Hangfire; só o SMTP é substituído por um fake (sem servidor de e-mail real em teste). Cobre: envio bem-sucedido (`Pending` → `Sent`), falha marcada com motivo, isolamento entre tenants, validação de entrada, autorização por permissão, paridade PostgreSQL (migrations + repositório, sem WebApplicationFactory — o Hangfire não entra nessa suíte). `TenantJobRunner` também tem teste isolado no SDK (`Secco.SDK.AspNetCore.Tests`).
 
 **Achado de teste**: múltiplas instâncias de `WebApplicationFactory` com Hangfire no mesmo processo de teste quebram — `Hangfire.Logging.LogProvider` é um bridge de log **estático por processo**; quando a primeira factory é descartada, qualquer uso posterior do Hangfire (por outra factory) lança `ObjectDisposedException` no `LoggerFactory` capturado. Resolvido com uma `ICollectionFixture` compartilhada entre as classes de teste do produto (uma única factory para todo o assembly).
 
 ## Backlog do produto
 
-- **8.3** — segundo provider de banco (PostgreSQL), Dockerfile/compose de desenvolvimento.
 - 2º canal (push/SMS/webhook) — só quando houver demanda real de um segundo canal.
 - Motor de templates — só se 2+ produtos repetirem a mesma necessidade (critério do SharedKernel aplicado ao produto).

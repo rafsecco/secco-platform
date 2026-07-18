@@ -1,5 +1,5 @@
 # Contexto de build: a RAIZ do monorepo (Central Package Management exige os props):
-#   docker build -f src/NotificationHub/Secco.NotificationHub.Api/Dockerfile -t secco-sampleservice .
+#   docker build -f src/NotificationHub/Secco.NotificationHub.Api/Dockerfile -t secco-notificationhub .
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src

@@ -1,6 +1,9 @@
-# Ambiente de desenvolvimento: SQL Server + API.
+# Ambiente de desenvolvimento: SQL Server + MailHog (SMTP fake) + API.
 #   docker compose -f src/NotificationHub/docker-compose.yml up --build
 # Em Development a API aplica migrations e seed automaticamente nos tenants do catálogo.
+# O Hangfire (ADR-0015) usa o MESMO SQL Server, banco de plataforma à parte (nunca por
+# tenant) — diferente das migrations EF, o Hangfire não cria o banco sozinho, por isso o
+# serviço "sqlserver-init" garante que ele exista antes da API subir.
 
 services:
   sqlserver:
@@ -16,16 +19,40 @@ services:
       timeout: 5s
       retries: 20
 
-  sampleservice-api:
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql-tools18
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    entrypoint: >
+      /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P 'Secco@Dev123' -C
+      -Q "IF DB_ID('secco_notificationhub_platform') IS NULL CREATE DATABASE secco_notificationhub_platform"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"   # SMTP (NotificationHub:Email aponta aqui)
+      - "8025:8025"   # UI web para ver os e-mails "enviados"
+
+  notificationhub-api:
     build:
       context: ../..
       dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
     depends_on:
       sqlserver:
         condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_HTTP_PORTS: "8080"
       Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__BackgroundJobs__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_platform;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__Email__Host: "mailhog"
+      NotificationHub__Email__Port: "1025"
+      NotificationHub__Email__UseStartTls: "false"
+      NotificationHub__Email__FromAddress: "no-reply@secco.local"
     ports:
       - "8080:8080"
