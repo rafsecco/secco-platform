@@ -112,6 +112,8 @@ Descrições de trabalho — nenhuma ADR ainda define escopo real para estes pro
 - **Configuration** — configuração dinâmica por tenant (valores operacionais, não binários como feature flags) sem precisar de redeploy; um catálogo central de settings por tenant/produto, análogo em espírito ao catálogo de tenants do SecureGate.
 - **FeatureFlags** — ativação/desativação de funcionalidades em runtime, por tenant (ou por %, por role); controla rollout gradual e kill-switch de feature sem deploy.
 - **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade.
+- **Secco.SDK.Testing** — extrair uma base reutilizável dos 4 `*ApiFactory` de testes de integração (MsSqlContainer + migração única + JWT de teste); hoje duplicado em LogStream/SecureGate/NotificationHub/template, com drift entre as cópias.
+- **Generalizar `DatabaseProviderConfigurator`/`BindSection`** no `Secco.SDK.EntityFrameworkCore` — hoje copiado verbatim em 4 lugares, e o template propaga a 5ª cópia a cada novo produto gerado.
 
 ---
 

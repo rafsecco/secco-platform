@@ -10,7 +10,7 @@ A plataforma é um **ecossistema de produtos adotáveis de forma independente** 
 - **Erros de negócio como valor** (ADR-0004): `Result<T>`/`Error` do SharedKernel — nunca exceções para fluxo. Na borda, viram ProblemDetails.
 - **Contrato primeiro** (ADR-0006): cada produto versiona um `openapi.json`; a comunicação entre produtos é **exclusivamente** por clients NSwag gerados (`Secco.<Produto>.Client`) — `HttpClient` manual é proibido.
 - **Multi-tenancy database-per-tenant** (ADR-0005): nenhuma query cruza tenants; o acesso a dados passa por `ITenantConnectionFactory`.
-- **Cross-cutting no SDK** (ADR-0004): correlation, autenticação, tenancy, health, resiliência e autorização vêm do `Secco.SDK`, nunca reimplementados no produto.
+- **Cross-cutting no SDK** (ADR-0004): correlation, autenticação, tenancy, health, resiliência e autorização vêm do `Secco.SDK`, nunca reimplementados no produto. Background jobs seguem o mesmo espírito: `IBackgroundJobScheduler`/`AddSeccoBackgroundJobs()` (ADR-0015 Camada 2) encapsula o Hangfire com storage SQL Server no banco de **plataforma** do produto (nunca por tenant); o `TenantJobRunner` restaura o tenant no escopo automaticamente antes do job rodar, então o job nunca chama `SetTenant` sozinho.
 - **Segurança é design, não revisão** (ADR-0020): confiança em input, injeção, vazamento, isolamento de tenant, DoS e dependências são avaliados antes de implementar.
 - **Banco em notação húngara por convention** (ADR-0017): `tb_`/`id_pk_`/`ds_`/`dt_`/`fl_`… aplicados pelo EF Core — ninguém digita nome de tabela/coluna.
 
@@ -19,7 +19,7 @@ A plataforma é um **ecossistema de produtos adotáveis de forma independente** 
 | Produto | Papel | ADRs-chave |
 |---|---|---|
 | **Secco.SharedKernel** | Primitivas puras e estáveis (`Result<T>`, paginação, `BaseEntity`, claims, permissions) — sem I/O, zero dependências além da BCL | 0003, 0004 |
-| **Secco.SDK.AspNetCore** | Cross-cutting de runtime + composição `AddSeccoPlatform()` | 0004, 0005, 0007, 0020, 0021 |
+| **Secco.SDK.AspNetCore** | Cross-cutting de runtime + composição `AddSeccoPlatform()` | 0004, 0005, 0007, 0015, 0020, 0021 |
 | **Secco.SDK.EntityFrameworkCore** | `SeccoDbContext` + nomenclatura de banco + seeding | 0017, 0018, 0019 |
 | **Secco.LogStream** | Logging & Observability (produto de referência): logs, processos, chamadas de API, retenção | 0002, 0018 |
 | **Secco.SecureGate** | Identity & Access Management (OIDC): emissor de tokens, catálogo de tenants, Role+Permission, login | 0007, 0021, 0022, 0023, 0024 |

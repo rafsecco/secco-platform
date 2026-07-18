@@ -6,11 +6,12 @@
 > menor prioridade no momento; reavaliar é legítimo, mas via ADR nova
 > se a mudança for adotada.
 
-> Arquivo **não versionado**, gerado a partir do transcript da sessão.
+> Arquivo **versionado no repositório, porém não normativo** — serve para consultar
+> contexto e alternativas descartadas, nunca para contradizer uma ADR.
 > Cada bloco é uma pergunta feita via AskUserQuestion, com TODAS as opções
 > apresentadas (label + descrição) e a resposta escolhida marcada com **✓**.
 
-Total de rodadas de perguntas: 30
+Total de rodadas de perguntas: 31
 
 ---
 
@@ -1158,4 +1159,86 @@ Opções apresentadas:
   - Mostra os produtos que têm banco (lista Products do tenant, sem revelar connection strings — write-only, ADR-0020) e permite cadastrar/rotacionar via o PUT idempotente existente. Cobre o essencial do provisionamento; remover banco entra depois, quando houver o endpoint. Mantém a 7.4 só no AdminPortal.
 - **Também remover/descadastrar banco**
   - Gestão completa, mas exige um endpoint NOVO no SecureGate (DELETE do banco de um tenant/produto) — amplia a fase para Domain/Application/Api/contrato/testes do SecureGate. Remover um banco é destrutivo (o produto perde a resolução do tenant) — melhor tratar com cuidado numa fatia própria.
+
+---
+
+## Rodada 31
+
+> **Rodada retroativa consolidada a partir do roadmap** (`docs/roadmap.md`, Fase 8) —
+> diferente das rodadas 1–30, não veio de um transcript de sessão com AskUserQuestion.
+> As perguntas/respostas abaixo reconstroem as decisões já registradas no roadmap e no
+> `CLAUDE.md` para a Fase 8 (Secco.NotificationHub); "opções apresentadas" aqui resume as
+> alternativas que o roadmap já contrasta implicitamente, não uma lista literal exibida ao
+> usuário no momento da decisão.
+
+### 88. [Escopo v1] O NotificationHub nasce com quantos canais e quanto de motor de templates?
+
+**Resposta:** Só e-mail, sem motor de templates (Recomendado)
+
+Opções apresentadas:
+
+- **Só e-mail, sem motor de templates (Recomendado)** ✓ **ESCOLHIDA**
+  - Decisão (2026-07-16, roadmap Fase 8): v1 enxuto e desacoplado — um único canal (e-mail), com uma abstração de canal interna já pronta para um 2º canal futuro, mas sem prever a forma. Sem motor de templates: o chamador manda assunto/corpo prontos. Sem acoplamento ao SecureGate — o chamador resolve/informa o destinatário diretamente.
+- **E-mail + templates desde já**
+  - Entregar um motor de template (placeholders, layouts) junto do canal de e-mail. Mais completo para adoção imediata, porém é superfície e decisão de design (qual linguagem de template? versionamento?) sem consumidor real que a justifique — YAGNI na v1.
+- **Múltiplos canais desde já (e-mail + SMS/push)**
+  - Cobrir mais de um canal de entrega externo na fundação. Adiantaria trabalho que nenhum adotante pediu ainda; a abstração de canal interna já deixa a porta aberta para o 2º canal quando houver demanda real.
+
+### 89. [Background] Como o envio assíncrono de e-mail é processado?
+
+**Resposta:** `IBackgroundJobScheduler` novo no SDK, Hangfire/SQL Server no banco de plataforma (Recomendado)
+
+Opções apresentadas:
+
+- **`IBackgroundJobScheduler` novo no SDK, Hangfire/SQL Server no banco de plataforma (Recomendado)** ✓ **ESCOLHIDA**
+  - Fase 8.2: primeiro consumidor real da Camada 2 da ADR-0015. `Secco.SDK.AspNetCore` ganha `IBackgroundJobScheduler`/`AddSeccoBackgroundJobs()`; Hangfire usa storage SQL Server no banco de **plataforma** do produto (nunca por tenant — fila é infraestrutura, não dado de tenant); `TenantJobRunner` restaura o tenant no escopo automaticamente antes do job rodar, então o job nunca chama `SetTenant` sozinho. `[AutomaticRetry(Attempts = 5)]` fixado no runner — retry é decisão de plataforma, não por job.
+  - Broker de mensageria (ADR-0015 Camada 3) segue adiado: só abre com um caso real de multi-produtor/multi-consumidor.
+- **Broker de mensageria (Camada 3) já nesta fase**
+  - Abriria a Camada 3 da ADR-0015 antes de qualquer produto ter um cenário real de multi-produtor/multi-consumidor — contradiz a régua de "broker só com ADR nova e demanda comprovada" já registrada.
+- **Nativo (`BackgroundService` in-process, sem persistência)**
+  - Mais simples, mas envio de e-mail precisa de retry e visibilidade de status (`Pending`/`Sent`/`Failed`) — exatamente o caso que a ADR-0015 reserva para a Camada 2 (Hangfire), não para o nativo (Camada 1, só manutenção in-process sem persistência).
+
+### 90. [Biblioteca SMTP] Qual biblioteca envia o e-mail de fato?
+
+**Resposta:** MailKit (Recomendado)
+
+Opções apresentadas:
+
+- **MailKit (Recomendado)** ✓ **ESCOLHIDA**
+  - `System.Net.Mail.SmtpClient` está obsoleto pela própria Microsoft; MailKit é o substituto padrão da comunidade .NET, ativamente mantido. `docker-compose.yml` (8.3) ganhou MailHog como SMTP fake local para dev/testes (portas 1025/8025), sem depender de um provedor externo real.
+- **`System.Net.Mail.SmtpClient`**
+  - Nativo do BCL, zero dependência nova — porém obsoleto e sem suporte a mecanismos modernos (STARTTLS robusto, autenticação atual); descartado por ser tecnologia desencorajada pelo próprio mantenedor.
+
+### 91. [Reforma do contrato] Como o produto passa a aceitar múltiplos canais numa única chamada?
+
+**Resposta:** `POST /notifications` reformado para `channels: [...]` (Recomendado)
+
+Opções apresentadas:
+
+- **`POST /notifications` reformado para `channels: [...]` (Recomendado)** ✓ **ESCOLHIDA**
+  - Fase 8.4: o endpoint aceita `channels: ["email", "in_app"]` numa chamada só — cada canal cria o registro correspondente. Reforma aceita porque o produto nasceu na mesma sessão/fase, sem consumidor real ainda travado no shape anterior (sem breaking change relevante).
+- **Endpoint novo por canal (`POST /in-app-notifications` separado para criar)**
+  - Manteria o contrato de e-mail intocado e criaria um endpoint de criação próprio para in-app. Evita reformar um contrato existente, porém obriga o chamador a duas chamadas para uma notificação que quer os dois canais, e duplica validação de destinatário/usuário entre dois endpoints.
+
+### 92. [Modelagem] O canal in-app reusa a entidade `Notification` (e-mail) ou ganha entidade própria?
+
+**Resposta:** Entidade `InAppNotification` própria (Recomendado)
+
+Opções apresentadas:
+
+- **Entidade `InAppNotification` própria (Recomendado)** ✓ **ESCOLHIDA**
+  - Ciclo de vida diferente do e-mail: lido/não lido, sem status de entrega (`Pending`/`Sent`/`Failed` não fazem sentido para um item de inbox). Entidades deliberadamente separadas — a `Notification` de e-mail fica intocada. Novos endpoints `GET /api/v1/in-app-notifications` (não lidas), `GET .../count` (para o sino do header, sem lista completa) e `POST .../{id}/read`, com permissões próprias (`in-app-notifications:read`/`write`, ADR-0021).
+- **Campo de canal na `Notification` existente**
+  - Uma tabela só, com `Channel` discriminando e-mail vs in-app. Menos uma entidade, porém mistura dois ciclos de vida (status de entrega vs lido/não lido) na mesma tabela — colunas mortas para um lado ou outro, e a auditoria (ADR-0020) fica mais confusa sobre o que cada coluna significa.
+
+### 93. [Acoplamento] `userId`/`recipient` devem ser derivados um do outro (ex.: via SecureGate) ou informados independentemente?
+
+**Resposta:** Campos independentes, sem acoplar ao SecureGate (Recomendado)
+
+Opções apresentadas:
+
+- **Campos independentes, sem acoplar ao SecureGate (Recomendado)** ✓ **ESCOLHIDA**
+  - `userId` (canal in-app) e `recipient` (e-mail) seguem campos independentes no request — o Hub não resolve e-mail a partir de `userId` nem vice-versa. Mantém a decisão da 8.2 (Fase 8, 2026-07-16) de não acoplar ao SecureGate: o chamador já resolve/informa o destinatário/usuário.
+- **Resolver `recipient` a partir de `userId` via SecureGate**
+  - O Hub consultaria o SecureGate para descobrir o e-mail do usuário a partir do `userId`. Mais conveniente para o chamador, porém reintroduz o acoplamento que a decisão de 2026-07-16 explicitamente rejeitou (o Hub não conhece SecureGate) e faria o produto depender de outro serviço estar disponível só para montar um registro de notificação.
 

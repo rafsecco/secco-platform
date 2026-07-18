@@ -2,7 +2,7 @@
 
 Produto de logging e observabilidade da Secco Platform: recebe, armazena e consulta logs gerais, logs de processos (com auditoria por status agregado) e logs de chamadas de API de qualquer aplicação da plataforma ou externa.
 
-> **Em reescrita (Fase 4 do [roadmap](../../docs/roadmap.md)):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. Log geral disponível (4.3); log de processos, ApiCallLog e retenção chegam nas fases 4.4–4.6.
+> **Produto completo (Fase 4 do [roadmap](../../docs/roadmap.md) concluída, 4.1–4.7):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. Log geral, log de processos + auditoria, ApiCallLog, retenção opt-in e PostgreSQL como segundo provider — tudo entregue.
 
 ## Endpoints (v1)
 

@@ -14,7 +14,8 @@ Produto da Secco Platform gerado pelo template `secco-service` — nasce conform
 3. **Adicionar os projetos à solution**: `dotnet sln Secco.Platform.slnx add src/SampleService/**/*.csproj tests/SampleService/**/*.csproj`
 4. **Gerar o snapshot do contrato**: rodar os testes com `SECCO_UPDATE_OPENAPI=true` e commitar o `openapi/openapi.json` — o projeto Client compila a partir dele.
 5. **CI**: adicionar o path filter do produto no `.github/workflows/ci.yml` (padrão do LogStream).
-6. **Apagar o recurso Sample** (pastas `Samples/` + `SampleEndpoints`) quando o domínio real começar — ele existe como referência executável dos padrões.
+6. **Renomear o `docker-compose.yml`**: o serviço da API (e qualquer path/comentário do `Dockerfile`) nasce como `sampleservice-api` — renomear para `<produto>-api` (padrão do LogStream/NotificationHub). Bug já visto em produto gerado: leftover do scaffold esquecido no compose.
+7. **Apagar o recurso Sample** (pastas `Samples/` + `SampleEndpoints`) quando o domínio real começar — ele existe como referência executável dos padrões.
 
 ## O recurso Sample demonstra
 

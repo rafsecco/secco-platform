@@ -82,6 +82,20 @@ Na API, `Result` é convertido para HTTP via extensão padrão (`ToActionResult(
 - OpenAPI sempre via `AddSeccoOpenApi()` do SDK — nunca `AddOpenApi()` cru. Motivo: sem o schema transformer da plataforma, enums serializados como string saem do `AddOpenApi()` puro sem `type: string` no schema, e o NSwag gera o client com enum numérico — quebra a desserialização no consumidor (bug real, já corrigido uma vez no contrato do LogStream).
 - Composição de cross-cutting via `AddSeccoPlatform()` e extensões `AddSecco*()` do SDK.
 
+Esqueleto mínimo de um endpoint (forma consistente em toda a plataforma — `MapGroup` + handler via DI + `Result` → `ToHttpResult()` + permissão + documentação):
+
+```csharp
+var group = endpoints.MapGroup("/api/v1/<recurso>").WithTags("<Recurso>");
+
+group.MapGet("/{id:guid}", async (Guid id, GetByIdHandler handler, CancellationToken ct) =>
+        (await handler.HandleAsync(id, ct))
+            .ToHttpResult(dto => Results.Ok(dto)))
+    .RequireAuthorization(<Produto>Permissions.<Recurso>.Read)
+    .WithSummary("Busca um <recurso> pelo identificador.")
+    .Produces<RecursoDto>(StatusCodes.Status200OK)
+    .ProducesProblem(StatusCodes.Status404NotFound);
+```
+
 ### Multi-tenancy (Database per Tenant)
 - Tenant resolvido por claim do token (primário) ou header `X-Tenant-Id` — via SDK.
 - Acesso a dados sempre através do `ITenantConnectionFactory`; jamais connection string fixa de tenant.
@@ -100,11 +114,15 @@ Local: `Infrastructure/Seeding/` com `ReferenceDataSeeder` e `DevelopmentDataSee
 
 ## Contratos e clients NSwag
 
+Mecanismo concreto de regeneração: o csproj do `Secco.<Produto>.Client` tem um `<OpenApiReference>` apontando para o `openapi.json` versionado — o NSwag regenera o client automaticamente a cada `dotnet build` do projeto Client. O snapshot versionado, por sua vez, só é atualizado rodando os testes de integração `OpenApiContractTests` do produto com a variável de ambiente `SECCO_UPDATE_OPENAPI=true` (sem a variável, o teste **falha** em qualquer divergência entre o documento gerado pela API e o snapshot commitado; com ela, sobrescreve o arquivo).
+
 Ao alterar qualquer contrato de API:
 1. Atualizar o endpoint e o OpenAPI.
-2. Regenerar o `openapi.json` versionado no repo e o projeto `Secco.<Produto>.Client` **no mesmo PR**.
-3. Se a mudança for breaking: nova versão de API (`/v2`) conforme ADR-0009, major no pacote client, entrada no CHANGELOG.
-4. Nunca editar código dentro de `Secco.<Produto>.Client` manualmente — ajustes vão na configuração do NSwag ou em partial classes fora da pasta gerada.
+2. Rodar os `OpenApiContractTests` do produto com `SECCO_UPDATE_OPENAPI=true` para atualizar o `openapi.json` versionado.
+3. Rebuild do `Secco.<Produto>.Client.csproj` (o NSwag regenera o client a partir do snapshot novo).
+4. Commitar `openapi.json` + client gerado **no mesmo PR**.
+5. Se a mudança for breaking: nova versão de API (`/v2`) conforme ADR-0009, major no pacote client, entrada no CHANGELOG.
+6. Nunca editar código dentro de `Secco.<Produto>.Client` manualmente — ajustes vão na configuração do NSwag ou em partial classes fora da pasta gerada.
 
 ## Testes
 
