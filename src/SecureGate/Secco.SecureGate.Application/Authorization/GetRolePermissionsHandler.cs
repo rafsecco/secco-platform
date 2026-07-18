@@ -29,6 +29,9 @@ public sealed class GetRolePermissionsHandler(IRoleRepository repository)
 
         // ADR-0024: o operador de plataforma recebe o read-set em QUALQUER tenant — a
         // capacidade cross-tenant é decidida aqui (IAM), sem o produto/SDK saberem disso.
+        // Sem contexto de usuário, o casamento é só por nome — o que impede este caso especial
+        // de valer para um role de cliente é a reserva do nome na gestão (RoleInputRules.
+        // IsReservedName): esse role nunca pode ser criado num tenant de cliente (ADR-0020).
         if (string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.Ordinal))
         {
             return Result.Success(SecureGatePlatform.OperatorReadPermissions);

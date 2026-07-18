@@ -38,7 +38,13 @@ internal static class OidcPrincipalBuilder
         // ADR-0024: o operador de plataforma NÃO carrega tenant_id — escolhe o tenant por
         // requisição via X-Tenant-Id (caminho "sem claim → header" da ADR-0005). Usuário
         // comum segue com tenant_id (isolamento intacto).
-        if (!roleList.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal))
+        // O nome do role é único apenas por tenant: exigir também que o usuário esteja no
+        // tenant de plataforma impede que um "platform-operator" forjado num tenant de cliente
+        // receba o token tenant-less (defesa contra colisão de nome, ADR-0020/0023/0024).
+        var isPlatformOperator = user.TenantId == SecureGatePlatform.TenantId
+            && roleList.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal);
+
+        if (!isPlatformOperator)
         {
             identity.SetClaim(SeccoClaims.TenantId, user.TenantId.ToString());
         }

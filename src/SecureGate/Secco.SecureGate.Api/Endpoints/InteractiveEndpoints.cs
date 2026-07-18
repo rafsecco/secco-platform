@@ -77,10 +77,16 @@ public static class InteractiveEndpoints
         var roles = await userManager.GetRolesAsync(user);
 
         // ADR-0023: o scope admin só é emitido a operadores de plataforma — login de usuário
-        // comum pelo client do AdminPortal NÃO escala para admin, mesmo com o scope permitido
+        // comum pelo client do AdminPortal NÃO escala para admin, mesmo com o scope permitido.
+        // O nome do role é único só por tenant: exigir também o tenant de plataforma impede
+        // que um "platform-operator" forjado num tenant de cliente ganhe o scope admin
+        // (defesa contra colisão de nome, ADR-0020/0023/0024).
         var scopes = request.GetScopes().AsEnumerable();
 
-        if (!roles.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal))
+        var isPlatformOperator = user.TenantId == SecureGatePlatform.TenantId
+            && roles.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal);
+
+        if (!isPlatformOperator)
         {
             scopes = scopes.Where(scope => scope != SecureGateScopes.Admin);
         }

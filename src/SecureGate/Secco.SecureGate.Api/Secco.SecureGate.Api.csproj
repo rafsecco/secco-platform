@@ -7,6 +7,11 @@
     <PackageReference Include="OpenIddict.AspNetCore" />
   </ItemGroup>
 
+  <!-- Testes unitários enxergam o OidcPrincipalBuilder (internal) para validar o gate de emissão -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Secco.SecureGate.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Secco.SecureGate.Application\Secco.SecureGate.Application.csproj" />
     <ProjectReference Include="..\Secco.SecureGate.Infrastructure\Secco.SecureGate.Infrastructure.csproj" />

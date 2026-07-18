@@ -67,6 +67,15 @@ public static class SecureGateErrors
         public static readonly Error AlreadyExists =
             Error.Conflict("SecureGate.Role.AlreadyExists", "Já existe um role com este nome neste tenant.");
 
+        /// <summary>
+        /// Nome reservado à estrutura de operador de plataforma (ADR-0023/0024): criar/gerir
+        /// via API um role com esse nome num tenant de cliente forjaria um operador por
+        /// colisão de nome (ADR-0020). O role legítimo nasce só pelo seed de referência.
+        /// </summary>
+        public static readonly Error NameReserved =
+            Error.Validation("SecureGate.Role.NameReserved",
+                "Este nome de role é reservado à plataforma e não pode ser criado.");
+
         /// <summary>Permissão fora do formato canônico.</summary>
         public static readonly Error PermissionInvalid =
             Error.Validation("SecureGate.Role.PermissionInvalid",

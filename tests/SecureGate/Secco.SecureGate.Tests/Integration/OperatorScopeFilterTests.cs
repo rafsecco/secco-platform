@@ -36,6 +36,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 
     private readonly string _operatorEmail = $"op-{Guid.NewGuid():N}@secco.test";
     private readonly string _regularEmail = $"reg-{Guid.NewGuid():N}@secco.test";
+    private readonly string _impostorEmail = $"imp-{Guid.NewGuid():N}@secco.test";
 
     [GeneratedRegex("__RequestVerificationToken.*?value=\"([^\"]+)\"", RegexOptions.Singleline)]
     private static partial Regex AntiforgeryField();
@@ -79,6 +80,34 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
             EmailConfirmed = true,
         };
         (await userManager.CreateAsync(regularUser, Password)).Succeeded.Should().BeTrue();
+
+        // Impostor: num tenant de CLIENTE, com um role LITERALMENTE chamado platform-operator
+        // (inserido direto no contexto, driblando a reserva de nome da gestão). O gate de
+        // emissão exige o tenant de plataforma — o nome sozinho não escala (ADR-0020/0023/0024).
+        var impostorTenant = new Tenant("Tenant impostor", $"t-{Guid.NewGuid():N}");
+        context.Tenants.Add(impostorTenant);
+        await context.SaveChangesAsync();
+
+        var impostorRole = new Role
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = impostorTenant.Id,
+            Name = SecureGatePlatform.OperatorRole,
+            NormalizedName = SecureGatePlatform.OperatorRole.ToUpperInvariant(),
+            ConcurrencyStamp = Guid.NewGuid().ToString(),
+        };
+        context.Roles.Add(impostorRole);
+
+        var impostorUser = new User
+        {
+            Id = Guid.CreateVersion7(),
+            TenantId = impostorTenant.Id,
+            UserName = _impostorEmail,
+            Email = _impostorEmail,
+            EmailConfirmed = true,
+        };
+        (await userManager.CreateAsync(impostorUser, Password)).Succeeded.Should().BeTrue();
+        context.UserRoles.Add(new UserRole { UserId = impostorUser.Id, RoleId = impostorRole.Id });
         await context.SaveChangesAsync();
     }
 
@@ -119,6 +148,24 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 
         token.Claims.Should().Contain(c => c.Type == "tenant_id",
             "usuário comum segue com tenant_id no token (isolamento da ADR-0005 intacto)");
+    }
+
+    [Fact]
+    public async Task ImpostorLogin_DoesNotReceiveAdminScope()
+    {
+        var token = await LoginAndReadAccessTokenAsync(_impostorEmail);
+
+        Scopes(token).Should().NotContain(SecureGateScopes.Admin,
+            "um role platform-operator num tenant de cliente não escala para admin (ADR-0020)");
+    }
+
+    [Fact]
+    public async Task ImpostorLogin_TokenCarriesTenantClaim()
+    {
+        var token = await LoginAndReadAccessTokenAsync(_impostorEmail);
+
+        token.Claims.Should().Contain(c => c.Type == "tenant_id",
+            "fora do tenant de plataforma, a colisão de nome não concede o token tenant-less (ADR-0024)");
     }
 
     // O JWT carrega um único claim 'scope' space-delimited (RFC padrão)

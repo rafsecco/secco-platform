@@ -34,6 +34,14 @@ public sealed class SetRolePermissionsHandler(IRoleRepository repository)
             return Result.Failure(SecureGateErrors.Roles.NameInvalid);
         }
 
+        // Nome reservado à plataforma: o role de operador não é gerido por API — seus poderes
+        // vêm do scope admin, não de permissões (ADR-0023). Bloqueia em todos os tenants para
+        // que o endpoint de gestão nunca toque essa estrutura (ADR-0020/0024).
+        if (RoleInputRules.IsReservedName(name))
+        {
+            return Result.Failure(SecureGateErrors.Roles.NameReserved);
+        }
+
         var permissions = command.Permissions ?? [];
 
         if (permissions.Count > MaxPermissionsPerRole)

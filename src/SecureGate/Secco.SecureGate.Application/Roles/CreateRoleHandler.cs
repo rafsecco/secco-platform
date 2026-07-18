@@ -26,6 +26,14 @@ public sealed class CreateRoleHandler(IRoleRepository repository)
             return SecureGateErrors.Roles.NameInvalid;
         }
 
+        // Nome reservado à plataforma: bloqueia em TODOS os tenants (o role legítimo vem do
+        // seed de referência, que não passa por aqui) — defesa contra escalonamento por
+        // colisão de nome (ADR-0020/0023/0024).
+        if (RoleInputRules.IsReservedName(name))
+        {
+            return SecureGateErrors.Roles.NameReserved;
+        }
+
         if (!await repository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
         {
             return SecureGateErrors.Tenants.NotFound;
