@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Secco.NotificationHub.Domain.Samples;
+using Secco.NotificationHub.Domain.Notifications;
 using Secco.SDK.EntityFrameworkCore;
 
 namespace Secco.NotificationHub.Infrastructure.Contexts;
@@ -12,8 +12,8 @@ namespace Secco.NotificationHub.Infrastructure.Contexts;
 public sealed class NotificationHubDbContext(DbContextOptions<NotificationHubDbContext> options)
     : SeccoDbContext(options)
 {
-    /// <summary>Samples (tabela <c>tb_samples</c>).</summary>
-    public DbSet<Sample> Samples => Set<Sample>();
+    /// <summary>Notificações (tabela <c>tb_notifications</c>).</summary>
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)

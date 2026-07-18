@@ -6,6 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- Envio de e-mail (Fase 8): MailKit em vez do System.Net.Mail.SmtpClient obsoleto -->
+    <PackageReference Include="MailKit" />
   </ItemGroup>
 
   <ItemGroup>

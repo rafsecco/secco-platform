@@ -23,11 +23,15 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddNotificationHubApplication();
 builder.Services.AddNotificationHubInfrastructure();
 
+// Jobs persistentes com retry (ADR-0015 Camada 2) — banco de PLATAFORMA, não por tenant;
+// não faz parte de AddSeccoPlatform() (produtos sem essa necessidade não carregam Hangfire)
+builder.Services.AddNotificationHubBackgroundJobs();
+
 var app = builder.Build();
 
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
-app.MapSampleEndpoints();
+app.MapNotificationEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

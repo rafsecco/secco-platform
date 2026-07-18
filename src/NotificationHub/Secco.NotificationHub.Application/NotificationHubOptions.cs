@@ -6,9 +6,12 @@ namespace Secco.NotificationHub.Application;
 /// </summary>
 public sealed class NotificationHubOptions
 {
-    /// <summary>Tamanho máximo do nome de um sample (default 256).</summary>
-    public int MaxNameLength { get; set; } = 256;
+    /// <summary>Tamanho máximo do destinatário (default 254 — teto prático de um e-mail, RFC 5321).</summary>
+    public int MaxRecipientLength { get; set; } = 254;
 
-    /// <summary>Tamanho máximo da descrição (default 4096).</summary>
-    public int MaxDescriptionLength { get; set; } = 4_096;
+    /// <summary>Tamanho máximo do assunto (default 998 — teto prático de uma linha de header, RFC 5322).</summary>
+    public int MaxSubjectLength { get; set; } = 998;
+
+    /// <summary>Tamanho máximo do corpo (default 64 KB).</summary>
+    public int MaxBodyLength { get; set; } = 65_536;
 }

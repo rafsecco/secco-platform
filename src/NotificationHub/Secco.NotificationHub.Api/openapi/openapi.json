@@ -10,17 +10,17 @@
     }
   ],
   "paths": {
-    "/api/v1/samples": {
+    "/api/v1/notifications": {
       "post": {
         "tags": [
-          "Samples"
+          "Notifications"
         ],
-        "summary": "Cria um sample.",
+        "summary": "Enfileira o envio de uma notificação por e-mail (assíncrono, com retry — ADR-0015).",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSampleRequest"
+                "$ref": "#/components/schemas/SendNotificationRequest"
               }
             }
           },
@@ -32,7 +32,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SampleDto"
+                  "$ref": "#/components/schemas/NotificationDto"
                 }
               }
             }
@@ -48,65 +48,14 @@
             }
           }
         }
-      },
-      "get": {
-        "tags": [
-          "Samples"
-        ],
-        "summary": "Busca paginada de samples, mais recentes primeiro.",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PagedResultOfSampleDto"
-                }
-              }
-            }
-          }
-        }
       }
     },
-    "/api/v1/samples/{id}": {
+    "/api/v1/notifications/{id}": {
       "get": {
         "tags": [
-          "Samples"
+          "Notifications"
         ],
-        "summary": "Busca um sample pelo identificador.",
+        "summary": "Consulta o status de uma notificação (Pending/Sent/Failed).",
         "parameters": [
           {
             "name": "id",
@@ -124,7 +73,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SampleDto"
+                  "$ref": "#/components/schemas/NotificationDto"
                 }
               }
             }
@@ -145,88 +94,57 @@
   },
   "components": {
     "schemas": {
-      "CreateSampleRequest": {
+      "NotificationDto": {
         "required": [
-          "name"
+          "id",
+          "recipient",
+          "subject",
+          "status",
+          "failureReason",
+          "createdAt",
+          "sentAt"
         ],
         "type": "object",
         "properties": {
-          "name": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NotificationStatus"
+          },
+          "failureReason": {
             "type": [
               "null",
               "string"
             ]
           },
-          "description": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sentAt": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "format": "date-time"
           }
         }
       },
-      "PagedResultOfSampleDto": {
-        "required": [
-          "items",
-          "page",
-          "size",
-          "totalCount"
+      "NotificationStatus": {
+        "enum": [
+          "Pending",
+          "Sent",
+          "Failed"
         ],
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SampleDto"
-            },
-            "description": "Itens da página atual."
-          },
-          "page": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Número da página atual (1-based).",
-            "format": "int32"
-          },
-          "size": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Itens por página solicitados (a última página pode conter menos).",
-            "format": "int32"
-          },
-          "totalCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Total de itens existentes na consulta, em todas as páginas.",
-            "format": "int64"
-          },
-          "totalPages": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Total de páginas; zero quando a consulta não tem itens.",
-            "format": "int32"
-          },
-          "hasPreviousPage": {
-            "type": "boolean",
-            "description": "Indica se existe página anterior a esta."
-          },
-          "hasNextPage": {
-            "type": "boolean",
-            "description": "Indica se existe página posterior a esta."
-          }
-        },
-        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
+        "type": "string"
       },
       "ProblemDetails": {
         "type": "object",
@@ -266,31 +184,31 @@
           }
         }
       },
-      "SampleDto": {
+      "SendNotificationRequest": {
         "required": [
-          "id",
-          "name",
-          "description",
-          "createdAt"
+          "recipient",
+          "subject",
+          "body"
         ],
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
+          "recipient": {
             "type": [
               "null",
               "string"
             ]
           },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }
@@ -298,7 +216,7 @@
   },
   "tags": [
     {
-      "name": "Samples"
+      "name": "Notifications"
     }
   ]
 }

@@ -71,6 +71,21 @@
     <PackageVersion Include="Scalar.AspNetCore" Version="2.1.0" />
   </ItemGroup>
 
+  <!-- Background jobs (Fase 8, ADR-0015 Camada 2): núcleo gratuito (LGPL) apenas, sem Pro -->
+  <ItemGroup>
+    <PackageVersion Include="Hangfire.Core" Version="1.8.24" />
+    <PackageVersion Include="Hangfire.SqlServer" Version="1.8.24" />
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.24" />
+    <!-- Pin transitivo: o Hangfire.Core 1.8.24 traz Newtonsoft.Json 11.0.1 com CVE alta
+         (GHSA-5crp-9r3c-p9vr); fixado na última corrigida (ADR-0020). -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <!-- NotificationHub: envio de e-mail (Fase 8) -->
+  <ItemGroup>
+    <PackageVersion Include="MailKit" Version="4.17.0" />
+  </ItemGroup>
+
   <!-- Testes (ADR-0012) -->
   <ItemGroup>
     <PackageVersion Include="xunit" Version="2.9.3" />

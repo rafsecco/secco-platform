@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Secco.NotificationHub.Application.Samples;
+using Secco.NotificationHub.Application.Notifications;
 
 namespace Secco.NotificationHub.Application;
 
@@ -15,9 +15,8 @@ public static class NotificationHubApplicationExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddScoped<CreateSampleHandler>();
-        services.AddScoped<GetSampleByIdHandler>();
-        services.AddScoped<SearchSamplesHandler>();
+        services.AddScoped<SendNotificationHandler>();
+        services.AddScoped<GetNotificationByIdHandler>();
 
         return services;
     }

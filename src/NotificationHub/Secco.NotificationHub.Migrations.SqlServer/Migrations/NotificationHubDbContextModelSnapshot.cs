@@ -22,36 +22,54 @@ namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Secco.NotificationHub.Domain.Samples.Sample", b =>
+            modelBuilder.Entity("Secco.NotificationHub.Domain.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id_pk_sample");
+                        .HasColumnName("id_pk_notification");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("ds_body");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("dt_created_at");
 
-                    b.Property<string>("Description")
+                    b.Property<string>("FailureReason")
                         .HasColumnType("nvarchar(max)")
-                        .HasColumnName("ds_description");
+                        .HasColumnName("ds_failure_reason");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Recipient")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)")
-                        .HasColumnName("ds_name");
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("ds_recipient");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_sent_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnName("ie_status");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("ds_subject");
 
                     b.HasKey("Id")
-                        .HasName("pk_samples");
+                        .HasName("pk_notifications");
 
                     b.HasIndex("CreatedAt")
-                        .HasDatabaseName("idx_samples_dt_created_at");
+                        .HasDatabaseName("idx_notifications_dt_created_at");
 
-                    b.HasIndex("Name")
-                        .HasDatabaseName("idx_samples_ds_name");
+                    b.HasIndex("Status")
+                        .HasDatabaseName("idx_notifications_ie_status");
 
-                    b.ToTable("tb_samples");
+                    b.ToTable("tb_notifications");
                 });
 #pragma warning restore 612, 618
         }

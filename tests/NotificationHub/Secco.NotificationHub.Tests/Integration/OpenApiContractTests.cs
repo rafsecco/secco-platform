@@ -10,7 +10,8 @@ namespace Secco.NotificationHub.Tests.Integration;
 /// Para atualizar o snapshot intencionalmente: rodar com SECCO_UPDATE_OPENAPI=true e
 /// commitar o diff junto do client regenerado, no mesmo PR.
 /// </summary>
-public class OpenApiContractTests(NotificationHubApiFactory factory) : IClassFixture<NotificationHubApiFactory>
+[Collection(NotificationHubApiCollectionDefinition.Name)]
+public class OpenApiContractTests(NotificationHubApiFactory factory)
 {
     private const string UpdateSnapshotVariable = "SECCO_UPDATE_OPENAPI";
 

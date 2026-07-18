@@ -23,6 +23,7 @@ Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a ext
 - `AddSeccoAuthentication()` — JWT Bearer conforme ADR-0007: claims curtas sem remapeamento (`sub`/`role`/`tenant_id`/`scope`), `FallbackPolicy` fail-closed; Authority OIDC ou chave HS256 de desenvolvimento (proibida em Production).
 - `AddSeccoAuthorization()` — autorização granular Role + Permission (ADR-0021): policies dinâmicas por permissão (`RequireAuthorization("recurso:acao")`), resolução `(tenant, role) → permissões` com cache de TTL curto e **fail-closed**. Resolver por `IConfiguration` (DEV) ou remoto via `Secco.SecureGate.Client`.
 - `AddSeccoOpenApi()` — OpenAPI com as convenções da plataforma (enums como `type: string`, ADR-0006).
+- `AddSeccoBackgroundJobs()` — jobs persistentes com retry automático (ADR-0015 Camada 2): `IBackgroundJobScheduler` sobre Hangfire, com o tenant restaurado automaticamente na execução. **Não** faz parte de `AddSeccoPlatform()` — opt-in só para quem precisa (produtos isolados não carregam Hangfire).
 - `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada (correlation → auth → tenancy → authorization) e guarda contra registro duplicado.
 
 ## Uso
@@ -128,3 +129,33 @@ builder.Services.AddSeccoOpenApi();   // drop-in do AddOpenApi() com as convenç
 ```
 
 Convenção atual: enums serializados como string (`JsonStringEnumConverter`) são declarados no schema com `type: string`. Sem isso, o .NET 10 emite os valores string mas **omite o tipo**, e o gerador de client (NSwag) assume enum numérico — quebrando a desserialização no consumidor. Corrige o contrato **na fonte** (o client gerado passa a emitir `[JsonConverter(typeof(JsonStringEnumConverter))]`), sem correções manuais no código gerado.
+
+## Background jobs (ADR-0015 Camada 2)
+
+```csharp
+builder.Services.AddSeccoBackgroundJobs(serviceProvider =>
+{
+    // Resolve a connection string do banco de PLATAFORMA do produto (nunca por tenant) —
+    // lazy: roda quando o Hangfire inicializa de fato, depois de toda a configuração
+    // (inclusive a injetada por testes) já estar montada.
+    return serviceProvider.GetRequiredService<IConfiguration>()["MeuProduto:BackgroundJobs:ConnectionString"]!;
+});
+```
+
+```csharp
+public sealed class SendEmailJob(INotificationRepository repository, IEmailSender sender) : IBackgroundJob<SendEmailPayload>
+{
+    public async Task ExecuteAsync(SendEmailPayload payload, CancellationToken cancellationToken)
+    {
+        // O tenant já está restaurado no escopo — o job nunca chama SetTenant sozinho.
+        var entity = await repository.GetByIdAsync(payload.NotificationId, cancellationToken);
+        // ...
+    }
+}
+
+// scheduler.Enqueue<SendEmailJob, SendEmailPayload>(tenantId, new SendEmailPayload(id));
+```
+
+Regras (ADR-0015): jobs vivem no banco de **plataforma** do produto — nunca por tenant; o `tenant_id` viaja como argumento e o `TenantJobRunner` interno restaura o contexto (ADR-0005) ANTES de resolver e invocar o job via DI, então qualquer repositório usado dentro do job já enxerga o tenant certo. Retry automático fixo em `[AutomaticRetry(Attempts = 5)]` no runner — é decisão de plataforma, não por job; um produto que precise de outra política ajusta via `GlobalJobFilters` no próprio host. Núcleo gratuito do Hangfire (LGPL) apenas — recursos Pro exigem reavaliar a ADR-0015 antes de adotar. Produtos que não precisam de jobs persistentes não chamam esta extensão — não entra em `AddSeccoPlatform()` ("produtos isolados permanecem leves").
+
+**Testes com múltiplas `WebApplicationFactory`**: o Hangfire usa um bridge de log estático por processo (`Hangfire.Logging.LogProvider`) — se cada classe de teste criar sua própria factory com Hangfire, a primeira a ser descartada deixa as demais com um `ILoggerFactory` já disposto (`ObjectDisposedException` no primeiro job enfileirado). Compartilhe uma única factory entre as classes de teste do produto via `ICollectionFixture` (ver `Secco.NotificationHub.Tests` para o padrão).
