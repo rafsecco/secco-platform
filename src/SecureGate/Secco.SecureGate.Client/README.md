@@ -10,5 +10,6 @@ O pacote também entrega, prontas para os produtos consumirem, duas integraçõe
 
 - **`AddSecureGateTenantCatalog()`** — registra o `SecureGateTenantCatalog : ITenantCatalog` (ADR-0005): resolve as connection strings de tenant a partir do catálogo central do SecureGate, com client credentials automático (scope `catalog:<produto>`), cache com TTL curto e *stale em falha*. Sem a seção `Secco:SecureGate`, o produto segue no catálogo por configuração do SDK (DEV).
 - **`AddSecureGatePermissionResolver()`** — registra o `IPermissionResolver` remoto (ADR-0021): resolve `(tenant, role) → permissões` no SecureGate (scope `authorization:read`), consumido pelo `AddSeccoAuthorization()` do SDK.
+- **`AddSecureGateAdminClient()`** (pasta `Administration/`) — registra o `ISecureGateClient` tipado completo, autenticado por client credentials com o scope `securegate:admin` (gestão de tenants/roles/usuários), para produtos que precisam chamar a API administrativa do SecureGate diretamente — não só ler o catálogo ou resolver permissões.
 
-Ambos usam a mesma seção `Secco:SecureGate` (`BaseUrl`/`ClientId`/`ClientSecret`) e herdam o pipeline de resiliência da plataforma quando o host chama `AddSeccoResilience()`.
+Todos usam a mesma seção `Secco:SecureGate` (`BaseUrl`/`ClientId`/`ClientSecret`) e herdam o pipeline de resiliência da plataforma quando o host chama `AddSeccoResilience()`.
