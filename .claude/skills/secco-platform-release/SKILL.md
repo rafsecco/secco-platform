@@ -32,6 +32,12 @@ Formato: `<prefixo>/v<semver>` — ex. `sharedkernel/v0.3.0`.
 
 **Empurrar tags uma de cada vez**: `git push origin <tag>` por tag, nunca várias tags no mesmo `git push`. Confirmado empiricamente nesta plataforma: o GitHub Actions **não dispara o evento de tag-push (`create`) para mais de 3 tags empurradas juntas** no mesmo comando — falha silenciosa, sem erro no push, o workflow simplesmente não roda para as tags excedentes. Publicando vários pacotes de uma vez, iterar o push tag por tag (loop), não montar `git push origin tag1 tag2 tag3 tag4 tag5`.
 
+### Dependência entre pacotes: tag estável exige tag estável da dependência no mesmo commit
+
+O MinVer versiona cada pacote pela **própria** tag: um `ProjectReference` para outro pacote publicável (ex.: SDK → SharedKernel) entra no `.nupkg` com a versão que o MinVer calcula para a dependência **naquele commit**. Se a última tag da dependência não estiver no commit sendo empacotado (height > 0), a dependência resolve como pré-release (`0.3.1-alpha.0.N`) e o Pack falha com NU5104 — "a stable release should not have a prerelease dependency" (warnings = erros).
+
+Confirmado empiricamente: `sdk/v0.4.0` falhou no Pack porque a última tag do SharedKernel (`sharedkernel/v0.3.0`) estava 24 commits atrás. Correção: taguear a dependência no **mesmo commit** (patch bump se ela não mudou de forma relevante), publicar a dependência primeiro e então (re)executar o publish do dependente. Ao liberar qualquer pacote com `ProjectReference` publicável, conferir isso ANTES de empurrar a tag.
+
 ## 4. Tabela de referência: prefixo → projeto
 
 Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mudar.
