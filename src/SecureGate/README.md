@@ -27,6 +27,8 @@ O catálogo central que substitui o catálogo por configuração dos produtos fo
 
 **Catálogo** (`/api/v1/catalog/{product}/tenants[/{tenantId}]`, scope `catalog:<produto>`): a única superfície que entrega connection strings — e só as do produto do próprio scope (least privilege, ADR-0020): o client do LogStream carrega `catalog:logstream` e não lê o catálogo de nenhum outro produto. Tenants desativados somem do catálogo; desconhecido, desativado e sem banco respondem o mesmo 404.
 
+**Cifragem em repouso (ADR-0025):** as connection strings são cifradas na coluna com AES-256-GCM (`secco-enc:v1:…`) — dump ou acesso SQL ao banco de plataforma não expõe credenciais de tenant. A chave `SecureGate:Catalog:EncryptionKey` entra no **runbook de backup com o mesmo peso do backup do banco**: perda da chave = catálogo inoperante (sem acesso aos bancos de tenant). Em Production a chave é obrigatória (fail-fast); em DEV, uma chave embutida cobre o zero-config. Valores legados em claro convergem no primeiro startup após o upgrade (re-cifra idempotente).
+
 ### `Secco.SecureGate.Client` — catálogo remoto para os produtos
 
 Pacote NSwag (ADR-0006) que além do `ISecureGateClient` traz o `SecureGateTenantCatalog : ITenantCatalog` pronto:
@@ -91,6 +93,8 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 | `SecureGate:Database` | `Provider` (`SqlServer` padrão / `Postgres`, ADR-0018) + `ConnectionString` do banco de plataforma |
 | `SecureGate:Tokens:AccessTokenLifetimeMinutes` | Vida do access token (padrão 60) |
 | `SecureGate:Signing:CertificatePath/CertificatePassword` | Certificado PKCS#12 — obrigatório em Production |
+| `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
+| `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
 
 ## Testes
 

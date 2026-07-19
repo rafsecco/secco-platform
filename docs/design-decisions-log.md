@@ -11,7 +11,7 @@
 > Cada bloco é uma pergunta feita via AskUserQuestion, com TODAS as opções
 > apresentadas (label + descrição) e a resposta escolhida marcada com **✓**.
 
-Total de rodadas de perguntas: 31
+Total de rodadas de perguntas: 32
 
 ---
 
@@ -1242,3 +1242,23 @@ Opções apresentadas:
 - **Resolver `recipient` a partir de `userId` via SecureGate**
   - O Hub consultaria o SecureGate para descobrir o e-mail do usuário a partir do `userId`. Mais conveniente para o chamador, porém reintroduz o acoplamento que a decisão de 2026-07-16 explicitamente rejeitou (o Hub não conhece SecureGate) e faria o produto depender de outro serviço estar disponível só para montar um registro de notificação.
 
+
+## Rodada 32
+
+> Origem: revisão geral de segurança de 2026-07-18 (achado MÉDIO: connection strings de
+> tenant em texto claro no banco de plataforma do SecureGate). Resultou na **ADR-0025**.
+
+### 94. [Segurança] Como proteger as connection strings de tenant em repouso no banco de plataforma?
+
+**Resposta:** Cifragem na aplicação — AES-256-GCM com chave mestra via configuração (Recomendado)
+
+Opções apresentadas:
+
+- **Cifragem na aplicação (AES-256-GCM, chave via configuração) (Recomendado)** ✓ **ESCOLHIDA**
+  - Cifra no write, decifra só no caminho do catálogo; formato versionado `secco-enc:v1:...`; legado em claro convergido por migração idempotente no startup; fail-fast de chave em Production espelhando a `DevelopmentSigningKey`. Neutraliza backup/dump nos DOIS providers (Postgres não tem TDE nativo). Custo: gestão da chave vira nossa — perda da chave = catálogo inoperante; comprometimento total do host (chave + banco) não é coberto.
+- **Delegar à infra (TDE / disco cifrado / backup cifrado)**
+  - Zero código, mas o produto é adotável on-prem via NuGet — a proteção viraria esperança de deployment, não garantia do produto; TDE não cobre PostgreSQL; não protege contra acesso SQL lógico. Mantida como defesa em profundidade RECOMENDADA na documentação de deploy, não como a decisão.
+- **Data Protection API do ASP.NET**
+  - Sem dependência nova, porém ciphertext atrelado ao key ring (perda do ring = perda de tudo), rotação automática do ring complica backup/portabilidade e o formato é opaco. Menos controle que a opção escolhida pelo mesmo custo.
+- **Cofre externo (Key Vault / Vault) — guardar só referência**
+  - Proteção mais forte, mas dependência pesada que contradiz a adoção independente/on-prem simples da v1. Registrada como evolução futura via nova ADR.

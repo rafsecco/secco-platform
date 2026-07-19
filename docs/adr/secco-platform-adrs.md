@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-14 (ADR-0024 adicionada)
+**Última atualização:** 2026-07-19 (ADR-0025 adicionada)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -653,6 +653,33 @@ Resolve a **questão em aberto da ADR-0023**. O operador de plataforma (AdminPor
 - Capacidade **super-leitor** ampla, mitigada por: ser **somente leitura**; ser gated ao papel `platform-operator` (que o SecureGate só concede a operadores reais, cujo scope admin já é filtrado no login, ADR-0023); e o read-set ser **explícito e num só lugar**.
 - **Escrita cross-tenant não é concedida** — o operador inspeciona, não altera dados de tenant alheio. Se algum dia for necessário, exige nova ADR.
 - Acoplamento pontual do SecureGate a nomes de permissão de produto no read-set; contido a uma constante de política, evolutível sem tocar produtos.
+
+---
+
+## ADR-0025: Cifragem das connection strings de tenant no banco de plataforma
+
+**Status:** Aceita
+**Data:** 2026-07-19
+
+### Contexto
+O catálogo de tenants do SecureGate (ADR-0022) custodia a connection string do banco de cada par (tenant, produto) — o dado mais sensível da plataforma. A disciplina write-only (ADR-0020) impede vazamento por API, logs e erros, mas o valor repousa em texto claro na coluna `ds_connection_string`: um backup, dump ou acesso direto ao banco de plataforma expõe as credenciais de banco de **todos os tenants e produtos de uma vez**. Delegar à infraestrutura (TDE, disco cifrado) não é garantia que o produto possa dar: a plataforma é adotável on-prem via NuGet e não controla a infra do adotante — além de o PostgreSQL (segundo provider, ADR-0018) não ter TDE nativo.
+
+### Decisão
+Ciframos a connection string **na camada de aplicação do SecureGate**, com **AES-256-GCM** e chave mestra fornecida por configuração:
+
+- **Cifra no write, decifra apenas no caminho de leitura do catálogo** (`catalog:<produto>`). Domínio permanece puro: a cifragem é preocupação de Infrastructure (value converter do EF Core no `SecureGateDbContext` — nenhum caminho do contexto persiste plaintext).
+- **Formato versionado e autodescritivo** na coluna: `secco-enc:v1:<base64(nonce ‖ ciphertext ‖ tag)>`. Valor sem o prefixo é tratado como legado em claro: aceito na leitura, **re-cifrado por migração idempotente no startup** (mesma disciplina do seed de referência, ADR-0019). A coluna passa de 2000 para 4000 caracteres (o teto de 2000 segue valendo para o **plaintext**, no domínio).
+- **Chave mestra**: `SecureGate:Catalog:EncryptionKey` (32 bytes, base64). Em **Production, ausência de chave é fail-fast** no startup; em Development, uma `DevelopmentEncryptionKey` embutida é permitida — **proibida em Production com fail-fast**, espelhando o padrão da `DevelopmentSigningKey` (ADR-0022).
+- **Rotação de chave** suportada pelo versionamento: chaves anteriores ficam em `SecureGate:Catalog:RetiredEncryptionKeys` só para decifrar; o re-encrypt do startup converge tudo para a chave ativa.
+- Cifragem de infra (TDE/disco) **continua recomendada como defesa em profundidade** na documentação de deploy — complementa, não substitui.
+- Cofre externo de segredos (Key Vault/Vault) fica como **evolução futura** via nova ADR, se algum adotante exigir.
+
+### Consequências
+- Backup/dump/acesso SQL ao banco de plataforma deixa de expor credenciais de tenants — o cenário de maior blast radius da plataforma é neutralizado nos dois providers.
+- A disponibilidade do catálogo passa a depender da chave: **perda da chave = plataforma sem acesso aos bancos de tenant**. A chave entra no runbook de backup do adotante (documentação de deploy) com o mesmo peso do backup do banco.
+- Comprometimento total do host do SecureGate (chave + banco juntos) **não** é coberto — nenhuma cifragem de aplicação cobre; é o cenário do cofre externo futuro.
+- Migração transparente: valores legados em claro são aceitos e convergidos no primeiro startup após o upgrade.
+- Testes de integração passam a provar que o valor persistido **nunca** é plaintext (asserção direta na coluna).
 
 ---
 
