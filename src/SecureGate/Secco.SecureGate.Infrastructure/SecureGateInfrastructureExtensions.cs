@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
+using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Seeding;
 
 namespace Secco.SecureGate.Infrastructure;
@@ -34,6 +37,14 @@ public static class SecureGateInfrastructureExtensions
             return options;
         });
 
+        // Cifragem em repouso da connection string do catálogo (ADR-0025): options validadas
+        // no startup (fail-fast) + cipher AES-256-GCM injetado no contexto (value converter).
+        services.AddOptions<SecureGateCatalogOptions>()
+            .BindConfiguration(SecureGateCatalogOptions.SectionKey)
+            .ValidateOnStart();
+        services.TryAddSingleton<IValidateOptions<SecureGateCatalogOptions>, SecureGateCatalogOptionsValidator>();
+        services.AddSingleton<IConnectionStringCipher, AesGcmConnectionStringCipher>();
+
         services.AddDbContext<SecureGateDbContext>((serviceProvider, options) =>
         {
             var databaseOptions = serviceProvider.GetRequiredService<SecureGateDatabaseOptions>();
@@ -54,6 +65,10 @@ public static class SecureGateInfrastructureExtensions
         // Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
         services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
         services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();
+
+        // Convergência da cifragem do catálogo (ADR-0025): re-cifra legado/chave aposentada
+        // para a chave ativa após as migrations — idempotente, roda em todos os ambientes.
+        services.AddScoped<IReferenceDataSeeder, TenantDatabaseReEncryptionSeeder>();
 
         return services;
     }

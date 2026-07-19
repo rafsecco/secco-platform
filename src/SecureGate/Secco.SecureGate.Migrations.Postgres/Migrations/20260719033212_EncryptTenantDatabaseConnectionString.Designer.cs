@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -11,9 +12,11 @@ using Secco.SecureGate.Infrastructure.Contexts;
 namespace Secco.SecureGate.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(SecureGateDbContext))]
-    partial class SecureGateDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719033212_EncryptTenantDatabaseConnectionString")]
+    partial class EncryptTenantDatabaseConnectionString
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

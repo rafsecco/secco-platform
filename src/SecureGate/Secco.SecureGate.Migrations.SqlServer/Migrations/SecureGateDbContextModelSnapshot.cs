@@ -66,8 +66,8 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.Property<string>("ConnectionString")
                         .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)")
                         .HasColumnName("ds_connection_string");
 
                     b.Property<DateTimeOffset>("CreatedAt")

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Conventions;
 using Secco.SecureGate.Domain.Tenants;
+using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SecureGate.Infrastructure.OpenIddict;
 
@@ -15,9 +16,25 @@ namespace Secco.SecureGate.Infrastructure.Contexts;
 /// <see cref="SeccoNamingConvention"/> é registrada pelo caminho público do SDK —
 /// exatamente o cenário para o qual ela foi mantida pública.
 /// </summary>
-public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> options)
+/// <remarks>
+/// O <paramref name="connectionStringCipher"/> é injetado pelo container (ADR-0025): no
+/// caminho de aplicação (<c>AddDbContext</c>) ele cifra/decifra a connection string do
+/// catálogo. Os caminhos <b>sem</b> DI (migrations e design-time, que só materializam o
+/// schema — o value converter não altera o snapshot) constroem o contexto sem cipher.
+/// </remarks>
+public sealed class SecureGateDbContext(
+    DbContextOptions<SecureGateDbContext> options,
+    IConnectionStringCipher? connectionStringCipher = null)
     : IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options)
 {
+    /// <summary>
+    /// Teto da COLUNA <c>ds_connection_string</c> (ADR-0025): o texto cifrado é maior que o
+    /// plaintext (nonce + tag + base64). O teto de 2000 do plaintext segue no domínio.
+    /// </summary>
+    private const int ConnectionStringColumnMaxLength = 4000;
+
+    private readonly IConnectionStringCipher? _connectionStringCipher = connectionStringCipher;
+
     /// <summary>Catálogo de tenants da plataforma (tabela <c>tb_tenants</c>).</summary>
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
@@ -89,7 +106,19 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
         builder.Entity<TenantDatabase>(database =>
         {
             database.Property(d => d.Product).HasMaxLength(TenantDatabase.ProductMaxLength);
-            database.Property(d => d.ConnectionString).HasMaxLength(TenantDatabase.ConnectionStringMaxLength);
+
+            var connectionString = database.Property(d => d.ConnectionString)
+                .HasMaxLength(ConnectionStringColumnMaxLength);
+
+            // ADR-0025: cifra no write, decifra no read — nenhum caminho do contexto persiste
+            // plaintext. Aplicado só quando há cipher (DI); migrations/design-time só definem o
+            // schema, e o value converter não entra no snapshot (não altera o tipo da coluna).
+            if (_connectionStringCipher is { } cipher)
+            {
+                connectionString.HasConversion(
+                    plaintext => cipher.Encrypt(plaintext),
+                    stored => cipher.Decrypt(stored));
+            }
 
             // Um banco por (tenant, produto) — o par é a identidade natural do catálogo
             database.HasIndex(d => new { d.TenantId, d.Product }).IsUnique();
