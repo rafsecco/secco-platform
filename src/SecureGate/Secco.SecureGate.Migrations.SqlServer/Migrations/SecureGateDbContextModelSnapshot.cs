@@ -98,6 +98,49 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                     b.ToTable("tb_tenant_databases");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantFederation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_tenant_federation");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<Guid>("DirectoryId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("directory_id");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit")
+                        .HasColumnName("fl_enabled");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("ds_provider");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenant_federations");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_tenant_federations_id_fk_tenant");
+
+                    b.ToTable("tb_tenant_federations");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -635,6 +678,16 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_tenant_databases_tenant");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantFederation", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_federations_tenant");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>

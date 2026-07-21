@@ -311,6 +311,61 @@
         }
       }
     },
+    "/api/v1/tenants/{id}/federation": {
+      "put": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo.",
+        "operationId": "UpsertTenantFederation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertTenantFederationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/catalog/{product}/tenants": {
       "get": {
         "tags": [
@@ -863,7 +918,8 @@
           "slug",
           "isActive",
           "createdAt",
-          "products"
+          "products",
+          "federation"
         ],
         "type": "object",
         "properties": {
@@ -889,6 +945,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "federation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TenantFederationDto"
+              }
+            ]
           }
         }
       },
@@ -921,6 +987,31 @@
           }
         }
       },
+      "TenantFederationDto": {
+        "required": [
+          "provider",
+          "directoryId",
+          "isEnabled",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "directoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "UpsertTenantDatabaseRequest": {
         "required": [
           "connectionString"
@@ -931,6 +1022,28 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "UpsertTenantFederationRequest": {
+        "required": [
+          "directoryId",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "directoryId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
             ]
           }
         }

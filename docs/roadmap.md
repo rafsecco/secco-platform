@@ -105,6 +105,10 @@
 
 **Fase 8 concluída** — o NotificationHub cobre despacho multi-canal (e-mail assíncrono com retry + inbox in-app), status consultável e os dois providers de banco. A plataforma ganhou `IBackgroundJobScheduler` como capacidade reutilizável (ADR-0015 Camada 2) para qualquer produto futuro que precise de jobs persistentes. Configuration, FeatureFlags e Audit seguem no backlog.
 
+## Incrementos pós-Fase 8
+
+- [x] SecureGate — **login federado com Microsoft Entra ID por tenant** (ADR-0026, 2026-07-19): federação é SÓ autenticação — o SecureGate segue o único emissor (ADR-0007/0022 intactas; tokens do Entra nunca saem do fluxo de login). Nova entidade `TenantFederation` (`tb_tenant_federations`, 1:1 com tenant: provider `entra-id`, directory id **não-secreto**, flag) gerida por `PUT /api/v1/tenants/{id}/federation` idempotente (scope `securegate:admin`) e visível no detalhe do tenant; **app registration multi-tenant única da plataforma** (`SecureGate:EntraId` — seção ausente = recurso desligado, botão não aparece), um esquema `OpenIdConnect` estático (`SignInScheme` = cookie externo do Identity, claims crus tid/oid/email, issuer validado contra o próprio `tid`); usuários **pré-provisionados, fail-closed** (`EntraSignInProcessor`: primeiro login casa por e-mail SOMENTE dentro do tid registrado do tenant do usuário, depois vincula `{tid}:{oid}` em `tb_user_logins` e casa por oid imutável; re-verifica federação/diretório/tenant/lockout a cada login; toda recusa = mesmo erro genérico, ADR-0020); tela de login ganhou "Entrar com conta Microsoft". Migrations nos 2 engines; contrato + client regenerados. Testes: 31 novos (invariantes, upsert, issuer validator, gestão via API e a decisão fail-closed provada via DI sem Entra real) — 146/146 no produto. Follow-ups: seção de federação no AdminPortal (gestão hoje é via API) e desligar senha local para tenant federado (evolução futura na ADR-0026)
+
 ## Backlog (só após Fase 8 estável)
 
 Descrições de trabalho — nenhuma ADR ainda define escopo real para estes produtos; detalhar via rounds de design (como o NotificationHub) só quando a vez de cada um chegar.

@@ -104,6 +104,25 @@ public static class SecureGateErrors
                 "Não há banco cadastrado para este tenant neste produto.");
     }
 
+    /// <summary>Erros da federação de autenticação por tenant (ADR-0026).</summary>
+    public static class Federation
+    {
+        /// <summary>Directory id (tenant do Entra ID) ausente na gestão da federação.</summary>
+        public static readonly Error DirectoryIdRequired =
+            Error.Validation("SecureGate.Federation.DirectoryIdRequired",
+                "O directory id (tenant do Entra ID) é obrigatório.");
+
+        /// <summary>
+        /// Recusa GENÉRICA de login federado (ADR-0026/0020): erro único para todos os motivos
+        /// (usuário inexistente, federação desabilitada, tid divergente, tenant inativo, conta
+        /// bloqueada, claims ausentes). Nunca revela qual verificação falhou — o motivo real
+        /// vai só para o log de servidor, sem dados sensíveis.
+        /// </summary>
+        public static readonly Error SignInRejected =
+            Error.Failure("SecureGate.Federation.SignInRejected",
+                "Não foi possível autenticar com a conta corporativa.");
+    }
+
     /// <summary>Erros de provisionamento de usuários (Fase 6.5).</summary>
     public static class Users
     {

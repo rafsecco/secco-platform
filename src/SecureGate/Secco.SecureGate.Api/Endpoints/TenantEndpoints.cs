@@ -86,6 +86,21 @@ public static class TenantEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        group.MapPut("/{id:guid}/federation", async (
+                Guid id,
+                UpsertTenantFederationRequest request,
+                UpsertTenantFederationHandler handler,
+                CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(
+                new UpsertTenantFederationCommand(id, request.DirectoryId ?? Guid.Empty, request.Enabled ?? true),
+                cancellationToken))
+                .ToHttpResult(() => Results.NoContent()))
+            .WithName("UpsertTenantFederation")
+            .WithSummary("Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         return endpoints;
     }
 }

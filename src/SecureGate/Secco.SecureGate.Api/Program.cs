@@ -33,6 +33,9 @@ builder.Services.AddSecureGateIdentity(builder.Environment);
 // Servidor OIDC (ADR-0022): client credentials (máquinas) + authorization code/PKCE (usuários)
 builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configuration);
 
+// Login federado Entra ID por tenant (ADR-0026) — desligado sem a seção SecureGate:EntraId
+builder.Services.AddSecureGateEntraFederation(builder.Configuration, builder.Environment);
+
 var app = builder.Build();
 
 app.UseSeccoPlatform();
@@ -40,6 +43,7 @@ app.MapSeccoPlatform();
 app.MapRazorPages();
 app.MapTokenEndpoints();
 app.MapInteractiveEndpoints();
+app.MapFederatedLoginEndpoints();
 app.MapTenantEndpoints();
 app.MapCatalogEndpoints();
 app.MapRoleEndpoints();

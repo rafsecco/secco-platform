@@ -5,6 +5,8 @@
     <PackageReference Include="Scalar.AspNetCore" />
     <!-- Servidor OIDC (ADR-0022): OpenIddict só é referenciado pelo SecureGate -->
     <PackageReference Include="OpenIddict.AspNetCore" />
+    <!-- Relying party do login federado Entra ID (ADR-0026) -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
   </ItemGroup>
 
   <!-- Testes unitários enxergam o OidcPrincipalBuilder (internal) para validar o gate de emissão -->

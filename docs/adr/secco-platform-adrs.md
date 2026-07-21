@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-19 (ADR-0025 adicionada)
+**Última atualização:** 2026-07-19 (ADR-0026 proposta)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -680,6 +680,37 @@ Ciframos a connection string **na camada de aplicação do SecureGate**, com **A
 - Comprometimento total do host do SecureGate (chave + banco juntos) **não** é coberto — nenhuma cifragem de aplicação cobre; é o cenário do cofre externo futuro.
 - Migração transparente: valores legados em claro são aceitos e convergidos no primeiro startup após o upgrade.
 - Testes de integração passam a provar que o valor persistido **nunca** é plaintext (asserção direta na coluna).
+
+---
+
+## ADR-0026: Login federado com Microsoft Entra ID por tenant
+
+**Status:** Proposta
+**Data:** 2026-07-19
+
+### Contexto
+Adotantes corporativos autenticam seus usuários num diretório próprio (Active Directory / Microsoft Entra ID) e esperam usar essas contas — com o MFA e as políticas de acesso condicional já existentes — para entrar nos produtos da plataforma. A ADR-0022 descartou IdP externo **como emissor único**; a ADR-0007 já previa "login federado futuro (Entra ID, OIDC de terceiros)" como compatível com os claims curtos. A questão é federar a **autenticação** sem abrir mão do SecureGate como único emissor, num modelo multi-tenant onde cada tenant é uma empresa com diretório próprio.
+
+Alternativas avaliadas:
+- **LDAP contra AD on-premises** — a tela de login validaria usuário/senha por LDAP. Descartado na v1: a senha do diretório do cliente passaria pelo SecureGate (custódia transitória de credencial alheia, ADR-0020), exige conectividade de rede com o DC do cliente e configuração LDAPS correta por tenant. Entraria por nova ADR se um adotante on-prem real exigir.
+- **App registration por tenant** (cada tenant registra um app próprio no seu Entra e o SecureGate guarda client id/secret por tenant) — exige esquemas OIDC dinâmicos por tenant (complexidade real no ASP.NET Core) e custódia de segredos de terceiros no banco de plataforma. Descartado na v1; evolução possível por nova ADR.
+- **App registration multi-tenant única da plataforma** — um único app (do adotante da plataforma) no endpoint `organizations`; cada empresa cliente consente o app no próprio diretório (admin consent). Um esquema OIDC estático, nenhum segredo de tenant custodiado. **Escolhida.**
+
+### Decisão
+- **Federação é só autenticação; o SecureGate permanece o único emissor (ADR-0007/0022 intactas).** O Entra ID prova a identidade do usuário na tela de login; tokens do Entra nunca chegam aos produtos — o fluxo `/connect/authorize` → tokens da plataforma segue idêntico, incluindo o filtro do scope `securegate:admin` (ADR-0023).
+- **Opt-in por tenant**: nova entidade `TenantFederation` (`tb_tenant_federations`, 1:1 com tenant) — provedor (`entra-id` na v1), **directory id** (o tenant GUID do Entra da empresa, dado não-secreto) e flag de habilitação. Gestão via `PUT /api/v1/tenants/{id}/federation` idempotente (scope `securegate:admin`), leitura no detalhe do tenant.
+- **Uma app registration multi-tenant da plataforma**: configuração `SecureGate:EntraId` (`ClientId`, `ClientSecret`, `Authority` com default `https://login.microsoftonline.com/organizations/v2.0`), um único esquema `OpenIdConnect` estático com `SignInScheme` = cookie externo do Identity. Sem a seção de configuração, o recurso fica desligado (botão não aparece) — mesmo padrão da seção `Secco:SecureGate` em DEV.
+- **Usuários pré-provisionados, fail-closed**: o AD **nunca decide quem tem acesso**, só prova identidade. O usuário precisa existir (provisionado por admin, ADR-0022/6.5). Vínculo: primeiro login casa por e-mail **somente se** o `tid` do token do Entra é exatamente o directory id registrado do tenant **do usuário** e a federação está habilitada e o tenant ativo; em seguida persiste o login externo (`tb_user_logins`, provider `EntraId`, chave `{tid}:{oid}`) e os logins seguintes casam pelo `oid` (imutável), não mais pelo e-mail. Qualquer verificação que falhe → recusa com mensagem genérica (não revela existência de conta, ADR-0020).
+- **Validação de issuer multi-tenant**: o issuer deve casar o template do Entra com o próprio `tid` do token; o gate real é o pin `tid == directory id` registrado — um diretório qualquer do Entra não autentica usuário de tenant que não o registrou.
+
+### Consequências
+- MFA/Conditional Access do cliente valem automaticamente; a plataforma nunca custodia senha do diretório do cliente.
+- Login por senha local continua existindo como alternativa (v1); desligar senha para tenant federado é evolução futura.
+- O adotante precisa criar **uma** app registration multi-tenant no Entra dele (documentação de deploy); cada empresa cliente faz admin consent no próprio diretório.
+- E-mail mutável no diretório do cliente não permite tomada de conta fora do próprio diretório: o casamento por e-mail só ocorre dentro do `tid` registrado do tenant e apenas no primeiro login (depois o vínculo é por `oid`). Dentro do diretório do cliente, quem controla o diretório controla as identidades — fronteira de confiança aceita e documentada.
+- Desativar usuário/tenant no SecureGate continua sendo o controle da plataforma — revogação no AD do cliente afeta apenas as próximas autenticações, e vice-versa.
+- Dependência `Microsoft.AspNetCore.Authentication.OpenIdConnect` no SecureGate (já usada pelo AdminPortal; nenhum pacote novo no monorepo).
+- LDAP/AD on-premises fica explicitamente fora; retorna por nova ADR com adotante real.
 
 ---
 

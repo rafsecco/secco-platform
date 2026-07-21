@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
+using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Infrastructure.Identity;
 
 namespace Secco.SecureGate.Api.Pages;
@@ -10,11 +13,21 @@ namespace Secco.SecureGate.Api.Pages;
 /// <summary>
 /// Tela de login (Fase 6.5): autentica o usuário pela senha (hash do Identity) e cria o
 /// cookie de sessão; o endpoint <c>/connect/authorize</c> retoma o fluxo OIDC a partir do
-/// <c>ReturnUrl</c>. Anônima por design (é a porta de entrada); antiforgery pelo Razor.
+/// <c>ReturnUrl</c>. Com a federação configurada (ADR-0026), oferece também o login pela
+/// conta corporativa (Entra ID). Anônima por design (é a porta de entrada); antiforgery
+/// pelo Razor.
 /// </summary>
 [AllowAnonymous]
-public sealed class LoginModel(SignInManager<User> signInManager) : PageModel
+public sealed class LoginModel(
+    SignInManager<User> signInManager,
+    IOptions<SecureGateEntraIdOptions> entraOptions) : PageModel
 {
+    /// <summary>Mensagem genérica de recusa federada — nunca revela o motivo real (ADR-0020).</summary>
+    private const string FederatedErrorMessage =
+        "Não foi possível autenticar com a conta corporativa. Verifique com o administrador do seu tenant.";
+
+    /// <summary>Login federado (Entra ID) disponível nesta instalação (ADR-0026).</summary>
+    public bool EntraEnabled => entraOptions.Value.IsConfigured;
     /// <summary>Credenciais submetidas pelo formulário.</summary>
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -44,7 +57,38 @@ public sealed class LoginModel(SignInManager<User> signInManager) : PageModel
 
     /// <summary>Renderiza o formulário.</summary>
     /// <param name="returnUrl">Destino local após o login.</param>
-    public void OnGet(string? returnUrl = null) => ReturnUrl = returnUrl;
+    public void OnGet(string? returnUrl = null)
+    {
+        ReturnUrl = returnUrl;
+
+        if (Request.Query.ContainsKey("federatedError"))
+        {
+            ErrorMessage = FederatedErrorMessage;
+        }
+    }
+
+    /// <summary>
+    /// Inicia o login federado (ADR-0026): desafia o esquema do Entra ID; o callback
+    /// <c>/login/entra-callback</c> decide fail-closed e cria a sessão.
+    /// </summary>
+    /// <param name="returnUrl">Destino local após o login.</param>
+    public IActionResult OnPostEntra(string? returnUrl = null)
+    {
+        if (!EntraEnabled)
+        {
+            return NotFound();
+        }
+
+        // Só destinos locais viajam no fluxo — sem open redirect (ADR-0020)
+        var target = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/";
+
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = "/login/entra-callback?returnUrl=" + Uri.EscapeDataString(target),
+        };
+
+        return Challenge(properties, SecureGateEntraIdOptions.AuthenticationScheme);
+    }
 
     /// <summary>Processa a submissão do formulário.</summary>
     /// <param name="returnUrl">Destino local após o login.</param>

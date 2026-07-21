@@ -31,10 +31,33 @@ public sealed record TenantDto(Guid Id, string Name, string Slug, bool IsActive,
 /// <param name="IsActive">Tenant ativo no catálogo.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 /// <param name="Products">Produtos com banco cadastrado para o tenant.</param>
+/// <param name="Federation">Federação de autenticação do tenant (ADR-0026), quando configurada.</param>
 public sealed record TenantDetailDto(
     Guid Id,
     string Name,
     string Slug,
     bool IsActive,
     DateTimeOffset CreatedAt,
-    IReadOnlyList<string> Products);
+    IReadOnlyList<string> Products,
+    TenantFederationDto? Federation);
+
+/// <summary>
+/// Federação de autenticação de um tenant (ADR-0026) — visão de gestão. O directory id NÃO é
+/// segredo (é o <c>tid</c> esperado do Entra), então aparece aqui, diferente das connection strings.
+/// </summary>
+/// <param name="Provider">Provedor de federação (<c>entra-id</c> na v1).</param>
+/// <param name="DirectoryId">Directory id (tenant do Entra ID da empresa).</param>
+/// <param name="IsEnabled">Federação habilitada.</param>
+/// <param name="UpdatedAt">Momento da última alteração.</param>
+public sealed record TenantFederationDto(string Provider, Guid DirectoryId, bool IsEnabled, DateTimeOffset UpdatedAt)
+{
+    /// <summary>Projeta a entidade para o DTO.</summary>
+    /// <param name="federation">Entidade de origem.</param>
+    public static TenantFederationDto FromEntity(TenantFederation federation)
+    {
+        ArgumentNullException.ThrowIfNull(federation);
+
+        return new TenantFederationDto(
+            federation.Provider, federation.DirectoryId, federation.IsEnabled, federation.UpdatedAt);
+    }
+}

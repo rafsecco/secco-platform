@@ -41,6 +41,9 @@ public sealed class SecureGateDbContext(
     /// <summary>Bancos por (tenant, produto) do catálogo (tabela <c>tb_tenant_databases</c>).</summary>
     public DbSet<TenantDatabase> TenantDatabases => Set<TenantDatabase>();
 
+    /// <summary>Federações de autenticação por tenant (tabela <c>tb_tenant_federations</c>, ADR-0026).</summary>
+    public DbSet<TenantFederation> TenantFederations => Set<TenantFederation>();
+
     /// <inheritdoc />
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -125,6 +128,19 @@ public sealed class SecureGateDbContext(
 
             // Cascade: o banco é dado intrínseco do tenant (diferente de users/roles, Restrict)
             database.HasOne<Tenant>().WithMany().HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TenantFederation>(federation =>
+        {
+            federation.Property(f => f.Provider).HasMaxLength(TenantFederation.ProviderMaxLength);
+
+            // 1:1 com o tenant (ADR-0026): índice ÚNICO na FK garante uma federação por tenant.
+            // A convention nomeia como uk_tenant_federations_id_fk_tenant (padrão ADR-0017).
+            federation.HasIndex(f => f.TenantId).IsUnique()
+                .HasDatabaseName("uk_tenant_federations_id_fk_tenant");
+
+            // Cascade: a federação é dado intrínseco do tenant (como TenantDatabase)
+            federation.HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

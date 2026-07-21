@@ -22,6 +22,7 @@ public static class SecureGateApplicationExtensions
         services.AddScoped<GetTenantHandler>();
         services.AddScoped<SetTenantActivationHandler>();
         services.AddScoped<UpsertTenantDatabaseHandler>();
+        services.AddScoped<UpsertTenantFederationHandler>();
 
         // Catálogo servido aos produtos (scope catalog:<produto>)
         services.AddScoped<GetCatalogTenantHandler>();

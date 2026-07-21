@@ -19,6 +19,15 @@ public sealed class GetTenantHandler(ITenantRepository repository)
 
         var products = await repository.ListDatabaseProductsAsync(id, cancellationToken).ConfigureAwait(false);
 
-        return new TenantDetailDto(tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt, products);
+        var federation = await repository.GetFederationAsync(id, cancellationToken).ConfigureAwait(false);
+
+        return new TenantDetailDto(
+            tenant.Id,
+            tenant.Name,
+            tenant.Slug,
+            tenant.IsActive,
+            tenant.CreatedAt,
+            products,
+            federation is null ? null : TenantFederationDto.FromEntity(federation));
     }
 }

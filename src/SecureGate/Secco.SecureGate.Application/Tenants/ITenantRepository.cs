@@ -44,6 +44,16 @@ public interface ITenantRepository
     /// <param name="cancellationToken">Token de cancelamento.</param>
     Task<IReadOnlyList<string>> ListDatabaseProductsAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
+    /// <summary>Busca a federação de autenticação de um tenant (ADR-0026), se houver.</summary>
+    /// <param name="tenantId">Identificador do tenant.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    Task<TenantFederation?> GetFederationAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adiciona uma federação de tenant ao contexto (efetivada no <see cref="SaveChangesAsync"/>).</summary>
+    /// <param name="federation">Federação a adicionar.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    Task AddFederationAsync(TenantFederation federation, CancellationToken cancellationToken = default);
+
     /// <summary>Busca o banco de um tenant ATIVO em um produto (leitura de catálogo).</summary>
     /// <param name="tenantId">Identificador do tenant.</param>
     /// <param name="product">Identificador do produto (minúsculo).</param>

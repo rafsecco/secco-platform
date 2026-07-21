@@ -38,12 +38,19 @@
         .error { margin-top: 1rem; padding: .625rem .75rem; border-radius: 8px;
             background: #fef2f2; color: #b91c1c; font-size: .8125rem; border: 1px solid #fecaca; }
         .field-error { color: #b91c1c; font-size: .75rem; margin-top: .25rem; display: block; }
+        .divider { display: flex; align-items: center; gap: .75rem; margin: 1.25rem 0 0; color: #9ca3af; font-size: .75rem; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #d1d5db; }
+        button.secondary { margin-top: 1.25rem; color: #1b1f24; background: #fff; border: 1px solid #d1d5db; }
+        button.secondary:hover { background: #f4f5f7; }
         @@media (prefers-color-scheme: dark) {
             body { background: #0f1115; color: #e5e7eb; }
             .card { background: #1a1d23; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
             p.sub { color: #9ca3af; }
             input[type=email], input[type=password] { background: #0f1115; border-color: #374151; }
             .error { background: #2a1416; color: #fca5a5; border-color: #7f1d1d; }
+            .divider::before, .divider::after { background: #374151; }
+            button.secondary { color: #e5e7eb; background: #1a1d23; border-color: #374151; }
+            button.secondary:hover { background: #0f1115; }
         }
     </style>
 </head>
@@ -68,6 +75,16 @@
 
             <button type="submit">Entrar</button>
         </form>
+
+        @if (Model.EntraEnabled)
+        {
+            <div class="divider">ou</div>
+
+            @* Login federado (ADR-0026): desafia o Entra ID; o callback decide fail-closed *@
+            <form method="post" asp-page-handler="Entra" asp-route-returnUrl="@Model.ReturnUrl">
+                <button type="submit" class="secondary">Entrar com conta Microsoft</button>
+            </form>
+        }
     </main>
 </body>
 </html>

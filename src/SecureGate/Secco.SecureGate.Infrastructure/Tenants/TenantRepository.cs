@@ -58,6 +58,15 @@ internal sealed class TenantRepository(SecureGateDbContext context) : ITenantRep
             .OrderBy(d => d.TenantId)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
+    public async Task<TenantFederation?> GetFederationAsync(
+        Guid tenantId, CancellationToken cancellationToken = default) =>
+        await context.TenantFederations
+            .FirstOrDefaultAsync(f => f.TenantId == tenantId, cancellationToken)
+            .ConfigureAwait(false);
+
+    public async Task AddFederationAsync(TenantFederation federation, CancellationToken cancellationToken = default) =>
+        await context.TenantFederations.AddAsync(federation, cancellationToken).ConfigureAwait(false);
+
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 }
