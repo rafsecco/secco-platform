@@ -6,7 +6,6 @@ artifacts/
 
 # IDE
 .vs/
-.vscode/
 .idea/
 *.user
 *.suo

@@ -1,0 +1,74 @@
+// Secco Platform — extensões recomendadas para o monorepo.
+// O VS Code sugere as de "recommendations" ao abrir o workspace e nunca sugere as de
+// "unwantedRecommendations". Manter enxuto: só o que serve a este repositório
+// (.NET 4 camadas + OpenAPI/NSwag + SQL Server/PostgreSQL + Docker + GitHub Actions).
+{
+	"recommendations": [
+		// --- .NET / C# ---------------------------------------------------------
+		// Language server Roslyn: C#, Razor (Blazor Server do AdminPortal) e .http.
+		"ms-dotnettools.csharp",
+		// Solution Explorer + Test Explorer (xUnit) — essencial num monorepo com 6 produtos
+		// e solução .slnx. Requer versão recente para ler .slnx.
+		"ms-dotnettools.csdevkit",
+		// Runtime gerenciado, dependência das duas acima.
+		"ms-dotnettools.vscode-dotnet-runtime",
+		// IntelliSense em csproj/props/targets — inclui autocomplete de pacote e versão
+		// no Directory.Packages.props (Central Package Management, ADR-0011).
+		"tintoy.msbuild-project-tools",
+
+		// --- Contratos / OpenAPI ----------------------------------------------
+		// Edição, validação e audit de segurança dos openapi.json de cada produto
+		// (ADR-0006: contrato mudou -> regenerar openapi.json + client no mesmo PR).
+		"42crunch.vscode-openapi",
+
+		// --- Banco de dados ----------------------------------------------------
+		// SQL Server é o provider padrão (ADR-0018); inspecionar schema tb_/vw_ (ADR-0017).
+		"ms-mssql.mssql",
+		// PostgreSQL é o segundo provider (LogStream e NotificationHub).
+		"ms-ossdata.vscode-pgsql",
+
+		// --- Qualidade / convenções -------------------------------------------
+		// Aplica o .editorconfig da raiz (tabs em .cs, file-scoped namespaces, ADR-0010).
+		"editorconfig.editorconfig",
+		// SonarQube for IDE: análise estática de C# no editor.
+		"sonarsource.sonarlint-vscode",
+		// Lint de Markdown — docs/adr, roadmap e design-decisions-log são fonte da verdade.
+		"davidanson.vscode-markdownlint",
+
+		// --- Infra / CI --------------------------------------------------------
+		// Container Tools: substitui a antiga extensão Docker da Microsoft.
+		"ms-azuretools.vscode-containers",
+		// Docker DX (Docker Inc.): lint de Dockerfile e schema de docker-compose.yml.
+		"docker.docker",
+		"redhat.vscode-yaml",
+		// Workflows em .github/workflows.
+		"github.vscode-github-actions",
+		// Shell primário no Windows.
+		"ms-vscode.powershell",
+
+		// --- Git / PR ----------------------------------------------------------
+		"eamodio.gitlens",
+		"github.vscode-pull-request-github",
+
+		// --- IA ----------------------------------------------------------------
+		"anthropic.claude-code"
+	],
+
+	"unwantedRecommendations": [
+		// Extension pack depreciado pela própria Microsoft: "The Container Tools extension
+		// replaces the Docker extension for Visual Studio Code." Use ms-azuretools.vscode-containers.
+		"ms-azuretools.vscode-docker",
+		// Pack abandonado (tem até uma entrada placeholder "publisher.extensionName") que
+		// arrasta justamente as três extensões redundantes abaixo.
+		"techiecouch.docker-essentials",
+		// Redundante com Container Tools.
+		"formulahendry.docker-explorer",
+		// Redundante com o Compose language server do Docker DX.
+		"p1c2u.docker-compose",
+		// Redundante com o suporte a Dockerfile do Docker DX; só ajusta escopos TextMate.
+		"jeff-hykin.better-dockerfile-syntax",
+		// Sincronizar namespace com pasta já é nativo do Roslyn
+		// (dotnet_style_namespace_match_folder); a extensão duplica/conflita.
+		"adrianwilczynski.namespace"
+	]
+}

@@ -1,0 +1,18 @@
+// Secco Platform — ajustes de workspace.
+// Formatacao de codigo NAO fica aqui: quem manda e o .editorconfig da raiz (ADR-0010).
+{
+	// Artefatos de build de 6 produtos poluem a busca e o file watcher.
+	// Ficam visiveis no Explorer de proposito (as vezes voce quer conferir o que saiu do build).
+	"search.exclude": {
+		"**/bin": true,
+		"**/obj": true,
+		"**/TestResults": true
+	},
+	"files.watcherExclude": {
+		"**/bin/**": true,
+		"**/obj/**": true
+	},
+
+	// Evita o prompt de "selecione a solucao" do C# Dev Kit num repo com varios produtos.
+	"dotnet.defaultSolution": "Secco.Platform.slnx"
+}
