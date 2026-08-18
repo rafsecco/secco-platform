@@ -4,7 +4,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
+COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config .editorconfig ./
 COPY src/SharedKernel/ src/SharedKernel/
 COPY src/SDK/ src/SDK/
 COPY src/SecureGate/ src/SecureGate/

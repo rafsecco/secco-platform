@@ -20,7 +20,9 @@ services:
       retries: 20
 
   sqlserver-init:
-    image: mcr.microsoft.com/mssql-tools18
+    # Mesma imagem do servidor: já traz o sqlcmd em /opt/mssql-tools18/bin
+    # (não existe imagem publicada "mssql-tools18") e evita um download extra.
+    image: mcr.microsoft.com/mssql/server:2022-latest
     depends_on:
       sqlserver:
         condition: service_healthy

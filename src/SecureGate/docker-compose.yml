@@ -26,6 +26,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_HTTP_PORTS: "8080"
+      # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
+      # de container), aqui precisa apontar para o serviço sqlserver do compose.
+      SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
       Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
     ports:
       - "8080:8080"

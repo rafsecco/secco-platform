@@ -4,9 +4,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config ./
+COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config .editorconfig ./
 COPY src/SharedKernel/ src/SharedKernel/
 COPY src/SDK/ src/SDK/
+# LogStream resolve o catálogo de tenants via SecureGate (ADR-0005 / fase 6.3);
+# o client NSwag é gerado a partir do contrato publicado da API (ADR-0006)
+COPY src/SecureGate/Secco.SecureGate.Client/ src/SecureGate/Secco.SecureGate.Client/
+COPY src/SecureGate/Secco.SecureGate.Api/openapi/ src/SecureGate/Secco.SecureGate.Api/openapi/
 COPY src/LogStream/ src/LogStream/
 
 # MinVerSkip: dentro da imagem não há repositório git (versionamento é papel do CI, ADR-0011)
