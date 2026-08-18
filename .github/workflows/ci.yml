@@ -211,3 +211,65 @@ jobs:
 
       - name: Build generated client from generated contract
         run: dotnet build src/TemplateSmoke/Secco.TemplateSmoke.Client/Secco.TemplateSmoke.Client.csproj --configuration Release
+
+      - name: Build da imagem do produto gerado
+        # O Dockerfile faz parte do template (ADR-0013): se ele quebra, todo produto novo
+        # nasce quebrado. Contexto é a raiz do repositório, como nos demais produtos.
+        run: docker build -f src/TemplateSmoke/Secco.TemplateSmoke.Api/Dockerfile -t secco-templatesmoke:ci .
+
+  docker-stacks:
+    # Dockerfiles e composes NÃO são exercitados por dotnet build/test: o contexto de build
+    # da imagem é bem mais estreito que o repositório (só existe o que os COPY trazem) e o
+    # compose carrega configuração própria (connection strings apontando para os serviços).
+    # Sem este job, quebra de imagem ou de compose só aparece na máquina de quem sobe o
+    # ambiente — foi exatamente assim que quatro defeitos passaram despercebidos.
+    needs: changes
+    if: >
+      needs.changes.outputs.platform == 'true' ||
+      needs.changes.outputs.logstream == 'true' ||
+      needs.changes.outputs.securegate == 'true' ||
+      needs.changes.outputs.notificationhub == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      # Um runner por produto: sem disputa de porta (todos os composes publicam 1433/8080)
+      fail-fast: false
+      matrix:
+        include:
+          - product: logstream
+            compose: src/LogStream/docker-compose.yml
+          - product: securegate
+            compose: src/SecureGate/docker-compose.yml
+          - product: notificationhub
+            compose: src/NotificationHub/docker-compose.yml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build e sobe o stack (${{ matrix.product }})
+        run: docker compose -f ${{ matrix.compose }} up -d --build
+
+      - name: Smoke — a API responde HTTP
+        # Qualquer resposta HTTP basta: 401 já prova que subiu e está servindo (os endpoints
+        # exigem autenticação). O que este passo pega é a API que NÃO sobe — migrations
+        # falhando, connection string apontando para o lugar errado, container morrendo.
+        run: |
+          for _ in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8080/health || true)
+            if [ -n "$code" ] && [ "$code" != "000" ]; then
+              echo "API respondeu HTTP $code"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "A API não respondeu em ~120s"
+          exit 1
+
+      - name: Diagnóstico (só em falha)
+        if: failure()
+        run: |
+          docker compose -f ${{ matrix.compose }} ps -a
+          docker compose -f ${{ matrix.compose }} logs --tail 100
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f ${{ matrix.compose }} down -v
