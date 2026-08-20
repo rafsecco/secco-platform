@@ -9,6 +9,6 @@ namespace Secco.SDK.AspNetCore.Correlation;
 /// </summary>
 public sealed class CorrelationContext : ICorrelationContext
 {
-    /// <inheritdoc />
-    public string CorrelationId { get; internal set; } = string.Empty;
+	/// <inheritdoc />
+	public string CorrelationId { get; internal set; } = string.Empty;
 }

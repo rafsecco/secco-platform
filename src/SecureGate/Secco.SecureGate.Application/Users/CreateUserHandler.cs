@@ -18,53 +18,53 @@ public sealed record CreateUserCommand(Guid TenantId, string? Email, string? Pas
 /// </summary>
 public sealed class CreateUserHandler(IRoleRepository roleRepository, IUserDirectory userDirectory)
 {
-    /// <summary>Tamanho máximo aceito para o e-mail.</summary>
-    private const int EmailMaxLength = 256;
+	/// <summary>Tamanho máximo aceito para o e-mail.</summary>
+	private const int EmailMaxLength = 256;
 
-    /// <summary>Tamanho máximo aceito para a senha (ADR-0020: teto contra amplificação de PBKDF2).</summary>
-    private const int PasswordMaxLength = 128;
+	/// <summary>Tamanho máximo aceito para a senha (ADR-0020: teto contra amplificação de PBKDF2).</summary>
+	private const int PasswordMaxLength = 128;
 
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de criação.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<UserDto>> HandleAsync(CreateUserCommand command, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de criação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<UserDto>> HandleAsync(CreateUserCommand command, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        var email = command.Email?.Trim() ?? string.Empty;
+		var email = command.Email?.Trim() ?? string.Empty;
 
-        if (email.Length is 0 or > EmailMaxLength || !MailAddress.TryCreate(email, out _))
-        {
-            return Result.Failure<UserDto>(SecureGateErrors.Users.EmailInvalid);
-        }
+		if (email.Length is 0 or > EmailMaxLength || !MailAddress.TryCreate(email, out _))
+		{
+			return Result.Failure<UserDto>(SecureGateErrors.Users.EmailInvalid);
+		}
 
-        if (string.IsNullOrEmpty(command.Password))
-        {
-            return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordRequired);
-        }
+		if (string.IsNullOrEmpty(command.Password))
+		{
+			return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordRequired);
+		}
 
-        if (command.Password.Length > PasswordMaxLength)
-        {
-            return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordTooLong);
-        }
+		if (command.Password.Length > PasswordMaxLength)
+		{
+			return Result.Failure<UserDto>(SecureGateErrors.Users.PasswordTooLong);
+		}
 
-        if (!await roleRepository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
-        {
-            return Result.Failure<UserDto>(SecureGateErrors.Tenants.NotFound);
-        }
+		if (!await roleRepository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
+		{
+			return Result.Failure<UserDto>(SecureGateErrors.Tenants.NotFound);
+		}
 
-        var roles = command.Roles ?? [];
+		var roles = command.Roles ?? [];
 
-        foreach (var role in roles)
-        {
-            if (!await roleRepository.RoleExistsAsync(command.TenantId, role, cancellationToken).ConfigureAwait(false))
-            {
-                return Result.Failure<UserDto>(SecureGateErrors.Users.RoleNotFound);
-            }
-        }
+		foreach (var role in roles)
+		{
+			if (!await roleRepository.RoleExistsAsync(command.TenantId, role, cancellationToken).ConfigureAwait(false))
+			{
+				return Result.Failure<UserDto>(SecureGateErrors.Users.RoleNotFound);
+			}
+		}
 
-        return await userDirectory
-            .CreateAsync(new CreateUserData(command.TenantId, email, command.Password, roles), cancellationToken)
-            .ConfigureAwait(false);
-    }
+		return await userDirectory
+			.CreateAsync(new CreateUserData(command.TenantId, email, command.Password, roles), cancellationToken)
+			.ConfigureAwait(false);
+	}
 }

@@ -16,55 +16,55 @@ public sealed record UpsertTenantDatabaseCommand(Guid TenantId, string? Product,
 /// </summary>
 public sealed class UpsertTenantDatabaseHandler(ITenantRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de upsert.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result> HandleAsync(
-        UpsertTenantDatabaseCommand command,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de upsert.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result> HandleAsync(
+		UpsertTenantDatabaseCommand command,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        var product = command.Product?.Trim().ToLowerInvariant() ?? string.Empty;
+		var product = command.Product?.Trim().ToLowerInvariant() ?? string.Empty;
 
-        if (!TenantInputRules.IsValidSlug(product, TenantDatabase.ProductMaxLength))
-        {
-            return Result.Failure(SecureGateErrors.TenantDatabases.ProductInvalid);
-        }
+		if (!TenantInputRules.IsValidSlug(product, TenantDatabase.ProductMaxLength))
+		{
+			return Result.Failure(SecureGateErrors.TenantDatabases.ProductInvalid);
+		}
 
-        if (string.IsNullOrWhiteSpace(command.ConnectionString))
-        {
-            return Result.Failure(SecureGateErrors.TenantDatabases.ConnectionStringRequired);
-        }
+		if (string.IsNullOrWhiteSpace(command.ConnectionString))
+		{
+			return Result.Failure(SecureGateErrors.TenantDatabases.ConnectionStringRequired);
+		}
 
-        if (command.ConnectionString.Length > TenantDatabase.ConnectionStringMaxLength)
-        {
-            return Result.Failure(SecureGateErrors.TenantDatabases.ConnectionStringTooLong);
-        }
+		if (command.ConnectionString.Length > TenantDatabase.ConnectionStringMaxLength)
+		{
+			return Result.Failure(SecureGateErrors.TenantDatabases.ConnectionStringTooLong);
+		}
 
-        var tenant = await repository.GetByIdAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
+		var tenant = await repository.GetByIdAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
 
-        if (tenant is null)
-        {
-            return Result.Failure(SecureGateErrors.Tenants.NotFound);
-        }
+		if (tenant is null)
+		{
+			return Result.Failure(SecureGateErrors.Tenants.NotFound);
+		}
 
-        var existing = await repository.GetDatabaseAsync(command.TenantId, product, cancellationToken)
-            .ConfigureAwait(false);
+		var existing = await repository.GetDatabaseAsync(command.TenantId, product, cancellationToken)
+			.ConfigureAwait(false);
 
-        if (existing is null)
-        {
-            await repository.AddDatabaseAsync(
-                new TenantDatabase(command.TenantId, product, command.ConnectionString),
-                cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            existing.UpdateConnectionString(command.ConnectionString);
-        }
+		if (existing is null)
+		{
+			await repository.AddDatabaseAsync(
+				new TenantDatabase(command.TenantId, product, command.ConnectionString),
+				cancellationToken).ConfigureAwait(false);
+		}
+		else
+		{
+			existing.UpdateConnectionString(command.ConnectionString);
+		}
 
-        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return Result.Success();
-    }
+		return Result.Success();
+	}
 }

@@ -11,8 +11,8 @@ namespace Secco.SecureGate.Migrations.SqlServer;
 /// </summary>
 public sealed class SecureGateSqlServerDbContextFactory : IDesignTimeDbContextFactory<SecureGateDbContext>
 {
-    public SecureGateDbContext CreateDbContext(string[] args) =>
-        new(SecureGateDatabaseProviderConfigurator.CreateOptions(
-            SecureGateDatabaseProvider.SqlServer,
-            "Server=design-time;Database=design-time;Encrypt=false"));
+	public SecureGateDbContext CreateDbContext(string[] args) =>
+		new(SecureGateDatabaseProviderConfigurator.CreateOptions(
+			SecureGateDatabaseProvider.SqlServer,
+			"Server=design-time;Database=design-time;Encrypt=false"));
 }

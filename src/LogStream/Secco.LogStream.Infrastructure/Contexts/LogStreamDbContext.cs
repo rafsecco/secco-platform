@@ -12,25 +12,25 @@ namespace Secco.LogStream.Infrastructure.Contexts;
 /// Herda de <see cref="SeccoDbContext"/>: nomenclatura da ADR-0017 aplicada por convention.
 /// </summary>
 public sealed class LogStreamDbContext(DbContextOptions<LogStreamDbContext> options)
-    : SeccoDbContext(options)
+	: SeccoDbContext(options)
 {
-    /// <summary>Registros de log gerais (tabela <c>tb_log_entries</c>).</summary>
-    public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+	/// <summary>Registros de log gerais (tabela <c>tb_log_entries</c>).</summary>
+	public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
-    /// <summary>Processos monitorados (tabela <c>tb_log_processes</c>).</summary>
-    public DbSet<LogProcess> LogProcesses => Set<LogProcess>();
+	/// <summary>Processos monitorados (tabela <c>tb_log_processes</c>).</summary>
+	public DbSet<LogProcess> LogProcesses => Set<LogProcess>();
 
-    /// <summary>Details de processos (tabela <c>tb_log_process_details</c>).</summary>
-    public DbSet<LogProcessDetail> LogProcessDetails => Set<LogProcessDetail>();
+	/// <summary>Details de processos (tabela <c>tb_log_process_details</c>).</summary>
+	public DbSet<LogProcessDetail> LogProcessDetails => Set<LogProcessDetail>();
 
-    /// <summary>Chamadas de APIs externas (tabela <c>tb_api_call_logs</c>).</summary>
-    public DbSet<ApiCallLog> ApiCallLogs => Set<ApiCallLog>();
+	/// <summary>Chamadas de APIs externas (tabela <c>tb_api_call_logs</c>).</summary>
+	public DbSet<ApiCallLog> ApiCallLogs => Set<ApiCallLog>();
 
-    /// <inheritdoc />
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+	/// <inheritdoc />
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
+		base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(LogStreamDbContext).Assembly);
-    }
+		modelBuilder.ApplyConfigurationsFromAssembly(typeof(LogStreamDbContext).Assembly);
+	}
 }

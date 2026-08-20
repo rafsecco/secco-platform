@@ -17,13 +17,13 @@ namespace Secco.LogStream.Application.LogProcesses;
 /// <param name="DetailCount">Quantidade de details do processo.</param>
 /// <param name="MaxDetailLevel">Pior nível entre os details; nulo sem details.</param>
 public sealed record LogProcessSummary(
-    Guid Id,
-    string Name,
-    string? ExternalReference,
-    Guid? CorrelationId,
-    DateTimeOffset CreatedAt,
-    int DetailCount,
-    LogEntryLevel? MaxDetailLevel);
+	Guid Id,
+	string Name,
+	string? ExternalReference,
+	Guid? CorrelationId,
+	DateTimeOffset CreatedAt,
+	int DetailCount,
+	LogEntryLevel? MaxDetailLevel);
 
 /// <summary>Filtros da busca de processos. Todos opcionais; combinados com AND.</summary>
 /// <param name="From">Criados a partir deste momento (inclusive).</param>
@@ -33,48 +33,48 @@ public sealed record LogProcessSummary(
 /// <param name="CorrelationId">Correlation id exato.</param>
 /// <param name="Page">Paginação (1-based).</param>
 public sealed record LogProcessSearchCriteria(
-    DateTimeOffset? From = null,
-    DateTimeOffset? To = null,
-    string? NameContains = null,
-    ProcessStatus? Status = null,
-    Guid? CorrelationId = null,
-    PageRequest? Page = null)
+	DateTimeOffset? From = null,
+	DateTimeOffset? To = null,
+	string? NameContains = null,
+	ProcessStatus? Status = null,
+	Guid? CorrelationId = null,
+	PageRequest? Page = null)
 {
-    /// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>
-    public PageRequest EffectivePage => Page ?? PageRequest.Default;
+	/// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>
+	public PageRequest EffectivePage => Page ?? PageRequest.Default;
 }
 
 /// <summary>Porta de persistência/consulta de processos — sempre no banco do tenant atual (ADR-0005).</summary>
 public interface ILogProcessRepository
 {
-    /// <summary>Persiste um processo.</summary>
-    /// <param name="logProcess">Processo a persistir.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task AddAsync(LogProcess logProcess, CancellationToken cancellationToken = default);
+	/// <summary>Persiste um processo.</summary>
+	/// <param name="logProcess">Processo a persistir.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task AddAsync(LogProcess logProcess, CancellationToken cancellationToken = default);
 
-    /// <summary>Persiste um detail.</summary>
-    /// <param name="detail">Detail a persistir.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task AddDetailAsync(LogProcessDetail detail, CancellationToken cancellationToken = default);
+	/// <summary>Persiste um detail.</summary>
+	/// <param name="detail">Detail a persistir.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task AddDetailAsync(LogProcessDetail detail, CancellationToken cancellationToken = default);
 
-    /// <summary>Indica se o processo existe no banco do tenant atual.</summary>
-    /// <param name="id">Identificador do processo.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
+	/// <summary>Indica se o processo existe no banco do tenant atual.</summary>
+	/// <param name="id">Identificador do processo.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Busca um processo (com agregados) pelo identificador.</summary>
-    /// <param name="id">Identificador do processo.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<LogProcessSummary?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+	/// <summary>Busca um processo (com agregados) pelo identificador.</summary>
+	/// <param name="id">Identificador do processo.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<LogProcessSummary?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <summary>Busca paginada de processos (com agregados), mais recentes primeiro.</summary>
-    /// <param name="criteria">Filtros e paginação.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<PagedResult<LogProcessSummary>> SearchAsync(LogProcessSearchCriteria criteria, CancellationToken cancellationToken = default);
+	/// <summary>Busca paginada de processos (com agregados), mais recentes primeiro.</summary>
+	/// <param name="criteria">Filtros e paginação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<PagedResult<LogProcessSummary>> SearchAsync(LogProcessSearchCriteria criteria, CancellationToken cancellationToken = default);
 
-    /// <summary>Busca paginada dos details de um processo, mais recentes primeiro.</summary>
-    /// <param name="logProcessId">Processo pai.</param>
-    /// <param name="page">Paginação.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<PagedResult<LogProcessDetail>> GetDetailsAsync(Guid logProcessId, PageRequest page, CancellationToken cancellationToken = default);
+	/// <summary>Busca paginada dos details de um processo, mais recentes primeiro.</summary>
+	/// <param name="logProcessId">Processo pai.</param>
+	/// <param name="page">Paginação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<PagedResult<LogProcessDetail>> GetDetailsAsync(Guid logProcessId, PageRequest page, CancellationToken cancellationToken = default);
 }

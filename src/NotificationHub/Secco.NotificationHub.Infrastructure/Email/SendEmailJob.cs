@@ -12,40 +12,40 @@ namespace Secco.NotificationHub.Infrastructure.Email;
 /// consciente do v1 (documentada no README do produto).
 /// </summary>
 internal sealed class SendEmailJob(INotificationRepository repository, IEmailSender emailSender)
-    : IBackgroundJob<SendEmailPayload>
+	: IBackgroundJob<SendEmailPayload>
 {
-    /// <summary>Tamanho máximo do motivo de falha persistido (ADR-0020: mensagens de exceção não têm teto natural).</summary>
-    private const int MaxFailureReasonLength = 500;
+	/// <summary>Tamanho máximo do motivo de falha persistido (ADR-0020: mensagens de exceção não têm teto natural).</summary>
+	private const int MaxFailureReasonLength = 500;
 
-    public async Task ExecuteAsync(SendEmailPayload payload, CancellationToken cancellationToken)
-    {
-        var notification = await repository.GetByIdAsync(payload.NotificationId, cancellationToken).ConfigureAwait(false);
+	public async Task ExecuteAsync(SendEmailPayload payload, CancellationToken cancellationToken)
+	{
+		var notification = await repository.GetByIdAsync(payload.NotificationId, cancellationToken).ConfigureAwait(false);
 
-        if (notification is null)
-        {
-            // Não deveria ocorrer: a notificação é criada antes de enfileirar o job.
-            return;
-        }
+		if (notification is null)
+		{
+			// Não deveria ocorrer: a notificação é criada antes de enfileirar o job.
+			return;
+		}
 
-        try
-        {
-            await emailSender.SendAsync(notification.Recipient, notification.Subject, notification.Body, cancellationToken)
-                .ConfigureAwait(false);
+		try
+		{
+			await emailSender.SendAsync(notification.Recipient, notification.Subject, notification.Body, cancellationToken)
+				.ConfigureAwait(false);
 
-            notification.MarkAsSent();
-        }
-        catch (Exception ex)
-        {
-            var reason = ex.Message.Length > MaxFailureReasonLength
-                ? ex.Message[..MaxFailureReasonLength]
-                : ex.Message;
+			notification.MarkAsSent();
+		}
+		catch (Exception ex)
+		{
+			var reason = ex.Message.Length > MaxFailureReasonLength
+				? ex.Message[..MaxFailureReasonLength]
+				: ex.Message;
 
-            notification.MarkAsFailed(reason);
-            await repository.UpdateAsync(notification, cancellationToken).ConfigureAwait(false);
+			notification.MarkAsFailed(reason);
+			await repository.UpdateAsync(notification, cancellationToken).ConfigureAwait(false);
 
-            throw;
-        }
+			throw;
+		}
 
-        await repository.UpdateAsync(notification, cancellationToken).ConfigureAwait(false);
-    }
+		await repository.UpdateAsync(notification, cancellationToken).ConfigureAwait(false);
+	}
 }

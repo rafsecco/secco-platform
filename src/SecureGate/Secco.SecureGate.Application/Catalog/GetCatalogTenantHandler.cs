@@ -11,27 +11,27 @@ namespace Secco.SecureGate.Application.Catalog;
 /// </summary>
 public sealed class GetCatalogTenantHandler(ITenantRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="product">Produto informado na rota.</param>
-    /// <param name="tenantId">Identificador do tenant.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<CatalogTenantDto>> HandleAsync(
-        string? product,
-        Guid tenantId,
-        CancellationToken cancellationToken = default)
-    {
-        var normalized = product?.Trim().ToLowerInvariant() ?? string.Empty;
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="product">Produto informado na rota.</param>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<CatalogTenantDto>> HandleAsync(
+		string? product,
+		Guid tenantId,
+		CancellationToken cancellationToken = default)
+	{
+		var normalized = product?.Trim().ToLowerInvariant() ?? string.Empty;
 
-        if (!TenantInputRules.IsValidSlug(normalized, TenantDatabase.ProductMaxLength))
-        {
-            return SecureGateErrors.Catalog.ProductInvalid;
-        }
+		if (!TenantInputRules.IsValidSlug(normalized, TenantDatabase.ProductMaxLength))
+		{
+			return SecureGateErrors.Catalog.ProductInvalid;
+		}
 
-        var database = await repository.FindActiveDatabaseAsync(tenantId, normalized, cancellationToken)
-            .ConfigureAwait(false);
+		var database = await repository.FindActiveDatabaseAsync(tenantId, normalized, cancellationToken)
+			.ConfigureAwait(false);
 
-        return database is null
-            ? SecureGateErrors.Catalog.EntryNotFound
-            : CatalogTenantDto.FromEntity(database);
-    }
+		return database is null
+			? SecureGateErrors.Catalog.EntryNotFound
+			: CatalogTenantDto.FromEntity(database);
+	}
 }

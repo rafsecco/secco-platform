@@ -10,10 +10,10 @@ namespace Secco.NotificationHub.Migrations.Postgres;
 /// </summary>
 public sealed class NotificationHubPostgresDbContextFactory : IDesignTimeDbContextFactory<NotificationHubDbContext>
 {
-    public NotificationHubDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<NotificationHubDbContext>()
-            .UseNpgsql(
-                "Host=design-time;Database=design-time",
-                npgsql => npgsql.MigrationsAssembly(typeof(NotificationHubPostgresDbContextFactory).Assembly.GetName().Name))
-            .Options);
+	public NotificationHubDbContext CreateDbContext(string[] args) =>
+		new(new DbContextOptionsBuilder<NotificationHubDbContext>()
+			.UseNpgsql(
+				"Host=design-time;Database=design-time",
+				npgsql => npgsql.MigrationsAssembly(typeof(NotificationHubPostgresDbContextFactory).Assembly.GetName().Name))
+			.Options);
 }

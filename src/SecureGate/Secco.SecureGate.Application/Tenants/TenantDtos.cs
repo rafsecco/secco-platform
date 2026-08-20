@@ -10,14 +10,14 @@ namespace Secco.SecureGate.Application.Tenants;
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record TenantDto(Guid Id, string Name, string Slug, bool IsActive, DateTimeOffset CreatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    /// <param name="tenant">Entidade de origem.</param>
-    public static TenantDto FromEntity(Tenant tenant)
-    {
-        ArgumentNullException.ThrowIfNull(tenant);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	/// <param name="tenant">Entidade de origem.</param>
+	public static TenantDto FromEntity(Tenant tenant)
+	{
+		ArgumentNullException.ThrowIfNull(tenant);
 
-        return new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt);
-    }
+		return new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt);
+	}
 }
 
 /// <summary>
@@ -33,13 +33,13 @@ public sealed record TenantDto(Guid Id, string Name, string Slug, bool IsActive,
 /// <param name="Products">Produtos com banco cadastrado para o tenant.</param>
 /// <param name="Federation">Federação de autenticação do tenant (ADR-0026), quando configurada.</param>
 public sealed record TenantDetailDto(
-    Guid Id,
-    string Name,
-    string Slug,
-    bool IsActive,
-    DateTimeOffset CreatedAt,
-    IReadOnlyList<string> Products,
-    TenantFederationDto? Federation);
+	Guid Id,
+	string Name,
+	string Slug,
+	bool IsActive,
+	DateTimeOffset CreatedAt,
+	IReadOnlyList<string> Products,
+	TenantFederationDto? Federation);
 
 /// <summary>
 /// Federação de autenticação de um tenant (ADR-0026) — visão de gestão. O directory id NÃO é
@@ -51,13 +51,13 @@ public sealed record TenantDetailDto(
 /// <param name="UpdatedAt">Momento da última alteração.</param>
 public sealed record TenantFederationDto(string Provider, Guid DirectoryId, bool IsEnabled, DateTimeOffset UpdatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    /// <param name="federation">Entidade de origem.</param>
-    public static TenantFederationDto FromEntity(TenantFederation federation)
-    {
-        ArgumentNullException.ThrowIfNull(federation);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	/// <param name="federation">Entidade de origem.</param>
+	public static TenantFederationDto FromEntity(TenantFederation federation)
+	{
+		ArgumentNullException.ThrowIfNull(federation);
 
-        return new TenantFederationDto(
-            federation.Provider, federation.DirectoryId, federation.IsEnabled, federation.UpdatedAt);
-    }
+		return new TenantFederationDto(
+			federation.Provider, federation.DirectoryId, federation.IsEnabled, federation.UpdatedAt);
+	}
 }

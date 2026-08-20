@@ -9,11 +9,11 @@ namespace Secco.NotificationHub.Tests.Integration;
 /// </summary>
 internal sealed class FakeEmailSender : IEmailSender
 {
-    /// <summary>Destinatário que sempre falha no envio — para testar o caminho de erro.</summary>
-    public const string AlwaysFailingRecipient = "fail-always@notificationhub.test";
+	/// <summary>Destinatário que sempre falha no envio — para testar o caminho de erro.</summary>
+	public const string AlwaysFailingRecipient = "fail-always@notificationhub.test";
 
-    public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken) =>
-        recipient == AlwaysFailingRecipient
-            ? throw new InvalidOperationException("Falha de envio simulada pelo teste.")
-            : Task.CompletedTask;
+	public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken) =>
+		recipient == AlwaysFailingRecipient
+			? throw new InvalidOperationException("Falha de envio simulada pelo teste.")
+			: Task.CompletedTask;
 }

@@ -10,10 +10,10 @@ namespace Secco.NotificationHub.Migrations.SqlServer;
 /// </summary>
 public sealed class NotificationHubSqlServerDbContextFactory : IDesignTimeDbContextFactory<NotificationHubDbContext>
 {
-    public NotificationHubDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<NotificationHubDbContext>()
-            .UseSqlServer(
-                "Server=design-time;Database=design-time;Encrypt=false",
-                sql => sql.MigrationsAssembly(typeof(NotificationHubSqlServerDbContextFactory).Assembly.GetName().Name))
-            .Options);
+	public NotificationHubDbContext CreateDbContext(string[] args) =>
+		new(new DbContextOptionsBuilder<NotificationHubDbContext>()
+			.UseSqlServer(
+				"Server=design-time;Database=design-time;Encrypt=false",
+				sql => sql.MigrationsAssembly(typeof(NotificationHubSqlServerDbContextFactory).Assembly.GetName().Name))
+			.Options);
 }

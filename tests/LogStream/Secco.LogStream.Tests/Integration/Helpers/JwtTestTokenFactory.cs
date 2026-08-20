@@ -8,27 +8,27 @@ namespace Secco.LogStream.Tests.Integration.Helpers;
 /// <summary>Gera tokens HS256 compatíveis com a configuração de testes da factory.</summary>
 internal static class JwtTestTokenFactory
 {
-    public const string SigningKey = "chave-de-testes-com-32-caracteres!!";
-    public const string Issuer = "secco-tests";
-    public const string Audience = "secco-logstream";
+	public const string SigningKey = "chave-de-testes-com-32-caracteres!!";
+	public const string Issuer = "secco-tests";
+	public const string Audience = "secco-logstream";
 
-    /// <summary>Role padrão dos tokens de teste — permissões concedidas via configuração da factory (ADR-0021).</summary>
-    public const string DefaultRole = "test-admin";
+	/// <summary>Role padrão dos tokens de teste — permissões concedidas via configuração da factory (ADR-0021).</summary>
+	public const string DefaultRole = "test-admin";
 
-    public static string CreateToken(Guid tenantId, string subject = "test-user", string role = DefaultRole) =>
-        new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
-        {
-            Issuer = Issuer,
-            Audience = Audience,
-            Claims = new Dictionary<string, object>
-            {
-                [SeccoClaims.Subject] = subject,
-                [SeccoClaims.TenantId] = tenantId.ToString(),
-                [SeccoClaims.Role] = role,
-            },
-            Expires = DateTime.UtcNow.AddMinutes(10),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
-                SecurityAlgorithms.HmacSha256),
-        });
+	public static string CreateToken(Guid tenantId, string subject = "test-user", string role = DefaultRole) =>
+		new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+		{
+			Issuer = Issuer,
+			Audience = Audience,
+			Claims = new Dictionary<string, object>
+			{
+				[SeccoClaims.Subject] = subject,
+				[SeccoClaims.TenantId] = tenantId.ToString(),
+				[SeccoClaims.Role] = role,
+			},
+			Expires = DateTime.UtcNow.AddMinutes(10),
+			SigningCredentials = new SigningCredentials(
+				new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
+				SecurityAlgorithms.HmacSha256),
+		});
 }

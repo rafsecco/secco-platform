@@ -13,13 +13,13 @@ namespace Secco.SDK.AspNetCore.BackgroundJobs;
 /// </summary>
 [AutomaticRetry(Attempts = 5, OnAttemptsExceeded = AttemptsExceededAction.Fail)]
 internal sealed class TenantJobRunner<TJob, TPayload>(IServiceProvider serviceProvider)
-    where TJob : IBackgroundJob<TPayload>
+	where TJob : IBackgroundJob<TPayload>
 {
-    public async Task RunAsync(Guid tenantId, TPayload payload, CancellationToken cancellationToken)
-    {
-        serviceProvider.SetTenant(tenantId);
+	public async Task RunAsync(Guid tenantId, TPayload payload, CancellationToken cancellationToken)
+	{
+		serviceProvider.SetTenant(tenantId);
 
-        var job = serviceProvider.GetRequiredService<TJob>();
-        await job.ExecuteAsync(payload, cancellationToken).ConfigureAwait(false);
-    }
+		var job = serviceProvider.GetRequiredService<TJob>();
+		await job.ExecuteAsync(payload, cancellationToken).ConfigureAwait(false);
+	}
 }

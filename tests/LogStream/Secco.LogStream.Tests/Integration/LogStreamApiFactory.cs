@@ -14,69 +14,69 @@ namespace Secco.LogStream.Tests.Integration;
 /// </summary>
 public sealed class LogStreamApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
-    private readonly SemaphoreSlim _migrationLock = new(1, 1);
-    private bool _migrated;
+	private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
+	private readonly SemaphoreSlim _migrationLock = new(1, 1);
+	private bool _migrated;
 
-    public Guid TenantAlfa { get; } = Guid.NewGuid();
+	public Guid TenantAlfa { get; } = Guid.NewGuid();
 
-    public Guid TenantBeta { get; } = Guid.NewGuid();
+	public Guid TenantBeta { get; } = Guid.NewGuid();
 
-    /// <summary>Aplica as migrations nos bancos de tenant uma única vez por factory.</summary>
-    public async Task EnsureTenantDatabasesMigratedAsync()
-    {
-        await _migrationLock.WaitAsync();
+	/// <summary>Aplica as migrations nos bancos de tenant uma única vez por factory.</summary>
+	public async Task EnsureTenantDatabasesMigratedAsync()
+	{
+		await _migrationLock.WaitAsync();
 
-        try
-        {
-            if (!_migrated)
-            {
-                await Secco.LogStream.Infrastructure.LogStreamInfrastructureExtensions
-                    .MigrateLogStreamTenantDatabasesAsync(Services);
-                _migrated = true;
-            }
-        }
-        finally
-        {
-            _migrationLock.Release();
-        }
-    }
+		try
+		{
+			if (!_migrated)
+			{
+				await Secco.LogStream.Infrastructure.LogStreamInfrastructureExtensions
+					.MigrateLogStreamTenantDatabasesAsync(Services);
+				_migrated = true;
+			}
+		}
+		finally
+		{
+			_migrationLock.Release();
+		}
+	}
 
-    public string GetTenantConnectionString(string databaseName) =>
-        new SqlConnectionStringBuilder(_container.GetConnectionString())
-        {
-            InitialCatalog = databaseName,
-        }.ConnectionString;
+	public string GetTenantConnectionString(string databaseName) =>
+		new SqlConnectionStringBuilder(_container.GetConnectionString())
+		{
+			InitialCatalog = databaseName,
+		}.ConnectionString;
 
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
+	protected override void ConfigureWebHost(IWebHostBuilder builder)
+	{
+		builder.UseEnvironment("Testing");
 
-        builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Secco:Authentication:Audience"] = "secco-logstream",
-                ["Secco:Authentication:Issuer"] = "secco-tests",
-                ["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
-                [$"Secco:Tenancy:Tenants:{TenantAlfa}:ConnectionString"] =
-                    GetTenantConnectionString("secco_logstream_alfa"),
-                [$"Secco:Tenancy:Tenants:{TenantBeta}:ConnectionString"] =
-                    GetTenantConnectionString("secco_logstream_beta"),
-                // Permissões do role dos tokens de teste (Fase 6.4, ADR-0021) — resolver por configuração
-                ["Secco:Authorization:Roles:test-admin:Permissions:0"] = "log-entries:read",
-                ["Secco:Authorization:Roles:test-admin:Permissions:1"] = "log-entries:write",
-                ["Secco:Authorization:Roles:test-admin:Permissions:2"] = "log-processes:read",
-                ["Secco:Authorization:Roles:test-admin:Permissions:3"] = "log-processes:write",
-                ["Secco:Authorization:Roles:test-admin:Permissions:4"] = "api-call-logs:read",
-                ["Secco:Authorization:Roles:test-admin:Permissions:5"] = "api-call-logs:write",
-            }));
-    }
+		builder.ConfigureAppConfiguration((_, configuration) =>
+			configuration.AddInMemoryCollection(new Dictionary<string, string?>
+			{
+				["Secco:Authentication:Audience"] = "secco-logstream",
+				["Secco:Authentication:Issuer"] = "secco-tests",
+				["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
+				[$"Secco:Tenancy:Tenants:{TenantAlfa}:ConnectionString"] =
+					GetTenantConnectionString("secco_logstream_alfa"),
+				[$"Secco:Tenancy:Tenants:{TenantBeta}:ConnectionString"] =
+					GetTenantConnectionString("secco_logstream_beta"),
+				// Permissões do role dos tokens de teste (Fase 6.4, ADR-0021) — resolver por configuração
+				["Secco:Authorization:Roles:test-admin:Permissions:0"] = "log-entries:read",
+				["Secco:Authorization:Roles:test-admin:Permissions:1"] = "log-entries:write",
+				["Secco:Authorization:Roles:test-admin:Permissions:2"] = "log-processes:read",
+				["Secco:Authorization:Roles:test-admin:Permissions:3"] = "log-processes:write",
+				["Secco:Authorization:Roles:test-admin:Permissions:4"] = "api-call-logs:read",
+				["Secco:Authorization:Roles:test-admin:Permissions:5"] = "api-call-logs:write",
+			}));
+	}
 
-    public async Task InitializeAsync() => await _container.StartAsync();
+	public async Task InitializeAsync() => await _container.StartAsync();
 
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await base.DisposeAsync();
-        await _container.DisposeAsync();
-    }
+	async Task IAsyncLifetime.DisposeAsync()
+	{
+		await base.DisposeAsync();
+		await _container.DisposeAsync();
+	}
 }

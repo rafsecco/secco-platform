@@ -21,12 +21,12 @@ builder.Services.AddAdminPortalAuthentication(builder.Configuration, builder.Env
 // Client do SecureGate (herda a resiliência do SDK); o token do operador é anexado por chamada
 builder.Services.AddHttpClient(AdminPortalDefaults.SecureGateHttpClient, (serviceProvider, client) =>
 {
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var baseUrl = configuration["Secco:SecureGate:ApiBaseUrl"]
-        ?? configuration["Secco:SecureGate:Authority"]
-        ?? throw new InvalidOperationException("Configure 'Secco:SecureGate:Authority' (ou ApiBaseUrl).");
+	var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+	var baseUrl = configuration["Secco:SecureGate:ApiBaseUrl"]
+		?? configuration["Secco:SecureGate:Authority"]
+		?? throw new InvalidOperationException("Configure 'Secco:SecureGate:Authority' (ou ApiBaseUrl).");
 
-    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+	client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
 });
 
 // Client autenticado on-behalf-of + serviços de gestão (Fase 7.1/7.2)
@@ -38,10 +38,10 @@ builder.Services.AddScoped<IRoleAdminService, SecureGateRoleAdminService>();
 // Leitura de logs por tenant (Fase 7.3): client do LogStream + serviço de consulta
 builder.Services.AddHttpClient(AdminPortalDefaults.LogStreamHttpClient, (serviceProvider, client) =>
 {
-    var baseUrl = serviceProvider.GetRequiredService<IConfiguration>()["Secco:LogStream:BaseUrl"]
-        ?? throw new InvalidOperationException("Configure 'Secco:LogStream:BaseUrl'.");
+	var baseUrl = serviceProvider.GetRequiredService<IConfiguration>()["Secco:LogStream:BaseUrl"]
+		?? throw new InvalidOperationException("Configure 'Secco:LogStream:BaseUrl'.");
 
-    client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+	client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
 });
 builder.Services.AddScoped<ILogQueryService, LogStreamQueryService>();
 
@@ -57,8 +57,8 @@ app.UseAntiforgery();
 app.MapSeccoHealthChecks();
 app.MapAuthenticationEndpoints();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .RequireAuthorization();
+	.AddInteractiveServerRenderMode()
+	.RequireAuthorization();
 
 await app.RunAsync();
 

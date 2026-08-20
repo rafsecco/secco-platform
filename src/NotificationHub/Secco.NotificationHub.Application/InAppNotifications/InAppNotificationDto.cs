@@ -14,19 +14,19 @@ namespace Secco.NotificationHub.Application.InAppNotifications;
 /// <param name="CreatedAt">Momento da criação.</param>
 /// <param name="ReadAt">Momento em que foi lida, quando houver.</param>
 public sealed record InAppNotificationDto(
-    Guid Id,
-    Guid UserId,
-    string Source,
-    string Type,
-    string Title,
-    string Message,
-    string? Link,
-    bool IsRead,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? ReadAt)
+	Guid Id,
+	Guid UserId,
+	string Source,
+	string Type,
+	string Title,
+	string Message,
+	string? Link,
+	bool IsRead,
+	DateTimeOffset CreatedAt,
+	DateTimeOffset? ReadAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static InAppNotificationDto FromEntity(InAppNotification entity) =>
-        new(entity.Id, entity.UserId, entity.Source, entity.Type, entity.Title, entity.Message,
-            entity.Link, entity.IsRead, entity.CreatedAt, entity.ReadAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static InAppNotificationDto FromEntity(InAppNotification entity) =>
+		new(entity.Id, entity.UserId, entity.Source, entity.Type, entity.Title, entity.Message,
+			entity.Link, entity.IsRead, entity.CreatedAt, entity.ReadAt);
 }

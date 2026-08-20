@@ -17,7 +17,7 @@ builder.Services.AddSeccoOpenApi();
 
 // Enums viajam como string no contrato
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Options (NotificationHub:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
 builder.Services.AddNotificationHubApplication();
@@ -39,13 +39,13 @@ app.MapOpenApi().AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {
-    // UI de documentação (ADR-0006) — apenas em DEV
-    app.MapScalarApiReference().AllowAnonymous();
+	// UI de documentação (ADR-0006) — apenas em DEV
+	app.MapScalarApiReference().AllowAnonymous();
 
-    // Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
-    // processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).
-    await app.Services.MigrateNotificationHubTenantDatabasesAsync();
-    await app.Services.SeedSeccoDataAsync();
+	// Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
+	// processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).
+	await app.Services.MigrateNotificationHubTenantDatabasesAsync();
+	await app.Services.SeedSeccoDataAsync();
 }
 
 await app.RunAsync();

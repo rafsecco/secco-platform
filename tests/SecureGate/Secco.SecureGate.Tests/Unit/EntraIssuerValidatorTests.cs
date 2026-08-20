@@ -13,76 +13,76 @@ namespace Secco.SecureGate.Tests.Unit;
 /// </summary>
 public class EntraIssuerValidatorTests
 {
-    private static readonly TokenValidationParameters Parameters = new();
+	private static readonly TokenValidationParameters Parameters = new();
 
-    private static JsonWebToken CreateToken(string issuer, object? tid)
-    {
-        var descriptor = new SecurityTokenDescriptor
-        {
-            Issuer = issuer,
-            Claims = tid is null ? [] : new Dictionary<string, object> { ["tid"] = tid },
-        };
+	private static JsonWebToken CreateToken(string issuer, object? tid)
+	{
+		var descriptor = new SecurityTokenDescriptor
+		{
+			Issuer = issuer,
+			Claims = tid is null ? [] : new Dictionary<string, object> { ["tid"] = tid },
+		};
 
-        // Sem credenciais de assinatura: token "alg none" — suficiente para o validador,
-        // que só inspeciona o payload (a assinatura é validada pelo handler OIDC)
-        return new JsonWebToken(new JsonWebTokenHandler().CreateToken(descriptor));
-    }
+		// Sem credenciais de assinatura: token "alg none" — suficiente para o validador,
+		// que só inspeciona o payload (a assinatura é validada pelo handler OIDC)
+		return new JsonWebToken(new JsonWebTokenHandler().CreateToken(descriptor));
+	}
 
-    [Fact]
-    public void Validate_WithIssuerMatchingTid_ReturnsIssuer()
-    {
-        var tid = Guid.NewGuid();
-        var issuer = $"https://login.microsoftonline.com/{tid:D}/v2.0";
-        var token = CreateToken(issuer, tid.ToString("D"));
+	[Fact]
+	public void Validate_WithIssuerMatchingTid_ReturnsIssuer()
+	{
+		var tid = Guid.NewGuid();
+		var issuer = $"https://login.microsoftonline.com/{tid:D}/v2.0";
+		var token = CreateToken(issuer, tid.ToString("D"));
 
-        var result = EntraIssuerValidator.Validate(issuer, token, Parameters);
+		var result = EntraIssuerValidator.Validate(issuer, token, Parameters);
 
-        result.Should().Be(issuer);
-    }
+		result.Should().Be(issuer);
+	}
 
-    [Fact]
-    public void Validate_WithIssuerOfAnotherDirectory_Throws()
-    {
-        var issuer = $"https://login.microsoftonline.com/{Guid.NewGuid():D}/v2.0";
-        var token = CreateToken(issuer, Guid.NewGuid().ToString("D"));
+	[Fact]
+	public void Validate_WithIssuerOfAnotherDirectory_Throws()
+	{
+		var issuer = $"https://login.microsoftonline.com/{Guid.NewGuid():D}/v2.0";
+		var token = CreateToken(issuer, Guid.NewGuid().ToString("D"));
 
-        var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
+		var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
 
-        act.Should().Throw<SecurityTokenInvalidIssuerException>();
-    }
+		act.Should().Throw<SecurityTokenInvalidIssuerException>();
+	}
 
-    [Fact]
-    public void Validate_WithoutTidClaim_Throws()
-    {
-        var issuer = $"https://login.microsoftonline.com/{Guid.NewGuid():D}/v2.0";
-        var token = CreateToken(issuer, tid: null);
+	[Fact]
+	public void Validate_WithoutTidClaim_Throws()
+	{
+		var issuer = $"https://login.microsoftonline.com/{Guid.NewGuid():D}/v2.0";
+		var token = CreateToken(issuer, tid: null);
 
-        var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
+		var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
 
-        act.Should().Throw<SecurityTokenInvalidIssuerException>();
-    }
+		act.Should().Throw<SecurityTokenInvalidIssuerException>();
+	}
 
-    [Fact]
-    public void Validate_WithNonGuidTid_Throws()
-    {
-        var issuer = "https://login.microsoftonline.com/nao-e-guid/v2.0";
-        var token = CreateToken(issuer, "nao-e-guid");
+	[Fact]
+	public void Validate_WithNonGuidTid_Throws()
+	{
+		var issuer = "https://login.microsoftonline.com/nao-e-guid/v2.0";
+		var token = CreateToken(issuer, "nao-e-guid");
 
-        var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
+		var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
 
-        act.Should().Throw<SecurityTokenInvalidIssuerException>();
-    }
+		act.Should().Throw<SecurityTokenInvalidIssuerException>();
+	}
 
-    [Fact]
-    public void Validate_WithWrongTemplate_Throws()
-    {
-        var tid = Guid.NewGuid();
-        // Host certo, esquema errado (http) — template exige igualdade exata
-        var issuer = $"http://login.microsoftonline.com/{tid:D}/v2.0";
-        var token = CreateToken(issuer, tid.ToString("D"));
+	[Fact]
+	public void Validate_WithWrongTemplate_Throws()
+	{
+		var tid = Guid.NewGuid();
+		// Host certo, esquema errado (http) — template exige igualdade exata
+		var issuer = $"http://login.microsoftonline.com/{tid:D}/v2.0";
+		var token = CreateToken(issuer, tid.ToString("D"));
 
-        var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
+		var act = () => EntraIssuerValidator.Validate(issuer, token, Parameters);
 
-        act.Should().Throw<SecurityTokenInvalidIssuerException>();
-    }
+		act.Should().Throw<SecurityTokenInvalidIssuerException>();
+	}
 }

@@ -18,23 +18,23 @@ namespace Secco.SDK.AspNetCore.Authorization;
 /// </summary>
 public sealed class ConfigurationPermissionResolver(IConfiguration configuration) : IPermissionResolver
 {
-    /// <summary>Chave da seção de configuração onde os roles são declarados.</summary>
-    internal const string RolesSectionKey = SeccoAuthorizationOptions.SectionKey + ":Roles";
+	/// <summary>Chave da seção de configuração onde os roles são declarados.</summary>
+	internal const string RolesSectionKey = SeccoAuthorizationOptions.SectionKey + ":Roles";
 
-    /// <inheritdoc />
-    public ValueTask<IReadOnlySet<string>> ResolveAsync(
-        Guid tenantId,
-        string role,
-        CancellationToken cancellationToken = default)
-    {
-        var permissions = configuration
-            .GetSection($"{RolesSectionKey}:{role}:Permissions")
-            .GetChildren()
-            .Select(entry => entry.Value)
-            .Where(value => SeccoPermissions.IsValid(value))
-            .Select(value => value!)
-            .ToHashSet(StringComparer.Ordinal);
+	/// <inheritdoc />
+	public ValueTask<IReadOnlySet<string>> ResolveAsync(
+		Guid tenantId,
+		string role,
+		CancellationToken cancellationToken = default)
+	{
+		var permissions = configuration
+			.GetSection($"{RolesSectionKey}:{role}:Permissions")
+			.GetChildren()
+			.Select(entry => entry.Value)
+			.Where(value => SeccoPermissions.IsValid(value))
+			.Select(value => value!)
+			.ToHashSet(StringComparer.Ordinal);
 
-        return ValueTask.FromResult<IReadOnlySet<string>>(permissions);
-    }
+		return ValueTask.FromResult<IReadOnlySet<string>>(permissions);
+	}
 }

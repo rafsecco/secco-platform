@@ -15,38 +15,38 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public sealed class ConfigurationTenantCatalog(IConfiguration configuration) : ITenantCatalog
 {
-    /// <summary>Chave da seção de configuração onde os tenants são declarados.</summary>
-    internal const string TenantsSectionKey = "Secco:Tenancy:Tenants";
+	/// <summary>Chave da seção de configuração onde os tenants são declarados.</summary>
+	internal const string TenantsSectionKey = "Secco:Tenancy:Tenants";
 
-    /// <inheritdoc />
-    public ValueTask<TenantInfo?> FindAsync(Guid tenantId, CancellationToken cancellationToken = default)
-    {
-        var connectionString = configuration[$"{TenantsSectionKey}:{tenantId}:ConnectionString"];
+	/// <inheritdoc />
+	public ValueTask<TenantInfo?> FindAsync(Guid tenantId, CancellationToken cancellationToken = default)
+	{
+		var connectionString = configuration[$"{TenantsSectionKey}:{tenantId}:ConnectionString"];
 
-        return ValueTask.FromResult(string.IsNullOrWhiteSpace(connectionString)
-            ? null
-            : new TenantInfo(tenantId, connectionString));
-    }
+		return ValueTask.FromResult(string.IsNullOrWhiteSpace(connectionString)
+			? null
+			: new TenantInfo(tenantId, connectionString));
+	}
 
-    /// <inheritdoc />
-    public ValueTask<IReadOnlyList<TenantInfo>> ListAsync(CancellationToken cancellationToken = default)
-    {
-        var tenants = new List<TenantInfo>();
+	/// <inheritdoc />
+	public ValueTask<IReadOnlyList<TenantInfo>> ListAsync(CancellationToken cancellationToken = default)
+	{
+		var tenants = new List<TenantInfo>();
 
-        foreach (var section in configuration.GetSection(TenantsSectionKey).GetChildren())
-        {
-            var connectionString = section["ConnectionString"];
+		foreach (var section in configuration.GetSection(TenantsSectionKey).GetChildren())
+		{
+			var connectionString = section["ConnectionString"];
 
-            // Chaves que não são Guid ou sem connection string são ignoradas silenciosamente —
-            // configuração malformada não pode derrubar processos de manutenção.
-            if (Guid.TryParse(section.Key, out var tenantId)
-                && tenantId != Guid.Empty
-                && !string.IsNullOrWhiteSpace(connectionString))
-            {
-                tenants.Add(new TenantInfo(tenantId, connectionString));
-            }
-        }
+			// Chaves que não são Guid ou sem connection string são ignoradas silenciosamente —
+			// configuração malformada não pode derrubar processos de manutenção.
+			if (Guid.TryParse(section.Key, out var tenantId)
+				&& tenantId != Guid.Empty
+				&& !string.IsNullOrWhiteSpace(connectionString))
+			{
+				tenants.Add(new TenantInfo(tenantId, connectionString));
+			}
+		}
 
-        return ValueTask.FromResult<IReadOnlyList<TenantInfo>>(tenants);
-    }
+		return ValueTask.FromResult<IReadOnlyList<TenantInfo>>(tenants);
+	}
 }

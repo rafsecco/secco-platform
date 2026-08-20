@@ -12,28 +12,28 @@ namespace Secco.AdminPortal.Tests;
 /// </summary>
 public class OperatorTokenProviderTests
 {
-    private sealed class StubAuthStateProvider(ClaimsPrincipal user) : AuthenticationStateProvider
-    {
-        public override Task<AuthenticationState> GetAuthenticationStateAsync() =>
-            Task.FromResult(new AuthenticationState(user));
-    }
+	private sealed class StubAuthStateProvider(ClaimsPrincipal user) : AuthenticationStateProvider
+	{
+		public override Task<AuthenticationState> GetAuthenticationStateAsync() =>
+			Task.FromResult(new AuthenticationState(user));
+	}
 
-    [Fact]
-    public async Task GetAccessTokenAsync_WithTokenClaim_ReturnsTheToken()
-    {
-        var identity = new ClaimsIdentity(
-            [new Claim(AdminPortalDefaults.AccessTokenClaim, "operator-access-token")], "test");
-        var provider = new OperatorTokenProvider(new StubAuthStateProvider(new ClaimsPrincipal(identity)));
+	[Fact]
+	public async Task GetAccessTokenAsync_WithTokenClaim_ReturnsTheToken()
+	{
+		var identity = new ClaimsIdentity(
+			[new Claim(AdminPortalDefaults.AccessTokenClaim, "operator-access-token")], "test");
+		var provider = new OperatorTokenProvider(new StubAuthStateProvider(new ClaimsPrincipal(identity)));
 
-        (await provider.GetAccessTokenAsync()).Should().Be("operator-access-token");
-    }
+		(await provider.GetAccessTokenAsync()).Should().Be("operator-access-token");
+	}
 
-    [Fact]
-    public async Task GetAccessTokenAsync_WithoutTokenClaim_ReturnsNull()
-    {
-        var provider = new OperatorTokenProvider(
-            new StubAuthStateProvider(new ClaimsPrincipal(new ClaimsIdentity())));
+	[Fact]
+	public async Task GetAccessTokenAsync_WithoutTokenClaim_ReturnsNull()
+	{
+		var provider = new OperatorTokenProvider(
+			new StubAuthStateProvider(new ClaimsPrincipal(new ClaimsIdentity())));
 
-        (await provider.GetAccessTokenAsync()).Should().BeNull();
-    }
+		(await provider.GetAccessTokenAsync()).Should().BeNull();
+	}
 }

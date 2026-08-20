@@ -9,15 +9,15 @@ namespace Secco.SecureGate.Infrastructure.Identity;
 /// </summary>
 public sealed class User : IdentityUser<Guid>
 {
-    /// <summary>Tenant do usuário (ADR-0022: o registro carrega o tenant — sem descoberta ambígua no login).</summary>
-    public Guid TenantId { get; set; }
+	/// <summary>Tenant do usuário (ADR-0022: o registro carrega o tenant — sem descoberta ambígua no login).</summary>
+	public Guid TenantId { get; set; }
 }
 
 /// <summary>Role (perfil) por tenant — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>
 public sealed class Role : IdentityRole<Guid>
 {
-    /// <summary>Tenant dono do role (ADR-0021: o mapeamento role→permissions é por tenant).</summary>
-    public Guid TenantId { get; set; }
+	/// <summary>Tenant dono do role (ADR-0021: o mapeamento role→permissions é por tenant).</summary>
+	public Guid TenantId { get; set; }
 }
 
 /// <summary>Claim de usuário (tabela <c>tb_user_claims</c>).</summary>

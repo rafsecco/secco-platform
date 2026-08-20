@@ -8,7 +8,7 @@ namespace Secco.NotificationHub.Application.Notifications;
 /// </summary>
 public interface IEmailDispatchQueue
 {
-    /// <summary>Enfileira o envio de uma notificação já persistida.</summary>
-    /// <param name="notificationId">Identificador da notificação a enviar.</param>
-    void Enqueue(Guid notificationId);
+	/// <summary>Enfileira o envio de uma notificação já persistida.</summary>
+	/// <param name="notificationId">Identificador da notificação a enviar.</param>
+	void Enqueue(Guid notificationId);
 }

@@ -7,27 +7,27 @@ namespace Secco.SharedKernel.Results;
 /// </summary>
 public enum ErrorType
 {
-    /// <summary>Ausência de erro — reservado a <see cref="Error.None"/>.</summary>
-    None = 0,
+	/// <summary>Ausência de erro — reservado a <see cref="Error.None"/>.</summary>
+	None = 0,
 
-    /// <summary>Falha de negócio genérica, sem categoria mais específica.</summary>
-    Failure = 1,
+	/// <summary>Falha de negócio genérica, sem categoria mais específica.</summary>
+	Failure = 1,
 
-    /// <summary>Entrada inválida (equivalente HTTP: 400).</summary>
-    Validation = 2,
+	/// <summary>Entrada inválida (equivalente HTTP: 400).</summary>
+	Validation = 2,
 
-    /// <summary>Recurso não encontrado (equivalente HTTP: 404).</summary>
-    NotFound = 3,
+	/// <summary>Recurso não encontrado (equivalente HTTP: 404).</summary>
+	NotFound = 3,
 
-    /// <summary>Conflito com o estado atual do recurso (equivalente HTTP: 409).</summary>
-    Conflict = 4,
+	/// <summary>Conflito com o estado atual do recurso (equivalente HTTP: 409).</summary>
+	Conflict = 4,
 
-    /// <summary>Chamador não autenticado (equivalente HTTP: 401).</summary>
-    Unauthorized = 5,
+	/// <summary>Chamador não autenticado (equivalente HTTP: 401).</summary>
+	Unauthorized = 5,
 
-    /// <summary>Chamador autenticado sem permissão (equivalente HTTP: 403).</summary>
-    Forbidden = 6,
+	/// <summary>Chamador autenticado sem permissão (equivalente HTTP: 403).</summary>
+	Forbidden = 6,
 
-    /// <summary>Recurso temporariamente indisponível — tente novamente (equivalente HTTP: 503).</summary>
-    Unavailable = 7,
+	/// <summary>Recurso temporariamente indisponível — tente novamente (equivalente HTTP: 503).</summary>
+	Unavailable = 7,
 }

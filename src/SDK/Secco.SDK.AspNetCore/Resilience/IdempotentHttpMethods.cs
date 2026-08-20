@@ -7,11 +7,11 @@ namespace Secco.SDK.AspNetCore.Resilience;
 /// </summary>
 internal static class IdempotentHttpMethods
 {
-    public static bool Contains(HttpMethod method) =>
-        method == HttpMethod.Get
-        || method == HttpMethod.Head
-        || method == HttpMethod.Put
-        || method == HttpMethod.Delete
-        || method == HttpMethod.Options
-        || method == HttpMethod.Trace;
+	public static bool Contains(HttpMethod method) =>
+		method == HttpMethod.Get
+		|| method == HttpMethod.Head
+		|| method == HttpMethod.Put
+		|| method == HttpMethod.Delete
+		|| method == HttpMethod.Options
+		|| method == HttpMethod.Trace;
 }

@@ -7,6 +7,6 @@ namespace Secco.AdminPortal.Authentication;
 /// </summary>
 public interface IOperatorTokenProvider
 {
-    /// <summary>Retorna o access token do operador autenticado, ou <c>null</c> se ausente.</summary>
-    Task<string?> GetAccessTokenAsync();
+	/// <summary>Retorna o access token do operador autenticado, ou <c>null</c> se ausente.</summary>
+	Task<string?> GetAccessTokenAsync();
 }

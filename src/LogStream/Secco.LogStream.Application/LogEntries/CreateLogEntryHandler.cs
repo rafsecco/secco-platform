@@ -10,10 +10,10 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="StackTrace">Stack trace, quando houver.</param>
 /// <param name="CorrelationId">Correlation id da requisição de origem (populado pela borda).</param>
 public sealed record CreateLogEntryCommand(
-    LogEntryLevel Level,
-    string? Message,
-    string? StackTrace = null,
-    Guid? CorrelationId = null);
+	LogEntryLevel Level,
+	string? Message,
+	string? StackTrace = null,
+	Guid? CorrelationId = null);
 
 /// <summary>
 /// Valida os limites de ingestão (ADR-0020) e enfileira o registro — a persistência é
@@ -21,47 +21,47 @@ public sealed record CreateLogEntryCommand(
 /// </summary>
 public sealed class CreateLogEntryHandler(ILogIngestionQueue queue, LogStreamIngestionOptions options)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de criação.</param>
-    public Result<Guid> Handle(CreateLogEntryCommand command)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de criação.</param>
+	public Result<Guid> Handle(CreateLogEntryCommand command)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        var validation = Validate(command, options);
+		var validation = Validate(command, options);
 
-        if (validation.IsFailure)
-        {
-            return Result.Failure<Guid>(validation.Error);
-        }
+		if (validation.IsFailure)
+		{
+			return Result.Failure<Guid>(validation.Error);
+		}
 
-        var logEntry = new LogEntry(command.Level, command.Message!, command.StackTrace, command.CorrelationId);
+		var logEntry = new LogEntry(command.Level, command.Message!, command.StackTrace, command.CorrelationId);
 
-        return queue.TryEnqueue(logEntry) switch
-        {
-            EnqueueOutcome.Enqueued => logEntry.Id,
-            EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
-            _ => LogStreamErrors.Ingestion.TenantNotResolved,
-        };
-    }
+		return queue.TryEnqueue(logEntry) switch
+		{
+			EnqueueOutcome.Enqueued => logEntry.Id,
+			EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
+			_ => LogStreamErrors.Ingestion.TenantNotResolved,
+		};
+	}
 
-    /// <summary>Validação de um item, compartilhada com o batch.</summary>
-    internal static Result Validate(CreateLogEntryCommand command, LogStreamIngestionOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(command.Message))
-        {
-            return Result.Failure(LogStreamErrors.LogEntries.MessageRequired);
-        }
+	/// <summary>Validação de um item, compartilhada com o batch.</summary>
+	internal static Result Validate(CreateLogEntryCommand command, LogStreamIngestionOptions options)
+	{
+		if (string.IsNullOrWhiteSpace(command.Message))
+		{
+			return Result.Failure(LogStreamErrors.LogEntries.MessageRequired);
+		}
 
-        if (command.Message.Length > options.MaxMessageLength)
-        {
-            return Result.Failure(LogStreamErrors.LogEntries.MessageTooLong(options.MaxMessageLength));
-        }
+		if (command.Message.Length > options.MaxMessageLength)
+		{
+			return Result.Failure(LogStreamErrors.LogEntries.MessageTooLong(options.MaxMessageLength));
+		}
 
-        if (command.StackTrace is not null && command.StackTrace.Length > options.MaxStackTraceLength)
-        {
-            return Result.Failure(LogStreamErrors.LogEntries.StackTraceTooLong(options.MaxStackTraceLength));
-        }
+		if (command.StackTrace is not null && command.StackTrace.Length > options.MaxStackTraceLength)
+		{
+			return Result.Failure(LogStreamErrors.LogEntries.StackTraceTooLong(options.MaxStackTraceLength));
+		}
 
-        return Result.Success();
-    }
+		return Result.Success();
+	}
 }

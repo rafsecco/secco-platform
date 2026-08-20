@@ -11,19 +11,19 @@ namespace Secco.NotificationHub.Infrastructure.Contexts;
 /// nomenclatura da ADR-0017 aplicada por convention — ninguém digita nomes de coluna.
 /// </summary>
 public sealed class NotificationHubDbContext(DbContextOptions<NotificationHubDbContext> options)
-    : SeccoDbContext(options)
+	: SeccoDbContext(options)
 {
-    /// <summary>Notificações por e-mail (tabela <c>tb_notifications</c>).</summary>
-    public DbSet<Notification> Notifications => Set<Notification>();
+	/// <summary>Notificações por e-mail (tabela <c>tb_notifications</c>).</summary>
+	public DbSet<Notification> Notifications => Set<Notification>();
 
-    /// <summary>Inbox in-app (tabela <c>tb_in_app_notifications</c>, Fase 8.4).</summary>
-    public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
+	/// <summary>Inbox in-app (tabela <c>tb_in_app_notifications</c>, Fase 8.4).</summary>
+	public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
 
-    /// <inheritdoc />
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+	/// <inheritdoc />
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
+		base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(NotificationHubDbContext).Assembly);
-    }
+		modelBuilder.ApplyConfigurationsFromAssembly(typeof(NotificationHubDbContext).Assembly);
+	}
 }

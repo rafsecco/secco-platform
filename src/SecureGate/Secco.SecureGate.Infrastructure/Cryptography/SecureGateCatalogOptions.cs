@@ -10,25 +10,25 @@ namespace Secco.SecureGate.Infrastructure.Cryptography;
 /// </summary>
 public sealed class SecureGateCatalogOptions
 {
-    /// <summary>Seção de configuração de onde estas opções são lidas.</summary>
-    public const string SectionKey = "SecureGate:Catalog";
+	/// <summary>Seção de configuração de onde estas opções são lidas.</summary>
+	public const string SectionKey = "SecureGate:Catalog";
 
-    /// <summary>Tamanho exigido da chave mestra, em bytes (AES-256).</summary>
-    public const int KeySizeInBytes = 32;
+	/// <summary>Tamanho exigido da chave mestra, em bytes (AES-256).</summary>
+	public const int KeySizeInBytes = 32;
 
-    /// <summary>
-    /// Chave de desenvolvimento embutida (well-known, base64 de 32 bytes) usada quando
-    /// <see cref="EncryptionKey"/> está ausente <b>fora de Production</b> — zero-config em DEV,
-    /// como o certificado de desenvolvimento do OpenIddict. <b>Proibida em Production</b>.
-    /// </summary>
-    public const string DevelopmentEncryptionKey = "c2VjY28tc2VjdXJlZ2F0ZS1kZXYtY2F0YWxvZy1rZXk=";
+	/// <summary>
+	/// Chave de desenvolvimento embutida (well-known, base64 de 32 bytes) usada quando
+	/// <see cref="EncryptionKey"/> está ausente <b>fora de Production</b> — zero-config em DEV,
+	/// como o certificado de desenvolvimento do OpenIddict. <b>Proibida em Production</b>.
+	/// </summary>
+	public const string DevelopmentEncryptionKey = "c2VjY28tc2VjdXJlZ2F0ZS1kZXYtY2F0YWxvZy1rZXk=";
 
-    /// <summary>Chave mestra ativa (base64, 32 bytes). Obrigatória em Production.</summary>
-    public string? EncryptionKey { get; set; }
+	/// <summary>Chave mestra ativa (base64, 32 bytes). Obrigatória em Production.</summary>
+	public string? EncryptionKey { get; set; }
 
-    /// <summary>
-    /// Chaves aposentadas (base64, 32 bytes cada) mantidas <b>só para decifrar</b> durante a
-    /// rotação. O re-encrypt idempotente do startup converge as linhas para a chave ativa.
-    /// </summary>
-    public IList<string> RetiredEncryptionKeys { get; set; } = [];
+	/// <summary>
+	/// Chaves aposentadas (base64, 32 bytes cada) mantidas <b>só para decifrar</b> durante a
+	/// rotação. O re-encrypt idempotente do startup converge as linhas para a chave ativa.
+	/// </summary>
+	public IList<string> RetiredEncryptionKeys { get; set; } = [];
 }

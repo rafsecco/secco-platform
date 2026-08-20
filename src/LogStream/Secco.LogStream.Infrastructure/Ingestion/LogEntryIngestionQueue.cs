@@ -11,45 +11,45 @@ namespace Secco.LogStream.Infrastructure.Ingestion;
 /// enfileiramento — o worker roda fora do request e precisa saber em qual banco gravar.
 /// </summary>
 internal sealed class LogEntryIngestionQueue(LogEntryIngestionChannel channel, ITenantContext tenantContext)
-    : ILogIngestionQueue
+	: ILogIngestionQueue
 {
-    public EnqueueOutcome TryEnqueue(LogEntry logEntry)
-    {
-        ArgumentNullException.ThrowIfNull(logEntry);
+	public EnqueueOutcome TryEnqueue(LogEntry logEntry)
+	{
+		ArgumentNullException.ThrowIfNull(logEntry);
 
-        return Enqueue(tenantId => new LogEntryWorkItem(tenantId, logEntry));
-    }
+		return Enqueue(tenantId => new LogEntryWorkItem(tenantId, logEntry));
+	}
 
-    public EnqueueOutcome TryEnqueue(LogProcess logProcess)
-    {
-        ArgumentNullException.ThrowIfNull(logProcess);
+	public EnqueueOutcome TryEnqueue(LogProcess logProcess)
+	{
+		ArgumentNullException.ThrowIfNull(logProcess);
 
-        return Enqueue(tenantId => new LogProcessWorkItem(tenantId, logProcess));
-    }
+		return Enqueue(tenantId => new LogProcessWorkItem(tenantId, logProcess));
+	}
 
-    public EnqueueOutcome TryEnqueue(LogProcessDetail detail)
-    {
-        ArgumentNullException.ThrowIfNull(detail);
+	public EnqueueOutcome TryEnqueue(LogProcessDetail detail)
+	{
+		ArgumentNullException.ThrowIfNull(detail);
 
-        return Enqueue(tenantId => new LogProcessDetailWorkItem(tenantId, detail));
-    }
+		return Enqueue(tenantId => new LogProcessDetailWorkItem(tenantId, detail));
+	}
 
-    public EnqueueOutcome TryEnqueue(ApiCallLog apiCallLog)
-    {
-        ArgumentNullException.ThrowIfNull(apiCallLog);
+	public EnqueueOutcome TryEnqueue(ApiCallLog apiCallLog)
+	{
+		ArgumentNullException.ThrowIfNull(apiCallLog);
 
-        return Enqueue(tenantId => new ApiCallLogWorkItem(tenantId, apiCallLog));
-    }
+		return Enqueue(tenantId => new ApiCallLogWorkItem(tenantId, apiCallLog));
+	}
 
-    private EnqueueOutcome Enqueue(Func<Guid, IngestionWorkItem> workItemFactory)
-    {
-        if (tenantContext.TenantId is not { } tenantId)
-        {
-            return EnqueueOutcome.TenantNotResolved;
-        }
+	private EnqueueOutcome Enqueue(Func<Guid, IngestionWorkItem> workItemFactory)
+	{
+		if (tenantContext.TenantId is not { } tenantId)
+		{
+			return EnqueueOutcome.TenantNotResolved;
+		}
 
-        return channel.Writer.TryWrite(workItemFactory(tenantId))
-            ? EnqueueOutcome.Enqueued
-            : EnqueueOutcome.QueueFull;
-    }
+		return channel.Writer.TryWrite(workItemFactory(tenantId))
+			? EnqueueOutcome.Enqueued
+			: EnqueueOutcome.QueueFull;
+	}
 }

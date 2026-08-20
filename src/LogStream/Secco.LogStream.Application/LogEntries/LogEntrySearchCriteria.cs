@@ -11,13 +11,13 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="CorrelationId">Correlation id exato.</param>
 /// <param name="Page">Paginação (1-based, normalizada pelo <see cref="PageRequest"/>).</param>
 public sealed record LogEntrySearchCriteria(
-    DateTimeOffset? From = null,
-    DateTimeOffset? To = null,
-    LogEntryLevel? Level = null,
-    string? MessageContains = null,
-    Guid? CorrelationId = null,
-    PageRequest? Page = null)
+	DateTimeOffset? From = null,
+	DateTimeOffset? To = null,
+	LogEntryLevel? Level = null,
+	string? MessageContains = null,
+	Guid? CorrelationId = null,
+	PageRequest? Page = null)
 {
-    /// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>
-    public PageRequest EffectivePage => Page ?? PageRequest.Default;
+	/// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>
+	public PageRequest EffectivePage => Page ?? PageRequest.Default;
 }

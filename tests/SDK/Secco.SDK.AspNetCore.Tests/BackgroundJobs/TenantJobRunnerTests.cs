@@ -13,47 +13,47 @@ namespace Secco.SDK.AspNetCore.Tests.BackgroundJobs;
 /// </summary>
 public class TenantJobRunnerTests
 {
-    private sealed record FakePayload(string Value);
+	private sealed record FakePayload(string Value);
 
-    private sealed class FakeJob : IBackgroundJob<FakePayload>
-    {
-        public Guid? TenantIdSeenDuringExecution { get; private set; }
+	private sealed class FakeJob : IBackgroundJob<FakePayload>
+	{
+		public Guid? TenantIdSeenDuringExecution { get; private set; }
 
-        public string? PayloadSeenDuringExecution { get; private set; }
+		public string? PayloadSeenDuringExecution { get; private set; }
 
-        public Task ExecuteAsync(FakePayload payload, CancellationToken cancellationToken)
-        {
-            TenantIdSeenDuringExecution = CapturedTenantContext?.TenantId;
-            PayloadSeenDuringExecution = payload.Value;
-            return Task.CompletedTask;
-        }
+		public Task ExecuteAsync(FakePayload payload, CancellationToken cancellationToken)
+		{
+			TenantIdSeenDuringExecution = CapturedTenantContext?.TenantId;
+			PayloadSeenDuringExecution = payload.Value;
+			return Task.CompletedTask;
+		}
 
-        public ITenantContext? CapturedTenantContext { get; set; }
-    }
+		public ITenantContext? CapturedTenantContext { get; set; }
+	}
 
-    [Fact]
-    public async Task RunAsync_RestoresTenantBeforeInvokingTheJob()
-    {
-        var tenantId = Guid.NewGuid();
-        var job = new FakeJob();
+	[Fact]
+	public async Task RunAsync_RestoresTenantBeforeInvokingTheJob()
+	{
+		var tenantId = Guid.NewGuid();
+		var job = new FakeJob();
 
-        var services = new ServiceCollection();
-        services.AddScoped<TenantContext>();
-        services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
-        services.AddScoped<FakeJob>(_ => job);
+		var services = new ServiceCollection();
+		services.AddScoped<TenantContext>();
+		services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+		services.AddScoped<FakeJob>(_ => job);
 
-        await using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
+		await using var provider = services.BuildServiceProvider();
+		using var scope = provider.CreateScope();
 
-        // O próprio fake lê o TenantContext do MESMO escopo, simulando um repositório
-        // que resolve o tenant preguiçosamente (padrão real dos repositórios da plataforma)
-        job.CapturedTenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+		// O próprio fake lê o TenantContext do MESMO escopo, simulando um repositório
+		// que resolve o tenant preguiçosamente (padrão real dos repositórios da plataforma)
+		job.CapturedTenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
 
-        var runner = new TenantJobRunner<FakeJob, FakePayload>(scope.ServiceProvider);
+		var runner = new TenantJobRunner<FakeJob, FakePayload>(scope.ServiceProvider);
 
-        await runner.RunAsync(tenantId, new FakePayload("conteúdo"), CancellationToken.None);
+		await runner.RunAsync(tenantId, new FakePayload("conteúdo"), CancellationToken.None);
 
-        job.TenantIdSeenDuringExecution.Should().Be(tenantId);
-        job.PayloadSeenDuringExecution.Should().Be("conteúdo");
-    }
+		job.TenantIdSeenDuringExecution.Should().Be(tenantId);
+		job.PayloadSeenDuringExecution.Should().Be("conteúdo");
+	}
 }

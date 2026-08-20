@@ -13,17 +13,17 @@ namespace Secco.SDK.AspNetCore.Authorization;
 /// </summary>
 internal sealed class SeccoPermissionPolicyProvider(IOptions<AuthorizationOptions> options) : IAuthorizationPolicyProvider
 {
-    private readonly DefaultAuthorizationPolicyProvider _fallback = new(options);
+	private readonly DefaultAuthorizationPolicyProvider _fallback = new(options);
 
-    public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName) =>
-        SeccoPermissions.IsValid(policyName)
-            ? Task.FromResult<AuthorizationPolicy?>(new AuthorizationPolicyBuilder()
-                .RequireAuthenticatedUser()
-                .AddRequirements(new PermissionRequirement(policyName))
-                .Build())
-            : _fallback.GetPolicyAsync(policyName);
+	public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName) =>
+		SeccoPermissions.IsValid(policyName)
+			? Task.FromResult<AuthorizationPolicy?>(new AuthorizationPolicyBuilder()
+				.RequireAuthenticatedUser()
+				.AddRequirements(new PermissionRequirement(policyName))
+				.Build())
+			: _fallback.GetPolicyAsync(policyName);
 
-    public Task<AuthorizationPolicy> GetDefaultPolicyAsync() => _fallback.GetDefaultPolicyAsync();
+	public Task<AuthorizationPolicy> GetDefaultPolicyAsync() => _fallback.GetDefaultPolicyAsync();
 
-    public Task<AuthorizationPolicy?> GetFallbackPolicyAsync() => _fallback.GetFallbackPolicyAsync();
+	public Task<AuthorizationPolicy?> GetFallbackPolicyAsync() => _fallback.GetFallbackPolicyAsync();
 }

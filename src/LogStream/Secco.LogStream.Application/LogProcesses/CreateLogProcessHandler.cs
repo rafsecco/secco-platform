@@ -17,34 +17,34 @@ public sealed record CreateLogProcessCommand(string? Name, string? ExternalRefer
 /// </summary>
 public sealed class CreateLogProcessHandler(ILogIngestionQueue queue, LogStreamIngestionOptions options)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de criação.</param>
-    public Result<Guid> Handle(CreateLogProcessCommand command)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de criação.</param>
+	public Result<Guid> Handle(CreateLogProcessCommand command)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.Name))
-        {
-            return LogStreamErrors.LogProcesses.NameRequired;
-        }
+		if (string.IsNullOrWhiteSpace(command.Name))
+		{
+			return LogStreamErrors.LogProcesses.NameRequired;
+		}
 
-        if (command.Name.Length > options.MaxProcessNameLength)
-        {
-            return LogStreamErrors.LogProcesses.NameTooLong(options.MaxProcessNameLength);
-        }
+		if (command.Name.Length > options.MaxProcessNameLength)
+		{
+			return LogStreamErrors.LogProcesses.NameTooLong(options.MaxProcessNameLength);
+		}
 
-        if (command.ExternalReference is not null && command.ExternalReference.Length > options.MaxExternalReferenceLength)
-        {
-            return LogStreamErrors.LogProcesses.ExternalReferenceTooLong(options.MaxExternalReferenceLength);
-        }
+		if (command.ExternalReference is not null && command.ExternalReference.Length > options.MaxExternalReferenceLength)
+		{
+			return LogStreamErrors.LogProcesses.ExternalReferenceTooLong(options.MaxExternalReferenceLength);
+		}
 
-        var logProcess = new LogProcess(command.Name, command.ExternalReference, command.CorrelationId);
+		var logProcess = new LogProcess(command.Name, command.ExternalReference, command.CorrelationId);
 
-        return queue.TryEnqueue(logProcess) switch
-        {
-            EnqueueOutcome.Enqueued => logProcess.Id,
-            EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
-            _ => LogStreamErrors.Ingestion.TenantNotResolved,
-        };
-    }
+		return queue.TryEnqueue(logProcess) switch
+		{
+			EnqueueOutcome.Enqueued => logProcess.Id,
+			EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
+			_ => LogStreamErrors.Ingestion.TenantNotResolved,
+		};
+	}
 }

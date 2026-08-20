@@ -8,9 +8,9 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public interface ITenantContext
 {
-    /// <summary>Tenant resolvido para a requisição atual; nulo se nenhuma fonte o resolveu.</summary>
-    Guid? TenantId { get; }
+	/// <summary>Tenant resolvido para a requisição atual; nulo se nenhuma fonte o resolveu.</summary>
+	Guid? TenantId { get; }
 
-    /// <summary>Indica se algum tenant foi resolvido para a requisição atual.</summary>
-    bool IsResolved { get; }
+	/// <summary>Indica se algum tenant foi resolvido para a requisição atual.</summary>
+	bool IsResolved { get; }
 }

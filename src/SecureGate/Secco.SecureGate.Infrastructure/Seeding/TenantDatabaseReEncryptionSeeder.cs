@@ -22,60 +22,60 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 /// do EF nem detectaria mudança (o plaintext é o mesmo, só a representação difere).
 /// </remarks>
 public sealed class TenantDatabaseReEncryptionSeeder(
-    SecureGateDbContext context,
-    IConnectionStringCipher cipher,
-    ILogger<TenantDatabaseReEncryptionSeeder> logger) : IReferenceDataSeeder
+	SecureGateDbContext context,
+	IConnectionStringCipher cipher,
+	ILogger<TenantDatabaseReEncryptionSeeder> logger) : IReferenceDataSeeder
 {
-    /// <summary>Roda após os seeders estruturais (scopes/operador) do produto.</summary>
-    public int Order => 100;
+	/// <summary>Roda após os seeders estruturais (scopes/operador) do produto.</summary>
+	public int Order => 100;
 
-    public async Task SeedAsync(CancellationToken cancellationToken = default)
-    {
-        var rows = await context.Database
-            .SqlQueryRaw<TenantDatabaseRawRow>(
-                "SELECT id_pk_tenant_database AS \"Id\", ds_connection_string AS \"ConnectionString\" FROM tb_tenant_databases")
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
+	public async Task SeedAsync(CancellationToken cancellationToken = default)
+	{
+		var rows = await context.Database
+			.SqlQueryRaw<TenantDatabaseRawRow>(
+				"SELECT id_pk_tenant_database AS \"Id\", ds_connection_string AS \"ConnectionString\" FROM tb_tenant_databases")
+			.ToListAsync(cancellationToken)
+			.ConfigureAwait(false);
 
-        var converged = 0;
+		var converged = 0;
 
-        foreach (var row in rows)
-        {
-            if (cipher.IsEncryptedWithActiveKey(row.ConnectionString))
-            {
-                continue;
-            }
+		foreach (var row in rows)
+		{
+			if (cipher.IsEncryptedWithActiveKey(row.ConnectionString))
+			{
+				continue;
+			}
 
-            // Decrypt cobre os dois casos a convergir: legado em claro (passthrough) e chave aposentada
-            var plaintext = cipher.Decrypt(row.ConnectionString);
-            var reEncrypted = cipher.Encrypt(plaintext);
+			// Decrypt cobre os dois casos a convergir: legado em claro (passthrough) e chave aposentada
+			var plaintext = cipher.Decrypt(row.ConnectionString);
+			var reEncrypted = cipher.Encrypt(plaintext);
 
-            await context.Database
-                .ExecuteSqlRawAsync(
-                    "UPDATE tb_tenant_databases SET ds_connection_string = {0} WHERE id_pk_tenant_database = {1}",
-                    [reEncrypted, row.Id],
-                    cancellationToken)
-                .ConfigureAwait(false);
+			await context.Database
+				.ExecuteSqlRawAsync(
+					"UPDATE tb_tenant_databases SET ds_connection_string = {0} WHERE id_pk_tenant_database = {1}",
+					[reEncrypted, row.Id],
+					cancellationToken)
+				.ConfigureAwait(false);
 
-            converged++;
-        }
+			converged++;
+		}
 
-        if (converged > 0)
-        {
-            ReEncryptionLog.Converged(logger, converged);
-        }
-    }
+		if (converged > 0)
+		{
+			ReEncryptionLog.Converged(logger, converged);
+		}
+	}
 
-    /// <summary>Projeção crua da coluna sensível — nunca logada nem exposta (ADR-0020).</summary>
-    private sealed record TenantDatabaseRawRow(Guid Id, string ConnectionString);
+	/// <summary>Projeção crua da coluna sensível — nunca logada nem exposta (ADR-0020).</summary>
+	private sealed record TenantDatabaseRawRow(Guid Id, string ConnectionString);
 }
 
 /// <summary>Log estruturado da convergência (source generator — ADR-0008).</summary>
 internal static partial class ReEncryptionLog
 {
-    [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Information,
-        Message = "Cifragem do catálogo: {Count} connection string(s) convergida(s) para a chave ativa (ADR-0025).")]
-    public static partial void Converged(ILogger logger, int count);
+	[LoggerMessage(
+		EventId = 1,
+		Level = LogLevel.Information,
+		Message = "Cifragem do catálogo: {Count} connection string(s) convergida(s) para a chave ativa (ADR-0025).")]
+	public static partial void Converged(ILogger logger, int count);
 }

@@ -8,8 +8,8 @@ namespace Secco.SDK.AspNetCore.BackgroundJobs;
 /// <typeparam name="TPayload">Tipo do payload de entrada, serializado pelo storage do Hangfire.</typeparam>
 public interface IBackgroundJob<in TPayload>
 {
-    /// <summary>Executa o job.</summary>
-    /// <param name="payload">Dados de entrada do job.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task ExecuteAsync(TPayload payload, CancellationToken cancellationToken);
+	/// <summary>Executa o job.</summary>
+	/// <param name="payload">Dados de entrada do job.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task ExecuteAsync(TPayload payload, CancellationToken cancellationToken);
 }

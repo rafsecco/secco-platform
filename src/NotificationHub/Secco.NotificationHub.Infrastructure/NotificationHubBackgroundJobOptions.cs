@@ -7,6 +7,6 @@ namespace Secco.NotificationHub.Infrastructure;
 /// </summary>
 public sealed class NotificationHubBackgroundJobOptions
 {
-    /// <summary>Connection string do banco de plataforma (schema próprio, gerenciado pelo Hangfire).</summary>
-    public string ConnectionString { get; set; } = string.Empty;
+	/// <summary>Connection string do banco de plataforma (schema próprio, gerenciado pelo Hangfire).</summary>
+	public string ConnectionString { get; set; } = string.Empty;
 }

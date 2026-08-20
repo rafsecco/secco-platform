@@ -9,12 +9,12 @@ namespace Secco.SecureGate.Application.Tenants;
 /// </summary>
 public sealed class ListTenantsHandler(ITenantRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<IReadOnlyList<TenantDto>>> HandleAsync(CancellationToken cancellationToken = default)
-    {
-        var tenants = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<IReadOnlyList<TenantDto>>> HandleAsync(CancellationToken cancellationToken = default)
+	{
+		var tenants = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
 
-        return Result.Success<IReadOnlyList<TenantDto>>([.. tenants.Select(TenantDto.FromEntity)]);
-    }
+		return Result.Success<IReadOnlyList<TenantDto>>([.. tenants.Select(TenantDto.FromEntity)]);
+	}
 }

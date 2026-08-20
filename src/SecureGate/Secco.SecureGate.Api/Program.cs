@@ -18,7 +18,7 @@ builder.Services.AddSeccoOpenApi();
 
 // Enums viajam como string no contrato
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Telas de login/logout (Fase 6.5) — únicas páginas server-rendered do produto
 builder.Services.AddRazorPages(options => options.Conventions.AllowAnonymousToPage("/Login"));
@@ -55,13 +55,13 @@ app.MapOpenApi().AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {
-    // UI de documentação (ADR-0006) — apenas em DEV
-    app.MapScalarApiReference().AllowAnonymous();
+	// UI de documentação (ADR-0006) — apenas em DEV
+	app.MapScalarApiReference().AllowAnonymous();
 
-    // Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
-    // processo controlado). Banco ÚNICO de plataforma (ADR-0022), não por tenant.
-    await app.Services.MigrateSecureGateDatabaseAsync();
-    await app.Services.SeedSeccoDataAsync();
+	// Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
+	// processo controlado). Banco ÚNICO de plataforma (ADR-0022), não por tenant.
+	await app.Services.MigrateSecureGateDatabaseAsync();
+	await app.Services.SeedSeccoDataAsync();
 }
 
 await app.RunAsync();

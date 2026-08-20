@@ -8,9 +8,9 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public sealed class TenantContext : ITenantContext
 {
-    /// <inheritdoc />
-    public Guid? TenantId { get; internal set; }
+	/// <inheritdoc />
+	public Guid? TenantId { get; internal set; }
 
-    /// <inheritdoc />
-    public bool IsResolved => TenantId is not null;
+	/// <inheritdoc />
+	public bool IsResolved => TenantId is not null;
 }

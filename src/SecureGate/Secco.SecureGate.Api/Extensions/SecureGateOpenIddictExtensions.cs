@@ -13,107 +13,107 @@ namespace Secco.SecureGate.Api.Extensions;
 /// </summary>
 public static class SecureGateOpenIddictExtensions
 {
-    /// <summary>
-    /// Registra o OpenIddict (core sobre o <see cref="SecureGateDbContext"/> + servidor).
-    /// Certificados: fora de Production, automáticos (efêmeros em Testing, certificado de
-    /// desenvolvimento persistido nos demais); em Production, <c>SecureGate:Signing:CertificatePath</c>
-    /// é obrigatório — sem ele a API não sobe (fail-fast, ADR-0020).
-    /// </summary>
-    /// <param name="services">Coleção de serviços da aplicação.</param>
-    /// <param name="environment">Ambiente de hospedagem.</param>
-    /// <param name="configuration">Configuração do host.</param>
-    public static IServiceCollection AddSecureGateOpenIddict(
-        this IServiceCollection services,
-        IHostEnvironment environment,
-        IConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(environment);
-        ArgumentNullException.ThrowIfNull(configuration);
+	/// <summary>
+	/// Registra o OpenIddict (core sobre o <see cref="SecureGateDbContext"/> + servidor).
+	/// Certificados: fora de Production, automáticos (efêmeros em Testing, certificado de
+	/// desenvolvimento persistido nos demais); em Production, <c>SecureGate:Signing:CertificatePath</c>
+	/// é obrigatório — sem ele a API não sobe (fail-fast, ADR-0020).
+	/// </summary>
+	/// <param name="services">Coleção de serviços da aplicação.</param>
+	/// <param name="environment">Ambiente de hospedagem.</param>
+	/// <param name="configuration">Configuração do host.</param>
+	public static IServiceCollection AddSecureGateOpenIddict(
+		this IServiceCollection services,
+		IHostEnvironment environment,
+		IConfiguration configuration)
+	{
+		ArgumentNullException.ThrowIfNull(services);
+		ArgumentNullException.ThrowIfNull(environment);
+		ArgumentNullException.ThrowIfNull(configuration);
 
-        var accessTokenLifetimeMinutes = configuration.GetValue("SecureGate:Tokens:AccessTokenLifetimeMinutes", 60);
+		var accessTokenLifetimeMinutes = configuration.GetValue("SecureGate:Tokens:AccessTokenLifetimeMinutes", 60);
 
-        services.AddOpenIddict()
-            .AddCore(core => core
-                .UseEntityFrameworkCore()
-                .UseDbContext<SecureGateDbContext>()
-                .ReplaceDefaultEntities<OidcApplication, OidcAuthorization, OidcScope, OidcToken, Guid>())
-            .AddServer(server =>
-            {
-                server.SetTokenEndpointUris("connect/token");
+		services.AddOpenIddict()
+			.AddCore(core => core
+				.UseEntityFrameworkCore()
+				.UseDbContext<SecureGateDbContext>()
+				.ReplaceDefaultEntities<OidcApplication, OidcAuthorization, OidcScope, OidcToken, Guid>())
+			.AddServer(server =>
+			{
+				server.SetTokenEndpointUris("connect/token");
 
-                // Fase 6.2 — máquinas; Fase 6.5 — usuários (authorization code + PKCE + refresh)
-                server.AllowClientCredentialsFlow();
-                server.AllowAuthorizationCodeFlow();
-                server.AllowRefreshTokenFlow();
+				// Fase 6.2 — máquinas; Fase 6.5 — usuários (authorization code + PKCE + refresh)
+				server.AllowClientCredentialsFlow();
+				server.AllowAuthorizationCodeFlow();
+				server.AllowRefreshTokenFlow();
 
-                // PKCE OBRIGATÓRIO em todo authorization code (ADR-0020): protege o code de
-                // interceptação inclusive em clients públicos (SPA/nativo, sem client_secret)
-                server.RequireProofKeyForCodeExchange();
+				// PKCE OBRIGATÓRIO em todo authorization code (ADR-0020): protege o code de
+				// interceptação inclusive em clients públicos (SPA/nativo, sem client_secret)
+				server.RequireProofKeyForCodeExchange();
 
-                server.SetAuthorizationEndpointUris("connect/authorize");
-                server.SetUserInfoEndpointUris("connect/userinfo");
-                server.SetEndSessionEndpointUris("connect/logout");
+				server.SetAuthorizationEndpointUris("connect/authorize");
+				server.SetUserInfoEndpointUris("connect/userinfo");
+				server.SetEndSessionEndpointUris("connect/logout");
 
-                // Scopes padrão OIDC além dos scopes de produto (esses vivem no scope manager)
-                server.RegisterScopes(Scopes.Profile, Scopes.Email, Scopes.Roles);
+				// Scopes padrão OIDC além dos scopes de produto (esses vivem no scope manager)
+				server.RegisterScopes(Scopes.Profile, Scopes.Email, Scopes.Roles);
 
-                // JWT puro: validável por qualquer JwtBearer via JWKS (ADR-0022 — produtos
-                // agnósticos do OpenIddict). O conteúdo do access token não carrega segredos.
-                server.DisableAccessTokenEncryption();
+				// JWT puro: validável por qualquer JwtBearer via JWKS (ADR-0022 — produtos
+				// agnósticos do OpenIddict). O conteúdo do access token não carrega segredos.
+				server.DisableAccessTokenEncryption();
 
-                server.SetAccessTokenLifetime(TimeSpan.FromMinutes(accessTokenLifetimeMinutes));
+				server.SetAccessTokenLifetime(TimeSpan.FromMinutes(accessTokenLifetimeMinutes));
 
-                ConfigureCertificates(server, environment, configuration);
+				ConfigureCertificates(server, environment, configuration);
 
-                var aspNetCore = server.UseAspNetCore();
-                aspNetCore.EnableTokenEndpointPassthrough();
-                aspNetCore.EnableAuthorizationEndpointPassthrough();
-                aspNetCore.EnableUserInfoEndpointPassthrough();
-                aspNetCore.EnableEndSessionEndpointPassthrough();
+				var aspNetCore = server.UseAspNetCore();
+				aspNetCore.EnableTokenEndpointPassthrough();
+				aspNetCore.EnableAuthorizationEndpointPassthrough();
+				aspNetCore.EnableUserInfoEndpointPassthrough();
+				aspNetCore.EnableEndSessionEndpointPassthrough();
 
-                if (!environment.IsProduction())
-                {
-                    // TestServer/dev local são HTTP; em Production o HTTPS segue obrigatório
-                    aspNetCore.DisableTransportSecurityRequirement();
-                }
-            });
+				if (!environment.IsProduction())
+				{
+					// TestServer/dev local são HTTP; em Production o HTTPS segue obrigatório
+					aspNetCore.DisableTransportSecurityRequirement();
+				}
+			});
 
-        return services;
-    }
+		return services;
+	}
 
-    private static void ConfigureCertificates(
-        OpenIddictServerBuilder server,
-        IHostEnvironment environment,
-        IConfiguration configuration)
-    {
-        if (environment.IsProduction())
-        {
-            var certificatePath = configuration["SecureGate:Signing:CertificatePath"];
-            var certificatePassword = configuration["SecureGate:Signing:CertificatePassword"];
+	private static void ConfigureCertificates(
+		OpenIddictServerBuilder server,
+		IHostEnvironment environment,
+		IConfiguration configuration)
+	{
+		if (environment.IsProduction())
+		{
+			var certificatePath = configuration["SecureGate:Signing:CertificatePath"];
+			var certificatePassword = configuration["SecureGate:Signing:CertificatePassword"];
 
-            if (string.IsNullOrWhiteSpace(certificatePath))
-            {
-                throw new InvalidOperationException(
-                    "'SecureGate:Signing:CertificatePath' é obrigatório em Production — o SecureGate não sobe sem certificado explícito (fail-fast, ADR-0020).");
-            }
+			if (string.IsNullOrWhiteSpace(certificatePath))
+			{
+				throw new InvalidOperationException(
+					"'SecureGate:Signing:CertificatePath' é obrigatório em Production — o SecureGate não sobe sem certificado explícito (fail-fast, ADR-0020).");
+			}
 
-            var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, certificatePassword);
-            server.AddSigningCertificate(certificate);
-            server.AddEncryptionCertificate(certificate);
-            return;
-        }
+			var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, certificatePassword);
+			server.AddSigningCertificate(certificate);
+			server.AddEncryptionCertificate(certificate);
+			return;
+		}
 
-        if (environment.IsEnvironment("Testing"))
-        {
-            // Chaves em memória: nada persiste entre execuções de teste
-            server.AddEphemeralSigningKey();
-            server.AddEphemeralEncryptionKey();
-            return;
-        }
+		if (environment.IsEnvironment("Testing"))
+		{
+			// Chaves em memória: nada persiste entre execuções de teste
+			server.AddEphemeralSigningKey();
+			server.AddEphemeralEncryptionKey();
+			return;
+		}
 
-        // DEV/Staging: certificados de desenvolvimento gerados e persistidos pelo OpenIddict
-        server.AddDevelopmentSigningCertificate();
-        server.AddDevelopmentEncryptionCertificate();
-    }
+		// DEV/Staging: certificados de desenvolvimento gerados e persistidos pelo OpenIddict
+		server.AddDevelopmentSigningCertificate();
+		server.AddDevelopmentEncryptionCertificate();
+	}
 }

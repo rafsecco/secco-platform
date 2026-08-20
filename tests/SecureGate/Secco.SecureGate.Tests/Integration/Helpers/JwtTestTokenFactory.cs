@@ -12,25 +12,25 @@ namespace Secco.SecureGate.Tests.Integration.Helpers;
 /// </summary>
 internal static class JwtTestTokenFactory
 {
-    public const string SigningKey = "chave-de-testes-com-32-caracteres!!";
-    public const string Issuer = "secco-tests";
-    public const string Audience = "secco-securegate";
+	public const string SigningKey = "chave-de-testes-com-32-caracteres!!";
+	public const string Issuer = "secco-tests";
+	public const string Audience = "secco-securegate";
 
-    /// <summary>Cria um token com os scopes informados (claim curta <c>scope</c>, ADR-0007).</summary>
-    /// <param name="scopes">Scopes concedidos (separados por espaço na claim, RFC 8693).</param>
-    public static string CreateToken(params string[] scopes) =>
-        new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
-        {
-            Issuer = Issuer,
-            Audience = Audience,
-            Claims = new Dictionary<string, object>
-            {
-                [SeccoClaims.Subject] = "test-admin",
-                ["scope"] = string.Join(' ', scopes),
-            },
-            Expires = DateTime.UtcNow.AddMinutes(10),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
-                SecurityAlgorithms.HmacSha256),
-        });
+	/// <summary>Cria um token com os scopes informados (claim curta <c>scope</c>, ADR-0007).</summary>
+	/// <param name="scopes">Scopes concedidos (separados por espaço na claim, RFC 8693).</param>
+	public static string CreateToken(params string[] scopes) =>
+		new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+		{
+			Issuer = Issuer,
+			Audience = Audience,
+			Claims = new Dictionary<string, object>
+			{
+				[SeccoClaims.Subject] = "test-admin",
+				["scope"] = string.Join(' ', scopes),
+			},
+			Expires = DateTime.UtcNow.AddMinutes(10),
+			SigningCredentials = new SigningCredentials(
+				new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SigningKey)),
+				SecurityAlgorithms.HmacSha256),
+		});
 }

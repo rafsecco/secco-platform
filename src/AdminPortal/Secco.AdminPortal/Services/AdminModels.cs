@@ -8,12 +8,12 @@ namespace Secco.AdminPortal.Services;
 /// <param name="CreatedAt">Momento da criação.</param>
 /// <param name="Products">Produtos com banco cadastrado.</param>
 public sealed record TenantDetail(
-    Guid Id,
-    string Name,
-    string Slug,
-    bool IsActive,
-    DateTimeOffset CreatedAt,
-    IReadOnlyList<string> Products);
+	Guid Id,
+	string Name,
+	string Slug,
+	bool IsActive,
+	DateTimeOffset CreatedAt,
+	IReadOnlyList<string> Products);
 
 /// <summary>Usuário de um tenant (visão de gestão, sem segredos).</summary>
 /// <param name="Id">Identificador do usuário.</param>

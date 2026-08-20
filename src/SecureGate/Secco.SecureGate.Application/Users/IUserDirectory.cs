@@ -16,13 +16,13 @@ public sealed record CreateUserData(Guid TenantId, string Email, string Password
 /// </summary>
 public interface IUserDirectory
 {
-    /// <summary>Cria o usuário e atribui os roles; mapeia falhas do Identity para <see cref="Error"/>.</summary>
-    /// <param name="data">Dados de criação.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<Result<UserDto>> CreateAsync(CreateUserData data, CancellationToken cancellationToken = default);
+	/// <summary>Cria o usuário e atribui os roles; mapeia falhas do Identity para <see cref="Error"/>.</summary>
+	/// <param name="data">Dados de criação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<Result<UserDto>> CreateAsync(CreateUserData data, CancellationToken cancellationToken = default);
 
-    /// <summary>Lista os usuários de um tenant com seus roles (sem segredos).</summary>
-    /// <param name="tenantId">Tenant dono dos usuários.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+	/// <summary>Lista os usuários de um tenant com seus roles (sem segredos).</summary>
+	/// <param name="tenantId">Tenant dono dos usuários.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 }

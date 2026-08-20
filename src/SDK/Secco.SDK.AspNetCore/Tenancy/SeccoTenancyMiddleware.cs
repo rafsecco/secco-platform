@@ -14,43 +14,43 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public sealed class SeccoTenancyMiddleware(RequestDelegate next)
 {
-    /// <summary>Executa a resolução de tenant e invoca o próximo delegate do pipeline.</summary>
-    /// <param name="context">Contexto HTTP da requisição atual.</param>
-    /// <param name="tenantContext">Contexto de tenant do escopo (injetado pelo DI).</param>
-    /// <param name="logger">Logger para sinalizar conflitos de tenant.</param>
-    public async Task InvokeAsync(HttpContext context, TenantContext tenantContext, ILogger<SeccoTenancyMiddleware> logger)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(tenantContext);
-        ArgumentNullException.ThrowIfNull(logger);
+	/// <summary>Executa a resolução de tenant e invoca o próximo delegate do pipeline.</summary>
+	/// <param name="context">Contexto HTTP da requisição atual.</param>
+	/// <param name="tenantContext">Contexto de tenant do escopo (injetado pelo DI).</param>
+	/// <param name="logger">Logger para sinalizar conflitos de tenant.</param>
+	public async Task InvokeAsync(HttpContext context, TenantContext tenantContext, ILogger<SeccoTenancyMiddleware> logger)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(tenantContext);
+		ArgumentNullException.ThrowIfNull(logger);
 
-        var claimValue = context.User.FindFirst(SeccoClaims.TenantId)?.Value;
-        var headerValue = context.Request.Headers[SeccoHeaders.TenantId].ToString();
+		var claimValue = context.User.FindFirst(SeccoClaims.TenantId)?.Value;
+		var headerValue = context.Request.Headers[SeccoHeaders.TenantId].ToString();
 
-        var resolution = TenantResolver.Resolve(claimValue, headerValue);
+		var resolution = TenantResolver.Resolve(claimValue, headerValue);
 
-        if (resolution.IsConflict)
-        {
-            // ADR-0020: não logar o valor bruto do header (log forging) — só o fato do conflito.
-            TenancyLog.TenantConflict(logger);
+		if (resolution.IsConflict)
+		{
+			// ADR-0020: não logar o valor bruto do header (log forging) — só o fato do conflito.
+			TenancyLog.TenantConflict(logger);
 
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(
-                new ProblemDetails
-                {
-                    Status = StatusCodes.Status400BadRequest,
-                    Title = "Conflito de tenant",
-                    Detail = "O header X-Tenant-Id diverge do tenant do token de acesso.",
-                },
-                options: null,
-                contentType: "application/problem+json",
-                cancellationToken: context.RequestAborted).ConfigureAwait(false);
+			context.Response.StatusCode = StatusCodes.Status400BadRequest;
+			await context.Response.WriteAsJsonAsync(
+				new ProblemDetails
+				{
+					Status = StatusCodes.Status400BadRequest,
+					Title = "Conflito de tenant",
+					Detail = "O header X-Tenant-Id diverge do tenant do token de acesso.",
+				},
+				options: null,
+				contentType: "application/problem+json",
+				cancellationToken: context.RequestAborted).ConfigureAwait(false);
 
-            return;
-        }
+			return;
+		}
 
-        tenantContext.TenantId = resolution.TenantId;
+		tenantContext.TenantId = resolution.TenantId;
 
-        await next(context).ConfigureAwait(false);
-    }
+		await next(context).ConfigureAwait(false);
+	}
 }

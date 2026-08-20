@@ -13,58 +13,58 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public sealed class SeccoTenancyExceptionMiddleware(RequestDelegate next)
 {
-    /// <summary>Segundos sugeridos no <c>Retry-After</c> quando o catálogo está indisponível.</summary>
-    internal const int RetryAfterSeconds = 15;
+	/// <summary>Segundos sugeridos no <c>Retry-After</c> quando o catálogo está indisponível.</summary>
+	internal const int RetryAfterSeconds = 15;
 
-    /// <summary>Invoca o próximo delegate traduzindo exceções de tenancy conhecidas.</summary>
-    /// <param name="context">Contexto HTTP da requisição atual.</param>
-    /// <param name="logger">Logger para sinalizar catálogo indisponível.</param>
-    public async Task InvokeAsync(HttpContext context, ILogger<SeccoTenancyExceptionMiddleware> logger)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(logger);
+	/// <summary>Invoca o próximo delegate traduzindo exceções de tenancy conhecidas.</summary>
+	/// <param name="context">Contexto HTTP da requisição atual.</param>
+	/// <param name="logger">Logger para sinalizar catálogo indisponível.</param>
+	public async Task InvokeAsync(HttpContext context, ILogger<SeccoTenancyExceptionMiddleware> logger)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(logger);
 
-        try
-        {
-            await next(context).ConfigureAwait(false);
-        }
-        catch (TenantNotResolvedException) when (!context.Response.HasStarted)
-        {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest,
-                "Tenant não resolvido",
-                "A requisição exige um tenant (claim tenant_id ou header X-Tenant-Id).").ConfigureAwait(false);
-        }
-        catch (TenantNotFoundException) when (!context.Response.HasStarted)
-        {
-            // O detalhe não ecoa o identificador recebido (ADR-0020)
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest,
-                "Tenant desconhecido",
-                "O tenant da requisição não existe no catálogo da plataforma.").ConfigureAwait(false);
-        }
-        catch (TenantCatalogUnavailableException exception) when (!context.Response.HasStarted)
-        {
-            TenancyLog.CatalogUnavailable(logger, exception);
+		try
+		{
+			await next(context).ConfigureAwait(false);
+		}
+		catch (TenantNotResolvedException) when (!context.Response.HasStarted)
+		{
+			await WriteProblemAsync(context, StatusCodes.Status400BadRequest,
+				"Tenant não resolvido",
+				"A requisição exige um tenant (claim tenant_id ou header X-Tenant-Id).").ConfigureAwait(false);
+		}
+		catch (TenantNotFoundException) when (!context.Response.HasStarted)
+		{
+			// O detalhe não ecoa o identificador recebido (ADR-0020)
+			await WriteProblemAsync(context, StatusCodes.Status400BadRequest,
+				"Tenant desconhecido",
+				"O tenant da requisição não existe no catálogo da plataforma.").ConfigureAwait(false);
+		}
+		catch (TenantCatalogUnavailableException exception) when (!context.Response.HasStarted)
+		{
+			TenancyLog.CatalogUnavailable(logger, exception);
 
-            context.Response.Headers.RetryAfter = RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            await WriteProblemAsync(context, StatusCodes.Status503ServiceUnavailable,
-                "Catálogo de tenants indisponível",
-                "O catálogo de tenants está temporariamente indisponível. Tente novamente.").ConfigureAwait(false);
-        }
-    }
+			context.Response.Headers.RetryAfter = RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+			await WriteProblemAsync(context, StatusCodes.Status503ServiceUnavailable,
+				"Catálogo de tenants indisponível",
+				"O catálogo de tenants está temporariamente indisponível. Tente novamente.").ConfigureAwait(false);
+		}
+	}
 
-    private static async Task WriteProblemAsync(HttpContext context, int statusCode, string title, string detail)
-    {
-        context.Response.StatusCode = statusCode;
+	private static async Task WriteProblemAsync(HttpContext context, int statusCode, string title, string detail)
+	{
+		context.Response.StatusCode = statusCode;
 
-        await context.Response.WriteAsJsonAsync(
-            new ProblemDetails
-            {
-                Status = statusCode,
-                Title = title,
-                Detail = detail,
-            },
-            options: null,
-            contentType: "application/problem+json",
-            cancellationToken: context.RequestAborted).ConfigureAwait(false);
-    }
+		await context.Response.WriteAsJsonAsync(
+			new ProblemDetails
+			{
+				Status = statusCode,
+				Title = title,
+				Detail = detail,
+			},
+			options: null,
+			contentType: "application/problem+json",
+			cancellationToken: context.RequestAborted).ConfigureAwait(false);
+	}
 }

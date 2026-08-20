@@ -17,16 +17,16 @@ namespace Secco.LogStream.Application.ApiCalls;
 /// <param name="ErrorMessage">Mensagem de erro, quando houver (truncada no limite de mensagem).</param>
 /// <param name="CorrelationId">Correlation id da requisição de origem (populado pela borda).</param>
 public sealed record CreateApiCallLogCommand(
-    string? Url,
-    string? HttpMethod,
-    bool IsSuccess,
-    string? RequestBody = null,
-    IReadOnlyDictionary<string, string?>? RequestHeaders = null,
-    int? ResponseStatusCode = null,
-    string? ResponseBody = null,
-    long? DurationMs = null,
-    string? ErrorMessage = null,
-    Guid? CorrelationId = null);
+	string? Url,
+	string? HttpMethod,
+	bool IsSuccess,
+	string? RequestBody = null,
+	IReadOnlyDictionary<string, string?>? RequestHeaders = null,
+	int? ResponseStatusCode = null,
+	string? ResponseBody = null,
+	long? DurationMs = null,
+	string? ErrorMessage = null,
+	Guid? CorrelationId = null);
 
 /// <summary>
 /// Valida (ADR-0020: formato de URL, vocabulário de método, faixa de status), sanitiza
@@ -34,67 +34,67 @@ public sealed record CreateApiCallLogCommand(
 /// </summary>
 public sealed class CreateApiCallLogHandler(ILogIngestionQueue queue, LogStreamIngestionOptions options)
 {
-    private static readonly FrozenSet<string> KnownHttpMethods = new[]
-    {
-        "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT",
-    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+	private static readonly FrozenSet<string> KnownHttpMethods = new[]
+	{
+		"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT",
+	}.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de registro.</param>
-    public Result<Guid> Handle(CreateApiCallLogCommand command)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de registro.</param>
+	public Result<Guid> Handle(CreateApiCallLogCommand command)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.Url))
-        {
-            return LogStreamErrors.ApiCalls.UrlRequired;
-        }
+		if (string.IsNullOrWhiteSpace(command.Url))
+		{
+			return LogStreamErrors.ApiCalls.UrlRequired;
+		}
 
-        if (command.Url.Length > options.MaxUrlLength)
-        {
-            return LogStreamErrors.ApiCalls.UrlTooLong(options.MaxUrlLength);
-        }
+		if (command.Url.Length > options.MaxUrlLength)
+		{
+			return LogStreamErrors.ApiCalls.UrlTooLong(options.MaxUrlLength);
+		}
 
-        // Esquema http(s) obrigatório: no Unix um path rooted ("/x") é URI file:// absoluto
-        // válido — sem a checagem de esquema a validação divergiria entre SOs
-        if (!Uri.TryCreate(command.Url, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            return LogStreamErrors.ApiCalls.UrlMalformed;
-        }
+		// Esquema http(s) obrigatório: no Unix um path rooted ("/x") é URI file:// absoluto
+		// válido — sem a checagem de esquema a validação divergiria entre SOs
+		if (!Uri.TryCreate(command.Url, UriKind.Absolute, out var uri)
+			|| (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+		{
+			return LogStreamErrors.ApiCalls.UrlMalformed;
+		}
 
-        if (string.IsNullOrWhiteSpace(command.HttpMethod) || !KnownHttpMethods.Contains(command.HttpMethod))
-        {
-            return LogStreamErrors.ApiCalls.MethodInvalid;
-        }
+		if (string.IsNullOrWhiteSpace(command.HttpMethod) || !KnownHttpMethods.Contains(command.HttpMethod))
+		{
+			return LogStreamErrors.ApiCalls.MethodInvalid;
+		}
 
-        if (command.ResponseStatusCode is < 100 or > 599)
-        {
-            return LogStreamErrors.ApiCalls.StatusCodeOutOfRange;
-        }
+		if (command.ResponseStatusCode is < 100 or > 599)
+		{
+			return LogStreamErrors.ApiCalls.StatusCodeOutOfRange;
+		}
 
-        if (command.DurationMs is < 0)
-        {
-            return LogStreamErrors.ApiCalls.DurationNegative;
-        }
+		if (command.DurationMs is < 0)
+		{
+			return LogStreamErrors.ApiCalls.DurationNegative;
+		}
 
-        var apiCallLog = new ApiCallLog(
-            command.Url,
-            command.HttpMethod,
-            command.IsSuccess,
-            BodyTruncator.Truncate(command.RequestBody, options.MaxBodyLength),
-            HeaderSanitizer.SanitizeAndSerialize(command.RequestHeaders, options),
-            command.ResponseStatusCode,
-            BodyTruncator.Truncate(command.ResponseBody, options.MaxBodyLength),
-            command.DurationMs,
-            BodyTruncator.Truncate(command.ErrorMessage, options.MaxMessageLength),
-            command.CorrelationId);
+		var apiCallLog = new ApiCallLog(
+			command.Url,
+			command.HttpMethod,
+			command.IsSuccess,
+			BodyTruncator.Truncate(command.RequestBody, options.MaxBodyLength),
+			HeaderSanitizer.SanitizeAndSerialize(command.RequestHeaders, options),
+			command.ResponseStatusCode,
+			BodyTruncator.Truncate(command.ResponseBody, options.MaxBodyLength),
+			command.DurationMs,
+			BodyTruncator.Truncate(command.ErrorMessage, options.MaxMessageLength),
+			command.CorrelationId);
 
-        return queue.TryEnqueue(apiCallLog) switch
-        {
-            EnqueueOutcome.Enqueued => apiCallLog.Id,
-            EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
-            _ => LogStreamErrors.Ingestion.TenantNotResolved,
-        };
-    }
+		return queue.TryEnqueue(apiCallLog) switch
+		{
+			EnqueueOutcome.Enqueued => apiCallLog.Id,
+			EnqueueOutcome.QueueFull => LogStreamErrors.Ingestion.QueueFull,
+			_ => LogStreamErrors.Ingestion.TenantNotResolved,
+		};
+	}
 }

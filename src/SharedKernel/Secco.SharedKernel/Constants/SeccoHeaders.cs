@@ -5,9 +5,9 @@ namespace Secco.SharedKernel.Constants;
 /// </summary>
 public static class SeccoHeaders
 {
-    /// <summary>Correlação de requisições ponta a ponta (ADR-0004/0008).</summary>
-    public const string CorrelationId = "X-Correlation-Id";
+	/// <summary>Correlação de requisições ponta a ponta (ADR-0004/0008).</summary>
+	public const string CorrelationId = "X-Correlation-Id";
 
-    /// <summary>Resolução de tenant em cenários internos — a claim do token é o mecanismo primário (ADR-0005).</summary>
-    public const string TenantId = "X-Tenant-Id";
+	/// <summary>Resolução de tenant em cenários internos — a claim do token é o mecanismo primário (ADR-0005).</summary>
+	public const string TenantId = "X-Tenant-Id";
 }

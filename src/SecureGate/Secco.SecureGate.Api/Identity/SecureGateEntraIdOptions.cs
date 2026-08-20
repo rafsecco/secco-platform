@@ -9,25 +9,25 @@ namespace Secco.SecureGate.Api.Identity;
 /// </summary>
 public sealed class SecureGateEntraIdOptions
 {
-    /// <summary>Nome da seção de configuração.</summary>
-    public const string SectionName = "SecureGate:EntraId";
+	/// <summary>Nome da seção de configuração.</summary>
+	public const string SectionName = "SecureGate:EntraId";
 
-    /// <summary>Nome do esquema de autenticação OIDC do login federado.</summary>
-    public const string AuthenticationScheme = "EntraId";
+	/// <summary>Nome do esquema de autenticação OIDC do login federado.</summary>
+	public const string AuthenticationScheme = "EntraId";
 
-    /// <summary>Client id da app registration multi-tenant da plataforma.</summary>
-    public string? ClientId { get; set; }
+	/// <summary>Client id da app registration multi-tenant da plataforma.</summary>
+	public string? ClientId { get; set; }
 
-    /// <summary>Client secret da app registration. Segredo — nunca aparece em logs ou respostas (ADR-0020).</summary>
-    public string? ClientSecret { get; set; }
+	/// <summary>Client secret da app registration. Segredo — nunca aparece em logs ou respostas (ADR-0020).</summary>
+	public string? ClientSecret { get; set; }
 
-    /// <summary>
-    /// Authority OIDC do Entra ID. O default <c>organizations</c> aceita qualquer diretório
-    /// corporativo — o pin real por tenant é o directory id registrado, verificado no login (ADR-0026).
-    /// </summary>
-    public string Authority { get; set; } = "https://login.microsoftonline.com/organizations/v2.0";
+	/// <summary>
+	/// Authority OIDC do Entra ID. O default <c>organizations</c> aceita qualquer diretório
+	/// corporativo — o pin real por tenant é o directory id registrado, verificado no login (ADR-0026).
+	/// </summary>
+	public string Authority { get; set; } = "https://login.microsoftonline.com/organizations/v2.0";
 
-    /// <summary>Login federado configurado (client id e secret presentes).</summary>
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
+	/// <summary>Login federado configurado (client id e secret presentes).</summary>
+	public bool IsConfigured =>
+		!string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 }

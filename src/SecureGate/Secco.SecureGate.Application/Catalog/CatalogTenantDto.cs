@@ -11,12 +11,12 @@ namespace Secco.SecureGate.Application.Catalog;
 /// <param name="ConnectionString">Connection string do banco dedicado do tenant no produto. Nunca logar.</param>
 public sealed record CatalogTenantDto(Guid TenantId, string ConnectionString)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    /// <param name="database">Entidade de origem.</param>
-    public static CatalogTenantDto FromEntity(TenantDatabase database)
-    {
-        ArgumentNullException.ThrowIfNull(database);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	/// <param name="database">Entidade de origem.</param>
+	public static CatalogTenantDto FromEntity(TenantDatabase database)
+	{
+		ArgumentNullException.ThrowIfNull(database);
 
-        return new CatalogTenantDto(database.TenantId, database.ConnectionString);
-    }
+		return new CatalogTenantDto(database.TenantId, database.ConnectionString);
+	}
 }

@@ -15,15 +15,15 @@ namespace Secco.NotificationHub.Application.Notifications;
 /// <param name="CreatedAt">Momento da criação.</param>
 /// <param name="SentAt">Momento do envio bem-sucedido, quando houver.</param>
 public sealed record NotificationDto(
-    Guid Id,
-    string Recipient,
-    string Subject,
-    NotificationStatus Status,
-    string? FailureReason,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset? SentAt)
+	Guid Id,
+	string Recipient,
+	string Subject,
+	NotificationStatus Status,
+	string? FailureReason,
+	DateTimeOffset CreatedAt,
+	DateTimeOffset? SentAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static NotificationDto FromEntity(Notification entity) =>
-        new(entity.Id, entity.Recipient, entity.Subject, entity.Status, entity.FailureReason, entity.CreatedAt, entity.SentAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static NotificationDto FromEntity(Notification entity) =>
+		new(entity.Id, entity.Recipient, entity.Subject, entity.Status, entity.FailureReason, entity.CreatedAt, entity.SentAt);
 }

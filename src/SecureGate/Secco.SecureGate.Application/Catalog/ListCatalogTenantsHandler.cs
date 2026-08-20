@@ -11,24 +11,24 @@ namespace Secco.SecureGate.Application.Catalog;
 /// </summary>
 public sealed class ListCatalogTenantsHandler(ITenantRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="product">Produto informado na rota.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<IReadOnlyList<CatalogTenantDto>>> HandleAsync(
-        string? product,
-        CancellationToken cancellationToken = default)
-    {
-        var normalized = product?.Trim().ToLowerInvariant() ?? string.Empty;
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="product">Produto informado na rota.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<IReadOnlyList<CatalogTenantDto>>> HandleAsync(
+		string? product,
+		CancellationToken cancellationToken = default)
+	{
+		var normalized = product?.Trim().ToLowerInvariant() ?? string.Empty;
 
-        if (!TenantInputRules.IsValidSlug(normalized, TenantDatabase.ProductMaxLength))
-        {
-            return SecureGateErrors.Catalog.ProductInvalid;
-        }
+		if (!TenantInputRules.IsValidSlug(normalized, TenantDatabase.ProductMaxLength))
+		{
+			return SecureGateErrors.Catalog.ProductInvalid;
+		}
 
-        var databases = await repository.ListActiveDatabasesAsync(normalized, cancellationToken)
-            .ConfigureAwait(false);
+		var databases = await repository.ListActiveDatabasesAsync(normalized, cancellationToken)
+			.ConfigureAwait(false);
 
-        return Result.Success<IReadOnlyList<CatalogTenantDto>>(
-            [.. databases.Select(CatalogTenantDto.FromEntity)]);
-    }
+		return Result.Success<IReadOnlyList<CatalogTenantDto>>(
+			[.. databases.Select(CatalogTenantDto.FromEntity)]);
+	}
 }

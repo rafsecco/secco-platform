@@ -10,27 +10,27 @@ namespace Secco.SDK.AspNetCore.Correlation;
 /// </summary>
 public sealed class SeccoCorrelationMiddleware(RequestDelegate next)
 {
-    /// <summary>Executa a resolução do correlation id e invoca o próximo delegate do pipeline.</summary>
-    /// <param name="context">Contexto HTTP da requisição atual.</param>
-    /// <param name="correlationContext">Contexto de correlação do escopo (injetado pelo DI).</param>
-    public async Task InvokeAsync(HttpContext context, CorrelationContext correlationContext)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(correlationContext);
+	/// <summary>Executa a resolução do correlation id e invoca o próximo delegate do pipeline.</summary>
+	/// <param name="context">Contexto HTTP da requisição atual.</param>
+	/// <param name="correlationContext">Contexto de correlação do escopo (injetado pelo DI).</param>
+	public async Task InvokeAsync(HttpContext context, CorrelationContext correlationContext)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(correlationContext);
 
-        var receivedValue = context.Request.Headers[SeccoHeaders.CorrelationId].ToString();
-        var correlationId = CorrelationIdParser.TryParse(receivedValue, out var parsed)
-            ? parsed
-            : Guid.CreateVersion7();
+		var receivedValue = context.Request.Headers[SeccoHeaders.CorrelationId].ToString();
+		var correlationId = CorrelationIdParser.TryParse(receivedValue, out var parsed)
+			? parsed
+			: Guid.CreateVersion7();
 
-        correlationContext.CorrelationId = correlationId.ToString();
+		correlationContext.CorrelationId = correlationId.ToString();
 
-        context.Response.OnStarting(() =>
-        {
-            context.Response.Headers[SeccoHeaders.CorrelationId] = correlationId.ToString();
-            return Task.CompletedTask;
-        });
+		context.Response.OnStarting(() =>
+		{
+			context.Response.Headers[SeccoHeaders.CorrelationId] = correlationId.ToString();
+			return Task.CompletedTask;
+		});
 
-        await next(context).ConfigureAwait(false);
-    }
+		await next(context).ConfigureAwait(false);
+	}
 }

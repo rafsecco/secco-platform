@@ -17,47 +17,47 @@ namespace Secco.LogStream.Infrastructure.Ingestion;
 /// <param name="TenantId">Tenant dono do registro.</param>
 internal abstract record IngestionWorkItem(Guid TenantId)
 {
-    /// <summary>Identificador do registro, para diagnóstico de falhas.</summary>
-    public abstract Guid ItemId { get; }
+	/// <summary>Identificador do registro, para diagnóstico de falhas.</summary>
+	public abstract Guid ItemId { get; }
 
-    /// <summary>Persiste o item usando os serviços do escopo do worker (tenant já estabelecido).</summary>
-    public abstract Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken);
+	/// <summary>Persiste o item usando os serviços do escopo do worker (tenant já estabelecido).</summary>
+	public abstract Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken);
 }
 
 /// <summary>Item de log geral.</summary>
 internal sealed record LogEntryWorkItem(Guid TenantId, LogEntry LogEntry) : IngestionWorkItem(TenantId)
 {
-    public override Guid ItemId => LogEntry.Id;
+	public override Guid ItemId => LogEntry.Id;
 
-    public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
-        scopedServices.GetRequiredService<ILogEntryRepository>().AddAsync(LogEntry, cancellationToken);
+	public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
+		scopedServices.GetRequiredService<ILogEntryRepository>().AddAsync(LogEntry, cancellationToken);
 }
 
 /// <summary>Item de processo.</summary>
 internal sealed record LogProcessWorkItem(Guid TenantId, LogProcess LogProcess) : IngestionWorkItem(TenantId)
 {
-    public override Guid ItemId => LogProcess.Id;
+	public override Guid ItemId => LogProcess.Id;
 
-    public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
-        scopedServices.GetRequiredService<ILogProcessRepository>().AddAsync(LogProcess, cancellationToken);
+	public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
+		scopedServices.GetRequiredService<ILogProcessRepository>().AddAsync(LogProcess, cancellationToken);
 }
 
 /// <summary>Item de detail de processo.</summary>
 internal sealed record LogProcessDetailWorkItem(Guid TenantId, LogProcessDetail Detail) : IngestionWorkItem(TenantId)
 {
-    public override Guid ItemId => Detail.Id;
+	public override Guid ItemId => Detail.Id;
 
-    public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
-        scopedServices.GetRequiredService<ILogProcessRepository>().AddDetailAsync(Detail, cancellationToken);
+	public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
+		scopedServices.GetRequiredService<ILogProcessRepository>().AddDetailAsync(Detail, cancellationToken);
 }
 
 /// <summary>Item de chamada de API.</summary>
 internal sealed record ApiCallLogWorkItem(Guid TenantId, ApiCallLog ApiCallLog) : IngestionWorkItem(TenantId)
 {
-    public override Guid ItemId => ApiCallLog.Id;
+	public override Guid ItemId => ApiCallLog.Id;
 
-    public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
-        scopedServices.GetRequiredService<IApiCallLogRepository>().AddAsync(ApiCallLog, cancellationToken);
+	public override Task PersistAsync(IServiceProvider scopedServices, CancellationToken cancellationToken) =>
+		scopedServices.GetRequiredService<IApiCallLogRepository>().AddAsync(ApiCallLog, cancellationToken);
 }
 
 /// <summary>
@@ -67,14 +67,14 @@ internal sealed record ApiCallLogWorkItem(Guid TenantId, ApiCallLog ApiCallLog) 
 /// </summary>
 internal sealed class LogEntryIngestionChannel(LogStreamIngestionOptions options)
 {
-    private readonly Channel<IngestionWorkItem> _channel = Channel.CreateBounded<IngestionWorkItem>(
-        new BoundedChannelOptions(options.QueueCapacity)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = true,
-        });
+	private readonly Channel<IngestionWorkItem> _channel = Channel.CreateBounded<IngestionWorkItem>(
+		new BoundedChannelOptions(options.QueueCapacity)
+		{
+			FullMode = BoundedChannelFullMode.Wait,
+			SingleReader = true,
+		});
 
-    public ChannelWriter<IngestionWorkItem> Writer => _channel.Writer;
+	public ChannelWriter<IngestionWorkItem> Writer => _channel.Writer;
 
-    public ChannelReader<IngestionWorkItem> Reader => _channel.Reader;
+	public ChannelReader<IngestionWorkItem> Reader => _channel.Reader;
 }

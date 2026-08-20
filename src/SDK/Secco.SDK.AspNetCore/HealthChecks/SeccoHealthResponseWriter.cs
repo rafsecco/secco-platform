@@ -11,20 +11,20 @@ namespace Secco.SDK.AspNetCore.HealthChecks;
 /// </summary>
 internal static class SeccoHealthResponseWriter
 {
-    public static Task WriteAsync(HttpContext context, HealthReport report)
-    {
-        var payload = new
-        {
-            status = report.Status.ToString(),
-            totalDurationMs = report.TotalDuration.TotalMilliseconds,
-            checks = report.Entries.Select(entry => new
-            {
-                name = entry.Key,
-                status = entry.Value.Status.ToString(),
-                durationMs = entry.Value.Duration.TotalMilliseconds,
-            }),
-        };
+	public static Task WriteAsync(HttpContext context, HealthReport report)
+	{
+		var payload = new
+		{
+			status = report.Status.ToString(),
+			totalDurationMs = report.TotalDuration.TotalMilliseconds,
+			checks = report.Entries.Select(entry => new
+			{
+				name = entry.Key,
+				status = entry.Value.Status.ToString(),
+				durationMs = entry.Value.Duration.TotalMilliseconds,
+			}),
+		};
 
-        return context.Response.WriteAsJsonAsync(payload, context.RequestAborted);
-    }
+		return context.Response.WriteAsJsonAsync(payload, context.RequestAborted);
+	}
 }

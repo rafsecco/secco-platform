@@ -19,85 +19,85 @@ namespace Secco.NotificationHub.Tests.Integration;
 /// </summary>
 public sealed class PostgresParityTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder().Build();
+	private readonly PostgreSqlContainer _container = new PostgreSqlBuilder().Build();
 
-    public Task InitializeAsync() => _container.StartAsync();
+	public Task InitializeAsync() => _container.StartAsync();
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+	public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
-    private NotificationHubDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<NotificationHubDbContext>()
-            .UseNpgsql(_container.GetConnectionString(),
-                npgsql => npgsql.MigrationsAssembly("Secco.NotificationHub.Migrations.Postgres"))
-            .Options);
+	private NotificationHubDbContext CreateContext() =>
+		new(new DbContextOptionsBuilder<NotificationHubDbContext>()
+			.UseNpgsql(_container.GetConnectionString(),
+				npgsql => npgsql.MigrationsAssembly("Secco.NotificationHub.Migrations.Postgres"))
+			.Options);
 
-    [Fact]
-    public async Task Migrations_OnPostgres_ApplyFromScratchWithUnquotedLowercaseSchema()
-    {
-        await using var context = CreateContext();
-        await context.Database.MigrateAsync();
+	[Fact]
+	public async Task Migrations_OnPostgres_ApplyFromScratchWithUnquotedLowercaseSchema()
+	{
+		await using var context = CreateContext();
+		await context.Database.MigrateAsync();
 
-        (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
+		(await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
 
-        // Identificadores sem aspas resolvem — a promessa da nomenclatura minúscula (ADR-0017)
-        var act = () => context.Database.ExecuteSqlRawAsync(
-            "SELECT id_pk_notification, ds_recipient, ie_status FROM tb_notifications WHERE 1 = 0");
-        await act.Should().NotThrowAsync();
-    }
+		// Identificadores sem aspas resolvem — a promessa da nomenclatura minúscula (ADR-0017)
+		var act = () => context.Database.ExecuteSqlRawAsync(
+			"SELECT id_pk_notification, ds_recipient, ie_status FROM tb_notifications WHERE 1 = 0");
+		await act.Should().NotThrowAsync();
+	}
 
-    [Fact]
-    public async Task Repository_OnPostgres_RoundTripsNotificationCorrectly()
-    {
-        await using (var migrationContext = CreateContext())
-        {
-            await migrationContext.Database.MigrateAsync();
-        }
+	[Fact]
+	public async Task Repository_OnPostgres_RoundTripsNotificationCorrectly()
+	{
+		await using (var migrationContext = CreateContext())
+		{
+			await migrationContext.Database.MigrateAsync();
+		}
 
-        var notificationId = Guid.NewGuid();
+		var notificationId = Guid.NewGuid();
 
-        await using (var writeContext = CreateContext())
-        {
-            var repository = new NotificationRepository(writeContext);
-            var notification = new Notification("destinatario@teste.com", "Assunto", "Corpo");
-            await repository.AddAsync(notification);
-            notificationId = notification.Id;
+		await using (var writeContext = CreateContext())
+		{
+			var repository = new NotificationRepository(writeContext);
+			var notification = new Notification("destinatario@teste.com", "Assunto", "Corpo");
+			await repository.AddAsync(notification);
+			notificationId = notification.Id;
 
-            notification.MarkAsSent();
-            await repository.UpdateAsync(notification);
-        }
+			notification.MarkAsSent();
+			await repository.UpdateAsync(notification);
+		}
 
-        await using var readContext = CreateContext();
-        var fetched = await new NotificationRepository(readContext).GetByIdAsync(notificationId);
+		await using var readContext = CreateContext();
+		var fetched = await new NotificationRepository(readContext).GetByIdAsync(notificationId);
 
-        fetched.Should().NotBeNull();
-        fetched!.Status.Should().Be(NotificationStatus.Sent);
-        fetched.SentAt.Should().NotBeNull();
-    }
+		fetched.Should().NotBeNull();
+		fetched!.Status.Should().Be(NotificationStatus.Sent);
+		fetched.SentAt.Should().NotBeNull();
+	}
 
-    [Fact]
-    public async Task Repository_OnPostgres_RoundTripsInAppNotificationCorrectly()
-    {
-        await using (var migrationContext = CreateContext())
-        {
-            await migrationContext.Database.MigrateAsync();
-        }
+	[Fact]
+	public async Task Repository_OnPostgres_RoundTripsInAppNotificationCorrectly()
+	{
+		await using (var migrationContext = CreateContext())
+		{
+			await migrationContext.Database.MigrateAsync();
+		}
 
-        var userId = Guid.NewGuid();
-        Guid notificationId;
+		var userId = Guid.NewGuid();
+		Guid notificationId;
 
-        await using (var writeContext = CreateContext())
-        {
-            var repository = new InAppNotificationRepository(writeContext);
-            var notification = new InAppNotification(userId, "secco-intranet", "aviso", "Título", "Mensagem", "/pagina");
-            await repository.AddAsync(notification);
-            notificationId = notification.Id;
-        }
+		await using (var writeContext = CreateContext())
+		{
+			var repository = new InAppNotificationRepository(writeContext);
+			var notification = new InAppNotification(userId, "secco-intranet", "aviso", "Título", "Mensagem", "/pagina");
+			await repository.AddAsync(notification);
+			notificationId = notification.Id;
+		}
 
-        await using var readContext = CreateContext();
-        var fetched = await new InAppNotificationRepository(readContext).GetByIdAsync(notificationId);
+		await using var readContext = CreateContext();
+		var fetched = await new InAppNotificationRepository(readContext).GetByIdAsync(notificationId);
 
-        fetched.Should().NotBeNull();
-        fetched!.UserId.Should().Be(userId);
-        fetched.IsRead.Should().BeFalse();
-    }
+		fetched.Should().NotBeNull();
+		fetched!.UserId.Should().Be(userId);
+		fetched.IsRead.Should().BeFalse();
+	}
 }

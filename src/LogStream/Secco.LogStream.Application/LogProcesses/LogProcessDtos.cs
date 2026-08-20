@@ -12,23 +12,23 @@ namespace Secco.LogStream.Application.LogProcesses;
 /// <param name="Status">Status agregado (pior nível entre os details).</param>
 /// <param name="DetailCount">Quantidade de details.</param>
 public sealed record LogProcessDto(
-    Guid Id,
-    string Name,
-    string? ExternalReference,
-    Guid? CorrelationId,
-    DateTimeOffset CreatedAt,
-    ProcessStatus Status,
-    int DetailCount)
+	Guid Id,
+	string Name,
+	string? ExternalReference,
+	Guid? CorrelationId,
+	DateTimeOffset CreatedAt,
+	ProcessStatus Status,
+	int DetailCount)
 {
-    /// <summary>Projeta o read model para o DTO, aplicando a regra de status do domínio.</summary>
-    public static LogProcessDto FromSummary(LogProcessSummary summary) =>
-        new(summary.Id,
-            summary.Name,
-            summary.ExternalReference,
-            summary.CorrelationId,
-            summary.CreatedAt,
-            ProcessStatusRule.FromMaxLevel(summary.MaxDetailLevel),
-            summary.DetailCount);
+	/// <summary>Projeta o read model para o DTO, aplicando a regra de status do domínio.</summary>
+	public static LogProcessDto FromSummary(LogProcessSummary summary) =>
+		new(summary.Id,
+			summary.Name,
+			summary.ExternalReference,
+			summary.CorrelationId,
+			summary.CreatedAt,
+			ProcessStatusRule.FromMaxLevel(summary.MaxDetailLevel),
+			summary.DetailCount);
 }
 
 /// <summary>Representação de leitura de um detail de processo.</summary>
@@ -40,16 +40,16 @@ public sealed record LogProcessDto(
 /// <param name="CorrelationId">Correlation id de origem.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record LogProcessDetailDto(
-    Guid Id,
-    Guid LogProcessId,
-    LogEntryLevel Level,
-    string Message,
-    string? StackTrace,
-    Guid? CorrelationId,
-    DateTimeOffset CreatedAt)
+	Guid Id,
+	Guid LogProcessId,
+	LogEntryLevel Level,
+	string Message,
+	string? StackTrace,
+	Guid? CorrelationId,
+	DateTimeOffset CreatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static LogProcessDetailDto FromEntity(LogProcessDetail entity) =>
-        new(entity.Id, entity.LogProcessId, entity.Level, entity.Message,
-            entity.StackTrace, entity.CorrelationId, entity.CreatedAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static LogProcessDetailDto FromEntity(LogProcessDetail entity) =>
+		new(entity.Id, entity.LogProcessId, entity.Level, entity.Message,
+			entity.StackTrace, entity.CorrelationId, entity.CreatedAt);
 }

@@ -11,8 +11,8 @@ namespace Secco.SecureGate.Migrations.Postgres;
 /// </summary>
 public sealed class SecureGatePostgresDbContextFactory : IDesignTimeDbContextFactory<SecureGateDbContext>
 {
-    public SecureGateDbContext CreateDbContext(string[] args) =>
-        new(SecureGateDatabaseProviderConfigurator.CreateOptions(
-            SecureGateDatabaseProvider.PostgreSql,
-            "Host=design-time;Database=design-time"));
+	public SecureGateDbContext CreateDbContext(string[] args) =>
+		new(SecureGateDatabaseProviderConfigurator.CreateOptions(
+			SecureGateDatabaseProvider.PostgreSql,
+			"Host=design-time;Database=design-time"));
 }

@@ -15,62 +15,62 @@ public sealed record SetRolePermissionsCommand(Guid TenantId, string? RoleName, 
 /// </summary>
 public sealed class SetRolePermissionsHandler(IRoleRepository repository)
 {
-    /// <summary>Limite de permissões por role (ADR-0020 — input externo com tamanho limitado).</summary>
-    public const int MaxPermissionsPerRole = 200;
+	/// <summary>Limite de permissões por role (ADR-0020 — input externo com tamanho limitado).</summary>
+	public const int MaxPermissionsPerRole = 200;
 
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de substituição.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result> HandleAsync(
-        SetRolePermissionsCommand command,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de substituição.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result> HandleAsync(
+		SetRolePermissionsCommand command,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        var name = command.RoleName?.Trim() ?? string.Empty;
+		var name = command.RoleName?.Trim() ?? string.Empty;
 
-        if (!RoleInputRules.IsValidName(name))
-        {
-            return Result.Failure(SecureGateErrors.Roles.NameInvalid);
-        }
+		if (!RoleInputRules.IsValidName(name))
+		{
+			return Result.Failure(SecureGateErrors.Roles.NameInvalid);
+		}
 
-        // Nome reservado à plataforma: o role de operador não é gerido por API — seus poderes
-        // vêm do scope admin, não de permissões (ADR-0023). Bloqueia em todos os tenants para
-        // que o endpoint de gestão nunca toque essa estrutura (ADR-0020/0024).
-        if (RoleInputRules.IsReservedName(name))
-        {
-            return Result.Failure(SecureGateErrors.Roles.NameReserved);
-        }
+		// Nome reservado à plataforma: o role de operador não é gerido por API — seus poderes
+		// vêm do scope admin, não de permissões (ADR-0023). Bloqueia em todos os tenants para
+		// que o endpoint de gestão nunca toque essa estrutura (ADR-0020/0024).
+		if (RoleInputRules.IsReservedName(name))
+		{
+			return Result.Failure(SecureGateErrors.Roles.NameReserved);
+		}
 
-        var permissions = command.Permissions ?? [];
+		var permissions = command.Permissions ?? [];
 
-        if (permissions.Count > MaxPermissionsPerRole)
-        {
-            return Result.Failure(SecureGateErrors.Roles.TooManyPermissions);
-        }
+		if (permissions.Count > MaxPermissionsPerRole)
+		{
+			return Result.Failure(SecureGateErrors.Roles.TooManyPermissions);
+		}
 
-        var normalized = new HashSet<string>(StringComparer.Ordinal);
+		var normalized = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var permission in permissions)
-        {
-            if (!SeccoPermissions.IsValid(permission))
-            {
-                return Result.Failure(SecureGateErrors.Roles.PermissionInvalid);
-            }
+		foreach (var permission in permissions)
+		{
+			if (!SeccoPermissions.IsValid(permission))
+			{
+				return Result.Failure(SecureGateErrors.Roles.PermissionInvalid);
+			}
 
-            normalized.Add(permission!);
-        }
+			normalized.Add(permission!);
+		}
 
-        if (!await repository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
-        {
-            return Result.Failure(SecureGateErrors.Tenants.NotFound);
-        }
+		if (!await repository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
+		{
+			return Result.Failure(SecureGateErrors.Tenants.NotFound);
+		}
 
-        var replaced = await repository.ReplacePermissionsAsync(command.TenantId, name, normalized, cancellationToken)
-            .ConfigureAwait(false);
+		var replaced = await repository.ReplacePermissionsAsync(command.TenantId, name, normalized, cancellationToken)
+			.ConfigureAwait(false);
 
-        return replaced
-            ? Result.Success()
-            : Result.Failure(SecureGateErrors.Roles.NotFound);
-    }
+		return replaced
+			? Result.Success()
+			: Result.Failure(SecureGateErrors.Roles.NotFound);
+	}
 }

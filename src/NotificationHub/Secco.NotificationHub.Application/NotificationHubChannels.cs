@@ -7,12 +7,12 @@ namespace Secco.NotificationHub.Application;
 /// </summary>
 public static class NotificationHubChannels
 {
-    /// <summary>Envio por e-mail (assíncrono, com retry — ADR-0015 Camada 2).</summary>
-    public const string Email = "email";
+	/// <summary>Envio por e-mail (assíncrono, com retry — ADR-0015 Camada 2).</summary>
+	public const string Email = "email";
 
-    /// <summary>Item no inbox in-app do usuário.</summary>
-    public const string InApp = "in_app";
+	/// <summary>Item no inbox in-app do usuário.</summary>
+	public const string InApp = "in_app";
 
-    /// <summary>Todos os canais reconhecidos, para validação de entrada.</summary>
-    public static readonly IReadOnlyCollection<string> All = [Email, InApp];
+	/// <summary>Todos os canais reconhecidos, para validação de entrada.</summary>
+	public static readonly IReadOnlyCollection<string> All = [Email, InApp];
 }

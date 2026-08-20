@@ -12,11 +12,11 @@ namespace Secco.LogStream.Infrastructure.Mappings;
 /// </summary>
 internal sealed class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
 {
-    public void Configure(EntityTypeBuilder<LogEntry> builder)
-    {
-        // Consultas por período (e por período+severidade) são o acesso dominante
-        builder.HasIndex(e => e.CreatedAt);
-        builder.HasIndex(e => new { e.CreatedAt, e.Level });
-        builder.HasIndex(e => e.CorrelationId);
-    }
+	public void Configure(EntityTypeBuilder<LogEntry> builder)
+	{
+		// Consultas por período (e por período+severidade) são o acesso dominante
+		builder.HasIndex(e => e.CreatedAt);
+		builder.HasIndex(e => new { e.CreatedAt, e.Level });
+		builder.HasIndex(e => e.CorrelationId);
+	}
 }

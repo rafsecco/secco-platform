@@ -7,9 +7,9 @@ namespace Secco.SDK.AspNetCore.Correlation;
 /// </summary>
 public interface ICorrelationContext
 {
-    /// <summary>
-    /// Correlation id da requisição atual, em texto (representação de um <see cref="Guid"/> v7).
-    /// Vazio se acessado fora do pipeline HTTP, antes do middleware executar.
-    /// </summary>
-    string CorrelationId { get; }
+	/// <summary>
+	/// Correlation id da requisição atual, em texto (representação de um <see cref="Guid"/> v7).
+	/// Vazio se acessado fora do pipeline HTTP, antes do middleware executar.
+	/// </summary>
+	string CorrelationId { get; }
 }

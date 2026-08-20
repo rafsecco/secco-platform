@@ -16,43 +16,43 @@ public sealed record UpsertTenantFederationCommand(Guid TenantId, Guid Directory
 /// </summary>
 public sealed class UpsertTenantFederationHandler(ITenantRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de upsert.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result> HandleAsync(
-        UpsertTenantFederationCommand command,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de upsert.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result> HandleAsync(
+		UpsertTenantFederationCommand command,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        if (command.DirectoryId == Guid.Empty)
-        {
-            return Result.Failure(SecureGateErrors.Federation.DirectoryIdRequired);
-        }
+		if (command.DirectoryId == Guid.Empty)
+		{
+			return Result.Failure(SecureGateErrors.Federation.DirectoryIdRequired);
+		}
 
-        var tenant = await repository.GetByIdAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
+		var tenant = await repository.GetByIdAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
 
-        if (tenant is null)
-        {
-            return Result.Failure(SecureGateErrors.Tenants.NotFound);
-        }
+		if (tenant is null)
+		{
+			return Result.Failure(SecureGateErrors.Tenants.NotFound);
+		}
 
-        var existing = await repository.GetFederationAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
+		var existing = await repository.GetFederationAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
 
-        if (existing is null)
-        {
-            var federation = new TenantFederation(command.TenantId, command.DirectoryId);
-            federation.SetEnabled(command.Enabled);
-            await repository.AddFederationAsync(federation, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            existing.UpdateDirectory(command.DirectoryId);
-            existing.SetEnabled(command.Enabled);
-        }
+		if (existing is null)
+		{
+			var federation = new TenantFederation(command.TenantId, command.DirectoryId);
+			federation.SetEnabled(command.Enabled);
+			await repository.AddFederationAsync(federation, cancellationToken).ConfigureAwait(false);
+		}
+		else
+		{
+			existing.UpdateDirectory(command.DirectoryId);
+			existing.SetEnabled(command.Enabled);
+		}
 
-        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return Result.Success();
-    }
+		return Result.Success();
+	}
 }

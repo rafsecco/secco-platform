@@ -11,60 +11,60 @@ namespace Secco.LogStream.Tests.Unit;
 
 public class LogEntryIngestionQueueTests
 {
-    private sealed class FakeTenantContext(Guid? tenantId) : ITenantContext
-    {
-        public Guid? TenantId => tenantId;
+	private sealed class FakeTenantContext(Guid? tenantId) : ITenantContext
+	{
+		public Guid? TenantId => tenantId;
 
-        public bool IsResolved => tenantId is not null;
-    }
+		public bool IsResolved => tenantId is not null;
+	}
 
-    private static LogEntry NewEntry() => new(LogEntryLevel.Information, "msg");
+	private static LogEntry NewEntry() => new(LogEntryLevel.Information, "msg");
 
-    [Fact]
-    public void TryEnqueue_WithResolvedTenantAndCapacity_ReturnsEnqueued()
-    {
-        var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions { QueueCapacity = 1 });
-        var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
+	[Fact]
+	public void TryEnqueue_WithResolvedTenantAndCapacity_ReturnsEnqueued()
+	{
+		var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions { QueueCapacity = 1 });
+		var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
 
-        queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.Enqueued);
-    }
+		queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.Enqueued);
+	}
 
-    [Fact]
-    public void TryEnqueue_WhenChannelIsFull_ReturnsQueueFull()
-    {
-        var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions { QueueCapacity = 1 });
-        var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
+	[Fact]
+	public void TryEnqueue_WhenChannelIsFull_ReturnsQueueFull()
+	{
+		var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions { QueueCapacity = 1 });
+		var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
 
-        queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.Enqueued);
-        queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.QueueFull,
-            "fila bounded cheia rejeita em vez de descartar silenciosamente (ADR-0020)");
-    }
+		queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.Enqueued);
+		queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.QueueFull,
+			"fila bounded cheia rejeita em vez de descartar silenciosamente (ADR-0020)");
+	}
 
-    [Fact]
-    public void TryEnqueue_WithoutResolvedTenant_ReturnsTenantNotResolved()
-    {
-        var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions());
-        var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(null));
+	[Fact]
+	public void TryEnqueue_WithoutResolvedTenant_ReturnsTenantNotResolved()
+	{
+		var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions());
+		var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(null));
 
-        queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.TenantNotResolved);
-    }
+		queue.TryEnqueue(NewEntry()).Should().Be(EnqueueOutcome.TenantNotResolved);
+	}
 
-    [Fact]
-    public void TryEnqueue_ProcessThenDetails_PreservesFifoOrder()
-    {
-        var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions());
-        var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
+	[Fact]
+	public void TryEnqueue_ProcessThenDetails_PreservesFifoOrder()
+	{
+		var channel = new LogEntryIngestionChannel(new LogStreamIngestionOptions());
+		var queue = new LogEntryIngestionQueue(channel, new FakeTenantContext(Guid.NewGuid()));
 
-        var process = new LogProcess("Importacao");
-        var detail = new LogProcessDetail(process.Id, LogEntryLevel.Information, "passo 1");
+		var process = new LogProcess("Importacao");
+		var detail = new LogProcessDetail(process.Id, LogEntryLevel.Information, "passo 1");
 
-        queue.TryEnqueue(process).Should().Be(EnqueueOutcome.Enqueued);
-        queue.TryEnqueue(detail).Should().Be(EnqueueOutcome.Enqueued);
+		queue.TryEnqueue(process).Should().Be(EnqueueOutcome.Enqueued);
+		queue.TryEnqueue(detail).Should().Be(EnqueueOutcome.Enqueued);
 
-        channel.Reader.TryRead(out var first).Should().BeTrue();
-        channel.Reader.TryRead(out var second).Should().BeTrue();
+		channel.Reader.TryRead(out var first).Should().BeTrue();
+		channel.Reader.TryRead(out var second).Should().BeTrue();
 
-        first.Should().BeOfType<LogProcessWorkItem>("o pai entra antes — FIFO garante persistência antes dos details");
-        second.Should().BeOfType<LogProcessDetailWorkItem>();
-    }
+		first.Should().BeOfType<LogProcessWorkItem>("o pai entra antes — FIFO garante persistência antes dos details");
+		second.Should().BeOfType<LogProcessDetailWorkItem>();
+	}
 }

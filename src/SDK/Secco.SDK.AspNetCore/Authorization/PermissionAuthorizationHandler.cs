@@ -13,47 +13,47 @@ namespace Secco.SDK.AspNetCore.Authorization;
 /// não é satisfeito (403). Autorização nunca falha aberta.
 /// </summary>
 internal sealed class PermissionAuthorizationHandler(
-    CachedPermissionResolver resolver,
-    ITenantContext tenantContext,
-    ILogger<PermissionAuthorizationHandler> logger) : AuthorizationHandler<PermissionRequirement>
+	CachedPermissionResolver resolver,
+	ITenantContext tenantContext,
+	ILogger<PermissionAuthorizationHandler> logger) : AuthorizationHandler<PermissionRequirement>
 {
-    protected override async Task HandleRequirementAsync(
-        AuthorizationHandlerContext context,
-        PermissionRequirement requirement)
-    {
-        if (tenantContext.TenantId is not { } tenantId)
-        {
-            // Permissões são POR TENANT (ADR-0021) — sem tenant não há o que conceder
-            return;
-        }
+	protected override async Task HandleRequirementAsync(
+		AuthorizationHandlerContext context,
+		PermissionRequirement requirement)
+	{
+		if (tenantContext.TenantId is not { } tenantId)
+		{
+			// Permissões são POR TENANT (ADR-0021) — sem tenant não há o que conceder
+			return;
+		}
 
-        var roles = context.User.FindAll(SeccoClaims.Role)
-            .SelectMany(static claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-            .Distinct(StringComparer.Ordinal);
+		var roles = context.User.FindAll(SeccoClaims.Role)
+			.SelectMany(static claim => claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+			.Distinct(StringComparer.Ordinal);
 
-        foreach (var role in roles)
-        {
-            IReadOnlySet<string> permissions;
+		foreach (var role in roles)
+		{
+			IReadOnlySet<string> permissions;
 
-            try
-            {
-                permissions = await resolver.ResolveAsync(tenantId, role, CancellationToken.None)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                // Fail-closed (ADR-0021): resolução indisponível nega — nunca concede
-                AuthorizationLog.PermissionResolutionFailed(logger, role, exception);
+			try
+			{
+				permissions = await resolver.ResolveAsync(tenantId, role, CancellationToken.None)
+					.ConfigureAwait(false);
+			}
+			catch (Exception exception) when (exception is not OperationCanceledException)
+			{
+				// Fail-closed (ADR-0021): resolução indisponível nega — nunca concede
+				AuthorizationLog.PermissionResolutionFailed(logger, role, exception);
 
-                continue;
-            }
+				continue;
+			}
 
-            if (permissions.Contains(requirement.Permission))
-            {
-                context.Succeed(requirement);
+			if (permissions.Contains(requirement.Permission))
+			{
+				context.Succeed(requirement);
 
-                return;
-            }
-        }
-    }
+				return;
+			}
+		}
+	}
 }

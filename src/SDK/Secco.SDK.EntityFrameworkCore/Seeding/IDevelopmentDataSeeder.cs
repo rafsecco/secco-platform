@@ -10,10 +10,10 @@ namespace Secco.SDK.EntityFrameworkCore.Seeding;
 /// </summary>
 public interface IDevelopmentDataSeeder
 {
-    /// <summary>Ordem de execução entre seeders do mesmo tipo (menor executa antes).</summary>
-    int Order => 0;
+	/// <summary>Ordem de execução entre seeders do mesmo tipo (menor executa antes).</summary>
+	int Order => 0;
 
-    /// <summary>Aplica o seed de dados de amostra.</summary>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task SeedAsync(CancellationToken cancellationToken = default);
+	/// <summary>Aplica o seed de dados de amostra.</summary>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SeedAsync(CancellationToken cancellationToken = default);
 }

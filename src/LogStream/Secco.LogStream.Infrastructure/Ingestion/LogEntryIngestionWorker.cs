@@ -11,35 +11,35 @@ namespace Secco.LogStream.Infrastructure.Ingestion;
 /// e não interrompe o worker: indisponibilidade de banco não derruba a ingestão.
 /// </summary>
 internal sealed partial class LogEntryIngestionWorker(
-    LogEntryIngestionChannel channel,
-    IServiceProvider serviceProvider,
-    ILogger<LogEntryIngestionWorker> logger) : BackgroundService
+	LogEntryIngestionChannel channel,
+	IServiceProvider serviceProvider,
+	ILogger<LogEntryIngestionWorker> logger) : BackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        await foreach (var workItem in channel.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
-        {
-            try
-            {
-                using var scope = serviceProvider.CreateScope();
-                scope.ServiceProvider.SetTenant(workItem.TenantId);
+	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+	{
+		await foreach (var workItem in channel.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
+		{
+			try
+			{
+				using var scope = serviceProvider.CreateScope();
+				scope.ServiceProvider.SetTenant(workItem.TenantId);
 
-                await workItem.PersistAsync(scope.ServiceProvider, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                LogPersistenceFailure(logger, exception, workItem.GetType().Name, workItem.ItemId, workItem.TenantId);
-            }
-        }
-    }
+				await workItem.PersistAsync(scope.ServiceProvider, stoppingToken).ConfigureAwait(false);
+			}
+			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+			{
+				throw;
+			}
+			catch (Exception exception)
+			{
+				LogPersistenceFailure(logger, exception, workItem.GetType().Name, workItem.ItemId, workItem.TenantId);
+			}
+		}
+	}
 
-    [LoggerMessage(
-        EventId = 1,
-        Level = LogLevel.Error,
-        Message = "Falha ao persistir {WorkItemType} {ItemId} do tenant {TenantId}.")]
-    private static partial void LogPersistenceFailure(ILogger logger, Exception exception, string workItemType, Guid itemId, Guid tenantId);
+	[LoggerMessage(
+		EventId = 1,
+		Level = LogLevel.Error,
+		Message = "Falha ao persistir {WorkItemType} {ItemId} do tenant {TenantId}.")]
+	private static partial void LogPersistenceFailure(ILogger logger, Exception exception, string workItemType, Guid itemId, Guid tenantId);
 }

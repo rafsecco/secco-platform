@@ -10,14 +10,14 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="CorrelationId">Correlation id de origem, quando propagado.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record LogEntryDto(
-    Guid Id,
-    LogEntryLevel Level,
-    string Message,
-    string? StackTrace,
-    Guid? CorrelationId,
-    DateTimeOffset CreatedAt)
+	Guid Id,
+	LogEntryLevel Level,
+	string Message,
+	string? StackTrace,
+	Guid? CorrelationId,
+	DateTimeOffset CreatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static LogEntryDto FromEntity(LogEntry entity) =>
-        new(entity.Id, entity.Level, entity.Message, entity.StackTrace, entity.CorrelationId, entity.CreatedAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static LogEntryDto FromEntity(LogEntry entity) =>
+		new(entity.Id, entity.Level, entity.Message, entity.StackTrace, entity.CorrelationId, entity.CreatedAt);
 }

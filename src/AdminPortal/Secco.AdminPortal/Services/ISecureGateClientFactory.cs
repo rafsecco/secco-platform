@@ -11,25 +11,25 @@ namespace Secco.AdminPortal.Services;
 /// </summary>
 public interface ISecureGateClientFactory
 {
-    /// <summary>Constrói um client do SecureGate com o Bearer do operador anexado.</summary>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    Task<ISecureGateClient> CreateAsync(CancellationToken cancellationToken = default);
+	/// <summary>Constrói um client do SecureGate com o Bearer do operador anexado.</summary>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<ISecureGateClient> CreateAsync(CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
 internal sealed class SecureGateClientFactory(
-    IHttpClientFactory httpClientFactory,
-    IOperatorTokenProvider tokenProvider) : ISecureGateClientFactory
+	IHttpClientFactory httpClientFactory,
+	IOperatorTokenProvider tokenProvider) : ISecureGateClientFactory
 {
-    public async Task<ISecureGateClient> CreateAsync(CancellationToken cancellationToken = default)
-    {
-        var http = httpClientFactory.CreateClient(AdminPortalDefaults.SecureGateHttpClient);
+	public async Task<ISecureGateClient> CreateAsync(CancellationToken cancellationToken = default)
+	{
+		var http = httpClientFactory.CreateClient(AdminPortalDefaults.SecureGateHttpClient);
 
-        if (await tokenProvider.GetAccessTokenAsync().ConfigureAwait(false) is { Length: > 0 } token)
-        {
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
+		if (await tokenProvider.GetAccessTokenAsync().ConfigureAwait(false) is { Length: > 0 } token)
+		{
+			http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+		}
 
-        return new SecureGateClient(http);
-    }
+		return new SecureGateClient(http);
+	}
 }

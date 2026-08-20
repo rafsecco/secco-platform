@@ -10,10 +10,10 @@ namespace Secco.LogStream.Migrations.Postgres;
 /// </summary>
 public sealed class LogStreamPostgresDbContextFactory : IDesignTimeDbContextFactory<LogStreamDbContext>
 {
-    public LogStreamDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<LogStreamDbContext>()
-            .UseNpgsql(
-                "Host=design-time;Database=design-time",
-                npgsql => npgsql.MigrationsAssembly(typeof(LogStreamPostgresDbContextFactory).Assembly.GetName().Name))
-            .Options);
+	public LogStreamDbContext CreateDbContext(string[] args) =>
+		new(new DbContextOptionsBuilder<LogStreamDbContext>()
+			.UseNpgsql(
+				"Host=design-time;Database=design-time",
+				npgsql => npgsql.MigrationsAssembly(typeof(LogStreamPostgresDbContextFactory).Assembly.GetName().Name))
+			.Options);
 }

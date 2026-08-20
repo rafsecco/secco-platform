@@ -10,10 +10,10 @@ namespace Secco.LogStream.Infrastructure.Mappings;
 /// </summary>
 internal sealed class ApiCallLogConfiguration : IEntityTypeConfiguration<ApiCallLog>
 {
-    public void Configure(EntityTypeBuilder<ApiCallLog> builder)
-    {
-        builder.HasIndex(call => call.CreatedAt);
-        builder.HasIndex(call => new { call.CreatedAt, call.IsSuccess });
-        builder.HasIndex(call => call.CorrelationId);
-    }
+	public void Configure(EntityTypeBuilder<ApiCallLog> builder)
+	{
+		builder.HasIndex(call => call.CreatedAt);
+		builder.HasIndex(call => new { call.CreatedAt, call.IsSuccess });
+		builder.HasIndex(call => call.CorrelationId);
+	}
 }

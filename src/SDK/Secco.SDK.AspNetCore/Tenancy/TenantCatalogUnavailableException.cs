@@ -11,24 +11,24 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// </summary>
 public sealed class TenantCatalogUnavailableException : SeccoException
 {
-    /// <summary>Inicializa a exceção com a mensagem padrão.</summary>
-    public TenantCatalogUnavailableException()
-        : base("O catálogo de tenants da plataforma está temporariamente indisponível.")
-    {
-    }
+	/// <summary>Inicializa a exceção com a mensagem padrão.</summary>
+	public TenantCatalogUnavailableException()
+		: base("O catálogo de tenants da plataforma está temporariamente indisponível.")
+	{
+	}
 
-    /// <summary>Inicializa a exceção com a mensagem informada.</summary>
-    /// <param name="message">Mensagem descrevendo a falha.</param>
-    public TenantCatalogUnavailableException(string message)
-        : base(message)
-    {
-    }
+	/// <summary>Inicializa a exceção com a mensagem informada.</summary>
+	/// <param name="message">Mensagem descrevendo a falha.</param>
+	public TenantCatalogUnavailableException(string message)
+		: base(message)
+	{
+	}
 
-    /// <summary>Inicializa a exceção com mensagem e exceção interna.</summary>
-    /// <param name="message">Mensagem descrevendo a falha.</param>
-    /// <param name="innerException">Exceção que causou esta.</param>
-    public TenantCatalogUnavailableException(string message, Exception innerException)
-        : base(message, innerException)
-    {
-    }
+	/// <summary>Inicializa a exceção com mensagem e exceção interna.</summary>
+	/// <param name="message">Mensagem descrevendo a falha.</param>
+	/// <param name="innerException">Exceção que causou esta.</param>
+	public TenantCatalogUnavailableException(string message, Exception innerException)
+		: base(message, innerException)
+	{
+	}
 }

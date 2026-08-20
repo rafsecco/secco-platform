@@ -8,9 +8,9 @@ namespace Secco.SharedKernel.Entities;
 /// </summary>
 public interface ISoftDeletable
 {
-    /// <summary>Indica exclusão lógica (coluna <c>fl_deleted</c>, ADR-0017).</summary>
-    bool IsDeleted { get; set; }
+	/// <summary>Indica exclusão lógica (coluna <c>fl_deleted</c>, ADR-0017).</summary>
+	bool IsDeleted { get; set; }
 
-    /// <summary>Momento da exclusão lógica; nulo se ativa (coluna <c>dt_deleted_at</c>).</summary>
-    DateTimeOffset? DeletedAt { get; set; }
+	/// <summary>Momento da exclusão lógica; nulo se ativa (coluna <c>dt_deleted_at</c>).</summary>
+	DateTimeOffset? DeletedAt { get; set; }
 }

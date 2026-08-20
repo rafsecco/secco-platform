@@ -6,6 +6,6 @@ namespace Secco.SDK.AspNetCore.Authorization;
 /// <param name="permission">Permissão exigida, no formato canônico.</param>
 public sealed class PermissionRequirement(string permission) : IAuthorizationRequirement
 {
-    /// <summary>Permissão exigida (<c>recurso:acao</c>).</summary>
-    public string Permission { get; } = permission;
+	/// <summary>Permissão exigida (<c>recurso:acao</c>).</summary>
+	public string Permission { get; } = permission;
 }

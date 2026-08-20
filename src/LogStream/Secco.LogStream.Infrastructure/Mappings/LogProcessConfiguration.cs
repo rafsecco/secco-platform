@@ -11,24 +11,24 @@ namespace Secco.LogStream.Infrastructure.Mappings;
 /// </summary>
 internal sealed class LogProcessConfiguration : IEntityTypeConfiguration<LogProcess>
 {
-    public void Configure(EntityTypeBuilder<LogProcess> builder)
-    {
-        builder.HasMany(process => process.Details)
-            .WithOne()
-            .HasForeignKey(detail => detail.LogProcessId)
-            .OnDelete(DeleteBehavior.Cascade);
+	public void Configure(EntityTypeBuilder<LogProcess> builder)
+	{
+		builder.HasMany(process => process.Details)
+			.WithOne()
+			.HasForeignKey(detail => detail.LogProcessId)
+			.OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(process => process.CreatedAt);
-        builder.HasIndex(process => process.Name);
-        builder.HasIndex(process => process.CorrelationId);
-    }
+		builder.HasIndex(process => process.CreatedAt);
+		builder.HasIndex(process => process.Name);
+		builder.HasIndex(process => process.CorrelationId);
+	}
 }
 
 /// <summary>Mapeamento de <see cref="LogProcessDetail"/> — índices de consulta.</summary>
 internal sealed class LogProcessDetailConfiguration : IEntityTypeConfiguration<LogProcessDetail>
 {
-    public void Configure(EntityTypeBuilder<LogProcessDetail> builder)
-    {
-        builder.HasIndex(detail => detail.CreatedAt);
-    }
+	public void Configure(EntityTypeBuilder<LogProcessDetail> builder)
+	{
+		builder.HasIndex(detail => detail.CreatedAt);
+	}
 }

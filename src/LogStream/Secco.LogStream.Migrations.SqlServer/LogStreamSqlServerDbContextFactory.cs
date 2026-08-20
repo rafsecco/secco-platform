@@ -10,10 +10,10 @@ namespace Secco.LogStream.Migrations.SqlServer;
 /// </summary>
 public sealed class LogStreamSqlServerDbContextFactory : IDesignTimeDbContextFactory<LogStreamDbContext>
 {
-    public LogStreamDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<LogStreamDbContext>()
-            .UseSqlServer(
-                "Server=design-time;Database=design-time;Encrypt=false",
-                sql => sql.MigrationsAssembly(typeof(LogStreamSqlServerDbContextFactory).Assembly.GetName().Name))
-            .Options);
+	public LogStreamDbContext CreateDbContext(string[] args) =>
+		new(new DbContextOptionsBuilder<LogStreamDbContext>()
+			.UseSqlServer(
+				"Server=design-time;Database=design-time;Encrypt=false",
+				sql => sql.MigrationsAssembly(typeof(LogStreamSqlServerDbContextFactory).Assembly.GetName().Name))
+			.Options);
 }

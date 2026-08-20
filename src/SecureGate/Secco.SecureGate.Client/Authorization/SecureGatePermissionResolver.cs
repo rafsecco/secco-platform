@@ -12,20 +12,20 @@ namespace Secco.SecureGate.Client.Authorization;
 /// </summary>
 public sealed class SecureGatePermissionResolver(IHttpClientFactory httpClientFactory) : IPermissionResolver
 {
-    /// <summary>Nome do <c>HttpClient</c> nomeado usado pela resolução de permissões.</summary>
-    public const string HttpClientName = "Secco.SecureGate.Authorization";
+	/// <summary>Nome do <c>HttpClient</c> nomeado usado pela resolução de permissões.</summary>
+	public const string HttpClientName = "Secco.SecureGate.Authorization";
 
-    /// <inheritdoc />
-    public async ValueTask<IReadOnlySet<string>> ResolveAsync(
-        Guid tenantId,
-        string role,
-        CancellationToken cancellationToken = default)
-    {
-        var client = new SecureGateClient(httpClientFactory.CreateClient(HttpClientName));
+	/// <inheritdoc />
+	public async ValueTask<IReadOnlySet<string>> ResolveAsync(
+		Guid tenantId,
+		string role,
+		CancellationToken cancellationToken = default)
+	{
+		var client = new SecureGateClient(httpClientFactory.CreateClient(HttpClientName));
 
-        var permissions = await client.GetRolePermissionsAsync(tenantId, role, cancellationToken)
-            .ConfigureAwait(false);
+		var permissions = await client.GetRolePermissionsAsync(tenantId, role, cancellationToken)
+			.ConfigureAwait(false);
 
-        return permissions.ToHashSet(StringComparer.Ordinal);
-    }
+		return permissions.ToHashSet(StringComparer.Ordinal);
+	}
 }

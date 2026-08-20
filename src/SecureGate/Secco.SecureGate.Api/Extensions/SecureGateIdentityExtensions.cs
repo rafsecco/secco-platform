@@ -13,62 +13,62 @@ namespace Secco.SecureGate.Api.Extensions;
 /// </summary>
 public static class SecureGateIdentityExtensions
 {
-    /// <summary>Registra UserManager/SignInManager e os cookies de login (esquema não-default).</summary>
-    /// <param name="services">Coleção de serviços da aplicação.</param>
-    /// <param name="environment">Ambiente de hospedagem (define a política de cookie Secure).</param>
-    public static IServiceCollection AddSecureGateIdentity(this IServiceCollection services, IHostEnvironment environment)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(environment);
+	/// <summary>Registra UserManager/SignInManager e os cookies de login (esquema não-default).</summary>
+	/// <param name="services">Coleção de serviços da aplicação.</param>
+	/// <param name="environment">Ambiente de hospedagem (define a política de cookie Secure).</param>
+	public static IServiceCollection AddSecureGateIdentity(this IServiceCollection services, IHostEnvironment environment)
+	{
+		ArgumentNullException.ThrowIfNull(services);
+		ArgumentNullException.ThrowIfNull(environment);
 
-        services.AddIdentityCore<User>(options =>
-            {
-                // Política de senha (ADR-0020): mínimo forte, sem impor complexidade excessiva
-                options.Password.RequiredLength = 8;
-                options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = true;
-                options.Password.RequireUppercase = true;
-                options.Password.RequireNonAlphanumeric = true;
+		services.AddIdentityCore<User>(options =>
+			{
+				// Política de senha (ADR-0020): mínimo forte, sem impor complexidade excessiva
+				options.Password.RequiredLength = 8;
+				options.Password.RequireDigit = true;
+				options.Password.RequireLowercase = true;
+				options.Password.RequireUppercase = true;
+				options.Password.RequireNonAlphanumeric = true;
 
-                // Bloqueio contra força bruta (ADR-0020): habilitado inclusive para novos usuários
-                options.Lockout.AllowedForNewUsers = true;
-                options.Lockout.MaxFailedAccessAttempts = 5;
-                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+				// Bloqueio contra força bruta (ADR-0020): habilitado inclusive para novos usuários
+				options.Lockout.AllowedForNewUsers = true;
+				options.Lockout.MaxFailedAccessAttempts = 5;
+				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 
-                // Login por e-mail: username = e-mail, único global (o registro carrega o tenant)
-                options.User.RequireUniqueEmail = true;
-            })
-            .AddRoles<Role>()
-            .AddEntityFrameworkStores<SecureGateDbContext>()
-            .AddSignInManager()
-            .AddDefaultTokenProviders();
+				// Login por e-mail: username = e-mail, único global (o registro carrega o tenant)
+				options.User.RequireUniqueEmail = true;
+			})
+			.AddRoles<Role>()
+			.AddEntityFrameworkStores<SecureGateDbContext>()
+			.AddSignInManager()
+			.AddDefaultTokenProviders();
 
-        // Cookies do Identity como esquemas NÃO-DEFAULT (o default segue JwtBearer, ADR-0007).
-        // O endpoint de autorização faz Challenge explícito no ApplicationScheme → tela de login.
-        services.AddAuthentication()
-            .AddCookie(IdentityConstants.ApplicationScheme, options =>
-            {
-                options.LoginPath = "/login";
-                options.LogoutPath = "/connect/logout";
-                options.AccessDeniedPath = "/login";
-                options.ExpireTimeSpan = TimeSpan.FromHours(1);
-                options.SlidingExpiration = true;
-                options.Cookie.Name = "secco.securegate.auth";
-                // O fluxo de autorização é same-site (login e authorize no mesmo host)
-                options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.HttpOnly = true;
+		// Cookies do Identity como esquemas NÃO-DEFAULT (o default segue JwtBearer, ADR-0007).
+		// O endpoint de autorização faz Challenge explícito no ApplicationScheme → tela de login.
+		services.AddAuthentication()
+			.AddCookie(IdentityConstants.ApplicationScheme, options =>
+			{
+				options.LoginPath = "/login";
+				options.LogoutPath = "/connect/logout";
+				options.AccessDeniedPath = "/login";
+				options.ExpireTimeSpan = TimeSpan.FromHours(1);
+				options.SlidingExpiration = true;
+				options.Cookie.Name = "secco.securegate.auth";
+				// O fluxo de autorização é same-site (login e authorize no mesmo host)
+				options.Cookie.SameSite = SameSiteMode.Lax;
+				options.Cookie.HttpOnly = true;
 
-                // ADR-0020: cookie de sessão do login interativo — só em Production exige Secure
-                // (Always); Development e Testing seguem SameAsRequest (host local/TestServer
-                // tipicamente HTTP, sem TLS).
-                options.Cookie.SecurePolicy = environment.IsProduction()
-                    ? CookieSecurePolicy.Always
-                    : CookieSecurePolicy.SameAsRequest;
-            })
-            // Referenciado pelo SignInManager mesmo sem login externo configurado
-            .AddCookie(IdentityConstants.ExternalScheme, options =>
-                options.Cookie.Name = "secco.securegate.external");
+				// ADR-0020: cookie de sessão do login interativo — só em Production exige Secure
+				// (Always); Development e Testing seguem SameAsRequest (host local/TestServer
+				// tipicamente HTTP, sem TLS).
+				options.Cookie.SecurePolicy = environment.IsProduction()
+					? CookieSecurePolicy.Always
+					: CookieSecurePolicy.SameAsRequest;
+			})
+			// Referenciado pelo SignInManager mesmo sem login externo configurado
+			.AddCookie(IdentityConstants.ExternalScheme, options =>
+				options.Cookie.Name = "secco.securegate.external");
 
-        return services;
-    }
+		return services;
+	}
 }

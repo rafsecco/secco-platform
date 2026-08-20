@@ -16,22 +16,22 @@ namespace Secco.LogStream.Application.ApiCalls;
 /// <param name="CorrelationId">Correlation id de origem.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record ApiCallLogDto(
-    Guid Id,
-    string Url,
-    string HttpMethod,
-    bool IsSuccess,
-    string? RequestBody,
-    string? RequestHeaders,
-    int? ResponseStatusCode,
-    string? ResponseBody,
-    long? DurationMs,
-    string? ErrorMessage,
-    Guid? CorrelationId,
-    DateTimeOffset CreatedAt)
+	Guid Id,
+	string Url,
+	string HttpMethod,
+	bool IsSuccess,
+	string? RequestBody,
+	string? RequestHeaders,
+	int? ResponseStatusCode,
+	string? ResponseBody,
+	long? DurationMs,
+	string? ErrorMessage,
+	Guid? CorrelationId,
+	DateTimeOffset CreatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static ApiCallLogDto FromEntity(ApiCallLog entity) =>
-        new(entity.Id, entity.Url, entity.HttpMethod, entity.IsSuccess, entity.RequestBody,
-            entity.RequestHeaders, entity.ResponseStatusCode, entity.ResponseBody,
-            entity.DurationMs, entity.ErrorMessage, entity.CorrelationId, entity.CreatedAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static ApiCallLogDto FromEntity(ApiCallLog entity) =>
+		new(entity.Id, entity.Url, entity.HttpMethod, entity.IsSuccess, entity.RequestBody,
+			entity.RequestHeaders, entity.ResponseStatusCode, entity.ResponseBody,
+			entity.DurationMs, entity.ErrorMessage, entity.CorrelationId, entity.CreatedAt);
 }

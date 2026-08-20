@@ -9,8 +9,8 @@ namespace Secco.SecureGate.Tests.Integration;
 [CollectionDefinition(Name)]
 public sealed class SharedApiCollectionDefinition : ICollectionFixture<SecureGateApiFactory>
 {
-    /// <summary>Nome da collection.</summary>
-    public const string Name = "SecureGate API compartilhada";
+	/// <summary>Nome da collection.</summary>
+	public const string Name = "SecureGate API compartilhada";
 }
 
 /// <summary>
@@ -20,6 +20,6 @@ public sealed class SharedApiCollectionDefinition : ICollectionFixture<SecureGat
 [CollectionDefinition(Name)]
 public sealed class SelfIssuedApiCollectionDefinition : ICollectionFixture<SelfIssuedAuthSecureGateApiFactory>
 {
-    /// <summary>Nome da collection.</summary>
-    public const string Name = "SecureGate auto-validado";
+	/// <summary>Nome da collection.</summary>
+	public const string Name = "SecureGate auto-validado";
 }

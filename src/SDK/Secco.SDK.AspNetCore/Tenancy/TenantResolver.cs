@@ -5,11 +5,11 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// <param name="IsConflict">Indica divergência entre claim e header — a requisição deve ser rejeitada.</param>
 internal readonly record struct TenantResolution(Guid? TenantId, bool IsConflict)
 {
-    public static readonly TenantResolution Unresolved = new(null, false);
+	public static readonly TenantResolution Unresolved = new(null, false);
 
-    public static readonly TenantResolution Conflict = new(null, true);
+	public static readonly TenantResolution Conflict = new(null, true);
 
-    public static TenantResolution Resolved(Guid tenantId) => new(tenantId, false);
+	public static TenantResolution Resolved(Guid tenantId) => new(tenantId, false);
 }
 
 /// <summary>
@@ -21,30 +21,30 @@ internal readonly record struct TenantResolution(Guid? TenantId, bool IsConflict
 /// </summary>
 internal static class TenantResolver
 {
-    public static TenantResolution Resolve(string? claimValue, string? headerValue)
-    {
-        var hasHeader = !string.IsNullOrEmpty(headerValue);
+	public static TenantResolution Resolve(string? claimValue, string? headerValue)
+	{
+		var hasHeader = !string.IsNullOrEmpty(headerValue);
 
-        if (!string.IsNullOrEmpty(claimValue))
-        {
-            if (!TryParseStrict(claimValue, out var claimTenant))
-            {
-                return TenantResolution.Unresolved;
-            }
+		if (!string.IsNullOrEmpty(claimValue))
+		{
+			if (!TryParseStrict(claimValue, out var claimTenant))
+			{
+				return TenantResolution.Unresolved;
+			}
 
-            if (hasHeader && (!TryParseStrict(headerValue, out var headerTenant) || headerTenant != claimTenant))
-            {
-                return TenantResolution.Conflict;
-            }
+			if (hasHeader && (!TryParseStrict(headerValue, out var headerTenant) || headerTenant != claimTenant))
+			{
+				return TenantResolution.Conflict;
+			}
 
-            return TenantResolution.Resolved(claimTenant);
-        }
+			return TenantResolution.Resolved(claimTenant);
+		}
 
-        return hasHeader && TryParseStrict(headerValue, out var fromHeader)
-            ? TenantResolution.Resolved(fromHeader)
-            : TenantResolution.Unresolved;
-    }
+		return hasHeader && TryParseStrict(headerValue, out var fromHeader)
+			? TenantResolution.Resolved(fromHeader)
+			: TenantResolution.Unresolved;
+	}
 
-    private static bool TryParseStrict(string? value, out Guid tenantId) =>
-        Guid.TryParse(value, out tenantId) && tenantId != Guid.Empty;
+	private static bool TryParseStrict(string? value, out Guid tenantId) =>
+		Guid.TryParse(value, out tenantId) && tenantId != Guid.Empty;
 }

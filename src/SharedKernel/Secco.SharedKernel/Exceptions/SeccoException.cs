@@ -6,23 +6,23 @@ namespace Secco.SharedKernel.Exceptions;
 /// </summary>
 public abstract class SeccoException : Exception
 {
-    /// <summary>Inicializa a exceção sem mensagem específica.</summary>
-    protected SeccoException()
-    {
-    }
+	/// <summary>Inicializa a exceção sem mensagem específica.</summary>
+	protected SeccoException()
+	{
+	}
 
-    /// <summary>Inicializa a exceção com a mensagem informada.</summary>
-    /// <param name="message">Mensagem descrevendo a falha.</param>
-    protected SeccoException(string message)
-        : base(message)
-    {
-    }
+	/// <summary>Inicializa a exceção com a mensagem informada.</summary>
+	/// <param name="message">Mensagem descrevendo a falha.</param>
+	protected SeccoException(string message)
+		: base(message)
+	{
+	}
 
-    /// <summary>Inicializa a exceção com mensagem e exceção interna.</summary>
-    /// <param name="message">Mensagem descrevendo a falha.</param>
-    /// <param name="innerException">Exceção que causou esta.</param>
-    protected SeccoException(string message, Exception innerException)
-        : base(message, innerException)
-    {
-    }
+	/// <summary>Inicializa a exceção com mensagem e exceção interna.</summary>
+	/// <param name="message">Mensagem descrevendo a falha.</param>
+	/// <param name="innerException">Exceção que causou esta.</param>
+	protected SeccoException(string message, Exception innerException)
+		: base(message, innerException)
+	{
+	}
 }

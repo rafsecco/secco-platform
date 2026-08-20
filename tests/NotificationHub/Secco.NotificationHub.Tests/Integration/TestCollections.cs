@@ -11,6 +11,6 @@ namespace Secco.NotificationHub.Tests.Integration;
 [CollectionDefinition(Name)]
 public sealed class NotificationHubApiCollectionDefinition : ICollectionFixture<NotificationHubApiFactory>
 {
-    /// <summary>Nome da collection.</summary>
-    public const string Name = "NotificationHub API compartilhada";
+	/// <summary>Nome da collection.</summary>
+	public const string Name = "NotificationHub API compartilhada";
 }

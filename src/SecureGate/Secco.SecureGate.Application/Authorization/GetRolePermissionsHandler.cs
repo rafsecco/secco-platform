@@ -11,35 +11,35 @@ namespace Secco.SecureGate.Application.Authorization;
 /// </summary>
 public sealed class GetRolePermissionsHandler(IRoleRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="tenantId">Tenant do contexto do produto chamador.</param>
-    /// <param name="roleName">Nome do role (claim curta <c>role</c> do token).</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<IReadOnlyList<string>>> HandleAsync(
-        Guid tenantId,
-        string? roleName,
-        CancellationToken cancellationToken = default)
-    {
-        var name = roleName?.Trim() ?? string.Empty;
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="tenantId">Tenant do contexto do produto chamador.</param>
+	/// <param name="roleName">Nome do role (claim curta <c>role</c> do token).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<IReadOnlyList<string>>> HandleAsync(
+		Guid tenantId,
+		string? roleName,
+		CancellationToken cancellationToken = default)
+	{
+		var name = roleName?.Trim() ?? string.Empty;
 
-        if (!RoleInputRules.IsValidName(name))
-        {
-            return SecureGateErrors.Roles.NameInvalid;
-        }
+		if (!RoleInputRules.IsValidName(name))
+		{
+			return SecureGateErrors.Roles.NameInvalid;
+		}
 
-        // ADR-0024: o operador de plataforma recebe o read-set em QUALQUER tenant — a
-        // capacidade cross-tenant é decidida aqui (IAM), sem o produto/SDK saberem disso.
-        // Sem contexto de usuário, o casamento é só por nome — o que impede este caso especial
-        // de valer para um role de cliente é a reserva do nome na gestão (RoleInputRules.
-        // IsReservedName): esse role nunca pode ser criado num tenant de cliente (ADR-0020).
-        if (string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.Ordinal))
-        {
-            return Result.Success(SecureGatePlatform.OperatorReadPermissions);
-        }
+		// ADR-0024: o operador de plataforma recebe o read-set em QUALQUER tenant — a
+		// capacidade cross-tenant é decidida aqui (IAM), sem o produto/SDK saberem disso.
+		// Sem contexto de usuário, o casamento é só por nome — o que impede este caso especial
+		// de valer para um role de cliente é a reserva do nome na gestão (RoleInputRules.
+		// IsReservedName): esse role nunca pode ser criado num tenant de cliente (ADR-0020).
+		if (string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.Ordinal))
+		{
+			return Result.Success(SecureGatePlatform.OperatorReadPermissions);
+		}
 
-        var permissions = await repository.GetPermissionsAsync(tenantId, name, cancellationToken)
-            .ConfigureAwait(false);
+		var permissions = await repository.GetPermissionsAsync(tenantId, name, cancellationToken)
+			.ConfigureAwait(false);
 
-        return Result.Success(permissions ?? []);
-    }
+		return Result.Success(permissions ?? []);
+	}
 }

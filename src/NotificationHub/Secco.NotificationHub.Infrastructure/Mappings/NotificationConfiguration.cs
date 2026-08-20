@@ -11,9 +11,9 @@ namespace Secco.NotificationHub.Infrastructure.Mappings;
 /// </summary>
 internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 {
-    public void Configure(EntityTypeBuilder<Notification> builder)
-    {
-        builder.HasIndex(notification => notification.Status);
-        builder.HasIndex(notification => notification.CreatedAt);
-    }
+	public void Configure(EntityTypeBuilder<Notification> builder)
+	{
+		builder.HasIndex(notification => notification.Status);
+		builder.HasIndex(notification => notification.CreatedAt);
+	}
 }

@@ -9,18 +9,18 @@ namespace Secco.SecureGate.Infrastructure.Cryptography;
 /// </summary>
 public sealed class ConnectionStringCipherException : Exception
 {
-    /// <summary>Cria a exceção com a mensagem informada.</summary>
-    /// <param name="message">Descrição da falha — sem segredos.</param>
-    public ConnectionStringCipherException(string message)
-        : base(message)
-    {
-    }
+	/// <summary>Cria a exceção com a mensagem informada.</summary>
+	/// <param name="message">Descrição da falha — sem segredos.</param>
+	public ConnectionStringCipherException(string message)
+		: base(message)
+	{
+	}
 
-    /// <summary>Cria a exceção com a mensagem e a causa raiz.</summary>
-    /// <param name="message">Descrição da falha — sem segredos.</param>
-    /// <param name="innerException">Causa original (ex.: falha criptográfica).</param>
-    public ConnectionStringCipherException(string message, Exception innerException)
-        : base(message, innerException)
-    {
-    }
+	/// <summary>Cria a exceção com a mensagem e a causa raiz.</summary>
+	/// <param name="message">Descrição da falha — sem segredos.</param>
+	/// <param name="innerException">Causa original (ex.: falha criptográfica).</param>
+	public ConnectionStringCipherException(string message, Exception innerException)
+		: base(message, innerException)
+	{
+	}
 }

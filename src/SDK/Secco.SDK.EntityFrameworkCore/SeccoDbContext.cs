@@ -12,25 +12,25 @@ namespace Secco.SDK.EntityFrameworkCore;
 /// </summary>
 public abstract class SeccoDbContext : DbContext
 {
-    /// <summary>Inicializa o contexto sem opções (design-time).</summary>
-    protected SeccoDbContext()
-    {
-    }
+	/// <summary>Inicializa o contexto sem opções (design-time).</summary>
+	protected SeccoDbContext()
+	{
+	}
 
-    /// <summary>Inicializa o contexto com as opções fornecidas pelo DI.</summary>
-    /// <param name="options">Opções de configuração do contexto.</param>
-    protected SeccoDbContext(DbContextOptions options)
-        : base(options)
-    {
-    }
+	/// <summary>Inicializa o contexto com as opções fornecidas pelo DI.</summary>
+	/// <param name="options">Opções de configuração do contexto.</param>
+	protected SeccoDbContext(DbContextOptions options)
+		: base(options)
+	{
+	}
 
-    /// <inheritdoc />
-    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(configurationBuilder);
+	/// <inheritdoc />
+	protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+	{
+		ArgumentNullException.ThrowIfNull(configurationBuilder);
 
-        base.ConfigureConventions(configurationBuilder);
+		base.ConfigureConventions(configurationBuilder);
 
-        configurationBuilder.Conventions.Add(_ => new SeccoNamingConvention());
-    }
+		configurationBuilder.Conventions.Add(_ => new SeccoNamingConvention());
+	}
 }

@@ -8,18 +8,18 @@ namespace Secco.SDK.AspNetCore.Correlation;
 /// </summary>
 internal static class CorrelationIdParser
 {
-    /// <summary>Tenta interpretar o valor recebido como um correlation id válido.</summary>
-    /// <param name="headerValue">Valor bruto do header, possivelmente nulo, vazio ou forjado.</param>
-    /// <param name="correlationId">Id interpretado; <see cref="Guid.Empty"/> se inválido.</param>
-    public static bool TryParse(string? headerValue, out Guid correlationId)
-    {
-        if (!string.IsNullOrEmpty(headerValue) && Guid.TryParse(headerValue, out var parsed) && parsed != Guid.Empty)
-        {
-            correlationId = parsed;
-            return true;
-        }
+	/// <summary>Tenta interpretar o valor recebido como um correlation id válido.</summary>
+	/// <param name="headerValue">Valor bruto do header, possivelmente nulo, vazio ou forjado.</param>
+	/// <param name="correlationId">Id interpretado; <see cref="Guid.Empty"/> se inválido.</param>
+	public static bool TryParse(string? headerValue, out Guid correlationId)
+	{
+		if (!string.IsNullOrEmpty(headerValue) && Guid.TryParse(headerValue, out var parsed) && parsed != Guid.Empty)
+		{
+			correlationId = parsed;
+			return true;
+		}
 
-        correlationId = Guid.Empty;
-        return false;
-    }
+		correlationId = Guid.Empty;
+		return false;
+	}
 }

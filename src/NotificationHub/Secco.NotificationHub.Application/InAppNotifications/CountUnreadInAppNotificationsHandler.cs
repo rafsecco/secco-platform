@@ -6,9 +6,9 @@ namespace Secco.NotificationHub.Application.InAppNotifications;
 /// </summary>
 public sealed class CountUnreadInAppNotificationsHandler(IInAppNotificationRepository repository)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="userId">Dono dos itens.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public Task<int> HandleAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        repository.CountUnreadByUserAsync(userId, cancellationToken);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="userId">Dono dos itens.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public Task<int> HandleAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		repository.CountUnreadByUserAsync(userId, cancellationToken);
 }

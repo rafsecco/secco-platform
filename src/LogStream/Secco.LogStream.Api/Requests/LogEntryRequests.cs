@@ -38,12 +38,12 @@ public sealed record CreateLogProcessDetailRequest(LogEntryLevel Level, string? 
 /// <param name="DurationMs">Duração da chamada em milissegundos.</param>
 /// <param name="ErrorMessage">Mensagem de erro, quando houver.</param>
 public sealed record CreateApiCallLogRequest(
-    string? Url,
-    string? HttpMethod,
-    bool IsSuccess,
-    string? RequestBody = null,
-    Dictionary<string, string?>? RequestHeaders = null,
-    int? ResponseStatusCode = null,
-    string? ResponseBody = null,
-    long? DurationMs = null,
-    string? ErrorMessage = null);
+	string? Url,
+	string? HttpMethod,
+	bool IsSuccess,
+	string? RequestBody = null,
+	Dictionary<string, string?>? RequestHeaders = null,
+	int? ResponseStatusCode = null,
+	string? ResponseBody = null,
+	long? DurationMs = null,
+	string? ErrorMessage = null);

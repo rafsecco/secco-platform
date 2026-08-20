@@ -19,7 +19,7 @@ builder.Services.AddSeccoOpenApi();
 
 // Enums viajam como string no contrato (ex.: "Error" em vez de 4)
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Options (LogStream:Ingestion, LogStream:Retention, LogStream:Database) são bindadas
 // lazy pela Infrastructure a partir do IConfiguration do host
@@ -47,13 +47,13 @@ app.MapOpenApi().AllowAnonymous();
 
 if (app.Environment.IsDevelopment())
 {
-    // UI de documentação (ADR-0006) — apenas em DEV nesta fase
-    app.MapScalarApiReference().AllowAnonymous();
+	// UI de documentação (ADR-0006) — apenas em DEV nesta fase
+	app.MapScalarApiReference().AllowAnonymous();
 
-    // Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
-    // processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).
-    await app.Services.MigrateLogStreamTenantDatabasesAsync();
-    await app.Services.SeedSeccoDataAsync();
+	// Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
+	// processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).
+	await app.Services.MigrateLogStreamTenantDatabasesAsync();
+	await app.Services.SeedSeccoDataAsync();
 }
 
 await app.RunAsync();

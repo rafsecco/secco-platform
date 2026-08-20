@@ -9,12 +9,12 @@ namespace Secco.AdminPortal.Authentication;
 /// nulo durante o render interativo).
 /// </summary>
 internal sealed class OperatorTokenProvider(AuthenticationStateProvider authenticationStateProvider)
-    : IOperatorTokenProvider
+	: IOperatorTokenProvider
 {
-    public async Task<string?> GetAccessTokenAsync()
-    {
-        var state = await authenticationStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
+	public async Task<string?> GetAccessTokenAsync()
+	{
+		var state = await authenticationStateProvider.GetAuthenticationStateAsync().ConfigureAwait(false);
 
-        return state.User.FindFirst(AdminPortalDefaults.AccessTokenClaim)?.Value;
-    }
+		return state.User.FindFirst(AdminPortalDefaults.AccessTokenClaim)?.Value;
+	}
 }

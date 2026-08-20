@@ -12,17 +12,17 @@ namespace Secco.NotificationHub.Infrastructure.Email;
 /// (ADR-0005/0015).
 /// </summary>
 internal sealed class EmailDispatchScheduler(IBackgroundJobScheduler scheduler, ITenantContext tenantContext)
-    : IEmailDispatchQueue
+	: IEmailDispatchQueue
 {
-    public void Enqueue(Guid notificationId)
-    {
-        if (tenantContext.TenantId is not { } tenantId)
-        {
-            // A notificação só é criada com o tenant já resolvido (a escrita no banco do
-            // tenant já teria falhado antes) — chegar aqui sem tenant é bug do chamador.
-            throw new DomainInvariantException("Não é possível enfileirar o envio sem um tenant resolvido.");
-        }
+	public void Enqueue(Guid notificationId)
+	{
+		if (tenantContext.TenantId is not { } tenantId)
+		{
+			// A notificação só é criada com o tenant já resolvido (a escrita no banco do
+			// tenant já teria falhado antes) — chegar aqui sem tenant é bug do chamador.
+			throw new DomainInvariantException("Não é possível enfileirar o envio sem um tenant resolvido.");
+		}
 
-        scheduler.Enqueue<SendEmailJob, SendEmailPayload>(tenantId, new SendEmailPayload(notificationId));
-    }
+		scheduler.Enqueue<SendEmailJob, SendEmailPayload>(tenantId, new SendEmailPayload(notificationId));
+	}
 }
