@@ -61,20 +61,20 @@ Nova migration (uma por engine, no mesmo PR): `dotnet ef migrations add <Nome> -
 
 ## Rodando em desenvolvimento
 
-Pré-requisitos: .NET 10 SDK e um SQL Server acessível (ex.: container):
+Pré-requisitos: .NET 10 SDK e a infraestrutura local (SQL Server + MailHog), que vem do
+`docker-compose.yml` da **raiz** do monorepo:
 
 ```bash
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Secco@Dev123" -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+docker compose up -d                      # só a infra, sem nenhuma API
+dotnet run --project src/LogStream/Secco.LogStream.Api   # https://localhost:4002
 ```
 
-```bash
-dotnet run --project src/LogStream/Secco.LogStream.Api
-```
+No VS Code isso são as duas primeiras entradas do F5 — ver [`.vscode/launch.json`](../../.vscode/launch.json).
 
-Ou tudo em containers (SQL Server + API, com migrations/seed automáticos):
+Ou tudo em container (SQL Server + API, com migrations/seed automáticos):
 
 ```bash
-docker compose -f src/LogStream/docker-compose.yml up --build
+docker compose --profile logstream up -d --build   # API em http://localhost:4102
 ```
 
 Em **Development** o startup aplica as migrations em todos os bancos de tenant do catálogo (`appsettings.Development.json`, seção `Secco:Tenancy:Tenants`) e executa o seeding (ADR-0019). Fora de Development, nada é automático — migrations via processo controlado.

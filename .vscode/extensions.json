@@ -17,8 +17,11 @@
 		"tintoy.msbuild-project-tools",
 
 		// --- Contratos / OpenAPI ----------------------------------------------
-		// Edição, validação e audit de segurança dos openapi.json de cada produto
+		// Edição e validação local dos openapi.json de cada produto
 		// (ADR-0006: contrato mudou -> regenerar openapi.json + client no mesmo PR).
+		// ATENÇÃO (ADR-0020): o "Security Audit" desta extensão NÃO é local — ele exige conta
+		// e token da 42Crunch (openapi.securityAuditToken) e ENVIA o contrato para o serviço
+		// deles. Use a extensão para editar e validar; não acione o audit em contrato interno.
 		"42crunch.vscode-openapi",
 
 		// --- Banco de dados ----------------------------------------------------

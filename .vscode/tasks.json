@@ -1,0 +1,259 @@
+// Secco Platform — tasks do workspace.
+// Os comandos são os mesmos do CI (.github/workflows/ci.yml) e do CLAUDE.md: uma task que
+// passa aqui é uma task que passa lá.
+{
+	"version": "2.0.0",
+	"tasks": [
+		// --- Build -----------------------------------------------------------
+		{
+			"label": "build: solution",
+			"detail": "dotnet build da solution inteira (Debug) — é o Ctrl+Shift+B",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "Secco.Platform.slnx"],
+			"group": { "kind": "build", "isDefault": true },
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build: solution (Release)",
+			"detail": "Idêntico ao CI — warnings viram erros nos projetos de produção",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "Secco.Platform.slnx", "--configuration", "Release"],
+			"group": "build",
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build: SecureGate.Api",
+			"detail": "preLaunchTask das configs de debug do SecureGate",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "src/SecureGate/Secco.SecureGate.Api/Secco.SecureGate.Api.csproj"],
+			"group": "build",
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build: LogStream.Api",
+			"detail": "preLaunchTask das configs de debug do LogStream",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "src/LogStream/Secco.LogStream.Api/Secco.LogStream.Api.csproj"],
+			"group": "build",
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build: NotificationHub.Api",
+			"detail": "preLaunchTask da config de debug do NotificationHub",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "src/NotificationHub/Secco.NotificationHub.Api/Secco.NotificationHub.Api.csproj"],
+			"group": "build",
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build: AdminPortal",
+			"detail": "preLaunchTask da config de debug do AdminPortal",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["build", "src/AdminPortal/Secco.AdminPortal/Secco.AdminPortal.csproj"],
+			"group": "build",
+			"problemMatcher": "$msCompile"
+		},
+
+		// --- Ciclo de vida ---------------------------------------------------
+		{
+			"label": "restore: solution",
+			"detail": "O feed privado exige PAT com read:packages — ver docs/getting-started.md",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["restore", "Secco.Platform.slnx"],
+			"problemMatcher": []
+		},
+		{
+			"label": "clean: solution",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["clean", "Secco.Platform.slnx"],
+			"problemMatcher": []
+		},
+		{
+			"label": "tool: restore (dotnet-ef)",
+			"detail": "Instala as ferramentas locais do dotnet-tools.json",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["tool", "restore"],
+			"problemMatcher": []
+		},
+
+		// --- Testes ----------------------------------------------------------
+		{
+			"label": "test: solution",
+			"detail": "Integração usa Testcontainers (exige Docker). Se o Docker saturar, rode produto a produto.",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["test", "Secco.Platform.slnx"],
+			"group": { "kind": "test", "isDefault": true },
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "test: um projeto",
+			"detail": "Roda a suíte de um produto só — o caminho quando o Docker não aguenta a solution inteira",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["test", "${input:projetoDeTeste}"],
+			"group": "test",
+			"problemMatcher": "$msCompile"
+		},
+
+		// --- Contrato OpenAPI + client NSwag (ADR-0006) ----------------------
+		{
+			"label": "contrato: regenerar openapi.json",
+			"detail": "Roda os testes de contrato com SECCO_UPDATE_OPENAPI=true, sobrescrevendo o snapshot",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"test",
+				"tests/${input:produto}/Secco.${input:produto}.Tests/Secco.${input:produto}.Tests.csproj",
+				"--configuration",
+				"Release"
+			],
+			"options": {
+				"env": { "SECCO_UPDATE_OPENAPI": "true" }
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "contrato: regenerar client NSwag",
+			"detail": "ADR-0006: contrato mudou -> openapi.json E client regenerados no MESMO PR",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/${input:produto}/Secco.${input:produto}.Client/Secco.${input:produto}.Client.csproj",
+				"--configuration",
+				"Release"
+			],
+			"problemMatcher": "$msCompile"
+		},
+
+		// --- EF Core ---------------------------------------------------------
+		{
+			"label": "ef: migrations add",
+			"detail": "Um assembly de migrations por engine (ADR-0018) — gere nos DOIS providers",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"ef",
+				"migrations",
+				"add",
+				"${input:nomeDaMigration}",
+				"--project",
+				"src/${input:produto}/Secco.${input:produto}.Migrations.${input:provider}",
+				"--output-dir",
+				"Migrations"
+			],
+			"problemMatcher": []
+		},
+
+		// --- Infraestrutura local (docker-compose.yml da raiz) ---------------
+		{
+			"label": "infra: subir (SQL Server + MailHog)",
+			"detail": "Só a infraestrutura, sem nenhuma API — é o que o F5 precisa",
+			"type": "process",
+			"command": "docker",
+			"args": ["compose", "up", "-d"],
+			"problemMatcher": [],
+			"presentation": { "panel": "shared", "clear": true }
+		},
+		{
+			"label": "infra: derrubar",
+			"detail": "Para os containers preservando os bancos (volumes nomeados)",
+			"type": "process",
+			"command": "docker",
+			"args": ["compose", "--profile", "all", "--profile", "postgres", "down"],
+			"problemMatcher": [],
+			"presentation": { "panel": "shared" }
+		},
+		{
+			"label": "infra: resetar (APAGA os bancos)",
+			"detail": "down -v remove os volumes, garantindo seed limpo na próxima subida",
+			"type": "process",
+			"command": "docker",
+			"args": ["compose", "--profile", "all", "--profile", "postgres", "down", "-v"],
+			"problemMatcher": [],
+			"presentation": { "panel": "shared" }
+		},
+		{
+			"label": "stack: subir um produto em container",
+			"detail": "Infra + UMA API em container (portas HTTP 410x), sem precisar do SDK local",
+			"type": "process",
+			"command": "docker",
+			"args": ["compose", "--profile", "${input:profile}", "up", "-d", "--build"],
+			"problemMatcher": [],
+			"presentation": { "panel": "shared", "clear": true }
+		},
+		{
+			"label": "stack: subir tudo em container",
+			"detail": "Infra + as três APIs (4101 SecureGate, 4102 LogStream, 4103 NotificationHub)",
+			"type": "process",
+			"command": "docker",
+			"args": ["compose", "--profile", "all", "up", "-d", "--build"],
+			"problemMatcher": [],
+			"presentation": { "panel": "shared", "clear": true }
+		},
+
+		// --- Setup da máquina ------------------------------------------------
+		{
+			"label": "setup: confiar no certificado de DEV",
+			"detail": "Sem isto o F5 em HTTPS falha no handshake. Uma vez por máquina.",
+			"type": "process",
+			"command": "dotnet",
+			"args": ["dev-certs", "https", "--trust"],
+			"problemMatcher": []
+		}
+	],
+
+	"inputs": [
+		{
+			"id": "produto",
+			"type": "pickString",
+			"description": "Qual produto?",
+			"options": ["SecureGate", "LogStream", "NotificationHub"],
+			"default": "LogStream"
+		},
+		{
+			"id": "provider",
+			"type": "pickString",
+			"description": "Qual provider? (ADR-0018: SQL Server é o padrão, Postgres o segundo)",
+			"options": ["SqlServer", "Postgres"],
+			"default": "SqlServer"
+		},
+		{
+			"id": "nomeDaMigration",
+			"type": "promptString",
+			"description": "Nome da migration (PascalCase, ex.: AddNotificationChannels)"
+		},
+		{
+			"id": "profile",
+			"type": "pickString",
+			"description": "Qual profile do compose?",
+			"options": ["securegate", "logstream", "notificationhub", "postgres"],
+			"default": "securegate"
+		},
+		{
+			"id": "projetoDeTeste",
+			"type": "pickString",
+			"description": "Qual suíte?",
+			"options": [
+				"tests/SharedKernel/Secco.SharedKernel.Tests",
+				"tests/SDK/Secco.SDK.AspNetCore.Tests",
+				"tests/SDK/Secco.SDK.EntityFrameworkCore.Tests",
+				"tests/LogStream/Secco.LogStream.Tests",
+				"tests/SecureGate/Secco.SecureGate.Tests",
+				"tests/NotificationHub/Secco.NotificationHub.Tests",
+				"tests/AdminPortal/Secco.AdminPortal.Tests"
+			],
+			"default": "tests/LogStream/Secco.LogStream.Tests"
+		}
+	]
+}

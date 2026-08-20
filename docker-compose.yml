@@ -1,0 +1,133 @@
+# Ambiente de desenvolvimento da Secco Platform — um arquivo, três modos.
+#
+#   docker compose up -d                                # SÓ INFRA: é o que o F5 do VS Code usa
+#   docker compose --profile securegate up -d --build   # infra + UM produto isolado
+#   docker compose --profile all up -d --build          # infra + os três produtos, um SQL Server só
+#   docker compose --profile all down -v                # derruba e APAGA os bancos (seed limpo)
+#
+# Serviços sem "profiles" sobem sempre; os demais só com o profile pedido. Por isso um
+# `up` seco entrega exatamente a infraestrutura, sem nenhuma API competindo por porta.
+#
+# Portas das APIs em container: 4101/4102/4103 — as portas HTTP do esquema (os containers
+# servem HTTP puro). As portas HTTPS 4001/4002/4003 pertencem ao `dotnet run`/F5, então os
+# dois modos convivem sem colisão.
+#
+# Em Development cada API aplica migrations e seed automaticamente nos tenants do catálogo.
+
+services:
+  # --- Infraestrutura (sempre) -------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Secco@Dev123"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Secco@Dev123' -C -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  sqlserver-init:
+    # Mesma imagem do servidor: já traz o sqlcmd em /opt/mssql-tools18/bin (não existe imagem
+    # publicada "mssql-tools18") e evita um download extra. Container de uma tacada só.
+    # O Hangfire (ADR-0015) usa o MESMO SQL Server num banco de plataforma à parte (nunca por
+    # tenant) e, diferente das migrations EF, NÃO cria o banco sozinho.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    entrypoint: >
+      /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P 'Secco@Dev123' -C
+      -Q "IF DB_ID('secco_notificationhub_platform') IS NULL CREATE DATABASE secco_notificationhub_platform"
+
+  mailhog:
+    # SMTP fake do NotificationHub: aceita tudo e nunca entrega de verdade.
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"   # SMTP (NotificationHub:Email aponta aqui)
+      - "8025:8025"   # UI web para ver os e-mails "enviados"
+
+  postgres:
+    # Segundo provider (ADR-0018) — opt-in: `docker compose --profile postgres up -d`.
+    # Nenhum appsettings de DEV aponta para cá; serve para exercitar o provider à mão.
+    profiles: ["postgres"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: "Secco@Dev123"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # --- Produtos (por profile) --------------------------------------------------
+  securegate-api:
+    profiles: ["securegate", "all"]
+    build:
+      context: .
+      dockerfile: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
+      # de container), aqui precisa apontar para o serviço sqlserver do compose.
+      SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+    ports:
+      - "4101:8080"
+
+  logstream-api:
+    profiles: ["logstream", "all"]
+    build:
+      context: .
+      dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Catálogo de tenants apontando para o container (sobrepõe o appsettings.Development.json)
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000002__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_beta;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+    ports:
+      - "4102:8080"
+
+  notificationhub-api:
+    profiles: ["notificationhub", "all"]
+    build:
+      context: .
+      dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_tenant_alfa;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__BackgroundJobs__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_platform;User Id=sa;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__Email__Host: "mailhog"
+      NotificationHub__Email__Port: "1025"
+      NotificationHub__Email__UseStartTls: "false"
+      NotificationHub__Email__FromAddress: "no-reply@secco.local"
+    ports:
+      - "4103:8080"
+
+volumes:
+  sqlserver-data:
+  postgres-data:

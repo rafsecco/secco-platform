@@ -1,0 +1,191 @@
+// Secco Platform — configurações de debug (F5).
+//
+// Pré-requisitos, uma vez por máquina:
+//   1. task "setup: confiar no certificado de DEV"  (dotnet dev-certs https --trust)
+//   2. task "infra: subir (SQL Server + MailHog)"   (docker compose up -d)
+//
+// Cada API tem DOIS modos — é a distinção que mais custa caro em DEV:
+//
+//   standalone (HS256) — o produto sozinho, exatamente como está no appsettings.Development.json:
+//     token de dev assinado com DevelopmentSigningKey, catálogo de tenants e permissões por
+//     configuração. Não precisa do SecureGate no ar. É o modo do dia a dia.
+//
+//   federado (RS256)   — o produto validando tokens EMITIDOS pelo SecureGate, com catálogo de
+//     tenants e permissões resolvidos remotamente. É o único modo em que o AdminPortal funciona,
+//     porque ele chama os produtos on-behalf-of o operador (ADR-0023).
+//
+// Portas: API 400x (HTTPS) / 410x (HTTP); serviço de tela 5001. Vêm dos launchSettings.json.
+{
+	"version": "0.2.0",
+	"configurations": [
+		// --- SecureGate ------------------------------------------------------
+		{
+			"name": "SecureGate API (standalone, HS256) :4001",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: SecureGate.Api",
+			"program": "${workspaceFolder}/src/SecureGate/Secco.SecureGate.Api/bin/Debug/net10.0/Secco.SecureGate.Api.dll",
+			"cwd": "${workspaceFolder}/src/SecureGate/Secco.SecureGate.Api",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"serverReadyAction": {
+				"action": "openExternally",
+				"pattern": "\\bNow listening on:\\s+(https://\\S+)",
+				"uriFormat": "%s/scalar/v1"
+			}
+		},
+		{
+			// O SecureGate NÃO aceita os próprios tokens na configuração padrão: ele emite RS256
+			// (issuer = a própria URL) e valida HS256 com issuer "secco-dev". Aqui ele passa a
+			// confiar em si mesmo, que é o que a API de gestão exige quando o AdminPortal chama.
+			"name": "SecureGate API (self-issued, RS256) :4001",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: SecureGate.Api",
+			"program": "${workspaceFolder}/src/SecureGate/Secco.SecureGate.Api/bin/Debug/net10.0/Secco.SecureGate.Api.dll",
+			"cwd": "${workspaceFolder}/src/SecureGate/Secco.SecureGate.Api",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development",
+				"Secco__Authentication__Authority": "https://localhost:4001",
+				"Secco__Authentication__RequireHttpsMetadata": "false",
+				// Authority e DevelopmentSigningKey são MUTUAMENTE EXCLUSIVOS — o
+				// SeccoAuthenticationOptionsValidator derruba o startup se vierem os dois, e o
+				// appsettings.Development.json preenche a chave de dev. O validador usa
+				// string.IsNullOrWhiteSpace, então UM ESPAÇO conta como ausente. String vazia não
+				// serve: no Windows ela costuma apagar a variável em vez de sobrescrever, o que
+				// traria o valor do appsettings de volta.
+				"Secco__Authentication__DevelopmentSigningKey": " ",
+				"Secco__Authentication__Issuer": " "
+			}
+		},
+
+		// --- LogStream -------------------------------------------------------
+		{
+			"name": "LogStream API (standalone, HS256) :4002",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: LogStream.Api",
+			"program": "${workspaceFolder}/src/LogStream/Secco.LogStream.Api/bin/Debug/net10.0/Secco.LogStream.Api.dll",
+			"cwd": "${workspaceFolder}/src/LogStream/Secco.LogStream.Api",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"serverReadyAction": {
+				"action": "openExternally",
+				"pattern": "\\bNow listening on:\\s+(https://\\S+)",
+				"uriFormat": "%s/scalar/v1"
+			}
+		},
+		{
+			// Exige o SecureGate no ar em :4001 (config "self-issued"). Aqui o LogStream larga o
+			// catálogo por configuração e passa a resolver tenants E permissões pelo SecureGate
+			// (ADR-0021) — consequência prática: o tenant só existe para o LogStream depois que um
+			// banco "logstream" for cadastrado para ele no catálogo.
+			"name": "LogStream API (federado ao SecureGate) :4002",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: LogStream.Api",
+			"program": "${workspaceFolder}/src/LogStream/Secco.LogStream.Api/bin/Debug/net10.0/Secco.LogStream.Api.dll",
+			"cwd": "${workspaceFolder}/src/LogStream/Secco.LogStream.Api",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development",
+				"Secco__Authentication__Authority": "https://localhost:4001",
+				"Secco__Authentication__RequireHttpsMetadata": "false",
+				"Secco__Authentication__DevelopmentSigningKey": " ",
+				"Secco__Authentication__Issuer": " ",
+				"Secco__SecureGate__BaseUrl": "https://localhost:4001",
+				"Secco__SecureGate__ClientId": "secco-dev-console",
+				"Secco__SecureGate__ClientSecret": "secco-dev-console-secret-32-chars-min!",
+				"Secco__SecureGate__Product": "logstream"
+			}
+		},
+
+		// --- NotificationHub -------------------------------------------------
+		{
+			// Atenção: o appsettings.Development.json deste produto NÃO traz
+			// Secco:Authorization:Roles, então o resolver por configuração não devolve permissão
+			// nenhuma e tudo responde 403 (fail-closed, ADR-0021). Conceda as permissões antes de
+			// exercitar os endpoints — ver docs/local-runbooks/notificationhub.md.
+			"name": "NotificationHub API (standalone, HS256) :4003",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: NotificationHub.Api",
+			"program": "${workspaceFolder}/src/NotificationHub/Secco.NotificationHub.Api/bin/Debug/net10.0/Secco.NotificationHub.Api.dll",
+			"cwd": "${workspaceFolder}/src/NotificationHub/Secco.NotificationHub.Api",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"serverReadyAction": {
+				"action": "openExternally",
+				"pattern": "\\bNow listening on:\\s+(https://\\S+)",
+				"uriFormat": "%s/scalar/v1"
+			}
+		},
+
+		// --- AdminPortal -----------------------------------------------------
+		{
+			// A porta 5001 é OBRIGATÓRIA: é o redirect_uri gravado no client secco-adminportal
+			// pelo seed de DEV do SecureGate. Rodar em outra porta quebra o login OIDC.
+			"name": "AdminPortal (Blazor Server) :5001",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "build: AdminPortal",
+			"program": "${workspaceFolder}/src/AdminPortal/Secco.AdminPortal/bin/Debug/net10.0/Secco.AdminPortal.dll",
+			"cwd": "${workspaceFolder}/src/AdminPortal/Secco.AdminPortal",
+			"console": "internalConsole",
+			"stopAtEntry": false,
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"serverReadyAction": {
+				"action": "openExternally",
+				"pattern": "\\bNow listening on:\\s+(https://\\S+)",
+				"uriFormat": "%s"
+			}
+		},
+
+		{
+			"name": "Anexar a um processo .NET",
+			"type": "coreclr",
+			"request": "attach"
+		}
+	],
+
+	"compounds": [
+		{
+			// O caminho completo do ADR-0023: o operador loga no AdminPortal e o portal chama os
+			// produtos on-behalf-of dele. As configs federadas não abrem navegador de propósito —
+			// quem abre é o AdminPortal, então sobe uma aba só.
+			"name": "Plataforma: AdminPortal + SecureGate + LogStream",
+			"configurations": [
+				"SecureGate API (self-issued, RS256) :4001",
+				"LogStream API (federado ao SecureGate) :4002",
+				"AdminPortal (Blazor Server) :5001"
+			],
+			"preLaunchTask": "infra: subir (SQL Server + MailHog)",
+			"stopAll": true
+		},
+		{
+			// As três APIs isoladas, cada uma com seu token de dev HS256. Abre três abas do Scalar.
+			"name": "APIs: todas (standalone)",
+			"configurations": [
+				"SecureGate API (standalone, HS256) :4001",
+				"LogStream API (standalone, HS256) :4002",
+				"NotificationHub API (standalone, HS256) :4003"
+			],
+			"preLaunchTask": "infra: subir (SQL Server + MailHog)",
+			"stopAll": true
+		}
+	]
+}

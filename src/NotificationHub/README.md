@@ -37,7 +37,13 @@ PostgreSQL como segundo provider **do banco de tenant** — migrations do assemb
 
 ### Ambiente de desenvolvimento
 
-`docker-compose.yml`: SQL Server (bancos de tenant + plataforma do Hangfire, criado por um serviço `sqlserver-init` — diferente do EF, o Hangfire não cria o banco sozinho) + MailHog (SMTP fake local, `localhost:8025` para ver os e-mails "enviados").
+O `docker-compose.yml` da **raiz** do monorepo: SQL Server (bancos de tenant + plataforma do
+Hangfire, criado por um serviço `sqlserver-init` — diferente do EF, o Hangfire não cria o banco
+sozinho) + MailHog (SMTP fake local, `localhost:8025` para ver os e-mails "enviados"). Ambos
+sobem com `docker compose up -d`, sem nenhuma API junto — é o que o F5 do VS Code precisa.
+
+Para subir a API também em container: `docker compose --profile notificationhub up -d --build`
+(`http://localhost:4103`). Rodando pelo `dotnet run`/F5, a API atende em `https://localhost:4003`.
 
 ## Testes
 

@@ -1,5 +1,6 @@
 // Secco Platform — ajustes de workspace.
-// Formatacao de codigo NAO fica aqui: quem manda e o .editorconfig da raiz (ADR-0010).
+// O QUE formatar NAO fica aqui: quem manda e o .editorconfig da raiz (ADR-0010).
+// Aqui so mora o QUANDO (formatOnSave) e a configuracao das extensoes recomendadas.
 {
 	// Artefatos de build de 6 produtos poluem a busca e o file watcher.
 	// Ficam visiveis no Explorer de proposito (as vezes voce quer conferir o que saiu do build).
@@ -14,5 +15,138 @@
 	},
 
 	// Evita o prompt de "selecione a solucao" do C# Dev Kit num repo com varios produtos.
-	"dotnet.defaultSolution": "Secco.Platform.slnx"
+	"dotnet.defaultSolution": "Secco.Platform.slnx",
+
+	// --- C# / .NET ---------------------------------------------------------
+	// Formatar ao salvar e seguro porque o .editorconfig descreve o codigo como ele
+	// realmente e. Se algum dia os dois divergirem, corrija o .editorconfig — nao
+	// desligue isto, ou o EnforceCodeStyleInBuild passa a quebrar o build de surpresa.
+	"[csharp]": {
+		"editor.defaultFormatter": "ms-dotnettools.csharp",
+		"editor.formatOnSave": true
+	},
+	// dotnet_sort_system_directives_first do .editorconfig so vale se alguem ordenar.
+	"dotnet.formatting.organizeImportsOnFormat": true,
+	"dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+	"dotnet.completion.triggerCompletionInArgumentLists": true,
+	"dotnet.codeLens.enableReferencesCodeLens": true,
+	"dotnet.codeLens.enableTestsCodeLens": true,
+	// Dica de nome de parametro: util em Result<T>/factory methods com varios argumentos
+	// do mesmo tipo. Suprimida quando o nome do argumento ja diz a mesma coisa.
+	"dotnet.inlayHints.enableInlayHintsForParameters": true,
+	"dotnet.inlayHints.suppressInlayHintsForParametersThatMatchArgumentName": true,
+	"csharp.inlayHints.enableInlayHintsForTypes": true,
+	// Razor do AdminPortal (Blazor Server, ADR-0023).
+	"razor.format.enable": true,
+
+	// --- Markdown ----------------------------------------------------------
+	// docs/adr, roadmap e design-decisions-log sao fonte da verdade: o lint serve para
+	// pegar link quebrado e lista malformada, nao para brigar com o estilo dos documentos.
+	"markdownlint.config": {
+		"MD013": false,
+		"MD024": { "siblings_only": true },
+		"MD033": false,
+		"MD041": false
+	},
+
+	// --- SonarQube for IDE -------------------------------------------------
+	"sonarlint.disableTelemetry": true,
+	// Migrations sao codigo gerado pelo dotnet-ef (o .editorconfig ja as marca com
+	// generated_code = true) e os *.Client sao gerados pelo NSwag a cada build (ADR-0006):
+	// achado de analise estatica neles nao tem acao possivel.
+	"sonarlint.analysisExcludesStandalone": "**/Migrations/**,**/*.Client/**,**/bin/**,**/obj/**",
+
+	// --- YAML / Docker / MSBuild -------------------------------------------
+	"redhat.telemetry.enabled": false,
+	"files.associations": {
+		"*.slnx": "xml",
+		"*.props": "xml",
+		"*.targets": "xml"
+	},
+
+	// --- SQL Server (ADR-0018: provider padrao) ----------------------------
+	// ATENCAO: aqui SO entram conexoes de DESENVOLVIMENTO em localhost. A senha e a mesma
+	// que ja esta publica nos appsettings.Development.json e no docker-compose.yml — nao ha
+	// segredo novo neste arquivo. Conexao de homologacao ou producao JAMAIS entra aqui:
+	// use o proprio painel da extensao, que grava no perfil do usuario, fora do repositorio.
+	// Os bancos aparecem depois que a API sobe pela primeira vez (migrations no startup).
+	"mssql.connections": [
+		{
+			"profileName": "Secco DEV — SecureGate (plataforma)",
+			"server": "localhost,1433",
+			"database": "secco_securegate",
+			"authenticationType": "SqlLogin",
+			"user": "sa",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		},
+		{
+			"profileName": "Secco DEV — LogStream tenant alfa",
+			"server": "localhost,1433",
+			"database": "secco_logstream_tenant_alfa",
+			"authenticationType": "SqlLogin",
+			"user": "sa",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		},
+		{
+			"profileName": "Secco DEV — LogStream tenant beta",
+			"server": "localhost,1433",
+			"database": "secco_logstream_tenant_beta",
+			"authenticationType": "SqlLogin",
+			"user": "sa",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		},
+		{
+			"profileName": "Secco DEV — NotificationHub tenant alfa",
+			"server": "localhost,1433",
+			"database": "secco_notificationhub_tenant_alfa",
+			"authenticationType": "SqlLogin",
+			"user": "sa",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		},
+		{
+			"profileName": "Secco DEV — NotificationHub plataforma (Hangfire)",
+			"server": "localhost,1433",
+			"database": "secco_notificationhub_platform",
+			"authenticationType": "SqlLogin",
+			"user": "sa",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		}
+	],
+
+	// --- PostgreSQL (ADR-0018: segundo provider) ---------------------------
+	// Sobe so com `docker compose --profile postgres up -d` (task "stack: subir um produto").
+	// Nenhum appsettings de DEV aponta para ca — serve para exercitar o segundo provider.
+	"pgsql.connections": [
+		{
+			"profileName": "Secco DEV — PostgreSQL local",
+			"server": "localhost",
+			"port": 5432,
+			"database": "postgres",
+			"authenticationType": "SqlLogin",
+			"user": "postgres",
+			"password": ""
+		}
+	],
+
+	// --- Explorer ----------------------------------------------------------
+	// 6 produtos x 4 camadas geram muita raiz de projeto; agrupar o que orbita o csproj.
+	"explorer.fileNesting.enabled": true,
+	"explorer.fileNesting.expand": false,
+	"explorer.fileNesting.patterns": {
+		"*.csproj": "Dockerfile, .dockerignore, packages.lock.json",
+		"appsettings.json": "appsettings.*.json",
+		"docker-compose.yml": "docker-compose.*.yml, .dockerignore",
+		"Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, nuget.config, dotnet-tools.json",
+		"README.md": "CLAUDE.md, LICENSE"
+	}
 }

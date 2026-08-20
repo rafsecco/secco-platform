@@ -46,6 +46,7 @@ jobs:
               - 'nuget.config'
               - '.editorconfig'
               - 'Secco.Platform.slnx'
+              - 'docker-compose.yml'
               - '.github/workflows/**'
             logstream:
               - 'src/LogStream/**'
@@ -231,22 +232,23 @@ jobs:
       needs.changes.outputs.notificationhub == 'true'
     runs-on: ubuntu-latest
     strategy:
-      # Um runner por produto: sem disputa de porta (todos os composes publicam 1433/8080)
+      # Um runner por produto: o compose da raiz é um só, mas cada profile publica o SQL Server
+      # na mesma 1433 — subir dois produtos no mesmo runner disputaria a porta do banco.
       fail-fast: false
       matrix:
         include:
           - product: logstream
-            compose: src/LogStream/docker-compose.yml
+            port: 4102
           - product: securegate
-            compose: src/SecureGate/docker-compose.yml
+            port: 4101
           - product: notificationhub
-            compose: src/NotificationHub/docker-compose.yml
+            port: 4103
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Build e sobe o stack (${{ matrix.product }})
-        run: docker compose -f ${{ matrix.compose }} up -d --build
+        run: docker compose --profile ${{ matrix.product }} up -d --build
 
       - name: Smoke — a API responde HTTP
         # Qualquer resposta HTTP basta: 401 já prova que subiu e está servindo (os endpoints
@@ -254,7 +256,7 @@ jobs:
         # falhando, connection string apontando para o lugar errado, container morrendo.
         run: |
           for _ in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8080/health || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:${{ matrix.port }}/health || true)
             if [ -n "$code" ] && [ "$code" != "000" ]; then
               echo "API respondeu HTTP $code"
               exit 0
@@ -267,9 +269,9 @@ jobs:
       - name: Diagnóstico (só em falha)
         if: failure()
         run: |
-          docker compose -f ${{ matrix.compose }} ps -a
-          docker compose -f ${{ matrix.compose }} logs --tail 100
+          docker compose --profile ${{ matrix.product }} ps -a
+          docker compose --profile ${{ matrix.product }} logs --tail 100
 
       - name: Teardown
         if: always()
-        run: docker compose -f ${{ matrix.compose }} down -v
+        run: docker compose --profile ${{ matrix.product }} down -v

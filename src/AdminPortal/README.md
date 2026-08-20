@@ -38,7 +38,14 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 | `ApiBaseUrl` | Base da API do SecureGate (padrão = `Authority`) |
 | `ClientId` / `ClientSecret` | Client confidencial do AdminPortal (`secco-adminportal`) |
 
-> Em DEV, `Authority`/`ApiBaseUrl` apontam para a URL do SecureGate em execução — ajuste conforme a porta local do SecureGate (o seed de DEV registra o client `secco-adminportal` e o operador `operador@secco.local`). O redirect URI registrado é `https://localhost:7180/signin-oidc`.
+> Em DEV, `Authority`/`ApiBaseUrl` já apontam para `https://localhost:4001`, a porta do SecureGate
+> (o seed de DEV registra o client `secco-adminportal` e o operador `operador@secco.local`).
+>
+> **O AdminPortal precisa rodar em `https://localhost:5001`**: é o redirect URI gravado no client
+> pelo seed. O SecureGate, por sua vez, precisa subir em modo *self-issued* — ele valida HS256 por
+> padrão e não aceitaria os tokens que ele mesmo emite. O compound
+> **"Plataforma: AdminPortal + SecureGate + LogStream"** do [`.vscode/launch.json`](../../.vscode/launch.json)
+> sobe os três já configurados; é o caminho recomendado.
 
 ## Testes
 

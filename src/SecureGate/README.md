@@ -96,6 +96,25 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 | `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
 | `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
 
+## Rodando em desenvolvimento
+
+Infraestrutura (SQL Server) pelo `docker-compose.yml` da **raiz** do monorepo:
+
+```bash
+docker compose up -d                                       # só a infra
+dotnet run --project src/SecureGate/Secco.SecureGate.Api   # https://localhost:4001
+```
+
+Ou em container: `docker compose --profile securegate up -d --build` (`http://localhost:4101`).
+
+> **Armadilha:** na configuração padrão de DEV o SecureGate **não aceita os próprios tokens** —
+> ele emite RS256 (issuer = a própria URL) e valida HS256 com issuer `secco-dev`
+> (`Secco:Authentication:DevelopmentSigningKey`). Para exercitar a API de gestão com um token
+> emitido por ele mesmo, suba em modo *self-issued*: é a configuração
+> **"SecureGate API (self-issued, RS256)"** do [`.vscode/launch.json`](../../.vscode/launch.json),
+> que aponta a `Authority` para `https://localhost:4001` e anula a chave de dev (as duas são
+> mutuamente exclusivas — com ambas preenchidas o startup falha).
+
 ## Testes
 
 `tests/SecureGate/Secco.SecureGate.Tests` — Testcontainers (ADR-0012): schema ADR-0017 provado por INFORMATION_SCHEMA, fluxo client credentials/JWKS, gestão e catálogo com autorização por scope, cache TTL/stale do client, gestão de roles/usuários, os E2E cross-produto (o LogStream valida token do SecureGate **e resolve tenant pelo catálogo remoto sem nenhum tenant em configuração**, inclusive migrations via `ListAsync`) e o **E2E de login**: authorization code + PKCE ponta a ponta pelo fluxo real do navegador (desafio → login antiforgery → code → troca com `code_verifier` → userinfo → refresh).
