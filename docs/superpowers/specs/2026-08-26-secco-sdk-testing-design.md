@@ -1,8 +1,11 @@
-# Secco.SDK.Testing — design
+# Secco.SDK.Testing + generalização de provider — design
 
 **Data:** 2026-08-26
 **Status:** aprovado para planejamento
-**Item de origem:** backlog do `docs/roadmap.md` — "extrair uma base reutilizável dos 4 `*ApiFactory` de testes de integração"
+**Itens de origem:** os **dois** itens de backlog do `docs/roadmap.md` — "extrair uma base
+reutilizável dos 4 `*ApiFactory` de testes de integração" e "generalizar
+`DatabaseProviderConfigurator`/`BindSection`". Agrupados por decisão explícita: os dois tocam os
+mesmos arquivos do template, e separá-los custaria duas passadas pelo mesmo `validate-template`.
 
 ## Contexto
 
@@ -41,6 +44,14 @@ Pela ADR-0013, divergência entre template e o padrão é bug de prioridade alta
    container-vs-env-var vive num `internal sealed class SeccoSqlServerInstance`, testável sem
    Docker. A superfície pública de um pacote sujeito a semver (ADR-0009) fica mínima.
 5. **ADR-0027**, curta, complementando a ADR-0012.
+6. **Seleção de provider generalizada sem acoplar o SDK a engine.** O item de backlog, como
+   escrito, mandava levar o `DatabaseProviderConfigurator` para o `Secco.SDK.EntityFrameworkCore` —
+   mas ele chama `UseSqlServer`/`UseNpgsql`, e aquele pacote é publicado declaradamente agnóstico
+   de provider (comentário no csproj + a cláusula da ADR-0018 "a arquitetura permanece extensível a
+   outros engines"). Adotado o desenho por receita: o produto fornece o que aplicar, o SDK
+   seleciona. Zero dependência de provider adicionada ao pacote publicado.
+7. **`BindSection` é apagado, não extraído** — contraria o item de backlog, deliberadamente. Ver a
+   seção própria.
 
 ## Arquitetura
 
@@ -185,6 +196,73 @@ Herdar da base lhe daria um container que ela não quer. Fica como está.
   `..\..\..\SDK\Secco.SDK.Testing\Secco.SDK.Testing.csproj`, no mesmo padrão que o Infrastructure
   do template já usa para os outros dois SDKs.
 
+## Generalização da seleção de provider
+
+Duplicação medida: ~230 linhas nos quatro `*DatabaseOptions.cs`, em quatro blocos — o enum
+(4 × 12 linhas, idênticos), o switch (4 × 10, idênticos exceto os nomes dos assemblies de
+migrations), o `CreateOptions<TContext>` (4 × 8, idênticos exceto o tipo do contexto) e o
+`BindSection` (4 × 6, idênticos — o SecureGate nem chegou a extrair, tem as duas linhas inline).
+
+### Seletor por receita, no `Secco.SDK.EntityFrameworkCore`
+
+```csharp
+public sealed record SeccoDatabaseProviderRegistration(
+    string Name,
+    Action<DbContextOptionsBuilder, string> Apply);   // (builder, connectionString)
+
+public static class SeccoDatabaseProviders
+{
+    public static void Configure(DbContextOptionsBuilder builder, string providerName,
+        string connectionString, params SeccoDatabaseProviderRegistration[] registrations);
+
+    public static DbContextOptions<TContext> CreateOptions<TContext>(string providerName,
+        string connectionString, params SeccoDatabaseProviderRegistration[] registrations)
+        where TContext : DbContext;
+}
+```
+
+O nome do assembly de migrations fica **dentro** do `Apply`, não como campo do record: assim o SDK
+não sabe nem que migrations existem, só aplica a receita recebida. Cada produto declara duas
+linhas:
+
+```csharp
+new("SqlServer",  (b, cs) => b.UseSqlServer(cs, o => o.MigrationsAssembly("Secco.LogStream.Migrations.SqlServer"))),
+new("PostgreSql", (b, cs) => b.UseNpgsql(cs,     o => o.MigrationsAssembly("Secco.LogStream.Migrations.Postgres"))),
+```
+
+**Cada produto mantém o próprio enum.** Ele é API legítima do produto e o bind de configuração já
+valida o valor de graça; `Provider.ToString()` alimenta o seletor. O fail-fast do SDK — nome
+desconhecido gera exceção citando o valor recebido e os aceitos, comparação ordinal ignore-case — é
+rede secundária, não a primária.
+
+`SecureGateDatabaseProviderConfigurator` continua existindo e continua `public` (as fábricas de
+design-time dependem dele), mas encolhe para delegar ao seletor e acrescentar sua linha de
+`UseOpenIddict` — a única variação real entre os quatro. Resultado: ~35 linhas viram ~10 por
+produto, sem dependência nova no pacote publicado e sem reescrever a promessa de agnosticismo do
+csproj.
+
+**Segurança (ADR-0020):** `providerName` vem de configuração, ou seja, do operador do deployment e
+não de usuário final. A mensagem de fail-fast cita o valor recebido e a lista de aceitos — nenhum
+deles é segredo — e **nunca** a connection string.
+
+### `BindSection`: apagar, não extrair
+
+Esta parte contraria o item de backlog de propósito. `BindSection` é um
+`IConfiguration.GetSection().Bind()` embrulhado num `AddSingleton(sp => ...)` para ser lazy, e o
+framework já tem exatamente isso em `services.AddOptions<T>().BindConfiguration(key)`: resolve o
+`IConfiguration` do container e portanto respeita fontes adicionadas tarde pelos testes, que é o
+motivo declarado do helper existir.
+
+O SecureGate já usa a forma nativa em `SecureGateInfrastructureExtensions`, com `.ValidateOnStart()`
+em cima. O repositório tem as duas formas convivendo e a caseira é a pior das duas — promovê-la a
+API pública de um pacote publicável seria consagrar o erro.
+
+Então as 8 chamadas migram para `AddOptions<T>().BindConfiguration(...)` e o helper desaparece dos
+quatro arquivos. Nenhuma API nova no SDK. Consumidores passam de
+`GetRequiredService<LogStreamDatabaseOptions>()` para `IOptions<LogStreamDatabaseOptions>.Value`
+(~10 pontos, mecânico) e ganham acesso ao `IValidateOptions<T>` + `ValidateOnStart()` que a
+plataforma já usa em autenticação e no catálogo do SecureGate.
+
 ## ADR-0027
 
 Curta, complementando a ADR-0012 (que decidiu a *estratégia* de testes mas não disse de onde vem a
@@ -197,9 +275,12 @@ Curta, complementando a ADR-0012 (que decidiu a *estratégia* de testes mas não
 - **consequência**: o pacote depende de `xunit` (por `IAsyncLifetime`), então quem adota a base
   adota o xUnit. Coerente com a ADR-0012, que já fixa xUnit em toda a plataforma, mas isso passa de
   convenção interna a dependência contratual de um pacote público — precisa estar escrito;
-- amarração com a ADR-0013: o template é atualizado na mesma entrega.
+- amarração com a ADR-0013: o template é atualizado na mesma entrega;
+- **a seleção de provider é por receita**: o `Secco.SDK.EntityFrameworkCore` permanece agnóstico de
+  engine (só `Relational`), e um terceiro engine se adiciona no produto, sem tocar no SDK — o que
+  torna operacional a cláusula da ADR-0018 sobre extensibilidade, que até aqui era só intenção.
 
-## Testes do próprio pacote
+## Testes dos pacotes
 
 `tests/SDK/Secco.SDK.Testing.Tests`, tudo sem Docker:
 
@@ -211,17 +292,33 @@ Curta, complementando a ADR-0012 (que decidiu a *estratégia* de testes mas não
 - `AddRolePermissions` emitindo os índices corretos, inclusive além de 9;
 - claims corretas em cada um dos dois métodos de token.
 
+O seletor de provider ganha os seus no projeto que já existe, `tests/SDK/Secco.SDK.EntityFrameworkCore.Tests`,
+também sem Docker: seleção correta por nome, ignore-case, e a exceção de nome desconhecido citando
+o valor recebido e os aceitos.
+
+## Ordem de execução
+
+Três blocos independentes entre si, verificados um a um com a suíte verde antes de seguir. Não é
+um PR monolítico: é um PR com três pontos de verificação internos.
+
+1. **`Secco.SDK.Testing` + os 5 consumidores de teste.** Fecha quando os 493 testes existentes
+   passam sem nenhuma `*ApiFactory` duplicada de pé.
+2. **Seletor de provider + os 4 produtos.** Fecha quando os 4 `*DatabaseOptions.cs` estão
+   encolhidos e a paridade Postgres do LogStream e do NotificationHub segue verde — é ela que
+   prova que a receita do Npgsql continua sendo aplicada.
+3. **Migração de options + os ~10 pontos de injeção.** Fecha quando `BindSection` não existe mais
+   em nenhum dos quatro arquivos.
+
 ## Critério de conclusão
 
 - os 493 testes existentes verdes;
-- os testes novos do pacote verdes;
+- os testes novos do `Secco.SDK.Testing` e do seletor de provider verdes;
 - `validate-template` verde;
 - `dotnet build Secco.Platform.slnx --configuration Release` sem avisos (warnings são erros);
-- `docs/roadmap.md` com o item de backlog marcado.
+- `docs/roadmap.md` com **os dois** itens de backlog marcados.
 
 ## Fora de escopo
 
-- Fixture de paridade Postgres (2 cópias hoje; entra quando doer).
-- Generalização de `DatabaseProviderConfigurator`/`BindSection` — item de backlog vizinho, no
-  `Secco.SDK.EntityFrameworkCore`, que toca o mesmo template. Deliberadamente não agregado aqui
-  para manter a entrega auditável.
+- Fixture de paridade Postgres no `Secco.SDK.Testing` (2 cópias hoje; entra quando doer).
+- Trocar o enum de provider de cada produto por um enum compartilhado — avaliado e recusado nesta
+  rodada: o enum é API legítima do produto e dá validação de configuração tipada de graça.
