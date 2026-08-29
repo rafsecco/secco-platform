@@ -4,7 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Secco.SecureGate.Application;
-using Secco.SecureGate.Tests.Integration.Helpers;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -28,7 +27,7 @@ public class UserManagementTests(SecureGateApiFactory factory) : IAsyncLifetime
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", JwtTestTokenFactory.CreateToken(scopes));
+			new AuthenticationHeaderValue("Bearer", factory.CreateTokenWithScopes(scopes));
 
 		return client;
 	}

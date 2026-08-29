@@ -1,58 +1,32 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.MsSql;
-using Xunit;
+using Secco.SDK.Testing;
 
 namespace Secco.SecureGate.Tests.Integration;
 
 /// <summary>
 /// Sobe a API real (ambiente <c>Testing</c> — sem migrations/seed automáticos de DEV)
-/// com um SQL Server real via Testcontainers (ADR-0012) hospedando o banco de
-/// PLATAFORMA <c>secco_securegate</c> (ADR-0022 — identidade não é dado de tenant).
+/// sobre a base da plataforma (ADR-0027), hospedando o banco de PLATAFORMA
+/// <c>secco_securegate</c> (ADR-0022 — identidade não é dado de tenant).
 /// Herdável: <see cref="SelfIssuedAuthSecureGateApiFactory"/> troca a chave HS256 de
 /// testes pela Authority do próprio servidor.
 /// </summary>
-public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public class SecureGateApiFactory : SeccoApiFactory<Program>
 {
-	private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
-	private readonly SemaphoreSlim _migrationLock = new(1, 1);
-	private bool _migrated;
+	/// <inheritdoc />
+	protected override string Audience => "secco-securegate";
 
+	/// <summary>Connection string do banco de PLATAFORMA (ADR-0022 — identidade não é dado de tenant).</summary>
 	public string GetPlatformConnectionString() => GetConnectionStringFor("secco_securegate");
 
-	/// <summary>Connection string para um banco adicional no mesmo container (ex.: tenant de outro produto no E2E).</summary>
-	public string GetConnectionStringFor(string databaseName) =>
-		new SqlConnectionStringBuilder(_container.GetConnectionString())
-		{
-			InitialCatalog = databaseName,
-		}.ConnectionString;
-
-	/// <summary>Aplica migrations + seed de referência (scopes) uma única vez por factory.</summary>
-	public async Task EnsureDatabaseMigratedAsync()
+	/// <summary>Aplica migrations + seed de referência (scopes) — a base garante a chamada única.</summary>
+	protected override async Task MigrateAsync(IServiceProvider services)
 	{
-		await _migrationLock.WaitAsync();
+		await Secco.SecureGate.Infrastructure.SecureGateInfrastructureExtensions
+			.MigrateSecureGateDatabaseAsync(services);
 
-		try
-		{
-			if (!_migrated)
-			{
-				await Secco.SecureGate.Infrastructure.SecureGateInfrastructureExtensions
-					.MigrateSecureGateDatabaseAsync(Services);
-
-				// Seed de referência (scopes de produto); o de DEV não roda em Testing (guarda dupla)
-				await Secco.SDK.EntityFrameworkCore.Seeding.SeccoSeedingExtensions
-					.SeedSeccoDataAsync(Services);
-
-				_migrated = true;
-			}
-		}
-		finally
-		{
-			_migrationLock.Release();
-		}
+		// Seed de referência (scopes de produto); o de DEV não roda em Testing (guarda dupla)
+		await Secco.SDK.EntityFrameworkCore.Seeding.SeccoSeedingExtensions
+			.SeedSeccoDataAsync(services);
 	}
 
 	/// <summary>Registra um client OIDC de teste (client credentials) com os scopes informados.</summary>
@@ -143,25 +117,9 @@ public class SecureGateApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
 		await applications.CreateAsync(descriptor);
 	}
 
-	protected override void ConfigureWebHost(IWebHostBuilder builder)
+	/// <inheritdoc />
+	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
 	{
-		builder.UseEnvironment("Testing");
-
-		builder.ConfigureAppConfiguration((_, configuration) =>
-			configuration.AddInMemoryCollection(new Dictionary<string, string?>
-			{
-				["SecureGate:Database:ConnectionString"] = GetPlatformConnectionString(),
-				["Secco:Authentication:Audience"] = "secco-securegate",
-				["Secco:Authentication:Issuer"] = "secco-tests",
-				["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
-			}));
-	}
-
-	public async Task InitializeAsync() => await _container.StartAsync();
-
-	async Task IAsyncLifetime.DisposeAsync()
-	{
-		await base.DisposeAsync();
-		await _container.DisposeAsync();
+		settings["SecureGate:Database:ConnectionString"] = GetPlatformConnectionString();
 	}
 }

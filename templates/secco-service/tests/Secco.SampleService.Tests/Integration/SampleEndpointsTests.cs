@@ -11,7 +11,7 @@ public class SampleEndpointsTests(SampleServiceApiFactory factory) : IClassFixtu
 {
 	private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-	public async Task InitializeAsync() => await factory.EnsureTenantDatabasesMigratedAsync();
+	public async Task InitializeAsync() => await factory.EnsureDatabaseMigratedAsync();
 
 	public Task DisposeAsync() => Task.CompletedTask;
 
@@ -19,7 +19,7 @@ public class SampleEndpointsTests(SampleServiceApiFactory factory) : IClassFixtu
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", SampleServiceApiFactory.CreateToken(tenantId));
+			new AuthenticationHeaderValue("Bearer", factory.CreateToken(tenantId));
 		return client;
 	}
 

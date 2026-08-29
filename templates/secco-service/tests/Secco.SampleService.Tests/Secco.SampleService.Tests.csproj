@@ -6,12 +6,13 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Secco.SampleService.Api\Secco.SampleService.Api.csproj" />
+    <!-- Base de testes da plataforma (ADR-0027). Monorepo-first, como as demais
+         referencias de SDK do template: o caminho resolve depois da instanciacao em src/. -->
+    <ProjectReference Include="..\..\..\SDK\Secco.SDK.Testing\Secco.SDK.Testing.csproj" />
   </ItemGroup>
 
 </Project>

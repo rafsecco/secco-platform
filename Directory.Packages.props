@@ -101,6 +101,13 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.9" />
+    <!-- Dependências diretas do Secco.SDK.Testing (ADR-0027): num projeto de teste elas
+         chegam transitivamente pelo produto referenciado, mas um pacote publicável precisa
+         declará-las. Versões alinhadas com as que já se resolvem hoje. -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.1" />
+    <!-- 8.16.0 é o piso do OpenIddict 7.5.0 (SecureGate); com o pinning transitivo central
+         ligado, a versão aqui vale para a solution inteira. -->
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.16.0" />
   </ItemGroup>
 
 </Project>

@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure.Identity;
-using Secco.SecureGate.Tests.Integration.Helpers;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -35,7 +34,7 @@ public class EntraSignInProcessorTests(SecureGateApiFactory factory) : IAsyncLif
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", JwtTestTokenFactory.CreateToken([SecureGateScopes.Admin]));
+			new AuthenticationHeaderValue("Bearer", factory.CreateTokenWithScopes([SecureGateScopes.Admin]));
 
 		return client;
 	}

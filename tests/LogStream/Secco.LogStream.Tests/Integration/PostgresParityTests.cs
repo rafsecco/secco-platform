@@ -1,16 +1,20 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using Secco.LogStream.Infrastructure;
 using Secco.LogStream.Infrastructure.Contexts;
-using Secco.LogStream.Tests.Integration.Helpers;
+using Secco.SharedKernel.Constants;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -24,9 +28,40 @@ namespace Secco.LogStream.Tests.Integration;
 /// </summary>
 public sealed class LogStreamPostgresApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-	private readonly PostgreSqlContainer _container = new PostgreSqlBuilder().Build();
+	/// <summary>
+	/// Imagem fixada: o construtor sem parametros do PostgreSqlBuilder esta obsoleto e some
+	/// numa versao futura do Testcontainers. E a mesma imagem que ele usava por padrao.
+	/// </summary>
+	private const string PostgresImage = "postgres:15.1";
+
+	private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(PostgresImage).Build();
+
+	/// <summary>
+	/// Chave aleatoria por instancia, como faz a base da plataforma (ADR-0020/ADR-0027). Esta
+	/// fixture NAO herda de SeccoApiFactory porque roda sobre PostgreSQL, e a base e de SQL
+	/// Server: e a fixture de paridade que a ADR-0027 deixou explicitamente fora da v1.
+	/// </summary>
+	private readonly string _signingKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
 	public Guid TenantAlfa { get; } = Guid.NewGuid();
+
+	/// <summary>Token compativel com a configuracao de autenticacao desta fixture.</summary>
+	public string CreateToken(Guid tenantId) =>
+		new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+		{
+			Issuer = "secco-tests",
+			Audience = "secco-logstream",
+			Claims = new Dictionary<string, object>(StringComparer.Ordinal)
+			{
+				[SeccoClaims.Subject] = "test-user",
+				[SeccoClaims.TenantId] = tenantId.ToString(),
+				[SeccoClaims.Role] = "test-admin",
+			},
+			Expires = DateTime.UtcNow.AddMinutes(10),
+			SigningCredentials = new SigningCredentials(
+				new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_signingKey)),
+				SecurityAlgorithms.HmacSha256),
+		});
 
 	public string GetTenantConnectionString(string databaseName) =>
 		new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
@@ -44,7 +79,7 @@ public sealed class LogStreamPostgresApiFactory : WebApplicationFactory<Program>
 				["LogStream:Database:Provider"] = "PostgreSql",
 				["Secco:Authentication:Audience"] = "secco-logstream",
 				["Secco:Authentication:Issuer"] = "secco-tests",
-				["Secco:Authentication:DevelopmentSigningKey"] = "chave-de-testes-com-32-caracteres!!",
+				["Secco:Authentication:DevelopmentSigningKey"] = _signingKey,
 				[$"Secco:Tenancy:Tenants:{TenantAlfa}:ConnectionString"] =
 					GetTenantConnectionString("secco_logstream_pg_alfa"),
 				// Permissões do role dos tokens de teste (Fase 6.4, ADR-0021)
@@ -93,7 +128,7 @@ public class PostgresParityTests(LogStreamPostgresApiFactory factory) : IClassFi
 
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", JwtTestTokenFactory.CreateToken(factory.TenantAlfa));
+			new AuthenticationHeaderValue("Bearer", factory.CreateToken(factory.TenantAlfa));
 
 		var response = await client.PostAsJsonAsync("/api/v1/log-entries", new
 		{
