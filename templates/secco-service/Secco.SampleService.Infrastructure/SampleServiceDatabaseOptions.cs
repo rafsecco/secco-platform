@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore;
 
 namespace Secco.SampleService.Infrastructure;
 
@@ -22,35 +23,29 @@ public sealed class SampleServiceDatabaseOptions
 	public SampleServiceDatabaseProvider Provider { get; set; } = SampleServiceDatabaseProvider.SqlServer;
 }
 
-/// <summary>Aplicação do provider selecionado (assembly de migrations por engine, ADR-0018).</summary>
+/// <summary>Aplicação do provider selecionado (seletor por receita, ADR-0018/ADR-0027).</summary>
 internal static class SampleServiceDatabaseProviderConfigurator
 {
-	private const string SqlServerMigrationsAssembly = "Secco.SampleService.Migrations.SqlServer";
-	private const string PostgresMigrationsAssembly = "Secco.SampleService.Migrations.Postgres";
+	private static readonly SeccoDatabaseProviderRegistration[] Registrations =
+	[
+		new(nameof(SampleServiceDatabaseProvider.SqlServer),
+			(builder, connectionString) => builder.UseSqlServer(connectionString,
+				sql => sql.MigrationsAssembly("Secco.SampleService.Migrations.SqlServer"))),
+		new(nameof(SampleServiceDatabaseProvider.PostgreSql),
+			(builder, connectionString) => builder.UseNpgsql(connectionString,
+				npgsql => npgsql.MigrationsAssembly("Secco.SampleService.Migrations.Postgres"))),
+	];
 
 	public static void Configure(
 		DbContextOptionsBuilder optionsBuilder,
 		SampleServiceDatabaseProvider provider,
-		string connectionString)
-	{
-		switch (provider)
-		{
-			case SampleServiceDatabaseProvider.PostgreSql:
-				optionsBuilder.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(PostgresMigrationsAssembly));
-				break;
-			default:
-				optionsBuilder.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(SqlServerMigrationsAssembly));
-				break;
-		}
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.Configure(optionsBuilder, provider.ToString(), connectionString, Registrations);
 
 	/// <summary>Cria options do contexto para processos fora do request (migrations, manutenção).</summary>
 	public static DbContextOptions<Contexts.SampleServiceDbContext> CreateOptions(
 		SampleServiceDatabaseProvider provider,
-		string connectionString)
-	{
-		var builder = new DbContextOptionsBuilder<Contexts.SampleServiceDbContext>();
-		Configure(builder, provider, connectionString);
-		return builder.Options;
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.CreateOptions<Contexts.SampleServiceDbContext>(
+			provider.ToString(), connectionString, Registrations);
 }

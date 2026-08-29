@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore;
 
 namespace Secco.LogStream.Infrastructure;
 
@@ -22,35 +23,29 @@ public sealed class LogStreamDatabaseOptions
 	public LogStreamDatabaseProvider Provider { get; set; } = LogStreamDatabaseProvider.SqlServer;
 }
 
-/// <summary>Aplicação do provider selecionado a um options builder (assembly de migrations por engine, ADR-0018).</summary>
+/// <summary>Aplicação do provider selecionado a um options builder (seletor por receita, ADR-0018/ADR-0027).</summary>
 internal static class LogStreamDatabaseProviderConfigurator
 {
-	private const string SqlServerMigrationsAssembly = "Secco.LogStream.Migrations.SqlServer";
-	private const string PostgresMigrationsAssembly = "Secco.LogStream.Migrations.Postgres";
+	private static readonly SeccoDatabaseProviderRegistration[] Registrations =
+	[
+		new(nameof(LogStreamDatabaseProvider.SqlServer),
+			(builder, connectionString) => builder.UseSqlServer(connectionString,
+				sql => sql.MigrationsAssembly("Secco.LogStream.Migrations.SqlServer"))),
+		new(nameof(LogStreamDatabaseProvider.PostgreSql),
+			(builder, connectionString) => builder.UseNpgsql(connectionString,
+				npgsql => npgsql.MigrationsAssembly("Secco.LogStream.Migrations.Postgres"))),
+	];
 
 	public static void Configure(
 		DbContextOptionsBuilder optionsBuilder,
 		LogStreamDatabaseProvider provider,
-		string connectionString)
-	{
-		switch (provider)
-		{
-			case LogStreamDatabaseProvider.PostgreSql:
-				optionsBuilder.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(PostgresMigrationsAssembly));
-				break;
-			default:
-				optionsBuilder.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(SqlServerMigrationsAssembly));
-				break;
-		}
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.Configure(optionsBuilder, provider.ToString(), connectionString, Registrations);
 
 	/// <summary>Cria options do contexto para processos fora do request (migrations, retenção).</summary>
 	public static DbContextOptions<Contexts.LogStreamDbContext> CreateOptions(
 		LogStreamDatabaseProvider provider,
-		string connectionString)
-	{
-		var builder = new DbContextOptionsBuilder<Contexts.LogStreamDbContext>();
-		Configure(builder, provider, connectionString);
-		return builder.Options;
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.CreateOptions<Contexts.LogStreamDbContext>(
+			provider.ToString(), connectionString, Registrations);
 }
