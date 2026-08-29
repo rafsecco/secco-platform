@@ -44,6 +44,7 @@ public sealed class SampleServiceApiFactory : WebApplicationFactory<Program>, IA
 			{
 				[SeccoClaims.Subject] = subject,
 				[SeccoClaims.TenantId] = tenantId.ToString(),
+				[SeccoClaims.Role] = "test-admin",
 			},
 			Expires = DateTime.UtcNow.AddMinutes(10),
 			SigningCredentials = new SigningCredentials(
@@ -85,6 +86,9 @@ public sealed class SampleServiceApiFactory : WebApplicationFactory<Program>, IA
 					GetTenantConnectionString("secco_sampleservice_alfa"),
 				[$"Secco:Tenancy:Tenants:{TenantBeta}:ConnectionString"] =
 					GetTenantConnectionString("secco_sampleservice_beta"),
+				// Permissões do role dos tokens de teste (ADR-0021) — resolver por configuração
+				["Secco:Authorization:Roles:test-admin:Permissions:0"] = "samples:read",
+				["Secco:Authorization:Roles:test-admin:Permissions:1"] = "samples:write",
 			}));
 	}
 
