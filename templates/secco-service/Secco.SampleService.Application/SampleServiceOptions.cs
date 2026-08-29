@@ -6,9 +6,9 @@ namespace Secco.SampleService.Application;
 /// </summary>
 public sealed class SampleServiceOptions
 {
-    /// <summary>Tamanho máximo do nome de um sample (default 256).</summary>
-    public int MaxNameLength { get; set; } = 256;
+	/// <summary>Tamanho máximo do nome de um sample (default 256).</summary>
+	public int MaxNameLength { get; set; } = 256;
 
-    /// <summary>Tamanho máximo da descrição (default 4096).</summary>
-    public int MaxDescriptionLength { get; set; } = 4_096;
+	/// <summary>Tamanho máximo da descrição (default 4096).</summary>
+	public int MaxDescriptionLength { get; set; } = 4_096;
 }

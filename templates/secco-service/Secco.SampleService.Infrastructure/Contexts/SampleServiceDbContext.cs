@@ -10,16 +10,16 @@ namespace Secco.SampleService.Infrastructure.Contexts;
 /// nomenclatura da ADR-0017 aplicada por convention — ninguém digita nomes de coluna.
 /// </summary>
 public sealed class SampleServiceDbContext(DbContextOptions<SampleServiceDbContext> options)
-    : SeccoDbContext(options)
+	: SeccoDbContext(options)
 {
-    /// <summary>Samples (tabela <c>tb_samples</c>).</summary>
-    public DbSet<Sample> Samples => Set<Sample>();
+	/// <summary>Samples (tabela <c>tb_samples</c>).</summary>
+	public DbSet<Sample> Samples => Set<Sample>();
 
-    /// <inheritdoc />
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+	/// <inheritdoc />
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+	{
+		base.OnModelCreating(modelBuilder);
 
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(SampleServiceDbContext).Assembly);
-    }
+		modelBuilder.ApplyConfigurationsFromAssembly(typeof(SampleServiceDbContext).Assembly);
+	}
 }

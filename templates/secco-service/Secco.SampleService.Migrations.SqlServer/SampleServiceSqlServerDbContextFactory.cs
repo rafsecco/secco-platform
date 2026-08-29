@@ -10,10 +10,10 @@ namespace Secco.SampleService.Migrations.SqlServer;
 /// </summary>
 public sealed class SampleServiceSqlServerDbContextFactory : IDesignTimeDbContextFactory<SampleServiceDbContext>
 {
-    public SampleServiceDbContext CreateDbContext(string[] args) =>
-        new(new DbContextOptionsBuilder<SampleServiceDbContext>()
-            .UseSqlServer(
-                "Server=design-time;Database=design-time;Encrypt=false",
-                sql => sql.MigrationsAssembly(typeof(SampleServiceSqlServerDbContextFactory).Assembly.GetName().Name))
-            .Options);
+	public SampleServiceDbContext CreateDbContext(string[] args) =>
+		new(new DbContextOptionsBuilder<SampleServiceDbContext>()
+			.UseSqlServer(
+				"Server=design-time;Database=design-time;Encrypt=false",
+				sql => sql.MigrationsAssembly(typeof(SampleServiceSqlServerDbContextFactory).Assembly.GetName().Name))
+			.Options);
 }

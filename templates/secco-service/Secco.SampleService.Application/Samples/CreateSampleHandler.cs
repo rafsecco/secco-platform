@@ -14,31 +14,31 @@ public sealed record CreateSampleCommand(string? Name, string? Description = nul
 /// </summary>
 public sealed class CreateSampleHandler(ISampleRepository repository, SampleServiceOptions options)
 {
-    /// <summary>Executa o caso de uso.</summary>
-    /// <param name="command">Comando de criação.</param>
-    /// <param name="cancellationToken">Token de cancelamento.</param>
-    public async Task<Result<SampleDto>> HandleAsync(CreateSampleCommand command, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
+	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="command">Comando de criação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result<SampleDto>> HandleAsync(CreateSampleCommand command, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
 
-        if (string.IsNullOrWhiteSpace(command.Name))
-        {
-            return SampleServiceErrors.Samples.NameRequired;
-        }
+		if (string.IsNullOrWhiteSpace(command.Name))
+		{
+			return SampleServiceErrors.Samples.NameRequired;
+		}
 
-        if (command.Name.Length > options.MaxNameLength)
-        {
-            return SampleServiceErrors.Samples.NameTooLong(options.MaxNameLength);
-        }
+		if (command.Name.Length > options.MaxNameLength)
+		{
+			return SampleServiceErrors.Samples.NameTooLong(options.MaxNameLength);
+		}
 
-        var description = command.Description?.Length > options.MaxDescriptionLength
-            ? command.Description[..options.MaxDescriptionLength]
-            : command.Description;
+		var description = command.Description?.Length > options.MaxDescriptionLength
+			? command.Description[..options.MaxDescriptionLength]
+			: command.Description;
 
-        var sample = new Sample(command.Name, description);
+		var sample = new Sample(command.Name, description);
 
-        await repository.AddAsync(sample, cancellationToken).ConfigureAwait(false);
+		await repository.AddAsync(sample, cancellationToken).ConfigureAwait(false);
 
-        return SampleDto.FromEntity(sample);
-    }
+		return SampleDto.FromEntity(sample);
+	}
 }

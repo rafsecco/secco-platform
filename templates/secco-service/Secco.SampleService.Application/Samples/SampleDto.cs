@@ -9,7 +9,7 @@ namespace Secco.SampleService.Application.Samples;
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record SampleDto(Guid Id, string Name, string? Description, DateTimeOffset CreatedAt)
 {
-    /// <summary>Projeta a entidade para o DTO.</summary>
-    public static SampleDto FromEntity(Sample entity) =>
-        new(entity.Id, entity.Name, entity.Description, entity.CreatedAt);
+	/// <summary>Projeta a entidade para o DTO.</summary>
+	public static SampleDto FromEntity(Sample entity) =>
+		new(entity.Id, entity.Name, entity.Description, entity.CreatedAt);
 }

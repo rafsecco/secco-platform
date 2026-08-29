@@ -11,9 +11,9 @@ namespace Secco.SampleService.Infrastructure.Mappings;
 /// </summary>
 internal sealed class SampleConfiguration : IEntityTypeConfiguration<Sample>
 {
-    public void Configure(EntityTypeBuilder<Sample> builder)
-    {
-        builder.HasIndex(sample => sample.Name);
-        builder.HasIndex(sample => sample.CreatedAt);
-    }
+	public void Configure(EntityTypeBuilder<Sample> builder)
+	{
+		builder.HasIndex(sample => sample.Name);
+		builder.HasIndex(sample => sample.CreatedAt);
+	}
 }
