@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Secco.SampleService.Application;
 using Secco.SampleService.Application.Samples;
 using Secco.SampleService.Infrastructure.Contexts;
@@ -23,13 +23,19 @@ public static class SampleServiceInfrastructureExtensions
 		ArgumentNullException.ThrowIfNull(services);
 
 		// Bind LAZY (do IConfiguration do DI): fontes adicionadas por testes/hosting tardio são respeitadas
-		services.AddSingleton(sp => BindSection(sp, "SampleService:Database", new SampleServiceDatabaseOptions()));
-		services.AddSingleton(sp => BindSection(sp, "SampleService:Limits", new SampleServiceOptions()));
+		services.AddOptions<SampleServiceDatabaseOptions>().BindConfiguration("SampleService:Database");
+		services.AddOptions<SampleServiceOptions>().BindConfiguration("SampleService:Limits");
+
+		// A camada Application recebe o POCO, nunca IOptions<T>: a csproj dela declara
+		// "única dependência externa: abstrações de DI" (ADR-0002/ADR-0003). O adaptador vive
+		// aqui, na composição, e preserva o bind lazy do framework.
+		services.AddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<SampleServiceOptions>>().Value);
 
 		services.AddDbContext<SampleServiceDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
-			var databaseOptions = serviceProvider.GetRequiredService<SampleServiceDatabaseOptions>();
+			var databaseOptions = serviceProvider.GetRequiredService<IOptions<SampleServiceDatabaseOptions>>().Value;
 
 			// O catálogo padrão resolve de forma síncrona (ValueTask já concluída)
 			var connectionString = connectionFactory.GetConnectionStringAsync().AsTask().GetAwaiter().GetResult();
@@ -57,7 +63,7 @@ public static class SampleServiceInfrastructureExtensions
 
 		using var scope = serviceProvider.CreateScope();
 		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<SampleServiceDatabaseOptions>();
+		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<SampleServiceDatabaseOptions>>().Value;
 
 		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
 		{
@@ -67,12 +73,5 @@ public static class SampleServiceInfrastructureExtensions
 			await using var context = new SampleServiceDbContext(options);
 			await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
 		}
-	}
-
-	private static TOptions BindSection<TOptions>(IServiceProvider serviceProvider, string sectionKey, TOptions options)
-		where TOptions : class
-	{
-		serviceProvider.GetRequiredService<IConfiguration>().GetSection(sectionKey).Bind(options);
-		return options;
 	}
 }

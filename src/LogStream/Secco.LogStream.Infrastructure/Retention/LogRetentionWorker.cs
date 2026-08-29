@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Secco.LogStream.Infrastructure.Contexts;
 using Secco.SDK.AspNetCore.Tenancy;
 
@@ -13,26 +14,29 @@ namespace Secco.LogStream.Infrastructure.Retention;
 /// fail-safe: configuração ausente ou inválida = worker inativo, nada é apagado.
 /// </summary>
 internal sealed partial class LogRetentionWorker(
-	LogStreamRetentionOptions options,
-	LogStreamDatabaseOptions databaseOptions,
+	IOptions<LogStreamRetentionOptions> retentionOptions,
+	IOptions<LogStreamDatabaseOptions> databaseOptions,
 	ITenantCatalog tenantCatalog,
 	ILogger<LogRetentionWorker> logger) : BackgroundService
 {
+	private readonly LogStreamRetentionOptions _options = retentionOptions.Value;
+	private readonly LogStreamDatabaseOptions _databaseOptions = databaseOptions.Value;
+
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
-		if (!RetentionPolicy.IsValid(options))
+		if (!RetentionPolicy.IsValid(_options))
 		{
 			LogInvalidConfiguration(logger);
 			return;
 		}
 
-		if (options.DefaultDays is null && options.DaysByTenant.Count == 0)
+		if (_options.DefaultDays is null && _options.DaysByTenant.Count == 0)
 		{
 			LogInactive(logger);
 			return;
 		}
 
-		using var timer = new PeriodicTimer(TimeSpan.FromHours(options.IntervalHours));
+		using var timer = new PeriodicTimer(TimeSpan.FromHours(_options.IntervalHours));
 
 		do
 		{
@@ -56,7 +60,7 @@ internal sealed partial class LogRetentionWorker(
 	{
 		foreach (var tenant in await tenantCatalog.ListAsync(cancellationToken).ConfigureAwait(false))
 		{
-			if (RetentionPolicy.ResolveDays(options, tenant.TenantId) is not { } days)
+			if (RetentionPolicy.ResolveDays(_options, tenant.TenantId) is not { } days)
 			{
 				continue;
 			}
@@ -65,7 +69,7 @@ internal sealed partial class LogRetentionWorker(
 			{
 				var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
 				var (entries, processes, apiCalls) = await PurgeTenantAsync(
-					databaseOptions.Provider, tenant.ConnectionString, cutoff, cancellationToken).ConfigureAwait(false);
+					_databaseOptions.Provider, tenant.ConnectionString, cutoff, cancellationToken).ConfigureAwait(false);
 
 				LogTenantPurged(logger, tenant.TenantId, days, entries, processes, apiCalls);
 			}

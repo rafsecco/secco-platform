@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
@@ -25,15 +25,25 @@ public static class NotificationHubInfrastructureExtensions
 	{
 		ArgumentNullException.ThrowIfNull(services);
 
-		// Bind LAZY (do IConfiguration do DI): fontes adicionadas por testes/hosting tardio são respeitadas
-		services.AddSingleton(sp => BindSection(sp, "NotificationHub:Database", new NotificationHubDatabaseOptions()));
-		services.AddSingleton(sp => BindSection(sp, "NotificationHub:Limits", new NotificationHubOptions()));
-		services.AddSingleton(sp => BindSection(sp, "NotificationHub:Email", new NotificationHubEmailOptions()));
+		// Bind LAZY nativo do framework: IOptions<T> só lê o IConfiguration do container quando o
+		// valor é resolvido — fontes adicionadas por testes/hosting tardio são respeitadas, sem
+		// helper caseiro (ADR-0027).
+		services.AddOptions<NotificationHubDatabaseOptions>().BindConfiguration("NotificationHub:Database");
+		services.AddOptions<NotificationHubOptions>().BindConfiguration("NotificationHub:Limits");
+		services.AddOptions<NotificationHubEmailOptions>().BindConfiguration("NotificationHub:Email");
+
+		// A camada Application recebe o POCO, nunca IOptions<T>: a csproj dela declara
+		// "única dependência externa: abstrações de DI" (ADR-0002/ADR-0003). O adaptador vive
+		// aqui, na composição, e preserva o bind lazy do framework.
+		services.AddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<NotificationHubOptions>>().Value);
+		services.AddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<NotificationHubEmailOptions>>().Value);
 
 		services.AddDbContext<NotificationHubDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
-			var databaseOptions = serviceProvider.GetRequiredService<NotificationHubDatabaseOptions>();
+			var databaseOptions = serviceProvider.GetRequiredService<IOptions<NotificationHubDatabaseOptions>>().Value;
 
 			// O catálogo padrão resolve de forma síncrona (ValueTask já concluída)
 			var connectionString = connectionFactory.GetConnectionStringAsync().AsTask().GetAwaiter().GetResult();
@@ -60,9 +70,12 @@ public static class NotificationHubInfrastructureExtensions
 	{
 		ArgumentNullException.ThrowIfNull(services);
 
+		services.AddOptions<NotificationHubBackgroundJobOptions>()
+			.BindConfiguration("NotificationHub:BackgroundJobs");
+
 		services.AddSeccoBackgroundJobs(serviceProvider =>
-			BindSection(serviceProvider, "NotificationHub:BackgroundJobs", new NotificationHubBackgroundJobOptions())
-				.ConnectionString);
+			serviceProvider.GetRequiredService<IOptions<NotificationHubBackgroundJobOptions>>()
+				.Value.ConnectionString);
 
 		return services;
 	}
@@ -82,7 +95,7 @@ public static class NotificationHubInfrastructureExtensions
 
 		using var scope = serviceProvider.CreateScope();
 		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<NotificationHubDatabaseOptions>();
+		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<NotificationHubDatabaseOptions>>().Value;
 
 		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
 		{
@@ -92,12 +105,5 @@ public static class NotificationHubInfrastructureExtensions
 			await using var context = new NotificationHubDbContext(options);
 			await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
 		}
-	}
-
-	private static TOptions BindSection<TOptions>(IServiceProvider serviceProvider, string sectionKey, TOptions options)
-		where TOptions : class
-	{
-		serviceProvider.GetRequiredService<IConfiguration>().GetSection(sectionKey).Bind(options);
-		return options;
 	}
 }

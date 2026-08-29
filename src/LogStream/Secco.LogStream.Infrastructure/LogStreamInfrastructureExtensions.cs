@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Secco.LogStream.Application;
 using Secco.LogStream.Application.ApiCalls;
 using Secco.LogStream.Application.Ingestion;
@@ -27,18 +27,25 @@ public static class LogStreamInfrastructureExtensions
 	{
 		ArgumentNullException.ThrowIfNull(services);
 
-		// Bind LAZY (do IConfiguration do DI): a configuração só é lida quando o host está
-		// completo — fontes adicionadas por testes/hosting tardio são respeitadas
-		services.AddSingleton(sp => BindSection(sp, "LogStream:Database", new LogStreamDatabaseOptions()));
-		services.AddSingleton(sp => BindSection(sp, "LogStream:Retention", new LogStreamRetentionOptions()));
-		services.AddSingleton(sp => BindSection(sp, "LogStream:Ingestion", new LogStreamIngestionOptions()));
+		// Bind LAZY nativo do framework: IOptions<T> só lê o IConfiguration do container
+		// quando o valor é resolvido de fato — fontes adicionadas por testes/hosting tardio
+		// são respeitadas, sem helper caseiro (ADR-0027).
+		services.AddOptions<LogStreamDatabaseOptions>().BindConfiguration("LogStream:Database");
+		services.AddOptions<LogStreamRetentionOptions>().BindConfiguration("LogStream:Retention");
+		services.AddOptions<LogStreamIngestionOptions>().BindConfiguration("LogStream:Ingestion");
+
+		// A camada Application recebe o POCO, nunca IOptions<T>: a csproj dela declara
+		// "unica dependencia externa: abstracoes de DI" (ADR-0002/ADR-0003). O adaptador vive
+		// aqui, na composicao, e preserva o bind lazy do framework.
+		services.AddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<LogStreamIngestionOptions>>().Value);
 
 		services.AddHostedService<LogRetentionWorker>();
 
 		services.AddDbContext<LogStreamDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
-			var databaseOptions = serviceProvider.GetRequiredService<LogStreamDatabaseOptions>();
+			var databaseOptions = serviceProvider.GetRequiredService<IOptions<LogStreamDatabaseOptions>>().Value;
 
 			// O catálogo padrão resolve de forma síncrona (ValueTask já concluída);
 			// catálogos remotos futuros devem manter cache para este caminho ser barato.
@@ -59,13 +66,6 @@ public static class LogStreamInfrastructureExtensions
 		return services;
 	}
 
-	private static TOptions BindSection<TOptions>(IServiceProvider serviceProvider, string sectionKey, TOptions options)
-		where TOptions : class
-	{
-		serviceProvider.GetRequiredService<IConfiguration>().GetSection(sectionKey).Bind(options);
-		return options;
-	}
-
 	/// <summary>
 	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo.
 	/// Uso: startup em Development e processos controlados de provisionamento (ADR-0005) —
@@ -81,7 +81,7 @@ public static class LogStreamInfrastructureExtensions
 
 		using var scope = serviceProvider.CreateScope();
 		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<LogStreamDatabaseOptions>();
+		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<LogStreamDatabaseOptions>>().Value;
 
 		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
 		{
