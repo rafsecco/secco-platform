@@ -36,11 +36,12 @@ Versões publicadas atuais:
 
 | Pacote | Versão | Para quê |
 |---|---|---|
-| `Secco.SharedKernel` | 0.3.1 | `Result<T>`, paginação, entidades base, claims/permissions |
-| `Secco.SDK.AspNetCore` | 0.4.0 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
+| `Secco.SharedKernel` | 0.3.2 | `Result<T>`, paginação, entidades base, claims/permissions |
+| `Secco.SDK.AspNetCore` | 0.4.1 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
 | `Secco.SDK.EntityFrameworkCore` | 0.2.0 | `SeccoDbContext` + nomenclatura de banco por convention (ADR-0017) |
-| `Secco.SecureGate.Client` | 0.1.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
+| `Secco.SecureGate.Client` | 0.2.1 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
 | `Secco.LogStream.Client` | 0.1.1 | Client do LogStream |
+| `Secco.NotificationHub.Client` | — | Client do NotificationHub (empacotado; ainda sem tag publicada) |
 | `Secco.Templates` | 0.1.0 | `dotnet new secco-service` |
 
 ```bash

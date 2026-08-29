@@ -11,7 +11,7 @@
 > Cada bloco é uma pergunta feita via AskUserQuestion, com TODAS as opções
 > apresentadas (label + descrição) e a resposta escolhida marcada com **✓**.
 
-Total de rodadas de perguntas: 32
+Total de rodadas de perguntas: 36
 
 ---
 
@@ -1262,3 +1262,134 @@ Opções apresentadas:
   - Sem dependência nova, porém ciphertext atrelado ao key ring (perda do ring = perda de tudo), rotação automática do ring complica backup/portabilidade e o formato é opaco. Menos controle que a opção escolhida pelo mesmo custo.
 - **Cofre externo (Key Vault / Vault) — guardar só referência**
   - Proteção mais forte, mas dependência pesada que contradiz a adoção independente/on-prem simples da v1. Registrada como evolução futura via nova ADR.
+
+---
+
+## Rodada 33
+
+> Origem: federação de identidade com o diretório do cliente (2026-07-19). Resultou na **ADR-0026**.
+> **Bloco consolidado a posteriori** a partir da seção "Alternativas avaliadas" da ADR-0026 — as
+> perguntas desta rodada não foram transcritas na época. As opções abaixo são as que a ADR
+> registra, não uma reconstrução de memória.
+
+### 95. [Federação] Como federar a autenticação com o Active Directory / Entra ID do cliente sem abrir mão do SecureGate como emissor único?
+
+**Resposta:** App registration multi-tenant única da plataforma
+
+Opções apresentadas:
+
+- **App registration multi-tenant única da plataforma** ✓ **ESCOLHIDA**
+  - Um único app (do adotante da plataforma) no endpoint `organizations`; cada empresa cliente consente o app no próprio diretório (admin consent). Um esquema OIDC estático, nenhum segredo de tenant custodiado. Federação é só autenticação — tokens do Entra nunca chegam aos produtos.
+- **App registration por tenant**
+  - Cada tenant registra um app próprio no seu Entra e o SecureGate guarda client id/secret por tenant. Exige esquemas OIDC dinâmicos por tenant (complexidade real no ASP.NET Core) e custódia de segredos de terceiros no banco de plataforma. Descartada na v1; evolução possível por nova ADR.
+- **LDAP contra AD on-premises**
+  - A tela de login validaria usuário/senha por LDAP. Descartada na v1: a senha do diretório do cliente passaria pelo SecureGate (custódia transitória de credencial alheia, ADR-0020), exige conectividade de rede com o DC do cliente e configuração LDAPS correta por tenant. Entraria por nova ADR se um adotante on-prem real exigir.
+
+---
+
+## Rodada 34
+
+> Origem: ambiente de desenvolvimento no VS Code e consolidação do Docker Compose (2026-08-20,
+> commit `573bb29`). Não gerou ADR — é configuração de repositório, não decisão arquitetural.
+> **Bloco consolidado a posteriori** a partir da entrada correspondente do roadmap.
+> Na mesma rodada firmou-se a convenção de portas locais: API a partir de 4001, serviço de tela a
+> partir de 5001, HTTP = HTTPS + 100.
+
+### 96. [Compose] Um `docker-compose.yml` por produto ou um único na raiz com profiles?
+
+**Resposta:** Um único na raiz com profiles
+
+Opções apresentadas:
+
+- **Um `docker-compose.yml` na raiz com profiles** ✓ **ESCOLHIDA**
+  - `up -d` sobe só a infra (o que o F5 do VS Code precisa), `--profile <produto>` sobe um produto isolado, `--profile all` sobe os três com um SQL Server só. Elimina a disputa por 1433/8080 que tornava impossível subir dois produtos ao mesmo tempo.
+- **Manter os três composes por produto, remapeando portas**
+  - Mudança menor, mas mantém três arquivos divergindo e obriga o dev a saber de cor qual porta cada um usa; a infra compartilhada continuaria duplicada em três lugares.
+
+---
+
+## Rodada 35
+
+> Origem: design do `Secco.SDK.Testing` e da generalização de seleção de provider (2026-08-26).
+> Resultou na **ADR-0027**; design completo em
+> `docs/superpowers/specs/2026-08-26-secco-sdk-testing-design.md`.
+> **Bloco consolidado a posteriori** a partir da seção "Decisões tomadas nesta rodada" da spec.
+
+### 97. [Infraestrutura de teste] Cada suíte sobe o próprio SQL Server, ou as suítes compartilham uma instância?
+
+**Resposta:** Instância isolada por suíte, com override por variável de ambiente
+
+Opções apresentadas:
+
+- **Instância isolada por suíte + override por `SECCO_TEST_SQLSERVER`** ✓ **ESCOLHIDA**
+  - Sem a variável, cada suíte sobe o próprio container exatamente como hoje: o CI não muda e continua hermético. Com a variável preenchida, a base usa a instância apontada e não sobe container — é o caminho para máquinas onde N containers de SQL Server saturam o Docker.
+- **Container compartilhado entre suítes**
+  - Era a direção definida em 2026-07-18, **revista nesta rodada**: o desktop roda a solução inteira em paralelo sem esforço, então o compartilhamento deixou de ser necessário e custaria acoplamento entre suítes.
+- **`WithReuse(true)` do Testcontainers**
+  - Descartada explicitamente: o Ryuk não reapeia containers reusados, então o lixo se acumula na máquina do dev até limpeza manual.
+
+### 98. [Helper de configuração] O `BindSection`, copiado em quatro produtos, é extraído para o SDK ou apagado?
+
+**Resposta:** Apagado — contraria o enunciado do backlog, deliberadamente
+
+Opções apresentadas:
+
+- **Apagar** ✓ **ESCOLHIDA**
+  - `AddOptions<T>().BindConfiguration()` já faz o bind lazy que motivou o helper, e o SecureGate já usa a forma nativa. Extrair para o SDK preservaria um helper que a plataforma não precisa ter.
+- **Extrair para o SDK (o que o item de backlog mandava)**
+  - Removeria a duplicação sem remover o conceito — quatro cópias virariam uma, mas ainda seria API própria competindo com a nativa do ASP.NET Core.
+
+### 99. [Seleção de provider] O `DatabaseProviderConfigurator` vai para o `Secco.SDK.EntityFrameworkCore` como está?
+
+**Resposta:** Não — vira um seletor por receita, sem dependência de engine
+
+Opções apresentadas:
+
+- **Seletor por receita** ✓ **ESCOLHIDA**
+  - O produto declara o que aplicar (`UseSqlServer`/`UseNpgsql` com o próprio assembly de migrations) e o SDK só seleciona. Zero dependência de provider adicionada ao pacote publicado; cada produto mantém o próprio enum, que o bind de configuração já valida.
+- **Mover o configurator como está (o que o item de backlog mandava)**
+  - Ele chama `UseSqlServer`/`UseNpgsql`, e o `Secco.SDK.EntityFrameworkCore` é publicado declaradamente agnóstico de provider (comentário no csproj + cláusula da ADR-0018). Mover como está acoplaria o pacote aos dois engines.
+
+---
+
+## Rodada 36
+
+> Origem: reanálise geral do projeto de 2026-08-29 — build, testes e levantamento de pendências
+> pós-Fase 8. Bloco transcrito da própria rodada, não consolidado.
+
+### 100. [Template] O recurso Sample do template deve ensinar o padrão de permissões (ADR-0021) ou o template documenta a exceção?
+
+**Resposta:** Ensinar o padrão (Recomendado)
+
+Opções apresentadas:
+
+- **Ensinar o padrão (Recomendado)** ✓ **ESCOLHIDA**
+  - Criar `SampleServicePermissions` e aplicar `RequireAuthorization` nos 3 endpoints, como LogStream/SecureGate/NotificationHub fazem. Reforça o "sem exceção" da ADR-0021 e resolve de tabela o token sem `role` na factory de teste. Custo: mexe no contrato OpenAPI e no client do template.
+- **Documentar a exceção**
+  - O template continuaria só com a `FallbackPolicy`, e a skill/ADR-0021 ganharia ressalva escrita explicando que o template ensina o mínimo e o produto adiciona permissões. Menos código, mas o "sem exceção" viraria "com uma exceção".
+
+### 101. [Escopo] Até onde ir na rodada de correções?
+
+**Resposta:** Bugs + docs + itens pequenos (Recomendado)
+
+Opções apresentadas:
+
+- **Bugs + docs + itens pequenos (Recomendado)** ✓ **ESCOLHIDA**
+  - Indentação do template, permissões no template, `Secco.NotificationHub.Client` publicável, toda a documentação, ADR-0026 ratificada e ADR-0027 escrita. O `Secco.SDK.Testing` fica para uma rodada dedicada, com plano próprio — é a entrega maior da branch e merece PR limpo.
+- **Tudo, incluindo o SDK.Testing**
+  - A mesma lista mais a implementação completa da spec (base de factory, migração dos 5 consumidores, seletor de provider, empacotamento). Rodada longa, com revisão fatia a fatia.
+- **Só bugs + docs**
+  - Deixaria o client publicável e as permissões do template para depois.
+
+### 102. [Processo] Delegação das tarefas desta rodada a subagentes
+
+**Resposta:** Aprovar o plano (Recomendado)
+
+Opções apresentadas:
+
+- **Aprovar o plano (Recomendado)** ✓ **ESCOLHIDA**
+  - `haiku` para o mecânico (indentação do template; client publicável replicando o padrão do LogStream), `sonnet` para implementação (permissões no template). Design, documentação arquitetural e revisão ficam com o modelo principal.
+- **Só o mecânico em haiku**
+  - O modelo principal implementaria as permissões diretamente. Mais caro, menos ida e volta de revisão.
+- **Sem subagentes**
+  - Tudo no modelo principal. Mais caro, mas sem risco de drift entre o que a spec diz e o que o subagente entende.
