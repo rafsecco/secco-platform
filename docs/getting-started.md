@@ -39,6 +39,7 @@ Versões publicadas atuais:
 | `Secco.SharedKernel` | 0.3.2 | `Result<T>`, paginação, entidades base, claims/permissions |
 | `Secco.SDK.AspNetCore` | 0.4.1 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
 | `Secco.SDK.EntityFrameworkCore` | 0.2.0 | `SeccoDbContext` + nomenclatura de banco por convention (ADR-0017) |
+| `Secco.SDK.Testing` | — | Base das factories de teste de integração (ADR-0027); ainda sem tag publicada |
 | `Secco.SecureGate.Client` | 0.2.1 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
 | `Secco.LogStream.Client` | 0.1.1 | Client do LogStream |
 | `Secco.NotificationHub.Client` | — | Client do NotificationHub (empacotado; ainda sem tag publicada) |

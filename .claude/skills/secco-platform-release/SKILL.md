@@ -1,6 +1,6 @@
 ---
 name: secco-platform-release
-description: Processo de publicação de pacotes NuGet da Secco Platform via tag git (ADR-0011/0014, workflow `.github/workflows/publish-packages.yml`). Usar SEMPRE que a tarefa for publicar/versionar um pacote (Secco.SharedKernel, Secco.SDK.AspNetCore, Secco.SDK.EntityFrameworkCore, Secco.LogStream.Client, Secco.SecureGate.Client, Secco.NotificationHub.Client, Secco.Templates, ou um novo pacote publicável), criar/empurrar uma tag de release, ou quando o usuário mencionar "publicar pacote", "release", "tag de versão", "NuGet", "MinVer", "pacote amadureceu" ou o workflow `publish-packages.yml`.
+description: Processo de publicação de pacotes NuGet da Secco Platform via tag git (ADR-0011/0014, workflow `.github/workflows/publish-packages.yml`). Usar SEMPRE que a tarefa for publicar/versionar um pacote (Secco.SharedKernel, Secco.SDK.AspNetCore, Secco.SDK.EntityFrameworkCore, Secco.SDK.Testing, Secco.LogStream.Client, Secco.SecureGate.Client, Secco.NotificationHub.Client, Secco.Templates, ou um novo pacote publicável), criar/empurrar uma tag de release, ou quando o usuário mencionar "publicar pacote", "release", "tag de versão", "NuGet", "MinVer", "pacote amadureceu" ou o workflow `publish-packages.yml`.
 ---
 
 # Secco Platform — Publicação de pacotes NuGet
@@ -47,6 +47,7 @@ Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mud
 | `sharedkernel/v*` | `src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj` |
 | `sdk/v*` | `src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj` |
 | `sdk-efcore/v*` | `src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj` |
+| `sdk-testing/v*` | `src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj` |
 | `logstream-client/v*` | `src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj` |
 | `notificationhub-client/v*` | `src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj` |
 | `securegate-client/v*` | `src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj` |

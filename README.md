@@ -7,6 +7,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.3.2** |
 | [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.4.1** |
 | [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding | `Secco.SDK.EntityFrameworkCore` **0.2.0** |
+| [Secco.SDK.Testing](src/SDK/Secco.SDK.Testing/README.md) | Base das factories de teste de integração (SQL Server real, tokens, tenancy/permissões) | `Secco.SDK.Testing` (pronto para publicar) |
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.1.1** |
 | [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.2.1** |
 | [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Disponível (aplicação, não pacote) |
