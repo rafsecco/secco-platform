@@ -31,6 +31,7 @@ dotnet add package Secco.SDK.AspNetCore
 - **[Visão de arquitetura](docs/architecture-overview.md)** — os pilares e como os produtos se encaixam.
 - **[Decisões arquiteturais (ADRs)](docs/adr/secco-platform-adrs.md)** — fonte da verdade; nenhum código contradiz uma ADR Aceita.
 - **[Roadmap](docs/roadmap.md)** — fases e entregáveis.
+- **[Guia de testes](docs/testing-guide.md)** — verificar a plataforma: suíte inteira, projeto por projeto, o template e o roteiro manual.
 - **Por produto** — cada produto/pacote tem README próprio (links na tabela acima).
 
 ## Build & testes (contribuidores)
@@ -40,6 +41,8 @@ dotnet restore Secco.Platform.slnx
 dotnet build Secco.Platform.slnx --configuration Release   # warnings = erros
 dotnet test Secco.Platform.slnx                            # integração usa Testcontainers (Docker)
 ```
+
+São **525 testes** em 8 projetos. Máquina com Docker apertado, execução por projeto, validação do template e roteiro de teste manual: veja o **[guia de testes](docs/testing-guide.md)**.
 
 ### Ambiente local
 
