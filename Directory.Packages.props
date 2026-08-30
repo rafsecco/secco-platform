@@ -21,8 +21,11 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
     <!-- Pin transitivo: o EFCore.Design 10.0.0 traz System.Security.Cryptography.Xml 9.0.0
-         com CVEs altas (GHSA-37gx-xxp4-5rgx, GHSA-w3x6-4m5h-cxqf) — fixado na corrigida (ADR-0020). -->
-    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.9" />
+         com CVEs altas (GHSA-37gx-xxp4-5rgx, GHSA-w3x6-4m5h-cxqf) — fixado na corrigida (ADR-0020).
+         2026-08-30: a própria 10.0.9 passou a acusar 5 advisories altas (GHSA-23rf-6693-g89p e
+         outras 4); subido para 10.0.11. Pin desta natureza envelhece: reavaliar periodicamente
+         com `dotnet list package` na variante que reporta vulneráveis e transitivos. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.9" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
