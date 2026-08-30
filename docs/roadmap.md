@@ -119,14 +119,46 @@
 
 - [x] **Guia de testes e higiene de repositório** (2026-08-30): o repositório não tinha roteiro de verificação — o README trazia três comandos e o resto (execução por projeto, saída para Docker apertado, validação do template, teste manual com a stack de pé) vivia espalhado entre roadmap, log de decisões e conhecimento tácito. Criado o [`docs/testing-guide.md`](testing-guide.md), com os dois modos de execução, o que cada suíte prova, o fluxo do `validate-template` e um roteiro manual de oito passos que exercita justamente o que as ADRs tratam como inegociável (isolamento de tenant, connection string write-only, revogação de permissão em um TTL). Criados também os arquivos de repositório que faltavam, dois deles fechando promessas que o repositório já fazia: **LICENSE** (o `Directory.Build.targets` declara `PackageLicenseExpression=MIT` em todo pacote publicável — cada `.nupkg` afirmava MIT sem o texto existir) e **CHANGELOG.md** (a ADR-0011 exige "entrada no CHANGELOG do pacote" em toda breaking change; arquivo único com seção por pacote, e as versões já publicadas entram só com data — descrição retroativa seria texto plausível e não confiável). Mais **SECURITY.md** (canal privado, escopo amarrado às garantias das ADRs, e a lição do NU1903 sobre pin de segurança que envelhece) e **CONTRIBUTING.md** (roteador para as ADRs, não manual — duplicar regra criaria uma segunda fonte para divergir da primeira). `CODE_OF_CONDUCT.md` ficou de fora deliberadamente: repositório de autor único, sem comunidade nem canal de enforcement. README ganhou os badges da stack real.
 
-## Backlog (só após Fase 8 estável)
+- [x] **Publicação dos pacotes pendentes** (2026-08-30): `Secco.SDK.Testing` **0.1.0** e `Secco.NotificationHub.Client` **0.1.0** publicados no GitHub Packages. O NotificationHub.Client é independente e saiu com uma tag só; o SDK.Testing exigiu a cadeia que a ADR-0011 impõe — ele referencia o `Secco.SharedKernel` por `ProjectReference`, cuja última tag estava 21 commits atrás, então o MinVer o resolveria como pré-release e o Pack falharia com NU5104. Resolvido com `sharedkernel/v0.3.3` no **mesmo commit**, publicado primeiro: patch sem mudança funcional (o diff desde a 0.3.2 é só a migração de indentação), que é exatamente o caso previsto na skill de release. Tags empurradas **uma de cada vez** (mais de três num único push não dispara o workflow — falha silenciosa já registrada na skill), e os três runs de `publish-packages.yml` confirmados verdes, com build e testes rodando antes de cada Pack. Tabelas de versão do README e do getting-started atualizadas; CHANGELOG com as duas primeiras versões saindo de "Não publicado" para "Publicado".
 
-Descrições de trabalho — nenhuma ADR ainda define escopo real para estes produtos; detalhar via rounds de design (como o NotificationHub) só quando a vez de cada um chegar.
+## Backlog
+
+Consolidado em 2026-08-30. Antes disso, os itens técnicos viviam dentro das entradas de fase e das consequências das ADRs — encontráveis só por quem já sabia que existiam.
+
+### Produtos (só após a fundação amadurecer)
+
+Nenhuma ADR define escopo real para estes; detalhar via rounds de design (como foi o NotificationHub) só quando a vez de cada um chegar.
 
 - **Configuration** — configuração dinâmica por tenant (valores operacionais, não binários como feature flags) sem precisar de redeploy; um catálogo central de settings por tenant/produto, análogo em espírito ao catálogo de tenants do SecureGate.
 - **FeatureFlags** — ativação/desativação de funcionalidades em runtime, por tenant (ou por %, por role); controla rollout gradual e kill-switch de feature sem deploy.
 - **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade.
 
----
+*Regra de ouro: ficam no backlog até a fundação estar madura. Paralelizar produtos impede que qualquer um amadureça.*
 
-*Regra de ouro: Configuration, FeatureFlags e Audit ficam no backlog até o NotificationHub provar o padrão de mais um produto adotando a fundação. Paralelizar produtos impede que qualquer um amadureça.*
+### Decisões adiadas conscientemente
+
+Diferentes dos itens acima: aqui o escopo já é conhecido e a decisão foi de não fazer agora.
+
+- **Vínculo `userId` ↔ `sub` no inbox in-app do NotificationHub** (severidade baixa, ADR-0020). Hoje o modelo é "chamador confiável informa o `userId`": qualquer caller com `in-app-notifications:read`/`write` lê ou marca a inbox de outro usuário **do mesmo tenant**. O isolamento entre tenants está intacto. É decisão de design do produto, não fix mecânico.
+- **Seção de federação no AdminPortal** (follow-up da ADR-0026) — a gestão de `TenantFederation` hoje existe só via API.
+- **Desligar senha local para tenant federado** (follow-up da ADR-0026) — hoje login por senha continua valendo mesmo com federação habilitada.
+
+### Evoluções técnicas com gatilho definido
+
+Cada uma tem uma condição que a destrava; nenhuma é "quando sobrar tempo".
+
+| Item | Gatilho |
+|---|---|
+| **Full-text search no LogStream** (hoje `LIKE`, ADR-0018) | demanda real de busca; implementação por provider |
+| **Webhook e dashboard do LogStream** | demanda real |
+| **Broker de mensageria** (ADR-0015 Camada 3) | caso real de multi-produtor/multi-consumidor; exige ADR nova |
+| **OpenTelemetry** substituindo o `TraceId` manual (ADR-0008) | quando observabilidade distribuída passar a doer |
+| **Envelope `ApiResponse<T>`** (ADR-0003) | só se o SDK provar caso real; hoje ProblemDetails + clients tipados bastam |
+| **Fixture de paridade PostgreSQL no `Secco.SDK.Testing`** (ADR-0027) | duas cópias hoje; extrair "quando doer" |
+| **Cofre externo de segredos** (Key Vault/Vault, ADR-0025) | adotante que exija; exige ADR nova |
+| **LDAP contra AD on-premises** (ADR-0026) | adotante on-prem real; exige ADR nova |
+| **App registration do Entra por tenant** (ADR-0026) | quando a app multi-tenant única não bastar; exige ADR nova |
+
+### ADRs futuras
+
+Mantidas na própria lista do documento de ADRs (`docs/adr/secco-platform-adrs.md`, seção "Backlog de ADRs futuras") para não criar uma segunda fonte: cache distribuído e invalidação, idempotência em endpoints de escrita, retenção e LGPD por produto, estratégia de deploy, roadmap público e política de suporte a versões.
