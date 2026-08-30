@@ -1,5 +1,22 @@
 # Secco Platform
 
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-239120?style=flat-square)
+![EF Core](https://img.shields.io/badge/EF%20Core-10.0-512BD4?style=flat-square&logo=dotnet&logoColor=white)
+![Blazor](https://img.shields.io/badge/Blazor%20Server-512BD4?style=flat-square&logo=blazor&logoColor=white)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-CC2927?style=flat-square)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+![OpenAPI](https://img.shields.io/badge/OpenAPI-6BA539?style=flat-square&logo=openapiinitiative&logoColor=white)
+![OpenIddict](https://img.shields.io/badge/OpenIddict-OIDC-0B7285?style=flat-square)
+![Hangfire](https://img.shields.io/badge/Hangfire-background%20jobs-B32017?style=flat-square)
+![xUnit](https://img.shields.io/badge/xUnit-5E5E5E?style=flat-square)
+![Testcontainers](https://img.shields.io/badge/Testcontainers-integra%C3%A7%C3%A3o-291A38?style=flat-square)
+![GitHub Actions](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![NuGet](https://img.shields.io/badge/NuGet-GitHub%20Packages-004880?style=flat-square&logo=nuget&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-750014?style=flat-square)
+
 Plataforma corporativa modular para .NET. Cada produto é adotável de forma independente via NuGet, compartilhando a mesma identidade arquitetural: Clean Architecture, OpenAPI + NSwag + Scalar, multi-tenancy database-per-tenant e SDKs próprios.
 
 | Produto | Descrição | Pacote / status |
@@ -33,6 +50,9 @@ dotnet add package Secco.SDK.AspNetCore
 - **[Roadmap](docs/roadmap.md)** — fases e entregáveis.
 - **[Guia de testes](docs/testing-guide.md)** — verificar a plataforma: suíte inteira, projeto por projeto, o template e o roteiro manual.
 - **Por produto** — cada produto/pacote tem README próprio (links na tabela acima).
+- **[Changelog](CHANGELOG.md)** — mudanças por pacote publicável (ADR-0011).
+- **[Como contribuir](CONTRIBUTING.md)** — o que não se negocia, convenções e o checklist antes do PR.
+- **[Política de segurança](SECURITY.md)** — escopo e canal privado para reportar vulnerabilidade.
 
 ## Build & testes (contribuidores)
 
