@@ -7,12 +7,12 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\LogStream\Secco.LogStream.Api\Secco.LogStream.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\SDK\Secco.SDK.Testing\Secco.SDK.Testing.csproj" />
   </ItemGroup>
 
 </Project>

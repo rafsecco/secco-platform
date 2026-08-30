@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-testing/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-testing/v</MinVerTagPrefix>
+    <Description>Base de testes de integração da Secco Platform (ADR-0027): SeccoApiFactory com SQL Server real, tokens de teste e configuração de tenancy/permissões — o produto herda em vez de copiar a própria ApiFactory.</Description>
+    <PackageTags>secco;sdk;testing;integration-tests;testcontainers</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Não flui transitivamente para quem referenciar o produto: é dependência de teste. -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <!-- IAsyncLifetime: quem adota a base adota o xUnit — coerente com a ADR-0012, que já o
+         fixa em toda a plataforma, mas aqui vira dependência contratual de pacote público. -->
+    <PackageReference Include="xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A lógica container-vs-instância-externa fica internal (ADR-0027: superfície pública
+         mínima num pacote sujeito a semver); os testes do próprio pacote a exercitam. -->
+    <InternalsVisibleTo Include="Secco.SDK.Testing.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

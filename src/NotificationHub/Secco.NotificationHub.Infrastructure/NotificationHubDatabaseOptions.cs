@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore;
 
 namespace Secco.NotificationHub.Infrastructure;
 
@@ -22,35 +23,29 @@ public sealed class NotificationHubDatabaseOptions
 	public NotificationHubDatabaseProvider Provider { get; set; } = NotificationHubDatabaseProvider.SqlServer;
 }
 
-/// <summary>Aplicação do provider selecionado (assembly de migrations por engine, ADR-0018).</summary>
+/// <summary>Aplicação do provider selecionado (seletor por receita, ADR-0018/ADR-0027).</summary>
 internal static class NotificationHubDatabaseProviderConfigurator
 {
-	private const string SqlServerMigrationsAssembly = "Secco.NotificationHub.Migrations.SqlServer";
-	private const string PostgresMigrationsAssembly = "Secco.NotificationHub.Migrations.Postgres";
+	private static readonly SeccoDatabaseProviderRegistration[] Registrations =
+	[
+		new(nameof(NotificationHubDatabaseProvider.SqlServer),
+			(builder, connectionString) => builder.UseSqlServer(connectionString,
+				sql => sql.MigrationsAssembly("Secco.NotificationHub.Migrations.SqlServer"))),
+		new(nameof(NotificationHubDatabaseProvider.PostgreSql),
+			(builder, connectionString) => builder.UseNpgsql(connectionString,
+				npgsql => npgsql.MigrationsAssembly("Secco.NotificationHub.Migrations.Postgres"))),
+	];
 
 	public static void Configure(
 		DbContextOptionsBuilder optionsBuilder,
 		NotificationHubDatabaseProvider provider,
-		string connectionString)
-	{
-		switch (provider)
-		{
-			case NotificationHubDatabaseProvider.PostgreSql:
-				optionsBuilder.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(PostgresMigrationsAssembly));
-				break;
-			default:
-				optionsBuilder.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(SqlServerMigrationsAssembly));
-				break;
-		}
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.Configure(optionsBuilder, provider.ToString(), connectionString, Registrations);
 
 	/// <summary>Cria options do contexto para processos fora do request (migrations, manutenção).</summary>
 	public static DbContextOptions<Contexts.NotificationHubDbContext> CreateOptions(
 		NotificationHubDatabaseProvider provider,
-		string connectionString)
-	{
-		var builder = new DbContextOptionsBuilder<Contexts.NotificationHubDbContext>();
-		Configure(builder, provider, connectionString);
-		return builder.Options;
-	}
+		string connectionString) =>
+		SeccoDatabaseProviders.CreateOptions<Contexts.NotificationHubDbContext>(
+			provider.ToString(), connectionString, Registrations);
 }

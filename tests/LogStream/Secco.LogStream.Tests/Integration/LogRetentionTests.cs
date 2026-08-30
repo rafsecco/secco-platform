@@ -12,13 +12,13 @@ namespace Secco.LogStream.Tests.Integration;
 
 public class LogRetentionTests(LogStreamApiFactory factory) : IClassFixture<LogStreamApiFactory>, IAsyncLifetime
 {
-	public async Task InitializeAsync() => await factory.EnsureTenantDatabasesMigratedAsync();
+	public async Task InitializeAsync() => await factory.EnsureDatabaseMigratedAsync();
 
 	public Task DisposeAsync() => Task.CompletedTask;
 
 	private LogStreamDbContext CreateContext() =>
 		new(new DbContextOptionsBuilder<LogStreamDbContext>()
-			.UseSqlServer(factory.GetTenantConnectionString("secco_logstream_alfa"))
+			.UseSqlServer(factory.GetConnectionStringFor("secco_logstream_alfa"))
 			.Options);
 
 	private static void Backdate(LogStreamDbContext context, object entity, DateTimeOffset createdAt) =>
@@ -52,7 +52,7 @@ public class LogRetentionTests(LogStreamApiFactory factory) : IClassFixture<LogS
 		var cutoff = DateTimeOffset.UtcNow.AddDays(-30);
 		var (entries, processes, apiCalls) = await LogRetentionWorker.PurgeTenantAsync(
 			LogStreamDatabaseProvider.SqlServer,
-			factory.GetTenantConnectionString("secco_logstream_alfa"), cutoff, CancellationToken.None);
+			factory.GetConnectionStringFor("secco_logstream_alfa"), cutoff, CancellationToken.None);
 
 		entries.Should().BeGreaterThanOrEqualTo(1);
 		processes.Should().BeGreaterThanOrEqualTo(1);

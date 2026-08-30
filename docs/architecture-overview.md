@@ -42,7 +42,7 @@ correlation → autenticação → tenancy → autorização → endpoint
 
 ## Multi-tenancy (database-per-tenant)
 
-Cada tenant tem seu próprio banco **por produto**. As connection strings vivem num **catálogo central servido pelo SecureGate** (ADR-0005/0022): o produto consome via `AddSecureGateTenantCatalog()` (do `Secco.SecureGate.Client`) — client credentials automático com scope mínimo, cache com TTL curto e *stale em falha*. Em DEV, sem a configuração, um catálogo por `IConfiguration` do SDK assume.
+Cada tenant tem seu próprio banco **por produto**. As connection strings vivem num **catálogo central servido pelo SecureGate** (ADR-0005/0022): o produto consome via `AddSecureGateTenantCatalog()` (do `Secco.SecureGate.Client`) — client credentials automático com scope mínimo, cache com TTL curto e *stale em falha*. Em DEV, sem a configuração, um catálogo por `IConfiguration` do SDK assume. As connection strings repousam **cifradas** no banco de plataforma (ADR-0025): AES-256-GCM na aplicação, formato versionado `secco-enc:v1:`, chave mestra por configuração com fail-fast em Production — backup ou dump do catálogo não expõe credencial de tenant.
 
 ## Identidade e acesso (SecureGate)
 
@@ -50,6 +50,7 @@ O SecureGate é o **único emissor de tokens** (ADR-0007) e trata identidade com
 
 - **Máquinas**: client credentials (clients OIDC com roles).
 - **Usuários**: authorization code + PKCE + refresh, com telas de login.
+- **Login federado por tenant** (ADR-0026): o tenant pode delegar a autenticação ao próprio Microsoft Entra ID. Federação é **só autenticação** — o SecureGate continua o emissor único e tokens do Entra nunca chegam aos produtos; usuários seguem **pré-provisionados** (o diretório do cliente prova identidade, nunca concede acesso).
 - **Autorização granular** (ADR-0021): Role é o perfil, Permission (`recurso:acao`) é a ação; o mapeamento é por tenant e resolvido em runtime.
 - **Operador de plataforma** (ADR-0023/0024): o AdminPortal age **on-behalf-of** um operador cross-tenant; o token do operador é *tenant-less* e recebe um read-set cross-tenant para inspeção (somente leitura).
 

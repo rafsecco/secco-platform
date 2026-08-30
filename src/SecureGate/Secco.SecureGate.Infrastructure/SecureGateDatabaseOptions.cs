@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore;
 using Secco.SecureGate.Infrastructure.OpenIddict;
 
 namespace Secco.SecureGate.Infrastructure;
@@ -28,28 +29,28 @@ public sealed class SecureGateDatabaseOptions
 }
 
 /// <summary>
-/// Aplicação do provider selecionado (assembly de migrations por engine, ADR-0018).
+/// Aplicação do provider selecionado (seletor por receita, ADR-0018/ADR-0027), acrescida da
+/// única variação real entre os produtos: as entidades OpenIddict.
 /// Público: as fábricas de design-time dos assemblies de migrations o utilizam.
 /// </summary>
 public static class SecureGateDatabaseProviderConfigurator
 {
-	private const string SqlServerMigrationsAssembly = "Secco.SecureGate.Migrations.SqlServer";
-	private const string PostgresMigrationsAssembly = "Secco.SecureGate.Migrations.Postgres";
+	private static readonly SeccoDatabaseProviderRegistration[] Registrations =
+	[
+		new(nameof(SecureGateDatabaseProvider.SqlServer),
+			(builder, connectionString) => builder.UseSqlServer(connectionString,
+				sql => sql.MigrationsAssembly("Secco.SecureGate.Migrations.SqlServer"))),
+		new(nameof(SecureGateDatabaseProvider.PostgreSql),
+			(builder, connectionString) => builder.UseNpgsql(connectionString,
+				npgsql => npgsql.MigrationsAssembly("Secco.SecureGate.Migrations.Postgres"))),
+	];
 
 	public static void Configure(
 		DbContextOptionsBuilder optionsBuilder,
 		SecureGateDatabaseProvider provider,
 		string connectionString)
 	{
-		switch (provider)
-		{
-			case SecureGateDatabaseProvider.PostgreSql:
-				optionsBuilder.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(PostgresMigrationsAssembly));
-				break;
-			default:
-				optionsBuilder.UseSqlServer(connectionString, sql => sql.MigrationsAssembly(SqlServerMigrationsAssembly));
-				break;
-		}
+		SeccoDatabaseProviders.Configure(optionsBuilder, provider.ToString(), connectionString, Registrations);
 
 		// Entidades OpenIddict (chave Guid) entram no modelo em TODOS os caminhos de criação
 		// do contexto — runtime, migrations e design-time — para o snapshot nunca divergir

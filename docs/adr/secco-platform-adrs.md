@@ -685,7 +685,7 @@ Ciframos a connection string **na camada de aplicação do SecureGate**, com **A
 
 ## ADR-0026: Login federado com Microsoft Entra ID por tenant
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-07-19
 
 ### Contexto
@@ -711,6 +711,36 @@ Alternativas avaliadas:
 - Desativar usuário/tenant no SecureGate continua sendo o controle da plataforma — revogação no AD do cliente afeta apenas as próximas autenticações, e vice-versa.
 - Dependência `Microsoft.AspNetCore.Authentication.OpenIdConnect` no SecureGate (já usada pelo AdminPortal; nenhum pacote novo no monorepo).
 - LDAP/AD on-premises fica explicitamente fora; retorna por nova ADR com adotante real.
+
+---
+
+## ADR-0027: Base compartilhada de testes de integração — Secco.SDK.Testing
+
+**Status:** Aceita
+**Data:** 2026-08-29
+
+### Contexto
+Quatro projetos — LogStream, SecureGate, NotificationHub e o template — mantêm uma `WebApplicationFactory` de integração praticamente idêntica: container MsSql, migração única guardada por `SemaphoreSlim`, geração de token JWT de teste, chaves de configuração de tenancy e de permissões. As cópias já divergiram: o helper de token existe em dois lugares com formatos diferentes, a constante de assinatura `chave-de-testes-com-32-caracteres!!` aparece literal nas quatro, e o token do template chegou a não carregar `role` — corrigido à mão em 2026-08-29, quando o recurso Sample adotou permissões, o que não remove a causa: continuam sendo cinco cópias a manter em sincronia. O template propaga uma quinta cópia a cada `dotnet new secco-service` — e propaga justamente a defasada, ou seja, a divergência não é estável: cresce. Pela ADR-0013, divergência entre o template e o padrão é bug de prioridade alta.
+
+### Decisão
+Um pacote `Secco.SDK.Testing`, com a base `SeccoApiFactory<TProgram>`, passa a ser o único lugar onde essa infraestrutura vive. Complementa a ADR-0012 sem alterá-la: a stack (xUnit + FluentAssertions + NSubstitute + Testcontainers) e os tipos de teste seguem os mesmos — muda apenas **onde a infraestrutura de integração mora**.
+
+- **Publicável desde já** (`MinVerTagPrefix` `sdk-testing/v`), marcado `DevelopmentDependency` para não fluir transitivamente. Motivo: `Secco.Templates` é publicável, então um produto gerado fora do monorepo precisa da base por NuGet — senão o template gera um projeto de teste que não compila.
+- **`ConfigureWebHost` é `sealed` na base**; a extensão acontece por hooks (`ConfigureTestConfiguration`, `ConfigureTestServices`, `OnInitializedAsync`). Selar é o que impede o drift de voltar por dentro.
+- **`Audience` e `MigrateAsync` são abstratos**: esquecer de definí-los vira erro de compilação, não teste vermelho no CI.
+- **Instância isolada por suíte é o padrão** (cada suíte sobe o próprio container; o CI segue hermético). A variável `SECCO_TEST_SQLSERVER` aponta para uma instância externa nas máquinas onde N containers de SQL Server saturam o Docker. `WithReuse(true)` foi descartado: o Ryuk não reapeia containers reusados e o lixo se acumula até limpeza manual.
+- **Chave HS256 aleatória por instância** (32 bytes de `RandomNumberGenerator`), nunca constante — ganho central de segurança (ADR-0020). Uma chave de assinatura embutida num pacote publicado é de conhecimento público, e o validador de autenticação valida presença e comprimento, não notoriedade.
+- **Nome de database validado por allowlist** antes de entrar em `CREATE`/`DROP DATABASE` (esses comandos não aceitam parametrização), com sufixo aleatório por instância de factory para isolar suítes concorrentes no modo externo.
+- **Fora da v1:** fixture de paridade PostgreSQL (duas cópias hoje) — extraída quando doer.
+
+Na mesma entrega, e sob a ADR-0018 (não sob esta), a seleção de provider de banco deixa de ser copiada em quatro `*DatabaseOptions.cs` e vira um seletor por receita no `Secco.SDK.EntityFrameworkCore`: o produto declara o que aplicar (`UseSqlServer`/`UseNpgsql` com o próprio assembly de migrations), o SDK só seleciona — **zero dependência de engine adicionada ao pacote publicado**, preservando a cláusula de extensibilidade da ADR-0018.
+
+### Consequências
+- Os dois `JwtTestTokenFactory` estáticos deixam de existir; as chamadas passam a sair da instância da factory.
+- O template para de propagar a cópia defasada: passa a referenciar a base, monorepo-first por `ProjectReference` (variante NuGet quando houver adotante externo), no mesmo padrão dos outros dois SDKs.
+- Mais um pacote no ciclo de release (ADR-0011) e mais uma superfície pública sujeita a semver (ADR-0009) — mitigado mantendo a lógica de container-vs-instância-externa num tipo `internal`.
+- Sem job novo no CI: o filtro `platform` já cobre `src/SDK/**` e `tests/SDK/**` e dispara o `validate-template`.
+- Design detalhado, com a tabela de migração consumidor a consumidor, em `docs/superpowers/specs/2026-08-26-secco-sdk-testing-design.md`.
 
 ---
 

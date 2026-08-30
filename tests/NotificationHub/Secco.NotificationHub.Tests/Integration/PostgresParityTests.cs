@@ -19,7 +19,13 @@ namespace Secco.NotificationHub.Tests.Integration;
 /// </summary>
 public sealed class PostgresParityTests : IAsyncLifetime
 {
-	private readonly PostgreSqlContainer _container = new PostgreSqlBuilder().Build();
+	/// <summary>
+	/// Imagem fixada: o construtor sem parametros do PostgreSqlBuilder esta obsoleto e some
+	/// numa versao futura do Testcontainers. E a mesma imagem que ele usava por padrao.
+	/// </summary>
+	private const string PostgresImage = "postgres:15.1";
+
+	private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(PostgresImage).Build();
 
 	public Task InitializeAsync() => _container.StartAsync();
 

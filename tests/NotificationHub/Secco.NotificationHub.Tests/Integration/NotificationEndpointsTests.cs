@@ -18,7 +18,7 @@ public class NotificationEndpointsTests(NotificationHubApiFactory factory) : IAs
 	private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 	private static readonly TimeSpan PollTimeout = TimeSpan.FromSeconds(20);
 
-	public async Task InitializeAsync() => await factory.EnsureTenantDatabasesMigratedAsync();
+	public async Task InitializeAsync() => await factory.EnsureDatabaseMigratedAsync();
 
 	public Task DisposeAsync() => Task.CompletedTask;
 
@@ -26,7 +26,7 @@ public class NotificationEndpointsTests(NotificationHubApiFactory factory) : IAs
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", NotificationHubApiFactory.CreateToken(tenantId));
+			new AuthenticationHeaderValue("Bearer", factory.CreateToken(tenantId));
 		return client;
 	}
 

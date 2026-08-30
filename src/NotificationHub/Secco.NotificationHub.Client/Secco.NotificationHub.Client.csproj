@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Client NSwag (ADR-0006): GERADO no build a partir do openapi.json versionado —
-       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração. -->
+       nunca editado à mão; ajustes manuais só em arquivos parciais fora da geração.
+       Pacote publicável (ADR-0011): tag notificationhub-client/v -->
   <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>notificationhub-client/v</MinVerTagPrefix>
+    <Description>Client HTTP gerado (NSwag) do Secco.NotificationHub — única forma de comunicação entre produtos da Secco Platform (ADR-0006).</Description>
+    <PackageTags>secco;notificationhub;client;nswag</PackageTags>
     <!-- Código gerado: sem enforcement de estilo/docs -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
@@ -20,6 +25,10 @@
                       ClassName="NotificationHubClient">
       <Options>/JsonLibrary:SystemTextJson /GenerateClientInterfaces:true /UseBaseUrl:false /GenerateBaseUrlProperty:false</Options>
     </OpenApiReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

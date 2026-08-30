@@ -6,7 +6,6 @@ using FluentAssertions;
 using Microsoft.Data.SqlClient;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Application;
-using Secco.SecureGate.Tests.Integration.Helpers;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -103,7 +102,7 @@ public class ConnectionStringEncryptionTests(SecureGateApiFactory factory) : IAs
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", JwtTestTokenFactory.CreateToken(scopes));
+			new AuthenticationHeaderValue("Bearer", factory.CreateTokenWithScopes(scopes));
 
 		return client;
 	}

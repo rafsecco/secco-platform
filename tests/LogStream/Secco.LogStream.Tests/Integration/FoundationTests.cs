@@ -56,6 +56,6 @@ public class FoundationTests(LogStreamApiFactory factory) : IClassFixture<LogStr
 
 	private LogStreamDbContext CreateContext(string databaseName) =>
 		new(new DbContextOptionsBuilder<LogStreamDbContext>()
-			.UseSqlServer(factory.GetTenantConnectionString(databaseName))
+			.UseSqlServer(factory.GetConnectionStringFor(databaseName))
 			.Options);
 }

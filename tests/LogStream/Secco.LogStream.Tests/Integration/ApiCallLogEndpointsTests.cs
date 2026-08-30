@@ -3,7 +3,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
-using Secco.LogStream.Tests.Integration.Helpers;
 using Xunit;
 
 namespace Secco.LogStream.Tests.Integration;
@@ -12,7 +11,7 @@ public class ApiCallLogEndpointsTests(LogStreamApiFactory factory) : IClassFixtu
 {
 	private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-	public async Task InitializeAsync() => await factory.EnsureTenantDatabasesMigratedAsync();
+	public async Task InitializeAsync() => await factory.EnsureDatabaseMigratedAsync();
 
 	public Task DisposeAsync() => Task.CompletedTask;
 
@@ -20,7 +19,7 @@ public class ApiCallLogEndpointsTests(LogStreamApiFactory factory) : IClassFixtu
 	{
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
-			new AuthenticationHeaderValue("Bearer", JwtTestTokenFactory.CreateToken(factory.TenantAlfa));
+			new AuthenticationHeaderValue("Bearer", factory.CreateToken(factory.TenantAlfa));
 		return client;
 	}
 
