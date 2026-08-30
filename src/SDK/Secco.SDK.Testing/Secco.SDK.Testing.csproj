@@ -9,6 +9,11 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Não flui transitivamente para quem referenciar o produto: é dependência de teste. -->
     <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- Este pacote USA xunit (IAsyncLifetime), mas NÃO é um projeto de teste. O xunit.core
+         marca IsTestProject=true nos próprios build props, e sem esta linha o
+         `dotnet test` da solution tenta executar esta DLL como assembly de teste e falha.
+         Os testes desta base vivem em tests/SDK/Secco.SDK.Testing.Tests. -->
+    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
