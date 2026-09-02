@@ -111,7 +111,3 @@ $sig     = [Convert]::ToBase64String($hmac.ComputeHash([Text.Encoding]::ASCII.Ge
 ```bash
 dotnet test tests/LogStream/Secco.LogStream.Tests/Secco.LogStream.Tests.csproj
 ```
-
-## Referência funcional
-
-O RS.Logging (v2.0.0) permanece como referência do comportamento a atingir até a paridade — os desvios intencionais (tenancy real, ingestão 100% assíncrona com Guid v7, limites de ingestão, MariaDB fora) estão registrados no roadmap da Fase 4.

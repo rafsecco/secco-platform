@@ -39,7 +39,8 @@
 
 > Decisão (2026-07-11): o RS.Logging **não** é migrado — o Secco.LogStream é reescrito do zero
 > sobre SharedKernel + SDK, com histórico novo nos padrões da plataforma. O RS.Logging
-> (`C:\Programacao\Projects\RS.Logging`) permanece como referência funcional até a paridade.
+> ([rafsecco/RS.Logging.API](https://github.com/rafsecco/RS.Logging.API)) serviu de referência
+> funcional até a paridade, atingida no fechamento desta fase.
 > Mudanças estruturais da reescrita: tenancy real (database-per-tenant via SDK — sem coluna
 > `TenantId`, sem "sem header vê tudo"), Guid v7 (permite ingestão 100% assíncrona inclusive do
 > LogProcess pai), nomenclatura via `SeccoNamingConvention`, `Result<T>` + 4 camadas, limites de
@@ -134,6 +135,8 @@ Nenhuma ADR define escopo real para estes; detalhar via rounds de design (como f
 - **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade.
 
 *Regra de ouro: ficam no backlog até a fundação estar madura. Paralelizar produtos impede que qualquer um amadureça.*
+
+**O que destrava a decisão (registrado em 2026-09-01).** O primeiro adotante real da plataforma é o **`secco-intranet`** ([rafsecco/secco-intranet](https://github.com/rafsecco/secco-intranet)), repositório standalone que consome cinco pacotes por `PackageReference` — `Secco.SharedKernel` 0.3.3, `Secco.SDK.AspNetCore` 0.4.1, `Secco.SDK.EntityFrameworkCore` 0.1.0, `Secco.SecureGate.Client` 0.2.1 e `Secco.SDK.Testing` 0.1.0 —, o que põe o caminho de adoção externa do [`getting-started.md`](getting-started.md) em uso real. O roadmap dele é hoje a melhor fonte de demanda para decidir o próximo produto, e o que ele diz é: **`Configuration` não aparece nenhuma vez**, e **`Audit` aparece uma vez só**, na Fase 4, como *"Analytics/auditoria mais robusta em cima do LogStream"* — enquadrada como **uso do LogStream**, não como produto novo. O que está aberto e próximo lá é consumir o que já existe (`Secco.LogStream.Client` na Fase 0, canal in-app do NotificationHub na Fase 1). Portanto o gatilho de ambos os produtos é **uma lacuna que o adotante bata de fato**; para o `Audit` especificamente, o experimento barato vem antes do produto — usar o log de processos + auditoria que o LogStream já tem e ver onde não serve, que foi como o escopo do NotificationHub se definiu.
 
 ### Decisões adiadas conscientemente
 
