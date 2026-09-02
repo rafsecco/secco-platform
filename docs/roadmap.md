@@ -126,17 +126,32 @@
 
 Consolidado em 2026-08-30. Antes disso, os itens técnicos viviam dentro das entradas de fase e das consequências das ADRs — encontráveis só por quem já sabia que existiam.
 
+### Demandas de adotante (abertas como issue, 2026-09-02)
+
+O canal de demanda passou a ser **GitHub Issues com a label [`adopter-demand`](https://github.com/rafsecco/secco-platform/issues?q=is%3Aissue+label%3Aadopter-demand)** — antes, o que um adotante precisava vivia como prosa neste arquivo, sem lugar para discutir nem para acompanhar. A discussão de cada item acontece na issue; o roadmap só aponta.
+
+| # | Demanda | Natureza |
+|---|---|---|
+| [#1](https://github.com/rafsecco/secco-platform/issues/1) | `AddLogStream()` — o sink `ILogger` → LogStream que a ADR-0008 promete não existe | Promessa de ADR não cumprida; bloqueia a Fase 0 do adotante |
+| [#2](https://github.com/rafsecco/secco-platform/issues/2) | Trilha de auditoria de ação de usuário — `LogEntry` não tem ator | Lacuna de produto; desenho em aberto |
+| [#3](https://github.com/rafsecco/secco-platform/issues/3) | Provisionamento de banco e usuário de tenant | Lacuna de capacidade; restrições já fixadas pelas ADRs 0005/0020/0025 |
+| [#4](https://github.com/rafsecco/secco-platform/issues/4) | Onde vive o console de operação (futuro do AdminPortal) | Decisão de fronteira; toca a ADR-0024 |
+
+A **#1 é a de maior prioridade** e não é produto novo: é fechar uma promessa que a ADR-0008 já fez. O produto de log está pronto, com ingestão assíncrona, retenção e dois providers, e nenhum consumidor consegue escrever nele sem código manual.
+
 ### Produtos (só após a fundação amadurecer)
 
 Nenhuma ADR define escopo real para estes; detalhar via rounds de design (como foi o NotificationHub) só quando a vez de cada um chegar.
 
 - **Configuration** — configuração dinâmica por tenant (valores operacionais, não binários como feature flags) sem precisar de redeploy; um catálogo central de settings por tenant/produto, análogo em espírito ao catálogo de tenants do SecureGate.
 - **FeatureFlags** — ativação/desativação de funcionalidades em runtime, por tenant (ou por %, por role); controla rollout gradual e kill-switch de feature sem deploy.
-- **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade.
+- **Audit** — trilha de auditoria centralizada e pesquisável de ações de negócio entre produtos ("quem fez o quê, quando, em qual tenant"); complementar ao `AuditableEntity` do SharedKernel, que só grava `CreatedBy`/`UpdatedBy` local em cada entidade. **O gatilho foi puxado**: a demanda está em [#2](https://github.com/rafsecco/secco-platform/issues/2), e a decisão pendente é de forma — recurso novo dentro do LogStream, produto separado, ou campos no `LogEntry`.
 
 *Regra de ouro: ficam no backlog até a fundação estar madura. Paralelizar produtos impede que qualquer um amadureça.*
 
 **O que destrava a decisão (registrado em 2026-09-01).** O primeiro adotante real da plataforma é o **`secco-intranet`** ([rafsecco/secco-intranet](https://github.com/rafsecco/secco-intranet)), repositório standalone que consome cinco pacotes por `PackageReference` — `Secco.SharedKernel` 0.3.3, `Secco.SDK.AspNetCore` 0.4.1, `Secco.SDK.EntityFrameworkCore` 0.1.0, `Secco.SecureGate.Client` 0.2.1 e `Secco.SDK.Testing` 0.1.0 —, o que põe o caminho de adoção externa do [`getting-started.md`](getting-started.md) em uso real. O roadmap dele é hoje a melhor fonte de demanda para decidir o próximo produto, e o que ele diz é: **`Configuration` não aparece nenhuma vez**, e **`Audit` aparece uma vez só**, na Fase 4, como *"Analytics/auditoria mais robusta em cima do LogStream"* — enquadrada como **uso do LogStream**, não como produto novo. O que está aberto e próximo lá é consumir o que já existe (`Secco.LogStream.Client` na Fase 0, canal in-app do NotificationHub na Fase 1). Portanto o gatilho de ambos os produtos é **uma lacuna que o adotante bata de fato**; para o `Audit` especificamente, o experimento barato vem antes do produto — usar o log de processos + auditoria que o LogStream já tem e ver onde não serve, que foi como o escopo do NotificationHub se definiu.
+
+**Atualização de 2026-09-02 — o adotante olhou e reportou ([#2](https://github.com/rafsecco/secco-platform/issues/2)).** O que o LogStream tem hoje **não** serve para trilha de usuário, por duas razões estruturais: `LogEntry` não tem campo de ator (só `Level`, `Message`, `StackTrace`, `CorrelationId`, `CreatedAt`), então "quem fez o quê" só caberia dentro do texto da mensagem, sem ser filtrável; e `LogProcess` — o candidato aparente — foi reservado pelo adotante a **processo de negócio com passos definidos**, cujo consumidor real é o motor de workflow da Fase 2 dele. Some-se a isso a retenção: auditoria vive anos e log de diagnóstico expira em dias, e o `LogRetentionWorker` de hoje é global. O `Configuration`, por sua vez, **segue sem demanda** — não apareceu nenhuma vez. E apareceram duas lacunas que nenhum item deste backlog cobria: provisionamento de banco de tenant ([#3](https://github.com/rafsecco/secco-platform/issues/3)) e a fronteira do console de operação ([#4](https://github.com/rafsecco/secco-platform/issues/4)).
 
 ### Decisões adiadas conscientemente
 
