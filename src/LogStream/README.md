@@ -1,41 +1,52 @@
 # Secco.LogStream
 
-Produto de logging e observabilidade da Secco Platform: recebe, armazena e consulta logs gerais, logs de processos (com auditoria por status agregado) e logs de chamadas de API de qualquer aplicação da plataforma ou externa.
+Produto de logging e observabilidade da Secco Platform: recebe, armazena e consulta logs gerais, logs de processos (com auditoria por status agregado), logs de chamadas de API e a trilha de auditoria de ação de usuário — de qualquer aplicação da plataforma ou externa.
 
-> **Produto completo (Fase 4 do [roadmap](../../docs/roadmap.md) concluída, 4.1–4.7):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. Log geral, log de processos + auditoria, ApiCallLog, retenção opt-in e PostgreSQL como segundo provider — tudo entregue.
+> **Produto completo (Fase 4 do [roadmap](../../docs/roadmap.md) concluída, 4.1–4.7):** o LogStream é a reescrita do zero do RS.Logging sobre o SharedKernel + SDK, com multi-tenancy real database-per-tenant. Log geral, log de processos + auditoria, ApiCallLog, retenção opt-in e PostgreSQL como segundo provider — tudo entregue. **Incremento pós-Fase 4:** o `LogEntry` ganhou `ServiceName`/`Category` (o sink do `Secco.SDK.Logging` os preenche) e correlação por item no `/batch`; a trilha de auditoria (`AuditEntry`) chegou como recurso próprio, com ingestão **síncrona** e retenção independente do diagnóstico.
 
 ## Endpoints (v1)
 
 | Endpoint | Descrição |
 |---|---|
 | `POST /api/v1/log-entries` | Registra um log — **ingestão assíncrona**: responde `202` com o Id definitivo (Guid v7); fila cheia responde `503` + `Retry-After` |
-| `POST /api/v1/log-entries/batch` | Lote (até 500 itens por default); validação tudo-ou-nada |
+| `POST /api/v1/log-entries/batch` | Lote (até 500 itens por default); validação tudo-ou-nada; `correlationId` é **por item** — o valor do payload vence quando presente, o header `X-Correlation-Id` é o fallback |
 | `GET /api/v1/log-entries/{id}` | Busca pontual no banco do tenant |
-| `GET /api/v1/log-entries?from=&to=&level=&message=&correlationId=&page=&size=` | Busca paginada, mais recentes primeiro |
+| `GET /api/v1/log-entries?from=&to=&level=&message=&correlationId=&serviceName=&category=&page=&size=` | Busca paginada, mais recentes primeiro; `serviceName`/`category` são igualdade exata (nunca `LIKE`) |
 | `POST /api/v1/log-processes` | Cria um processo (`202` com o Id — já serve para enviar details) |
 | `GET /api/v1/log-processes/{id}` | Processo com **status agregado** (pior nível dos details) e contagem |
-| `GET /api/v1/log-processes?status=&name=&from=&to=&correlationId=&page=&size=` | A listagem **é** a auditoria — status sempre presente e filtrável |
+| `GET /api/v1/log-processes?status=&name=&from=&to=&correlationId=&page=&size=` | A listagem **é** a auditoria de processo — status sempre presente e filtrável |
 | `POST /api/v1/log-processes/{id}/details` (+`/batch`) | Details do processo (ingestão assíncrona; fila FIFO única preserva a ordem pai→details) |
 | `GET /api/v1/log-processes/{id}/details?page=&size=` | Details paginados, mais recentes primeiro |
 | `POST /api/v1/api-call-logs` | Registra chamada de API externa — headers sensíveis (`Authorization`, `Cookie`, `X-Api-Key`...) são **redigidos no servidor** (ADR-0020); bodies opcionais truncados em 64 KB |
 | `GET /api/v1/api-call-logs/{id}` | Busca pontual |
 | `GET /api/v1/api-call-logs?isSuccess=&method=&url=&statusCode=&from=&to=&correlationId=&page=&size=` | Busca paginada (diagnóstico de integrações) |
+| `POST /api/v1/audit-entries` | Registra uma entrada de auditoria — **ingestão SÍNCRONA** (diferença deliberada, ver abaixo): responde `201` só depois do commit |
+| `GET /api/v1/audit-entries/{id}` | Busca pontual |
+| `GET /api/v1/audit-entries?from=&to=&actorId=&action=&resourceType=&resourceId=&correlationId=&page=&size=` | Busca paginada, mais recentes primeiro; todos os filtros são igualdade exata |
 
-Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000 — ADR-0020).
+Limites de ingestão configuráveis na seção `LogStream:Ingestion` (defaults: mensagem 16 KB, stack trace 128 KB, batch 500, fila 10.000, nome de serviço 256, categoria 512, metadata de auditoria 16 KB — ADR-0020).
 
-## Retenção (opt-in explícito)
+### Trilha de auditoria — por que é síncrona
 
-Sem configuração, **nada é expurgado** — apagar dados jamais é efeito colateral de default; configuração inválida também desativa o worker (fail-safe). Janela única para os três tipos de log, com override por tenant:
+Os outros três recursos respondem `202` (fila + worker; perder um log num pico é aceitável). A auditoria existe por obrigação legal — um registro que pode sumir numa fila cheia sem ninguém saber é o oposto do que se espera de uma trilha. `POST /api/v1/audit-entries` grava e só então responde `201`: ou o fato está persistido, ou o chamador recebe erro explícito. Consequência assumida: indisponibilidade do LogStream **bloqueia** quem audita, ao contrário de quem só loga. Sem batch, sem `PUT`, sem `DELETE` — uma trilha que se pode editar não é trilha. `ActorId`/`Action` são invariantes de domínio; `Metadata`, quando presente, precisa ser JSON válido e caber no limite configurado.
+
+## Retenção (opt-in explícito, por classe de dado)
+
+Sem configuração, **nada é expurgado** — apagar dados jamais é efeito colateral de default; configuração inválida também desativa o worker (fail-safe). Diagnóstico (log geral, processos, chamadas de API) e auditoria têm **janelas independentes** — a de diagnóstico nunca leva a trilha de auditoria junto, e a janela de auditoria é `null` por padrão (a trilha nunca expira sem configuração explícita):
 
 ```json
 "LogStream": { "Retention": {
     "DefaultDays": 30,
     "IntervalHours": 6,
-    "DaysByTenant": { "<guid-do-tenant>": 90 }
+    "DaysByTenant": { "<guid-do-tenant>": 90 },
+    "AuditDefaultDays": null,
+    "AuditDaysByTenant": { "<guid-do-tenant>": 2555 }
 } }
 ```
 
 O worker (`ADR-0015` camada 1) itera os bancos de tenant via catálogo a cada ciclo; details de processos são removidos pelo cascade da FK. Falha em um tenant é logada e não interrompe os demais.
+
+O corte da auditoria é pelo `dt_created_at` (carimbo do servidor), **não** pelo `dt_occurred_at` declarado pelo chamador: retenção é operação destrutiva e não pode ser governada por input externo — um `occurredAt` forjado no passado apagaria a trilha antes da hora (ADR-0020).
 
 ## Arquitetura
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Secco.SDK.AspNetCore.Ambient;
 using Secco.SharedKernel.Constants;
 
 namespace Secco.SDK.AspNetCore.Correlation;
@@ -24,6 +25,11 @@ public sealed class SeccoCorrelationMiddleware(RequestDelegate next)
 			: Guid.CreateVersion7();
 
 		correlationContext.CorrelationId = correlationId.ToString();
+
+		// Espelho ambiente para consumidores singleton (ex.: o sink de log do SDK), que não
+		// alcançam o contexto Scoped. Escrito aqui dentro, o valor flui para o restante do
+		// pipeline desta requisição e não vaza para as demais.
+		SeccoAmbientContext.SetCorrelationId(correlationContext.CorrelationId);
 
 		context.Response.OnStarting(() =>
 		{

@@ -6,7 +6,20 @@ namespace Secco.LogStream.Api.Requests;
 /// <param name="Level">Severidade do registro.</param>
 /// <param name="Message">Mensagem do log. Obrigatória.</param>
 /// <param name="StackTrace">Stack trace associado, quando houver.</param>
-public sealed record CreateLogEntryRequest(LogEntryLevel Level, string? Message, string? StackTrace = null);
+/// <param name="CorrelationId">
+/// Correlation id do item. Quando presente, vence o header <c>X-Correlation-Id</c> da
+/// requisição — é o que permite a um <c>/batch</c> carregar logs de requisições diferentes,
+/// cada um com a própria correlação.
+/// </param>
+/// <param name="ServiceName">Produto/serviço que emitiu o log, quando informado.</param>
+/// <param name="Category">Categoria do <c>ILogger</c> de origem, quando informada.</param>
+public sealed record CreateLogEntryRequest(
+	LogEntryLevel Level,
+	string? Message,
+	string? StackTrace = null,
+	Guid? CorrelationId = null,
+	string? ServiceName = null,
+	string? Category = null);
 
 /// <summary>Resposta de ingestão aceita: o Id é definitivo (Guid v7 gerado antes da persistência).</summary>
 /// <param name="Id">Identificador do registro aceito.</param>

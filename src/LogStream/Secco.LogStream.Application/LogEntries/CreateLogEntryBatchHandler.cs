@@ -42,7 +42,9 @@ public sealed class CreateLogEntryBatchHandler(ILogIngestionQueue queue, LogStre
 
 		foreach (var command in commands)
 		{
-			var logEntry = new LogEntry(command.Level, command.Message!, command.StackTrace, command.CorrelationId);
+			var logEntry = new LogEntry(
+				command.Level, command.Message!, command.StackTrace, command.CorrelationId,
+				command.ServiceName, command.Category);
 			var outcome = queue.TryEnqueue(logEntry);
 
 			if (outcome != EnqueueOutcome.Enqueued)

@@ -31,5 +31,11 @@ public static class SecureGatePlatform
 		"log-entries:read",
 		"log-processes:read",
 		"api-call-logs:read",
+
+		// A trilha de auditoria (issue #2) é recurso de log e segue a mesma postura já decidida
+		// na ADR-0024: o operador lê a de qualquer tenant. Escolha consciente, não herança
+		// automática — auditoria é mais sensível que diagnóstico, e fora do read-set ela
+		// simplesmente não apareceria no AdminPortal.
+		"audit-entries:read",
 	];
 }

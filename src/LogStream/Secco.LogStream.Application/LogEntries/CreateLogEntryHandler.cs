@@ -8,12 +8,20 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="Level">Severidade.</param>
 /// <param name="Message">Mensagem do log.</param>
 /// <param name="StackTrace">Stack trace, quando houver.</param>
-/// <param name="CorrelationId">Correlation id da requisição de origem (populado pela borda).</param>
+/// <param name="CorrelationId">
+/// Correlation id do item. O valor do payload vence quando presente; a borda só aplica o
+/// fallback do header <c>X-Correlation-Id</c> quando o payload não o traz — é o que torna o
+/// <c>/batch</c> utilizável por um sink que acumula logs de requisições diferentes.
+/// </param>
+/// <param name="ServiceName">Produto/serviço que emitiu o log, quando informado.</param>
+/// <param name="Category">Categoria do <c>ILogger</c> de origem, quando informada.</param>
 public sealed record CreateLogEntryCommand(
 	LogEntryLevel Level,
 	string? Message,
 	string? StackTrace = null,
-	Guid? CorrelationId = null);
+	Guid? CorrelationId = null,
+	string? ServiceName = null,
+	string? Category = null);
 
 /// <summary>
 /// Valida os limites de ingestão (ADR-0020) e enfileira o registro — a persistência é
@@ -34,7 +42,9 @@ public sealed class CreateLogEntryHandler(ILogIngestionQueue queue, LogStreamIng
 			return Result.Failure<Guid>(validation.Error);
 		}
 
-		var logEntry = new LogEntry(command.Level, command.Message!, command.StackTrace, command.CorrelationId);
+		var logEntry = new LogEntry(
+			command.Level, command.Message!, command.StackTrace, command.CorrelationId,
+			command.ServiceName, command.Category);
 
 		return queue.TryEnqueue(logEntry) switch
 		{
@@ -60,6 +70,16 @@ public sealed class CreateLogEntryHandler(ILogIngestionQueue queue, LogStreamIng
 		if (command.StackTrace is not null && command.StackTrace.Length > options.MaxStackTraceLength)
 		{
 			return Result.Failure(LogStreamErrors.LogEntries.StackTraceTooLong(options.MaxStackTraceLength));
+		}
+
+		if (command.ServiceName is not null && command.ServiceName.Length > options.MaxServiceNameLength)
+		{
+			return Result.Failure(LogStreamErrors.LogEntries.ServiceNameTooLong(options.MaxServiceNameLength));
+		}
+
+		if (command.Category is not null && command.Category.Length > options.MaxCategoryLength)
+		{
+			return Result.Failure(LogStreamErrors.LogEntries.CategoryTooLong(options.MaxCategoryLength));
 		}
 
 		return Result.Success();

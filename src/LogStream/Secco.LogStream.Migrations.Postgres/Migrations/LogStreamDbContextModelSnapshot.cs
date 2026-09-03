@@ -17,7 +17,7 @@ namespace Secco.LogStream.Migrations.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -90,12 +90,82 @@ namespace Secco.LogStream.Migrations.Postgres.Migrations
                     b.ToTable("tb_api_call_logs");
                 });
 
+            modelBuilder.Entity("Secco.LogStream.Domain.Audit.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pk_audit_entry");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_action");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("ds_actor_id");
+
+                    b.Property<string>("ActorName")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_actor_name");
+
+                    b.Property<int>("ActorType")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_actor_type");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_metadata");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_occurred_at");
+
+                    b.Property<string>("ResourceId")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_resource_id");
+
+                    b.Property<string>("ResourceType")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_resource_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_audit_entries");
+
+                    b.HasIndex("OccurredAt")
+                        .IsDescending()
+                        .HasDatabaseName("idx_audit_entries_dt_occurred_at");
+
+                    b.HasIndex("ActorId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("idx_audit_entries_ds_actor_id_dt_occurred_at");
+
+                    b.HasIndex("ResourceType", "ResourceId")
+                        .HasDatabaseName("idx_audit_entries_ds_resource_type_ds_resource_id");
+
+                    b.ToTable("tb_audit_entries");
+                });
+
             modelBuilder.Entity("Secco.LogStream.Domain.LogEntries.LogEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id_pk_log_entry");
+
+                    b.Property<string>("Category")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_category");
 
                     b.Property<Guid?>("CorrelationId")
                         .HasColumnType("uuid")
@@ -114,6 +184,10 @@ namespace Secco.LogStream.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_message");
 
+                    b.Property<string>("ServiceName")
+                        .HasColumnType("text")
+                        .HasColumnName("ds_service_name");
+
                     b.Property<string>("StackTrace")
                         .HasColumnType("text")
                         .HasColumnName("ds_stack_trace");
@@ -126,6 +200,9 @@ namespace Secco.LogStream.Migrations.Postgres.Migrations
 
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("idx_log_entries_dt_created_at");
+
+                    b.HasIndex("ServiceName")
+                        .HasDatabaseName("idx_log_entries_ds_service_name");
 
                     b.HasIndex("CreatedAt", "Level")
                         .HasDatabaseName("idx_log_entries_dt_created_at_ie_level");

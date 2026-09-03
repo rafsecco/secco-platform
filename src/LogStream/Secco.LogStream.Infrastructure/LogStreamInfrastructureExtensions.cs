@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Secco.LogStream.Application;
 using Secco.LogStream.Application.ApiCalls;
+using Secco.LogStream.Application.Audit;
 using Secco.LogStream.Application.Ingestion;
 using Secco.LogStream.Application.LogEntries;
 using Secco.LogStream.Application.LogProcesses;
@@ -57,6 +58,7 @@ public static class LogStreamInfrastructureExtensions
 		services.AddScoped<ILogEntryRepository, LogEntryRepository>();
 		services.AddScoped<ILogProcessRepository, LogProcessRepository>();
 		services.AddScoped<IApiCallLogRepository, ApiCallLogRepository>();
+		services.AddScoped<IAuditEntryRepository, AuditEntryRepository>();
 
 		// Ingestão assíncrona: canal bounded compartilhado + adaptador por request + worker
 		services.AddSingleton<LogEntryIngestionChannel>();

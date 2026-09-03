@@ -186,6 +186,97 @@ public class LogEntryEndpointsTests(LogStreamApiFactory factory) : IClassFixture
 	}
 
 	[Fact]
+	public async Task Batch_WhenPayloadCarriesCorrelationId_PersistsPerItemCorrelation()
+	{
+		var client = CreateClientForTenant(factory.TenantAlfa);
+		var marker = Guid.NewGuid().ToString("N");
+		var payloadCorrelationId = Guid.NewGuid();
+
+		var response = await client.PostAsJsonAsync("/api/v1/log-entries/batch", new[]
+		{
+			new { level = "Information", message = $"item com correlação própria {marker}", correlationId = payloadCorrelationId },
+		});
+
+		response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+		var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+		var id = accepted.GetProperty("ids")[0].GetGuid();
+
+		var persisted = await WaitUntilFoundAsync(client, $"/api/v1/log-entries/{id}");
+		persisted.StatusCode.Should().Be(HttpStatusCode.OK);
+
+		var dto = await persisted.Content.ReadFromJsonAsync<JsonElement>(Json);
+		dto.GetProperty("correlationId").GetGuid().Should().Be(payloadCorrelationId,
+			"o valor do payload vence quando presente — é o que torna o batch utilizável por um sink");
+	}
+
+	[Fact]
+	public async Task Batch_WhenPayloadOmitsCorrelationId_FallsBackToHeader()
+	{
+		var client = CreateClientForTenant(factory.TenantAlfa);
+		var headerCorrelationId = Guid.NewGuid();
+		client.DefaultRequestHeaders.Add("X-Correlation-Id", headerCorrelationId.ToString());
+
+		var response = await client.PostAsJsonAsync("/api/v1/log-entries/batch", new[]
+		{
+			new { level = "Information", message = "item sem correlação própria" },
+		});
+
+		response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+		var accepted = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+		var id = accepted.GetProperty("ids")[0].GetGuid();
+
+		var persisted = await WaitUntilFoundAsync(client, $"/api/v1/log-entries/{id}");
+		persisted.StatusCode.Should().Be(HttpStatusCode.OK);
+
+		var dto = await persisted.Content.ReadFromJsonAsync<JsonElement>(Json);
+		dto.GetProperty("correlationId").GetGuid().Should().Be(headerCorrelationId,
+			"sem valor no payload, o header segue valendo como fallback — compatibilidade com o comportamento existente");
+	}
+
+	[Fact]
+	public async Task Search_WhenFilteredByServiceName_ReturnsOnlyThatService()
+	{
+		var client = CreateClientForTenant(factory.TenantBeta);
+		var marker = Guid.NewGuid().ToString("N");
+		var targetService = $"secco-servico-alvo-{marker}";
+
+		await client.PostAsJsonAsync("/api/v1/log-entries", new
+		{
+			level = "Information",
+			message = $"log do serviço alvo {marker}",
+			serviceName = targetService,
+			category = "Secco.Servico.Alvo.Handler",
+		});
+		await client.PostAsJsonAsync("/api/v1/log-entries", new
+		{
+			level = "Information",
+			message = $"log de outro serviço {marker}",
+			serviceName = $"secco-outro-servico-{marker}",
+		});
+
+		var deadline = DateTime.UtcNow.AddSeconds(10);
+		JsonElement filtered;
+
+		while (true)
+		{
+			var response = await client.GetAsync($"/api/v1/log-entries?serviceName={targetService}");
+			filtered = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+
+			if (filtered.GetProperty("totalCount").GetInt64() >= 1 || DateTime.UtcNow > deadline)
+			{
+				break;
+			}
+
+			await Task.Delay(100);
+		}
+
+		filtered.GetProperty("totalCount").GetInt64().Should().Be(1);
+		var item = filtered.GetProperty("items")[0];
+		item.GetProperty("serviceName").GetString().Should().Be(targetService);
+		item.GetProperty("category").GetString().Should().Be("Secco.Servico.Alvo.Handler");
+	}
+
+	[Fact]
 	public async Task SearchLogEntries_WithInvertedDateRange_Returns400()
 	{
 		var client = CreateClientForTenant(factory.TenantAlfa);

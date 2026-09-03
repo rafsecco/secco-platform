@@ -41,6 +41,7 @@ app.MapSeccoPlatform();
 app.MapLogEntryEndpoints();
 app.MapLogProcessEndpoints();
 app.MapApiCallLogEndpoints();
+app.MapAuditEntryEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();

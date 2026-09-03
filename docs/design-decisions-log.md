@@ -1393,3 +1393,145 @@ Opções apresentadas:
   - O modelo principal implementaria as permissões diretamente. Mais caro, menos ida e volta de revisão.
 - **Sem subagentes**
   - Tudo no modelo principal. Mais caro, mas sem risco de drift entre o que a spec diz e o que o subagente entende.
+
+### 103. [Escopo] Ordem de ataque das issues de adotante
+
+**Resposta:** #1 e depois #4
+
+Opções apresentadas:
+
+- **#1 agora (Recomendado)**
+  - Implementar o sink da ADR-0008: único `blocker`, único com desenho já ratificado.
+- **#4 primeiro**
+  - Fechar a decisão do console de operação antes de qualquer código, já que ela destrava a #3.
+- **#1 e depois #4** ✓ **ESCOLHIDA**
+  - O blocker até o fim, com testes e PR, e na sequência a rodada de decisão da #4.
+- **Só triagem**
+  - Mapa das issues e nada mais.
+
+### 104. [Arquitetura] Onde vive o `AddLogStream()`
+
+**Resposta:** Pacote novo `Secco.SDK.Logging` (Recomendado)
+
+Opções apresentadas:
+
+- **Pacote novo `Secco.SDK.Logging` (Recomendado)** ✓ **ESCOLHIDA**
+  - `Secco.SDK.AspNetCore` fica limpo e quem não usa LogStream não arrasta o client. Custo: mais um pacote publicável (tag `sdk-logging/v`).
+- **Dentro do `Secco.SDK.AspNetCore`**
+  - Nenhum pacote novo, mas o SDK passaria a depender de um produto: todo consumidor do SDK — inclusive o próprio `Secco.LogStream.Api` — arrastaria o `Secco.LogStream.Client`.
+- **Dentro do `Secco.LogStream.Client`**
+  - Sem pacote novo, mas o enriquecimento precisa de `ICorrelationContext`/`ITenantContext` e o client passaria a depender do SDK; além disso a ADR-0008 diz "provider do SDK".
+
+### 105. [Arquitetura] Como o sink obtém o token de máquina
+
+**Resposta:** Promover o handler para o SDK (Recomendado)
+
+Opções apresentadas:
+
+- **Promover o handler para o SDK (Recomendado)** ✓ **ESCOLHIDA**
+  - `SecureGateClientCredentialsHandler` vira `Secco.SDK.AspNetCore.Authentication.SeccoClientCredentialsHandler` — é OAuth 2 puro contra `/connect/token`, não contrato de produto. O `Secco.SecureGate.Client` passa a consumi-lo.
+- **`Secco.SDK.Logging` depende do `Secco.SecureGate.Client`**
+  - Reusaria o handler onde estava, mas amarraria o sink de log ao pacote de identidade.
+- **O produto configura o `HttpClient`**
+  - Devolveria ao produto exatamente o boilerplate de que a issue #1 reclama.
+
+### 106. [Design] Log emitido sem tenant resolvido
+
+**Resposta:** Tenant de plataforma opcional (Recomendado)
+
+Opções apresentadas:
+
+- **Tenant de plataforma opcional (Recomendado)** ✓ **ESCOLHIDA**
+  - `Secco:LogStream:PlatformTenantId`: configurado, recebe os logs sem tenant; ausente, essas entradas são descartadas com contador.
+- **Descartar sempre**
+  - Mais simples, mas erro de startup nunca chegaria ao LogStream.
+- **Tenant de plataforma obrigatório**
+  - Nada se perderia, mas todo adotante teria de provisionar um tenant só para ligar o log.
+
+### 107. [Contrato] Correlação por item no batch do LogStream
+
+**Resposta:** Sim, `CorrelationId` opcional no payload (Recomendado)
+
+Opções apresentadas:
+
+- **`CorrelationId` opcional no payload (Recomendado)** ✓ **ESCOLHIDA**
+  - O endpoint `/batch` derivava a correlação do header e a aplicava a todos os itens; uma fila que acumula logs de requisições diferentes perderia o enriquecimento. Mudança aditiva, sem `/v2` (ADR-0009).
+- **Agrupar a fila por `(tenant, correlação)`**
+  - Zero mudança de contrato, mas em pico daria quase um POST por requisição da aplicação — o que derrota o propósito do batch.
+
+### 108. [Escopo] Nome do serviço: prefixo na mensagem ou coluna
+
+**Resposta:** Campo agora, e a issue #2 junto
+
+Opções apresentadas:
+
+- **Campo agora, com a #2 junto** ✓ **ESCOLHIDA**
+  - Prefixar a mensagem repetiria, para serviço e categoria, a mesma crítica que a #2 faz ao ator: dado dentro do texto não é filtrável. O campo obriga migration nos dois engines e regeneração de contrato — o mesmo custo que a #2 paga, então as duas vão numa passada só.
+- **Prefixo `[serviço]` na mensagem, #2 depois**
+  - Entrega mais rápida do sink, com dívida explícita e uma segunda migration mais adiante.
+
+### 109. [Arquitetura] Onde vive a trilha de auditoria
+
+**Resposta:** Recurso novo no LogStream (Recomendado)
+
+Opções apresentadas:
+
+- **Recurso novo no LogStream (Recomendado)** ✓ **ESCOLHIDA**
+  - `AuditEntry` própria, com endpoints, permissões e retenção próprias. Reusa os dois providers de banco, o client publicado e a leitura cross-tenant do operador (ADR-0024). É para onde o adotante inclinava.
+- **Produto `Secco.Audit` separado**
+  - Isolamento total, ao custo de um produto de quatro camadas inteiro — banco, migrations nos dois engines, client, CI, Docker — para uma entidade.
+- **Campos novos no `LogEntry`**
+  - O mais barato, mas misturaria dado com prazo legal e dado de diagnóstico na mesma tabela e na mesma retenção.
+
+### 110. [Design] Retenção depois da auditoria
+
+**Resposta:** Por classe de dado, auditoria não expira por padrão (Recomendado)
+
+Opções apresentadas:
+
+- **Por classe de dado (Recomendado)** ✓ **ESCOLHIDA**
+  - `AuditDefaultDays`/`AuditDaysByTenant` ao lado dos existentes; nulo = auditoria nunca expira. Preserva a postura fail-safe que já existia. Descartado um `DaysByResource` genérico: são duas classes de dado com prazos qualitativamente diferentes, não N recursos com prazos arbitrários.
+- **Auditoria fora do worker no v1**
+  - Menos código, mas a trilha cresceria sem nenhum caminho de expurgo.
+
+### 111. [Design] IP e user agent no `AuditEntry`
+
+**Resposta:** Não no v1 (Recomendado)
+
+Opções apresentadas:
+
+- **Não no v1 (Recomendado)** ✓ **ESCOLHIDA**
+  - Dado pessoal com peso de LGPD e sem consumidor declarado; quem precisar põe em `Metadata` conscientemente.
+- **Sim, campos próprios**
+  - É o que uma trilha corporativa costuma pedir, mas traria obrigação de LGPD para dentro do LogStream desde o v1.
+
+### 112. [Design] O que mais entra no `LogEntry` nesta migration
+
+**Resposta:** `ServiceName` + `Category` (Recomendado)
+
+Opções apresentadas:
+
+- **`ServiceName` + `Category` (Recomendado)** ✓ **ESCOLHIDA**
+  - Filtrar por serviço e por categoria é o básico de qualquer consulta de log, e a migration ia acontecer de qualquer jeito.
+- **Só `ServiceName`**
+  - Resolveria a ADR-0008 e nada mais.
+- **`ServiceName` + `Category` + tipo da exceção**
+  - Útil em triagem, mas é uma terceira coluna sem consumidor pedindo agora.
+
+### 113. [Design] Ingestão de auditoria: síncrona ou assíncrona
+
+**Resposta:** Síncrona, `201 Created` (decidida na implementação e ratificada)
+
+Os outros três recursos do LogStream respondem `202` e persistem atrás de uma fila com descarte controlado. Para diagnóstico é a decisão certa: perder um log num pico é melhor que derrubar o produto. Para um registro que existe por obrigação legal é a decisão errada — ele sumiria sem ninguém saber. Consequência assumida e registrada: LogStream indisponível **bloqueia quem audita**, ao contrário de quem loga. Alternativa descartada: manter a assincronia e aceitar perda silenciosa, o que esvaziaria metade do sentido da issue #2.
+
+### 114. [Segurança] `audit-entries:read` no read-set do `platform-operator`
+
+**Resposta:** Entra (decidida na implementação e ratificada)
+
+O operador de plataforma já lê o log de qualquer tenant por caso especial da ADR-0024. Um recurso de log fora do read-set simplesmente não apareceria no AdminPortal. Registrado como escolha consciente, e não como herança automática: a trilha de auditoria é mais sensível que o log de diagnóstico. Fica também registrado o que **não** foi feito: a trilha é append-only apenas por ausência de endpoint de escrita — quem tem acesso ao banco altera. Resistência a adulteração (hash chain, assinatura) exige ADR nova.
+
+### 115. [Processo] Delegação desta rodada a subagentes
+
+**Resposta:** Aprovar os dois subagentes `sonnet`
+
+Primeiro subagente: promoção do handler de client credentials e esqueleto do `Secco.SDK.Logging`. Segundo: schema, contrato e testes do LogStream (colunas novas no `LogEntry`, recurso `AuditEntry`, retenção por classe, migrations nos dois engines, regeneração de `openapi.json` e client). `sonnet` e não `haiku` porque as duas fatias tocam código publicado e contrato. O modelo principal ficou com o desenho, o núcleo do sink (contexto ambiente, fila, logger, dispatcher, guarda anti-recursão), a fatia do SecureGate e a revisão.

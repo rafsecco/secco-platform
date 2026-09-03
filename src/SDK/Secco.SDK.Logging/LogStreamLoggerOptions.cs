@@ -14,10 +14,23 @@ public sealed class LogStreamLoggerOptions
 	/// <summary>URL base da API do Secco.LogStream.</summary>
 	public string? BaseUrl { get; set; }
 
-	/// <summary>Identificador do client OAuth usado no client credentials contra o SecureGate.</summary>
+	/// <summary>
+	/// URL base do emissor de tokens (o SecureGate). Quando ausente, cai para
+	/// <c>Secco:SecureGate:BaseUrl</c> — a maioria dos produtos já configura essa seção e não
+	/// tem por que repetir o endereço.
+	/// </summary>
+	public string? AuthorityUrl { get; set; }
+
+	/// <summary>
+	/// Identificador do client OAuth usado no client credentials. Quando ausente, cai para
+	/// <c>Secco:SecureGate:ClientId</c>.
+	/// </summary>
 	public string? ClientId { get; set; }
 
-	/// <summary>Segredo do client OAuth. Nunca é logado (ADR-0020).</summary>
+	/// <summary>
+	/// Segredo do client OAuth; nunca é logado (ADR-0020). Quando ausente, cai para
+	/// <c>Secco:SecureGate:ClientSecret</c>.
+	/// </summary>
 	public string? ClientSecret { get; set; }
 
 	/// <summary>Scope solicitado ao SecureGate; a audience correspondente é <c>secco-logstream</c>.</summary>

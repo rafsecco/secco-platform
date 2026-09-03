@@ -22,8 +22,16 @@ public sealed class LogEntry : BaseEntity
 	/// <param name="message">Mensagem do log. Obrigatória.</param>
 	/// <param name="stackTrace">Stack trace associado, quando houver.</param>
 	/// <param name="correlationId">Correlation id da requisição de origem, quando propagado.</param>
+	/// <param name="serviceName">Produto/serviço que emitiu o log (preenchido pelo sink — ADR-0008), quando informado.</param>
+	/// <param name="category">Categoria do <c>ILogger</c> de origem, quando informada.</param>
 	/// <exception cref="DomainInvariantException">Se a mensagem for nula ou vazia.</exception>
-	public LogEntry(LogEntryLevel level, string message, string? stackTrace = null, Guid? correlationId = null)
+	public LogEntry(
+		LogEntryLevel level,
+		string message,
+		string? stackTrace = null,
+		Guid? correlationId = null,
+		string? serviceName = null,
+		string? category = null)
 	{
 		if (string.IsNullOrWhiteSpace(message))
 		{
@@ -34,6 +42,8 @@ public sealed class LogEntry : BaseEntity
 		Message = message;
 		StackTrace = stackTrace;
 		CorrelationId = correlationId;
+		ServiceName = serviceName;
+		Category = category;
 		CreatedAt = DateTimeOffset.UtcNow;
 	}
 
@@ -48,6 +58,12 @@ public sealed class LogEntry : BaseEntity
 
 	/// <summary>Correlation id da requisição de origem (coluna <c>correlation_id</c>).</summary>
 	public Guid? CorrelationId { get; private set; }
+
+	/// <summary>Produto/serviço que emitiu o log (coluna <c>ds_service_name</c>), quando informado.</summary>
+	public string? ServiceName { get; private set; }
+
+	/// <summary>Categoria do <c>ILogger</c> de origem (coluna <c>ds_category</c>), quando informada.</summary>
+	public string? Category { get; private set; }
 
 	/// <summary>Momento da criação do registro (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }

@@ -62,10 +62,12 @@ public static class LogEntryEndpoints
 				LogEntryLevel? level,
 				string? message,
 				Guid? correlationId,
+				string? serviceName,
+				string? category,
 				int? page,
 				int? size) =>
 			(await handler.HandleAsync(
-				new LogEntrySearchCriteria(from, to, level, message, correlationId,
+				new LogEntrySearchCriteria(from, to, level, message, correlationId, serviceName, category,
 					new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))
@@ -77,9 +79,17 @@ public static class LogEntryEndpoints
 		return endpoints;
 	}
 
+	/// <summary>
+	/// O valor de correlação do payload vence quando presente; o header <c>X-Correlation-Id</c>
+	/// só é usado como fallback. É o que torna o <c>/batch</c> utilizável por um sink que
+	/// acumula logs de requisições diferentes — antes, o header era aplicado a todos os itens.
+	/// </summary>
 	private static CreateLogEntryCommand ToCommand(CreateLogEntryRequest request, ICorrelationContext correlation) =>
 		new(request.Level,
 			request.Message,
 			request.StackTrace,
-			Guid.TryParse(correlation.CorrelationId, out var correlationId) ? correlationId : null);
+			request.CorrelationId
+				?? (Guid.TryParse(correlation.CorrelationId, out var correlationId) ? correlationId : null),
+			request.ServiceName,
+			request.Category);
 }

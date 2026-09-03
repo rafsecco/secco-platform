@@ -261,6 +261,11 @@ que interessa à auditoria; `CreatedAt` é o carimbo do servidor e é o que perm
 divergência (relógio errado, reenvio tardio, tentativa de backdating). Guardar só um dos dois perde
 uma das duas perguntas.
 
+**O expurgo corta pelo `CreatedAt`, nunca pelo `OccurredAt`** (ADR-0020). Retenção é operação
+destrutiva, e `OccurredAt` é input externo: se ele governasse o corte, um valor forjado no passado
+apagaria a própria trilha antes da hora. `OccurredAt` serve para consultar o fato, não para
+expurgá-lo — e há teste de regressão para isso.
+
 Invariantes de domínio: `ActorId` e `Action` obrigatórios; `Metadata`, quando presente, precisa ser
 JSON válido e caber no limite configurado.
 

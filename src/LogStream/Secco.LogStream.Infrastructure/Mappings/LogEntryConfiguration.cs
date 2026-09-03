@@ -18,5 +18,6 @@ internal sealed class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
 		builder.HasIndex(e => e.CreatedAt);
 		builder.HasIndex(e => new { e.CreatedAt, e.Level });
 		builder.HasIndex(e => e.CorrelationId);
+		builder.HasIndex(e => e.ServiceName);
 	}
 }
