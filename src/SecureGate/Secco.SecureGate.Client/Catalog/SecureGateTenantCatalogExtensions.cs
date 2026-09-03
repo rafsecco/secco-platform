@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Secco.SDK.AspNetCore.Authentication;
 using Secco.SDK.AspNetCore.Tenancy;
 
 namespace Secco.SecureGate.Client.Catalog;
@@ -25,7 +26,7 @@ public static class SecureGateTenantCatalogExtensions
 		services.AddSecureGateClientCredentialsOptions();
 
 		// Store fora do pipeline do IHttpClientFactory: o token sobrevive à reciclagem dos handlers
-		var tokenStore = new SecureGateAccessTokenStore();
+		var tokenStore = new SeccoAccessTokenStore();
 
 		// Com AddSeccoResilience() no host, o pipeline padrão da plataforma se aplica também
 		// aqui (inclusive à aquisição de token, que atravessa o mesmo handler primário)
@@ -46,7 +47,8 @@ public static class SecureGateTenantCatalogExtensions
 				if (options.IsConfigured)
 				{
 					// Token com o scope MÍNIMO do catálogo (least privilege, ADR-0020)
-					handlers.Add(new SecureGateClientCredentialsHandler(options, tokenStore, options.CatalogScope));
+					handlers.Add(new SeccoClientCredentialsHandler(
+						options.BaseUrl!, options.ClientId!, options.ClientSecret!, options.CatalogScope, tokenStore));
 				}
 			});
 

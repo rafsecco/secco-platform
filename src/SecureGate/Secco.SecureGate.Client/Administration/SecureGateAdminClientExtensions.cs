@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Secco.SDK.AspNetCore.Authentication;
 using Secco.SecureGate.Client.Catalog;
 
 namespace Secco.SecureGate.Client.Administration;
@@ -42,7 +43,7 @@ public static class SecureGateAdminClientExtensions
 
 		// Store próprio: o token de administração não se mistura com o do catálogo nem com
 		// o da resolução de permissões — um store por recurso/scope (least privilege)
-		var tokenStore = new SecureGateAccessTokenStore();
+		var tokenStore = new SeccoAccessTokenStore();
 
 		services.AddHttpClient<ISecureGateClient, SecureGateClient>()
 			.ConfigureHttpClient((serviceProvider, client) =>
@@ -63,7 +64,8 @@ public static class SecureGateAdminClientExtensions
 					// Fail-fast: configuração parcial não pode virar um client sem autenticação
 					options.Validate(requireProduct: false);
 
-					handlers.Add(new SecureGateClientCredentialsHandler(options, tokenStore, AdminScope));
+					handlers.Add(new SeccoClientCredentialsHandler(
+						options.BaseUrl!, options.ClientId!, options.ClientSecret!, AdminScope, tokenStore));
 				}
 			});
 

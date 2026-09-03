@@ -24,6 +24,7 @@
   <Folder Name="/src/SDK/">
     <Project Path="src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" />
     <Project Path="src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" />
+    <Project Path="src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj" />
     <Project Path="src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj" />
   </Folder>
   <Folder Name="/src/SecureGate/">
@@ -51,6 +52,7 @@
   <Folder Name="/tests/SDK/">
     <Project Path="tests/SDK/Secco.SDK.AspNetCore.Tests/Secco.SDK.AspNetCore.Tests.csproj" />
     <Project Path="tests/SDK/Secco.SDK.EntityFrameworkCore.Tests/Secco.SDK.EntityFrameworkCore.Tests.csproj" />
+    <Project Path="tests/SDK/Secco.SDK.Logging.Tests/Secco.SDK.Logging.Tests.csproj" />
     <Project Path="tests/SDK/Secco.SDK.Testing.Tests/Secco.SDK.Testing.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/SecureGate/">

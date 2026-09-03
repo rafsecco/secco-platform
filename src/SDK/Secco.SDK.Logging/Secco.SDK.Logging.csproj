@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-logging/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-logging/v</MinVerTagPrefix>
+    <Description>Sink ILogger → Secco.LogStream da Secco Platform (ADR-0008): AddLogStream() enriquece cada entrada com tenant/correlação/serviço, enfileira localmente e envia em lote sem nunca bloquear o request.</Description>
+    <PackageTags>secco;sdk;logging;logstream;observability</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\LogStream\Secco.LogStream.Client\Secco.LogStream.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
