@@ -1,10 +1,18 @@
-# Secco.SDK.Logging — o sink `ILogger` → LogStream (`AddLogStream()`) — design
+# Secco.SDK.Logging + trilha de auditoria — design
 
 **Data:** 2026-09-03
 **Status:** aprovado para planejamento
-**Item de origem:** issue [#1](https://github.com/rafsecco/secco-platform/issues/1) (`adopter-demand`,
-`blocker`) — o provider prometido pela ADR-0008 nunca foi implementado. Trava o item
-"Integração com `Secco.LogStream.Client` (logs)" da Fase 0 do roadmap do `secco-intranet`.
+**Itens de origem:** as issues [#1](https://github.com/rafsecco/secco-platform/issues/1)
+(`adopter-demand`, `blocker`) — o provider prometido pela ADR-0008 nunca foi implementado, o que
+trava o item "Integração com `Secco.LogStream.Client` (logs)" da Fase 0 do roadmap do
+`secco-intranet` — e [#2](https://github.com/rafsecco/secco-platform/issues/2), a trilha de
+auditoria de ação de usuário.
+
+**Por que juntas.** A #1, sozinha, resolveria o enriquecimento de "nome do serviço" prometido pela
+ADR-0008 com um prefixo na mensagem, porque o `LogEntry` não tem campo para isso. Decisão desta
+rodada (2026-09-03): o campo entra de verdade. A partir daí a entrega já carrega migration nos dois
+engines, regeneração de contrato e de client — que é exatamente o custo que a #2 também paga. Fazer
+as duas numa passada só evita duas migrations e duas rodadas de `SECCO_UPDATE_OPENAPI`.
 
 ## Contexto
 
@@ -71,7 +79,26 @@ escopo mas não há `HttpContext`, então `IHttpContextAccessor` também não re
    `Scoped` continuam sendo a API pública para o código de aplicação; o ambiente existe para quem
    é singleton por natureza — o logger.
 6. **Sem ADR nova.** A ADR-0008 já decide o quê; esta entrega é a implementação dela. O que fica
-   registrado é o log de decisões de design (as quatro escolhas acima e as alternativas descartadas).
+   registrado é o log de decisões de design (as escolhas desta rodada e as alternativas descartadas).
+7. **A trilha de auditoria é recurso novo dentro do LogStream**, não produto separado nem coluna no
+   `LogEntry`. Reusa os dois providers de banco, o client publicado e a leitura cross-tenant do
+   operador (ADR-0024). Descartado `Secco.Audit` como produto: quatro camadas, banco, migrations nos
+   dois engines, client, CI, Docker e mais um serviço para o adotante subir — tudo para uma entidade.
+   Descartado campo no `LogEntry`: misturaria dado com prazo legal (anos) e dado de diagnóstico
+   (dias) na mesma tabela e na mesma retenção, que é a objeção central da issue #2.
+8. **Retenção deixa de ser única.** Diagnóstico e auditoria passam a ter janelas independentes, e a
+   janela de auditoria é `null` por padrão — auditoria não expira a menos que alguém configure um
+   prazo. Isso preserva a postura fail-safe que já existe (sem configuração, nada é apagado) e
+   resolve a restrição que a issue nomeia.
+9. **Ingestão de auditoria é síncrona**, ao contrário dos outros três recursos. Ver a justificativa
+   na seção própria: uma fila com descarte controlado é a decisão certa para log de diagnóstico e a
+   errada para um registro com obrigação legal.
+10. **Sem IP e user agent no v1.** São dado pessoal com peso de LGPD e ainda não têm consumidor
+    declarado. Quem precisar põe em `Metadata` conscientemente.
+11. **O ator é declarado pelo produto chamador**, não derivado do token. Não há alternativa: o
+    chamador se autentica por client credentials, então o `sub` do token é a máquina, não a pessoa
+    que agiu. O nível de confiança é o mesmo do resto do payload de log e está registrado na seção
+    de segurança.
 
 ## Arquitetura
 
@@ -147,8 +174,10 @@ ILogger<T>.LogError(...)
   → falha: resiliência do SDK tenta; esgotou → descarta o lote e conta. Nunca relança.
 ```
 
-O `ServiceName` entra no início da mensagem como prefixo estruturado (`[serviço] mensagem`) até
-existir campo próprio no `LogEntry`. Isso é dívida consciente e está anotada abaixo.
+`ServiceName` e a categoria do `ILogger` vão em **campos próprios** do `LogEntry`
+(`ds_service_name`, `ds_category`) — ver a seção de mudanças de schema. A alternativa de prefixar a
+mensagem foi descartada: repetiria, para serviço e categoria, exatamente a crítica que a issue #2
+faz ao ator de hoje — dado que só existe dentro do texto não é filtrável nem pesquisável.
 
 ### Anti-recursão — requisito de correção
 
@@ -179,22 +208,140 @@ Nota operacional para o README: o client OIDC do produto precisa de um role com 
 **em cada tenant** para o qual ele loga (a resolução é por `(tenant_id, role)`, ADR-0021). Sem isso o
 LogStream responde 403 e o lote é descartado — visível pelo contador, não por exceção no produto.
 
+## Trilha de auditoria — o recurso `AuditEntry` (issue #2)
+
+### Por que é entidade própria e não coluna no `LogEntry`
+
+A issue #2 dá o argumento e ele se sustenta: auditoria e log de diagnóstico têm ciclos de vida
+diferentes. Auditoria vive anos por obrigação legal; log de diagnóstico expira em dias. Uma trilha de
+auditoria sob a retenção do log é uma trilha que some. Somem também os campos: um `LogEntry` tem
+severidade e stack trace, que não significam nada num registro de "fulano baixou o documento X";
+um `AuditEntry` tem ator, ação e recurso, que não significam nada num log de exceção. É a mesma
+separação que o NotificationHub já fez entre `Notification` (e-mail, com status de entrega) e
+`InAppNotification` (lido/não lido) — entidades separadas porque o ciclo de vida é diferente.
+
+### Ingestão síncrona — a diferença deliberada
+
+Os outros três recursos do LogStream respondem `202 Accepted`: o Id é gerado antes do INSERT e a
+persistência acontece num worker, atrás de uma fila com descarte controlado. Para diagnóstico isso
+é correto — perder um log num pico é melhor que derrubar o produto que o emitiu.
+
+Para auditoria é errado. Um registro que existe por obrigação legal não pode desaparecer numa fila
+cheia sem que ninguém saiba. `POST /api/v1/audit-entries` responde **`201 Created`** depois do
+commit: ou o fato está gravado, ou o chamador recebe erro e decide o que fazer. É mais lento e é o
+ponto — a diferença de custo é exatamente a garantia que se está comprando.
+
+Consequência assumida: LogStream indisponível **bloqueia** quem audita, ao contrário de quem loga.
+Um produto que não pode parar por isso tem a saída de gravar localmente e reenviar, mas isso é
+decisão do produto, não default da plataforma.
+
+### Entidade
+
+```csharp
+public sealed class AuditEntry : BaseEntity   // Id Guid v7 herdado
+{
+    public string ActorId { get; }            // ds_actor_id     — sub do usuário, ou client id
+    public string? ActorName { get; }         // ds_actor_name   — snapshot legível no momento do fato
+    public ActorType ActorType { get; }       // ie_actor_type   — User | Client
+    public string Action { get; }             // ds_action       — verbo canônico: "documento.download"
+    public string? ResourceType { get; }      // ds_resource_type
+    public string? ResourceId { get; }        // ds_resource_id
+    public string? Metadata { get; }          // ds_metadata     — JSON livre, com limite de tamanho
+    public Guid? CorrelationId { get; }       // correlation_id
+    public DateTimeOffset OccurredAt { get; } // dt_occurred_at  — quando o fato aconteceu (declarado)
+    public DateTimeOffset CreatedAt { get; }  // dt_created_at   — quando o LogStream registrou
+}
+```
+
+Imutável, como todo registro de log. Tenant não é atributo: o isolamento é físico, por banco
+(ADR-0005). Nomes de coluna pela convention global da ADR-0017 — nunca digitados à mão.
+
+`OccurredAt` e `CreatedAt` são separados de propósito. `OccurredAt` é declarado pelo chamador e é o
+que interessa à auditoria; `CreatedAt` é o carimbo do servidor e é o que permite detectar
+divergência (relógio errado, reenvio tardio, tentativa de backdating). Guardar só um dos dois perde
+uma das duas perguntas.
+
+Invariantes de domínio: `ActorId` e `Action` obrigatórios; `Metadata`, quando presente, precisa ser
+JSON válido e caber no limite configurado.
+
+Índices: `(dt_occurred_at DESC)`, `(ds_actor_id, dt_occurred_at DESC)` e
+`(ds_resource_type, ds_resource_id)` — os três eixos de consulta que a issue descreve ("quem baixou
+qual documento, quem publicou, quem entrou na sessão").
+
+### Endpoints e permissões
+
+| Verbo | Rota | Permissão | Resposta |
+| --- | --- | --- | --- |
+| POST | `/api/v1/audit-entries` | `audit-entries:write` | `201 Created` |
+| GET | `/api/v1/audit-entries` | `audit-entries:read` | `200` paginado, mais recentes primeiro |
+| GET | `/api/v1/audit-entries/{id}` | `audit-entries:read` | `200` / `404` |
+
+Sem endpoint de batch: batch existe para amortizar custo de ingestão de alto volume, que é
+justamente o regime em que o descarte é aceitável — não é o caso aqui. Sem `DELETE` e sem `PUT`:
+uma trilha que se pode editar não é trilha.
+
+Filtros do GET: `from`, `to`, `actorId`, `action`, `resourceType`, `resourceId`, `correlationId`,
+`page`, `size` — todos opcionais, todos com igualdade exata, nenhum `LIKE`.
+
+`audit-entries:read` **entra no read-set fixo do `platform-operator`** (ADR-0024), junto com os
+outros `*:read` de log. É a consequência de o operador já ler o log de qualquer tenant: um recurso
+de log fora do read-set simplesmente não aparece no AdminPortal. Fica registrado como escolha, não
+como detalhe — dá ao operador de plataforma visão da trilha de auditoria de todos os tenants.
+
+### Retenção por classe de dado
+
+`LogStreamRetentionOptions` ganha um segundo par de janelas:
+
+```csharp
+public int? DefaultDays { get; set; }                       // diagnóstico (como hoje)
+public Dictionary<Guid, int> DaysByTenant { get; }          // override por tenant (como hoje)
+public int? AuditDefaultDays { get; set; }                  // auditoria; NULO = nunca expira
+public Dictionary<Guid, int> AuditDaysByTenant { get; }     // override por tenant
+```
+
+Descartado um dicionário genérico `DaysByResource`: há duas classes de dado com prazos
+qualitativamente diferentes, não N recursos com prazos arbitrários. Dois pares nomeados dizem a
+verdade do domínio e não quebram a configuração de quem já usa `DefaultDays`.
+
+O `LogRetentionWorker` passa a resolver as duas janelas por tenant e a expurgar `tb_audit_entries`
+apenas quando a janela de auditoria estiver configurada. A postura fail-safe existente vale
+igualmente: configuração ausente ou inválida = nada é apagado.
+
+### Mudanças no `LogEntry` (o campo de serviço da ADR-0008)
+
+Duas colunas novas, ambas nuláveis — mudança aditiva, sem breaking change de contrato:
+
+- `ds_service_name` — o produto que emitiu o log, preenchido automaticamente pelo sink.
+- `ds_category` — a categoria do `ILogger` (ex.: `Secco.Intranet.Documentos.UploadHandler`).
+
+Ambas entram como filtro opcional na busca de `log-entries`. Descartado incluir também
+`ds_exception_type` nesta rodada: útil em triagem, mas sem consumidor pedindo agora.
+
 ## Escopo
 
 **Dentro:**
 
 - Pacote `Secco.SDK.Logging` completo (provider, logger, fila, dispatcher, options, `AddLogStream()`).
 - `SeccoAmbientContext` no `Secco.SDK.AspNetCore`, alimentado pelos middlewares e por `SetTenant`.
-- Promoção do handler de client credentials para o SDK e adaptação do `Secco.SecureGate.Client`.
-- `CorrelationId?` em `CreateLogEntryRequest` + handler + `openapi.json` + client regenerados.
-- Testes (abaixo), README do pacote, entrada no `publish-packages.yml`, `docs/roadmap.md`.
+- ~~Promoção do handler de client credentials para o SDK~~ — **feito** (commit `18abe4c`).
+- ~~Esqueleto do pacote `Secco.SDK.Logging`~~ — **feito** (commit `18abe4c`).
+- `CorrelationId?`, `ServiceName?` e `Category?` em `CreateLogEntryRequest` + handlers + filtros de
+  busca + `openapi.json` + client regenerados.
+- Recurso `AuditEntry` completo: domínio, mapeamento, repositório, handlers, endpoints, permissões,
+  migrations nos **dois** engines (SQL Server e PostgreSQL).
+- Retenção por classe de dado no `LogRetentionWorker` e nas options.
+- `audit-entries:read` no read-set do `platform-operator` no SecureGate (ADR-0024).
+- Testes (abaixo), READMEs, `docs/roadmap.md`, `docs/design-decisions-log.md`.
 
 **Fora (registrado, não feito):**
 
-- Campo próprio de serviço/categoria no `LogEntry` — é mudança de schema do LogStream e merece a
-  mesma rodada que a issue #2 (ator no `LogEntry`) vai forçar. Até lá, prefixo na mensagem.
 - Escopos do `ILogger` (`BeginScope`) como dado estruturado — o `LogEntry` não tem onde guardar.
 - OpenTelemetry (a outra metade da ADR-0008) — não é o que a issue #1 pede.
+- IP e user agent no `AuditEntry` — LGPD sem consumidor declarado; cabe em `Metadata` até doer.
+- Tela de auditoria no AdminPortal — a #2 pede o recurso; a tela é rodada própria.
+- Assinatura/encadeamento à prova de adulteração dos registros de auditoria (hash chain). A trilha
+  hoje é apenas append-only por ausência de endpoint de escrita; quem tem acesso ao banco altera.
+  Se isso virar requisito, é ADR nova.
 
 ## Testes
 
@@ -214,7 +361,26 @@ Integração, com `SeccoApiFactory` (ADR-0027), em `tests/LogStream/Secco.LogStr
 
 - `Batch_WhenPayloadCarriesCorrelationId_PersistsPerItemCorrelation` — a mudança de contrato.
 - `Batch_WhenPayloadOmitsCorrelationId_FallsBackToHeader` — a compatibilidade com o que existe.
+- `Search_WhenFilteredByServiceName_ReturnsOnlyThatService` — as colunas novas viraram filtro.
 - Teste de contrato `OpenApiContractTests` atualizado com `SECCO_UPDATE_OPENAPI=true`.
+
+Auditoria — unit em `tests/LogStream/Secco.LogStream.Tests`:
+
+- `Create_WhenActorIdMissing_ThrowsDomainInvariant` e o equivalente para `Action`.
+- `Create_WhenMetadataIsNotValidJson_ReturnsFailure` (via `Result<T>`, ADR-0004).
+- `Create_WhenMetadataExceedsLimit_ReturnsFailure`.
+- `ResolveAuditDays_WhenNotConfigured_ReturnsNull` — a garantia de "auditoria não expira por padrão".
+- `ResolveAuditDays_WhenTenantOverridden_PrefersOverride`.
+
+Auditoria — integração com `SeccoApiFactory`:
+
+- `Post_WhenValid_Returns201AndPersistsBeforeResponding` — a diferença síncrona é o ponto: o GET
+  logo depois **tem** que encontrar o registro, sem espera.
+- `Post_WithoutWritePermission_Returns403`.
+- `Search_WhenFilteredByActor_ReturnsOnlyThatActor`.
+- `Purge_WhenOnlyDiagnosticWindowConfigured_KeepsAuditEntries` — a regressão que mais dói se
+  quebrar: a retenção de diagnóstico não pode levar a trilha junto.
+- Paridade PostgreSQL do recurso novo, no molde do que o LogStream já faz para os outros três.
 
 ## Riscos
 
