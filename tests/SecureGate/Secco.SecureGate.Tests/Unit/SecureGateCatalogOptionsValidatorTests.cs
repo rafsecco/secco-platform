@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Xunit;
 
@@ -97,12 +98,17 @@ public class SecureGateCatalogOptionsValidatorTests
 	}
 
 	[Fact]
-	public void DevelopmentFallback_CipherWithoutKey_RoundTrips()
+	public void DevelopmentFallback_EmbeddedKey_IsUsableByThePlatformCipher()
 	{
-		// A ponta prática do fallback: fora de Production, sem chave, o cipher usa a embutida
-		var cipher = new AesGcmConnectionStringCipher(
-			Options.Create(new SecureGateCatalogOptions()),
-			new FakeHostEnvironment("Development"));
+		// A chave de DEV embutida precisa ser base64 de 32 bytes que o cifrador aceite — se
+		// deixar de ser, todo ambiente sem chave configurada quebra no startup.
+		//
+		// Que o FALLBACK de fato acontece está provado por caminho mais forte que este: as
+		// suítes de integração do SecureGate sobem SEM chave configurada e ainda assim
+		// asseveram `secco-enc:v1:` direto na coluna. A política em si mudou de lugar na
+		// ADR-0029 — saiu do construtor do cifrador e foi para a composição do produto, que
+		// é onde política de produto pertence.
+		var cipher = AesGcmSecretCipher.FromBase64Keys(SecureGateCatalogOptions.DevelopmentEncryptionKey);
 
 		var encrypted = cipher.Encrypt("Server=dev;Database=x;");
 

@@ -38,3 +38,17 @@ await app.Services.SeedSeccoDataAsync();
 - **`IReferenceDataSeeder`** — roda em todos os ambientes; implementação obrigatoriamente idempotente (upsert por chave natural, IDs determinísticos).
 - **`IDevelopmentDataSeeder`** — roda somente sob a **guarda dupla**: `IsDevelopment()` **e** `Secco:Seed:Development = true` (fail-closed: sem `IHostEnvironment` registrado, não roda; em DEV sem a flag, o skip é logado). Executa sempre após os de referência. Dados via Bogus `pt_BR` com seed fixo — referenciado pela Infrastructure do produto, não por este pacote.
 - `Order` (default 0) ordena seeders do mesmo tipo.
+
+## Cifragem de segredo em repouso (ADR-0025, promovido na ADR-0029)
+
+`ISeccoSecretCipher` + `AesGcmSecretCipher` cifram um segredo guardado em coluna, no formato versionado `secco-enc:v1:<base64(nonce ‖ ciphertext ‖ tag)>`. AES-256-GCM é AEAD: o tag autentica o dado, então adulteração falha em vez de decifrar lixo. Sem dependência externa — `AesGcm` é BCL.
+
+```csharp
+var cipher = AesGcmSecretCipher.FromBase64Keys(activeKey, retiredKeys);
+```
+
+O cifrador recebe as chaves **já decodificadas** e não conhece configuração de produto nenhum. É deliberado: a política de onde a chave vem — chave embutida em DEV, fail-fast em Production — é de cada produto, e impô-la aqui valeria para todo consumidor.
+
+Valor **sem** o prefixo é tratado como legado em claro e devolvido como está; é o que permite converger uma base existente sem migração manual. `IsEncryptedWithActiveKey` é a condição de convergência da rotação: cifrado com chave aposentada devolve `false` e é re-cifrado.
+
+Nasceu dentro do `Secco.SecureGate` e subiu para cá quando o segundo produto precisou do mesmo formato — o adotante já havia reimplementado o `secco-enc:` por conta própria, e o terceiro consumidor faria três implementações independentes do mesmo formato criptográfico divergindo entre si.

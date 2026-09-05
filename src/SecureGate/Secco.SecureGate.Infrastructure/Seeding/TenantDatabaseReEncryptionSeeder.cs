@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Cryptography;
@@ -23,7 +24,7 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 /// </remarks>
 public sealed class TenantDatabaseReEncryptionSeeder(
 	SecureGateDbContext context,
-	IConnectionStringCipher cipher,
+	ISeccoSecretCipher cipher,
 	ILogger<TenantDatabaseReEncryptionSeeder> logger) : IReferenceDataSeeder
 {
 	/// <summary>Roda após os seeders estruturais (scopes/operador) do produto.</summary>

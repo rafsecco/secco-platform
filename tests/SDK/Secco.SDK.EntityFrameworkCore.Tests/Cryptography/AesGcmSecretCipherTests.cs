@@ -1,32 +1,29 @@
 using System.Security.Cryptography;
 using FluentAssertions;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
-using Secco.SecureGate.Infrastructure.Cryptography;
+using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Xunit;
 
-namespace Secco.SecureGate.Tests.Unit;
+namespace Secco.SDK.EntityFrameworkCore.Tests.Cryptography;
 
 /// <summary>
-/// Cifragem AES-256-GCM da connection string do catálogo (ADR-0025): roundtrip, detecção de
-/// adulteração (AEAD), rotação de chave (aposentada só decifra), passthrough de legado em
-/// claro e o formato de armazenamento exato <c>secco-enc:v1:</c>.
+/// Cifragem AES-256-GCM de segredo em repouso (ADR-0025): roundtrip, detecção de adulteração
+/// (AEAD), rotação de chave (aposentada só decifra), passthrough de legado em claro e o formato
+/// de armazenamento exato <c>secco-enc:v1:</c>.
 /// </summary>
-public class AesGcmConnectionStringCipherTests
+/// <remarks>
+/// Vieram do <c>Secco.SecureGate.Tests</c> junto com o tipo (ADR-0029). O que mudou foi apenas
+/// a construção — o cifrador do SDK recebe as chaves prontas, sem conhecer options de produto
+/// nem <c>IHostEnvironment</c>. As asserções de comportamento são as mesmas, de propósito: é o
+/// que prova que a promoção não alterou o formato nem a semântica de um dado já persistido.
+/// </remarks>
+public class AesGcmSecretCipherTests
 {
 	private const string Plaintext = "Server=tenant-a.interno;Database=logstream;User Id=svc;Password=p@ss w0rd;";
 
 	private static string NewKey() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
-	private static AesGcmConnectionStringCipher CreateCipher(string activeKey, params string[] retiredKeys) =>
-		new(
-			Options.Create(new SecureGateCatalogOptions
-			{
-				EncryptionKey = activeKey,
-				RetiredEncryptionKeys = [.. retiredKeys],
-			}),
-			new FakeHostEnvironment("Production"));
+	private static AesGcmSecretCipher CreateCipher(string activeKey, params string[] retiredKeys) =>
+		AesGcmSecretCipher.FromBase64Keys(activeKey, retiredKeys);
 
 	[Fact]
 	public void Encrypt_ThenDecrypt_RoundTripsThePlaintext()
@@ -43,6 +40,8 @@ public class AesGcmConnectionStringCipherTests
 	{
 		var cipher = CreateCipher(NewKey());
 
+		// O prefixo literal é contrato de dado já gravado — mudá-lo faria ciphertext existente
+		// ser lido como texto claro.
 		cipher.Encrypt(Plaintext).Should().StartWith("secco-enc:v1:");
 	}
 
@@ -69,7 +68,7 @@ public class AesGcmConnectionStringCipherTests
 		var tampered = FlipOneByteInBlob(encrypted);
 
 		cipher.Invoking(c => c.Decrypt(tampered))
-			.Should().Throw<ConnectionStringCipherException>("GCM autentica o dado — adulteração não decifra lixo");
+			.Should().Throw<SeccoSecretCipherException>("GCM autentica o dado — adulteração não decifra lixo");
 	}
 
 	[Fact]
@@ -81,7 +80,7 @@ public class AesGcmConnectionStringCipherTests
 		var other = CreateCipher(NewKey());
 
 		other.Invoking(c => c.Decrypt(encrypted))
-			.Should().Throw<ConnectionStringCipherException>();
+			.Should().Throw<SeccoSecretCipherException>();
 	}
 
 	[Fact]
@@ -94,7 +93,8 @@ public class AesGcmConnectionStringCipherTests
 		var rotated = CreateCipher(NewKey(), retired);
 
 		rotated.Decrypt(encrypted).Should().Be(Plaintext);
-		rotated.IsEncryptedWithActiveKey(encrypted).Should().BeFalse("foi cifrado com a chave aposentada — converge no startup");
+		rotated.IsEncryptedWithActiveKey(encrypted)
+			.Should().BeFalse("foi cifrado com a chave aposentada — converge no startup");
 	}
 
 	[Fact]
@@ -112,7 +112,7 @@ public class AesGcmConnectionStringCipherTests
 		var cipher = CreateCipher(NewKey());
 
 		cipher.Invoking(c => c.Decrypt("secco-enc:v2:AAAA"))
-			.Should().Throw<ConnectionStringCipherException>("versão de formato desconhecida não é decifrável");
+			.Should().Throw<SeccoSecretCipherException>("versão de formato desconhecida não é decifrável");
 	}
 
 	[Fact]
@@ -121,6 +121,24 @@ public class AesGcmConnectionStringCipherTests
 		var cipher = CreateCipher(NewKey());
 
 		cipher.IsEncryptedWithActiveKey(cipher.Encrypt(Plaintext)).Should().BeTrue();
+	}
+
+	[Fact]
+	public void FromBase64Keys_WithKeyOfWrongSize_Fails()
+	{
+		var shortKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+
+		var act = () => AesGcmSecretCipher.FromBase64Keys(shortKey);
+
+		act.Should().Throw<SeccoSecretCipherException>("AES-256 exige 32 bytes");
+	}
+
+	[Fact]
+	public void FromBase64Keys_WithInvalidBase64_Fails()
+	{
+		var act = () => AesGcmSecretCipher.FromBase64Keys("isto-nao-e-base64!!");
+
+		act.Should().Throw<SeccoSecretCipherException>();
 	}
 
 	private static string FlipOneByteInBlob(string encrypted)
@@ -132,16 +150,5 @@ public class AesGcmConnectionStringCipherTests
 		blob[blob.Length / 2] ^= 0xFF;
 
 		return prefix + Convert.ToBase64String(blob);
-	}
-
-	private sealed class FakeHostEnvironment(string environmentName) : IHostEnvironment
-	{
-		public string EnvironmentName { get; set; } = environmentName;
-
-		public string ApplicationName { get; set; } = "Secco.Tests";
-
-		public string ContentRootPath { get; set; } = string.Empty;
-
-		public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
 	}
 }
