@@ -66,17 +66,32 @@
 
 	// --- SQL Server (ADR-0018: provider padrao) ----------------------------
 	// ATENCAO: aqui SO entram conexoes de DESENVOLVIMENTO em localhost. A senha e a mesma
-	// que ja esta publica nos appsettings.Development.json e no docker-compose.yml — nao ha
+	// que ja esta publica no docker-compose.yml e no docker/sqlserver-init.sql — nao ha
 	// segredo novo neste arquivo. Conexao de homologacao ou producao JAMAIS entra aqui:
 	// use o proprio painel da extensao, que grava no perfil do usuario, fora do repositorio.
-	// Os bancos aparecem depois que a API sobe pela primeira vez (migrations no startup).
+	//
+	// Cada perfil usa o LOGIN PROPRIO do seu banco (ADR-0028), nunca `sa`. E o mesmo modelo
+	// que o provisionamento do SecureGate produz — db_owner no proprio banco e nada no
+	// servidor —, entao estes perfis tambem servem de demonstracao: abrir o banco do tenant
+	// beta com o login do alfa falha, como tem que falhar.
+	// Bancos e logins sao criados pelo sqlserver-init do compose (`docker compose up -d`).
 	"mssql.connections": [
 		{
 			"profileName": "Secco DEV — SecureGate (plataforma)",
 			"server": "localhost,1433",
 			"database": "secco_securegate",
 			"authenticationType": "SqlLogin",
-			"user": "sa",
+			"user": "secco_securegate_app",
+			"password": "Secco@Dev123",
+			"savePassword": true,
+			"trustServerCertificate": true
+		},
+		{
+			"profileName": "Secco DEV — SecureGate tenant alfa",
+			"server": "localhost,1433",
+			"database": "secco_securegate_tenant_alfa",
+			"authenticationType": "SqlLogin",
+			"user": "secco_securegate_alfa_app",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true
@@ -86,7 +101,7 @@
 			"server": "localhost,1433",
 			"database": "secco_logstream_tenant_alfa",
 			"authenticationType": "SqlLogin",
-			"user": "sa",
+			"user": "secco_logstream_alfa_app",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true
@@ -96,7 +111,7 @@
 			"server": "localhost,1433",
 			"database": "secco_logstream_tenant_beta",
 			"authenticationType": "SqlLogin",
-			"user": "sa",
+			"user": "secco_logstream_beta_app",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true
@@ -106,7 +121,7 @@
 			"server": "localhost,1433",
 			"database": "secco_notificationhub_tenant_alfa",
 			"authenticationType": "SqlLogin",
-			"user": "sa",
+			"user": "secco_nh_alfa_app",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true
@@ -116,7 +131,7 @@
 			"server": "localhost,1433",
 			"database": "secco_notificationhub_platform",
 			"authenticationType": "SqlLogin",
-			"user": "sa",
+			"user": "secco_nh_platform_app",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true
@@ -130,11 +145,12 @@
 		{
 			"profileName": "Secco DEV — PostgreSQL local",
 			"server": "localhost",
-			"port": 5432,
+			"port": "5432",
 			"database": "postgres",
 			"authenticationType": "SqlLogin",
 			"user": "postgres",
-			"password": ""
+			"password": "Secco@Dev123",
+			"savePassword": true
 		}
 	],
 

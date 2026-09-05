@@ -22,6 +22,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### Secco.SharedKernel
 
+#### 0.3.4 — 2026-09-05
+
+Patch **sem mudança funcional**: nenhum commit tocou `src/SharedKernel` desde a 0.3.3. A tag existe pelo mesmo motivo da 0.3.3 — o `Secco.SDK.AspNetCore` 0.5.0 e, por transitividade, o `Secco.SDK.Logging` 0.1.0 saem deste commit e dependem do SharedKernel por `ProjectReference`; sem tag estável da dependência no commit empacotado, o MinVer a resolveria como pré-release e o Pack falharia com NU5104 (ADR-0011).
+
 #### 0.3.3 — 2026-08-30
 
 Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entre as tags é só a migração de indentação para tab). A tag existe porque o `Secco.SDK.Testing` 0.1.0 sai do mesmo commit e referencia o SharedKernel por `ProjectReference` — sem tag estável da dependência no commit empacotado, o MinVer a resolveria como pré-release e o Pack do dependente falharia com NU5104 (ADR-0011).
@@ -36,6 +40,12 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.5.0 — 2026-09-05
+
+- **Adicionado** `SeccoAmbientContext`: espelho ambiente (`AsyncLocal`) do tenant e da correlação, escrito pelos middlewares de correlação e tenancy e por `TenantScopeExtensions.SetTenant`. Existe porque `ITenantContext`/`ICorrelationContext` são `Scoped` e há consumidores singleton por natureza — o caso concreto é um `ILoggerProvider`. Dentro de um job do Hangfire há escopo de DI mas não há `HttpContext`, então `IHttpContextAccessor` não resolveria o caso geral.
+- **Adicionado** `SeccoClientCredentialsHandler` e `SeccoAccessTokenStore` em `Secco.SDK.AspNetCore.Authentication`, promovidos do `Secco.SecureGate.Client`. O mecanismo é OAuth 2 puro contra `/connect/token` — protocolo, não contrato de produto —, então qualquer pacote do SDK que precise de um token de máquina passa a reusá-lo sem depender do pacote de identidade.
+- Mudança **aditiva**: nenhuma API existente foi alterada ou removida.
 
 | Versão | Data |
 |---|---|
@@ -54,6 +64,13 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.LogStream.Client
 
+#### 0.2.0 — 2026-09-05
+
+- **Alterado (quebra fonte)** — `LogEntriesGETAsync` ganhou os parâmetros `serviceName` e `category` **antes** de `page`/`size`. Quem chamava posicionalmente quebra e precisa passar a usar argumentos nomeados. Em `0.x`, minor é o sinal de breaking (ADR-0011). O `Secco.AdminPortal` foi corrigido no mesmo PR e serve de exemplo do ajuste.
+- **Adicionado** `CorrelationId`, `ServiceName` e `Category` opcionais em `CreateLogEntryRequest`. A correlação do payload vence o header `X-Correlation-Id` — é o que torna o `/batch` utilizável por um sink que acumula logs de requisições diferentes, que antes recebiam todas a correlação do lote.
+- **Adicionado** a superfície de `audit-entries`: `POST` (síncrono, `201`), `GET` por id e busca paginada — a trilha de auditoria da issue #2.
+- **Adicionado** `serviceName` e `category` como filtro na busca de `log-entries`.
+
 | Versão | Data |
 |---|---|
 | 0.1.1 | 2026-07-14 |
@@ -66,6 +83,17 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.2.1 | 2026-07-19 |
 | 0.2.0 | 2026-07-19 |
 | 0.1.0 | 2026-07-14 |
+
+### Secco.SDK.Logging
+
+#### 0.1.0 — 2026-09-05
+
+Primeira publicação. Entrega o `AddLogStream()` que a ADR-0008 prometia em 2026-07-04 e que nunca existira — o que havia era o `Secco.LogStream.Client` com `AddLogStreamClient()`, o client HTTP gerado, não o sink de `ILogger`.
+
+- `ILoggerProvider` com fila local limitada (descarte contado, nunca bloqueia o request, nunca lança), lote por tenant e flush no encerramento.
+- Enriquecimento automático de tenant, correlação, nome do serviço e categoria.
+- Guarda anti-recursão por categoria: sem ela, o envio do lote pelo `HttpClient` geraria logs que provocariam outro envio, num laço que não converge.
+- Log sem tenant vai para `Secco:LogStream:PlatformTenantId` quando configurado; sem ele, é descartado com contador — o LogStream é database-per-tenant e sem tenant não há destino (ADR-0005).
 
 ### Secco.SDK.Testing
 
