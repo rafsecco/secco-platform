@@ -54,6 +54,11 @@ jobs:
             *) echo "Tag ${GITHUB_REF_NAME} sem mapeamento de pacote" >&2; exit 1 ;;
           esac
 
+      - name: Check release chain
+        # Falha ANTES do Pack, dizendo qual tag falta. Sem isto, uma dependencia sem tag
+        # estavel neste commit so aparece no fim, como NU5104 — que nao diz qual e (ADR-0011).
+        run: python3 scripts/check-release-chain.py "${GITHUB_REF_NAME%%/v*}/v"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
