@@ -780,6 +780,45 @@ Duas situações reais de adoção pressionam em direções diferentes: o banco 
 - Design detalhado em `docs/superpowers/specs/2026-09-05-provisionamento-banco-tenant-design.md`.
 ---
 
+## ADR-0029: Canais externos de comunicação corporativa no NotificationHub (Teams, Slack)
+
+**Status:** Aceita
+**Data:** 2026-09-05
+
+### Contexto
+
+O `NotificationHub` reconhece um conjunto **fechado** de canais — `email` e `in_app` — e o próprio código explica por quê: diferente de `Source`/`Type`, que são texto livre que o Hub nunca interpreta, um canal mapeia direto para um caminho de código que precisa existir dentro do produto. A consequência é que um adotante não consegue acrescentar canal.
+
+A demanda ([issue #13](https://github.com/rafsecco/secco-platform/issues/13)) é alcançar a ferramenta onde a empresa realmente conversa. Sem isso, os níveis de prioridade do adotante perdem sentido prático: "urgente" e "importante" disparam exatamente os mesmos canais.
+
+**Fatos verificados antes desta decisão**, não presumidos:
+
+- Os Office 365 Connectors do Teams foram **desativados entre 18 e 22 de maio de 2026**. Webhooks de connector existentes deixaram de funcionar. O caminho atual da Microsoft é **Power Automate Workflows**, com o gatilho *When a Teams webhook request is received*, aceitando Adaptive Card ou MessageCard e postando com a identidade do Flow bot.
+- Os **incoming webhooks do Slack seguem suportados** e sem aviso de descontinuação na documentação oficial. O Slack recomenda `chat.postMessage` apenas quando é preciso apagar, editar ou rotear dinamicamente entre canais.
+
+Ou seja: as duas ferramentas **não** são equivalentes por ambas aceitarem HTTP. Divergem em mecanismo, formato de payload e ciclo de vida da configuração.
+
+### Decisão
+
+1. **`teams` e `slack` entram como canais nativos**, cada um com provider e tradução próprios. O conjunto de canais **continua fechado**: esta ADR acrescenta dois membros, não abre o conjunto para extensão arbitrária. Canal novo segue exigindo código no produto e ADR.
+2. **Não existe canal `webhook` genérico**, e a URL de destino **nunca** vem no payload da notificação. O consumidor pede um canal; quem resolve o destino é o Hub. O contrário transformaria o produto num proxy HTTP dirigido pelo consumidor — SSRF por construção (ADR-0020).
+3. **A configuração de destino vive por tenant, no banco do próprio tenant.** O Hub já é database-per-tenant (ADR-0005), então o isolamento vem da estrutura que já existe. Configuração por instalação foi descartada não por conveniência: numa instalação multi-tenant, destino compartilhado significa notificação de um tenant chegando ao canal de outro. Configuração híbrida com fallback foi descartada porque um tenant sem configuração própria passaria a publicar no destino alheio silenciosamente.
+4. **Teams via URL de Workflow; Slack via URL de incoming webhook de um Slack app.** Cada provider traduz o modelo interno para o formato da ferramenta — Adaptive Card no Teams, `text`/Block Kit no Slack. O chamador nunca vê essa diferença.
+5. **O registro de entrega é a `Notification` generalizada com discriminador de canal**, não uma entidade por canal. O critério é o mesmo que a Fase 8.4 usou para separar `InAppNotification`: ciclo de vida. E-mail, Teams e Slack têm o **mesmo** ciclo — pendente, enviado ou falho, com retry por entrega —, então o mesmo critério que separou o in-app manda juntar estes três.
+6. **A entrega externa é assíncrona, com retry por entrega** (ADR-0015 Camada 2), reusando a máquina que o e-mail já usa. In-app segue gravando de imediato. Isto não é padrão novo: é o comportamento que o produto já tem, estendido a mais dois canais.
+7. **O segredo de configuração é cifrado em repouso**, no formato versionado `secco-enc:v1:` da ADR-0025. Para isso, o cifrador **sobe do `Secco.SecureGate.Infrastructure` para o SDK**: ele hoje é interno àquele produto, o `secco-intranet` já o reimplementou por conta própria, e o NotificationHub seria a terceira cópia do mesmo formato criptográfico. Três implementações independentes de cifragem divergindo é risco, não conveniência.
+
+### Consequências
+
+- O NotificationHub ganha superfície administrativa própria para configurar canais por tenant (endpoint gated por permissão, ADR-0021) e uma migration nos dois engines.
+- **A URL do Workflow do Teams é um segredo operacional com dono.** Um workflow do Power Automate pertence a uma pessoa e fica órfão se ela sair da organização. Isso não é problema de código e não tem solução no Hub: entra como requisito operacional documentado — configurar coproprietário.
+- Mensagens no Teams aparecem com a identidade do **Flow bot**; nome e ícone próprios não são suportados por payload de webhook. Quem quiser identidade própria precisa de Bot/Teams App, que é decisão futura com custo desproporcional ao caso atual.
+- No Slack, se um dia for preciso **editar, apagar ou rotear dinamicamente** entre canais, o caminho correto passa a ser bot token com `chat.postMessage`. Fica registrado como gatilho, não como dívida.
+- A `Notification` deixa de ser "notificação por e-mail" e passa a ser "entrega por canal externo". `Recipient`/`Subject`/`Body` continuam existindo, com significado por canal — no Teams e no Slack, o destino é a configuração do tenant, não um endereço no registro.
+- Acrescentar uma terceira ferramenta (Google Chat, por exemplo) repete a forma desta ADR: provider próprio, tradução própria, ADR própria. É deliberado que isso não seja barato — canal barato de adicionar seria canal genérico, que é justamente o que se recusou.
+- Design detalhado em `docs/superpowers/specs/2026-09-05-canais-externos-notificationhub-design.md`.
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação
