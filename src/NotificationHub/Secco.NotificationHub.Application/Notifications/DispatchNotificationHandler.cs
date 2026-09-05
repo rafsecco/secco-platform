@@ -1,3 +1,4 @@
+using Secco.NotificationHub.Application.Channels;
 using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
@@ -27,7 +28,11 @@ public sealed record DispatchNotificationCommand(
 /// <summary>Identificadores dos registros criados pelo despacho, um por canal solicitado.</summary>
 /// <param name="EmailNotificationId">Identificador da notificação de e-mail, quando o canal <c>email</c> foi solicitado.</param>
 /// <param name="InAppNotificationId">Identificador do item de inbox, quando o canal <c>in_app</c> foi solicitado.</param>
-public sealed record DispatchNotificationResult(Guid? EmailNotificationId, Guid? InAppNotificationId);
+/// <param name="ExternalNotificationIds">Identificadores das entregas em canal externo, na ordem dos canais solicitados (ADR-0029).</param>
+public sealed record DispatchNotificationResult(
+	Guid? EmailNotificationId,
+	Guid? InAppNotificationId,
+	IReadOnlyList<Guid>? ExternalNotificationIds = null);
 
 /// <summary>
 /// Valida os limites de entrada (ADR-0020), e para cada canal solicitado cria o registro
@@ -39,6 +44,8 @@ public sealed class DispatchNotificationHandler(
 	INotificationRepository notificationRepository,
 	IEmailDispatchQueue emailDispatchQueue,
 	IInAppNotificationRepository inAppNotificationRepository,
+	IChannelConfigurationRepository channelConfigurationRepository,
+	IExternalChannelDispatchQueue externalChannelDispatchQueue,
 	NotificationHubOptions options)
 {
 	/// <summary>Executa o caso de uso.</summary>
@@ -89,6 +96,32 @@ public sealed class DispatchNotificationHandler(
 			inAppNotificationId = inAppNotification.Id;
 		}
 
-		return new DispatchNotificationResult(emailNotificationId, inAppNotificationId);
+		foreach (var channel in content.Value.External)
+		{
+			// O destino NÃO é lido aqui: só se confirma que existe e está ativo, para o
+			// chamador receber 400 em vez de descobrir a falta no job (ADR-0029).
+			var configuration = await channelConfigurationRepository
+				.GetAsync(channel.ToString().ToLowerInvariant(), cancellationToken).ConfigureAwait(false);
+
+			if (configuration is not { Enabled: true })
+			{
+				return Result.Failure<DispatchNotificationResult>(
+					NotificationHubErrors.Channels.NotConfiguredForTenant(channel.ToString().ToLowerInvariant()));
+			}
+		}
+
+		var externalIds = new List<Guid>(content.Value.External.Count);
+
+		foreach (var channel in content.Value.External)
+		{
+			var delivery = Notification.ForExternalChannel(channel, command.Title!, command.Message!);
+
+			await notificationRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
+			externalChannelDispatchQueue.Enqueue(delivery.Id);
+
+			externalIds.Add(delivery.Id);
+		}
+
+		return new DispatchNotificationResult(emailNotificationId, inAppNotificationId, externalIds);
 	}
 }

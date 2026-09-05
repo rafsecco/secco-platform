@@ -92,14 +92,27 @@ public class DispatchNotificationBatchHandlerTests
 	private static (DispatchNotificationBatchHandler Handler,
 		CountingNotificationRepository Notifications,
 		CountingInAppRepository InApp,
-		FakeDispatchQueue Queue) Create(NotificationHubOptions? options = null)
+		FakeDispatchQueue Queue) Create(NotificationHubOptions? options = null) =>
+		CreateWithChannels(out _, out _, options);
+
+	private static (DispatchNotificationBatchHandler Handler,
+		CountingNotificationRepository Notifications,
+		CountingInAppRepository InApp,
+		FakeDispatchQueue Queue) CreateWithChannels(
+			out FakeChannelConfigurationRepository channelConfigurations,
+			out FakeExternalChannelDispatchQueue externalQueue,
+			NotificationHubOptions? options = null)
 	{
 		var notifications = new CountingNotificationRepository();
 		var inApp = new CountingInAppRepository();
 		var queue = new FakeDispatchQueue();
+		channelConfigurations = new FakeChannelConfigurationRepository();
+		externalQueue = new FakeExternalChannelDispatchQueue();
 
 		return (
-			new DispatchNotificationBatchHandler(notifications, queue, inApp, options ?? new NotificationHubOptions()),
+			new DispatchNotificationBatchHandler(
+				notifications, queue, inApp, channelConfigurations, externalQueue,
+				options ?? new NotificationHubOptions()),
 			notifications, inApp, queue);
 	}
 

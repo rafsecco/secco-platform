@@ -1,3 +1,4 @@
+using Secco.NotificationHub.Application.Channels;
 using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
@@ -29,7 +30,12 @@ public sealed record DispatchNotificationBatchCommand(
 
 /// <summary>Resultado do lote: um par de identificadores por destino, na ordem recebida.</summary>
 /// <param name="Results">Identificadores criados, posicionalmente alinhados aos destinos enviados.</param>
-public sealed record DispatchNotificationBatchResult(IReadOnlyList<DispatchNotificationResult> Results);
+/// <param name="ExternalNotificationIds">
+/// Identificadores das entregas em canal externo — <b>uma por canal</b>, não por destino.
+/// </param>
+public sealed record DispatchNotificationBatchResult(
+	IReadOnlyList<DispatchNotificationResult> Results,
+	IReadOnlyList<Guid>? ExternalNotificationIds = null);
 
 /// <summary>
 /// Despacha um conteúdo para muitos destinos numa chamada só (issue #15).
@@ -47,6 +53,12 @@ public sealed record DispatchNotificationBatchResult(IReadOnlyList<DispatchNotif
 /// a dor descrita na issue ("uma falha no meio deixa parte das pessoas sem aviso").
 /// </para>
 /// <para>
+/// <b>Canal externo no lote entrega UMA vez, não N.</b> O destino de Teams e Slack é a
+/// configuração do tenant, não cada destinatário: uma publicação que alcança 500 pessoas por
+/// e-mail deve postar <i>uma</i> mensagem no canal da empresa, não quinhentas. Por isso os
+/// canais externos criam uma entrega por canal, independentemente do número de destinos.
+/// </para>
+/// <para>
 /// <b>O que ainda é N.</b> As notificações vão ao banco numa ida só (<c>AddRangeAsync</c>), mas
 /// o enfileiramento do envio continua sendo um job por destino de e-mail — é o que preserva o
 /// retry por notificação que a Fase 8 estabeleceu. Daí o teto de destinos por lote.
@@ -56,6 +68,8 @@ public sealed class DispatchNotificationBatchHandler(
 	INotificationRepository notificationRepository,
 	IEmailDispatchQueue emailDispatchQueue,
 	IInAppNotificationRepository inAppNotificationRepository,
+	IChannelConfigurationRepository channelConfigurationRepository,
+	IExternalChannelDispatchQueue externalChannelDispatchQueue,
 	NotificationHubOptions options)
 {
 	/// <summary>Executa o caso de uso.</summary>
@@ -144,6 +158,28 @@ public sealed class DispatchNotificationBatchHandler(
 				.ConfigureAwait(false);
 		}
 
-		return Result.Success(new DispatchNotificationBatchResult(results));
+		var externalIds = new List<Guid>(content.Value.External.Count);
+
+		foreach (var channel in content.Value.External)
+		{
+			var channelName = channel.ToString().ToLowerInvariant();
+			var configuration = await channelConfigurationRepository
+				.GetAsync(channelName, cancellationToken).ConfigureAwait(false);
+
+			if (configuration is not { Enabled: true })
+			{
+				return Result.Failure<DispatchNotificationBatchResult>(
+					NotificationHubErrors.Channels.NotConfiguredForTenant(channelName));
+			}
+
+			var delivery = Notification.ForExternalChannel(channel, command.Title!, command.Message!);
+
+			await notificationRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
+			externalChannelDispatchQueue.Enqueue(delivery.Id);
+
+			externalIds.Add(delivery.Id);
+		}
+
+		return Result.Success(new DispatchNotificationBatchResult(results, externalIds));
 	}
 }

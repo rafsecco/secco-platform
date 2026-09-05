@@ -79,13 +79,24 @@ public class DispatchNotificationHandlerTests
 	private static DispatchNotificationHandler CreateHandler(
 		out FakeNotificationRepository notificationRepository,
 		out FakeDispatchQueue dispatchQueue,
-		out FakeInAppNotificationRepository inAppRepository)
+		out FakeInAppNotificationRepository inAppRepository) =>
+		CreateHandler(out notificationRepository, out dispatchQueue, out inAppRepository, out _, out _);
+
+	private static DispatchNotificationHandler CreateHandler(
+		out FakeNotificationRepository notificationRepository,
+		out FakeDispatchQueue dispatchQueue,
+		out FakeInAppNotificationRepository inAppRepository,
+		out FakeChannelConfigurationRepository channelConfigurations,
+		out FakeExternalChannelDispatchQueue externalQueue)
 	{
 		notificationRepository = new FakeNotificationRepository();
 		dispatchQueue = new FakeDispatchQueue();
 		inAppRepository = new FakeInAppNotificationRepository();
+		channelConfigurations = new FakeChannelConfigurationRepository();
+		externalQueue = new FakeExternalChannelDispatchQueue();
 
-		return new DispatchNotificationHandler(notificationRepository, dispatchQueue, inAppRepository, Options);
+		return new DispatchNotificationHandler(
+			notificationRepository, dispatchQueue, inAppRepository, channelConfigurations, externalQueue, Options);
 	}
 
 	[Fact]

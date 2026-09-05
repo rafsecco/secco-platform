@@ -89,4 +89,49 @@ public static class NotificationHubErrors
 		public static readonly Error InAppNotFound =
 			Error.NotFound("NotificationHub.Notification.InAppNotFound", "Notificação in-app não encontrada.");
 	}
+
+	/// <summary>Erros de configuração de canal externo (ADR-0029).</summary>
+	public static class Channels
+	{
+		/// <summary>Canal informado não é um canal externo configurável.</summary>
+		public static Error NotConfigurable(string channel) =>
+			Error.Validation("NotificationHub.Channel.NotConfigurable",
+				$"O canal '{channel}' não tem destino configurável. Apenas canais externos ({string.Join(", ", NotificationHubChannels.ExternallyConfigured)}) têm.");
+
+		/// <summary>Configuração não encontrada para o canal neste tenant.</summary>
+		public static readonly Error NotFound =
+			Error.NotFound("NotificationHub.Channel.NotFound", "Este tenant não tem destino configurado para o canal.");
+
+		/// <summary>Destino ausente.</summary>
+		public static readonly Error DestinationRequired =
+			Error.Validation("NotificationHub.Channel.DestinationRequired", "O destino do canal é obrigatório.");
+
+		/// <summary>
+		/// Destino acima do limite. O valor NÃO entra na mensagem: ele é segredo (ADR-0020).
+		/// </summary>
+		/// <param name="max">Tamanho máximo aceito.</param>
+		public static Error DestinationTooLong(int max) =>
+			Error.Validation("NotificationHub.Channel.DestinationTooLong",
+				$"O destino do canal excede o limite de {max} caracteres.");
+
+		/// <summary>Destino não é URL absoluta. O valor recebido não é ecoado (ADR-0020).</summary>
+		public static readonly Error DestinationInvalid =
+			Error.Validation("NotificationHub.Channel.DestinationInvalid", "O destino do canal deve ser uma URL absoluta.");
+
+		/// <summary>Destino em esquema diferente de HTTPS.</summary>
+		public static readonly Error DestinationMustBeHttps =
+			Error.Validation("NotificationHub.Channel.DestinationMustBeHttps",
+				"O destino do canal deve usar HTTPS: a URL é segredo e o corpo carrega o conteúdo da notificação.");
+
+		/// <summary>Destino aponta para faixa reservada — loopback, rede privada ou link-local.</summary>
+		public static readonly Error DestinationHostNotAllowed =
+			Error.Validation("NotificationHub.Channel.DestinationHostNotAllowed",
+				"O destino do canal não pode apontar para loopback, rede privada ou link-local.");
+
+		/// <summary>Canal externo solicitado sem destino configurado ou com o canal desativado.</summary>
+		/// <param name="channel">Canal solicitado.</param>
+		public static Error NotConfiguredForTenant(string channel) =>
+			Error.Validation("NotificationHub.Channel.NotConfiguredForTenant",
+				$"O canal '{channel}' não está configurado ou está desativado para este tenant.");
+	}
 }

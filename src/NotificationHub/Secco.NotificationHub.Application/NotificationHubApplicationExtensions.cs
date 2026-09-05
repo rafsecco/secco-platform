@@ -18,6 +18,9 @@ public static class NotificationHubApplicationExtensions
 
 		services.AddScoped<DispatchNotificationHandler>();
 		services.AddScoped<DispatchNotificationBatchHandler>();
+		services.AddScoped<Channels.UpsertChannelConfigurationHandler>();
+		services.AddScoped<Channels.ListChannelConfigurationsHandler>();
+		services.AddScoped<Channels.DeleteChannelConfigurationHandler>();
 		services.AddScoped<GetNotificationByIdHandler>();
 
 		services.AddScoped<GetUnreadInAppNotificationsHandler>();

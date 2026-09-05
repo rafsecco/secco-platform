@@ -76,6 +76,16 @@ public static class NotificationHubInfrastructureExtensions
 		// provider selecionado for esse — a chave de API não precisa existir no caso SMTP.
 		services.AddSingleton<ISendGridClient>(serviceProvider =>
 			new SendGridClient(serviceProvider.GetRequiredService<NotificationHubEmailOptions>().ApiKey));
+
+		// Canais externos (ADR-0029). Um provider por ferramenta, cada um com HttpClient nomeado
+		// que herda a resiliência do SDK. Não há provider genérico por baixo, de propósito.
+		services.AddHttpClient(Channels.TeamsNotificationProvider.HttpClientName);
+		services.AddHttpClient(Channels.SlackNotificationProvider.HttpClientName);
+		services.AddScoped<Channels.IExternalChannelProvider, Channels.TeamsNotificationProvider>();
+		services.AddScoped<Channels.IExternalChannelProvider, Channels.SlackNotificationProvider>();
+		services.AddScoped<Application.Channels.IExternalChannelDispatchQueue, Channels.ExternalChannelDispatchScheduler>();
+		services.AddScoped<Application.Channels.IChannelConfigurationRepository, Repositories.ChannelConfigurationRepository>();
+		services.AddScoped<Channels.SendExternalChannelJob>();
 		services.AddScoped<IEmailDispatchQueue, EmailDispatchScheduler>();
 		services.AddScoped<SendEmailJob>();
 

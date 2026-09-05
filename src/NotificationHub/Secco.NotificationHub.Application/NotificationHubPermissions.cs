@@ -26,4 +26,14 @@ public static class NotificationHubPermissions
 		/// <summary>Marcar um item como lido.</summary>
 		public const string Write = "in-app-notifications:write";
 	}
+
+	/// <summary>Permissões de configuração de canal externo (ADR-0029).</summary>
+	public static class ChannelConfigurations
+	{
+		/// <summary>Consultar quais canais estão configurados (nunca o destino).</summary>
+		public const string Read = "notification-channels:read";
+
+		/// <summary>Cadastrar, rotacionar ou remover o destino de um canal.</summary>
+		public const string Write = "notification-channels:write";
+	}
 }
