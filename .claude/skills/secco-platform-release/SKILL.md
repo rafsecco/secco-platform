@@ -34,6 +34,17 @@ Formato: `<prefixo>/v<semver>` — ex. `sharedkernel/v0.3.0`.
 
 ### Dependência entre pacotes: tag estável exige tag estável da dependência no mesmo commit
 
+**Não faça essa conferência de cabeça — rode o script:**
+
+```bash
+python scripts/check-release-chain.py <prefixo-da-tag>/v    # ex.: sdk-logging/v
+```
+
+Ele lê os `.csproj` (a fonte da verdade: `IsPackable` + `MinVerTagPrefix`), percorre os `ProjectReference` **transitivamente** e diz, para cada dependência publicável, se a tag dela está neste commit ou quantos commits atrás está. Sai com 1 se faltar alguma, e também acusa pacote publicável que não esteja registrado no `publish-packages.yml`. Sem alvo, faz apenas um levantamento de todos os pacotes e nunca falha.
+
+O mesmo script roda como **guarda no workflow**, antes do Pack: a tag que não tem cadeia íntegra falha cedo, com a mensagem dizendo qual tag criar, em vez de terminar em `NU5104` — que não diz.
+
+
 O MinVer versiona cada pacote pela **própria** tag: um `ProjectReference` para outro pacote publicável (ex.: SDK → SharedKernel) entra no `.nupkg` com a versão que o MinVer calcula para a dependência **naquele commit**. Se a última tag da dependência não estiver no commit sendo empacotado (height > 0), a dependência resolve como pré-release (`0.3.1-alpha.0.N`) e o Pack falha com NU5104 — "a stable release should not have a prerelease dependency" (warnings = erros).
 
 Confirmado empiricamente: `sdk/v0.4.0` falhou no Pack porque a última tag do SharedKernel (`sharedkernel/v0.3.0`) estava 24 commits atrás. Correção: taguear a dependência no **mesmo commit** (patch bump se ela não mudou de forma relevante), publicar a dependência primeiro e então (re)executar o publish do dependente. Ao liberar qualquer pacote com `ProjectReference` publicável, conferir isso ANTES de empurrar a tag.

@@ -16,6 +16,8 @@ Este skill garante que todo código produzido para o ecossistema Secco Platform 
 
 ## Segurança é parte do design, não revisão posterior (ADR-0020)
 
+**A pergunta que mais rende, feita primeiro:** *algum input externo governa uma operação destrutiva ou privilegiada?* Ela é mais estreita que o checklist abaixo e por isso encontra o que o checklist deixa passar. Dois casos reais desta plataforma: a retenção de auditoria cortava pelo `OccurredAt` **declarado pelo chamador** — um valor forjado no passado apagaria a trilha antes da hora; e nome de database em DDL não pode ser parametrizado, então sem allowlist **antes** da concatenação vira injeção com privilégio de administrador do servidor. Nos dois, o dado externo não estava sendo "confiado" de forma óbvia: estava governando um `DELETE` e um `CREATE`.
+
 Antes de implementar, avaliar: confiança em input externo (validar formato/tamanho de tudo que vem de fora do processo — headers, payloads, mensagens), injeção (SQL, log forging, header injection), vazamento de informação (erros/logs/stack traces em produção), isolamento de tenant ("este código pode vazar ou aceitar dado de outro tenant?"), autenticação/autorização explícitas, negação de serviço (limites em input não confiável), dependências novas (manutenção ativa, CVEs). Ao apresentar opções de design, incluir o risco de segurança de cada uma.
 
 ## Prefixo e migração (ADR-0016)
