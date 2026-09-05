@@ -5,7 +5,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
+using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Infrastructure.Cryptography;
+using Secco.SecureGate.Infrastructure.Provisioning;
 using Secco.SecureGate.Infrastructure.Seeding;
 
 namespace Secco.SecureGate.Infrastructure;
@@ -44,6 +46,18 @@ public static class SecureGateInfrastructureExtensions
 			.ValidateOnStart();
 		services.TryAddSingleton<IValidateOptions<SecureGateCatalogOptions>, SecureGateCatalogOptionsValidator>();
 		services.AddSingleton<IConnectionStringCipher, AesGcmConnectionStringCipher>();
+
+		// Provisionamento de banco de tenant (issue #3). A seção pode estar ausente: isso desliga
+		// apenas a AUTOMAÇÃO — o modo script segue disponível e não exige privilégio nenhum.
+		services.AddOptions<TenantDatabaseProvisioningOptions>()
+			.BindConfiguration(TenantDatabaseProvisioningOptions.SectionKey)
+			.ValidateOnStart();
+		services.TryAddSingleton<IValidateOptions<TenantDatabaseProvisioningOptions>,
+			TenantDatabaseProvisioningOptionsValidator>();
+		services.TryAddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<TenantDatabaseProvisioningOptions>>().Value);
+		services.AddSingleton<ITenantDatabaseProvisioner, SqlServerTenantDatabaseProvisioner>();
+		services.AddSingleton<ITenantDatabaseHealthProbe, SqlServerTenantDatabaseHealthProbe>();
 
 		services.AddDbContext<SecureGateDbContext>((serviceProvider, options) =>
 		{

@@ -1568,3 +1568,56 @@ Levantado na mesma conversa e movido para issue própria ([#6](https://github.co
 Sete regras registradas como escopo inicial, sendo as três primeiras as que impedem os ataques clássicos: token carrega o `sub` do alvo **e** um claim de ator (`act`, RFC 8693) — sem isso não há não-repúdio; somente leitura por padrão; hierarquia verificada **no servidor** contra o cadastro, nunca por parâmetro do cliente. Mais: nunca representar privilégio igual ou maior, sempre no mesmo tenant, TTL curto sem refresh com faixa visível, e início/fim/ações na trilha de auditoria.
 
 Registrada também a alternativa mais barata, para reavaliação antes de construir: uma tela de diagnóstico que **mostra** as permissões efetivas e o menu resolvido do usuário resolve boa parte dos casos de suporte com uma fração da superfície de ataque.
+
+### 118. [Arquitetura] Como o provisionamento de banco executa
+
+**Resposta:** Script sempre disponível + automação opt-in (Recomendado)
+
+Opções apresentadas:
+
+- **Script sempre + automação opt-in (Recomendado)** ✓ **ESCOLHIDA**
+  - O SecureGate gera o SQL correto e um DBA aplica; com a credencial declarada em configuração, ele mesmo executa. Sem a seção, a automação não existe (fail-closed). Motivo decisivo: muitos DBAs corporativos jamais concedem `dbcreator` a uma aplicação, e um recurso que só funciona com esse privilégio não serviria a esses adotantes — já o script serve, e serve com privilégio mínimo por construção.
+- **Só automação, via job em background**
+  - Mais simples de explicar, mas exigiria a credencial privilegiada para o recurso existir.
+- **Só geração de script**
+  - O mais seguro e rápido de entregar, mas não resolveria o "tenant novo entra", que é metade da issue.
+- **Deployable separado só para provisionar**
+  - Melhor isolamento de todos, ao custo de mais um deployable, mais um pipeline e mais uma peça para o adotante operar.
+
+### 119. [Arquitetura] Execução síncrona ou job em background
+
+**Resposta:** Síncrono — contrariando a descrição da opção escolhida em 118
+
+A opção 118 dizia "job em background (Hangfire, fora do request path)". Ao desenhar, a assincronia não entregava a segurança que a frase prometia: a credencial privilegiada fica no mesmo processo de qualquer forma — o job moveria *quando* ela é usada, não *onde* mora. O que de fato protege é a automação ser opt-in, o endpoint exigir `securegate:admin` e a conexão privilegiada existir só durante a operação. Some-se que criar database leva segundos e que repetir DDL automaticamente é mais perigoso que útil (uma criação parcial repetida é pior que um erro visível ao operador).
+
+Somar Hangfire ao SecureGate — que não o tinha — custaria banco de plataforma novo, dependência nova e mais uma peça para o adotante operar, em troca de uma garantia que não se realiza. A divergência foi levantada explicitamente antes de implementar e ratificada.
+
+### 120. [Escopo] Engines e escopo do provisionamento
+
+**Resposta:** SQL Server primeiro; provisionamento + painel de bancos
+
+Opções apresentadas para engine:
+
+- **SQL Server primeiro, Postgres depois (Recomendado)** ✓ **ESCOLHIDA**
+  - O DDL diverge muito entre os dois (`CREATE LOGIN` + usuário no banco vs `CREATE ROLE` + `GRANT`), cada um com armadilhas próprias de identificador e permissão. Esta é a parte mais perigosa do sistema: um engine bem feito e provado vale mais que dois pela metade. A abstração nasce com dois implementadores previstos.
+- **Os dois de uma vez**
+  - Paridade imediata, dobrando a superfície de teste da parte mais perigosa numa entrega só.
+
+Opções apresentadas para escopo:
+
+- **Provisionamento + painel de bancos (Recomendado)** ✓ **ESCOLHIDA**
+  - O painel é barato e não precisa de credencial privilegiada: o catálogo já sabe tenant e banco, e o estado vivo sai de sondagem com a conexão de runtime de cada tenant.
+- **Só provisionamento** / **+ rotação de senha do banco**
+  - A rotação é uma terceira operação privilegiada e ficou para rodada própria; reprovisionar responde 409, nunca sobrescreve.
+
+### 121. [Segurança] Corte da retenção de auditoria e outros achados de revisão
+
+**Resposta:** Corrigidos na própria entrega
+
+Três defeitos encontrados revisando código que já estava verde, registrados porque o padrão se repete:
+
+1. **Retenção de auditoria cortava pelo `OccurredAt`** — declarado pelo chamador. Retenção é operação destrutiva; input externo governando-a permitiria apagar a trilha antes da hora com um valor forjado no passado. Passou a cortar pelo `CreatedAt` do servidor, com teste de regressão.
+2. **`GetConnectionStringFor("master")` devolvia `master_<sufixo>`** — o helper de teste sufixa todo nome de database, e `master` é nome fixo do servidor. O sintoma foi um 500 opaco; a correção derivou a connection string privilegiada trocando o catálogo.
+3. **`Guid.CreateVersion7()` fatiado no início gera valores iguais** — v7 começa com timestamp, então slugs derivados dos 8 primeiros hex colidiam entre tenants criados no mesmo milissegundo. Onde se quer aleatoriedade, v4.
+
+Registrado também que a classificação de erro do SQL Server tratava 4060 ("banco inacessível para este login") como "servidor inacessível" — dois diagnósticos bem diferentes para quem opera.

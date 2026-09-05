@@ -20,7 +20,7 @@ public class LogStreamLoggerTests
 	/// Estabelece o tenant ambiente pelo caminho público do SDK — o mesmo que um job usa
 	/// (ADR-0015). Testar pelo caminho real vale mais que escrever o <c>AsyncLocal</c> à mão.
 	/// </summary>
-	private static IDisposable AmbientTenant(Guid tenantId)
+	private static CompositeDisposable AmbientTenant(Guid tenantId)
 	{
 		var services = new ServiceCollection();
 		services.AddSeccoTenancy();
@@ -143,7 +143,7 @@ public class LogStreamLoggerTests
 		var (queue, provider) = CreateSink(options => options.MaxMessageLength = 32);
 		using var tenant = AmbientTenant(Guid.CreateVersion7());
 
-		provider.CreateLogger("Secco.Intranet.Documentos").LogError(new string('x', 500));
+		provider.CreateLogger("Secco.Intranet.Documentos").LogError("{Longa}", new string('x', 500));
 
 		queue.Reader.TryRead(out var entry).Should().BeTrue();
 		entry!.Message.Should().HaveLength(32 + "… [truncado]".Length);

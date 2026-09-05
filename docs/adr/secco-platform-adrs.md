@@ -744,6 +744,42 @@ Na mesma entrega, e sob a ADR-0018 (não sob esta), a seleção de provider de b
 
 ---
 
+## ADR-0028: Provisionamento de banco de tenant — capacidade da plataforma, com automação opt-in
+
+**Status:** Aceita
+**Data:** 2026-09-05
+
+### Contexto
+
+A plataforma decidiu database-per-tenant (ADR-0005) e nunca teve como criar esses bancos. O único `CREATE DATABASE` do monorepo estava na infraestrutura de testes; o catálogo do SecureGate cadastra a connection string de um banco que **já existe**, criado por fora. Na prática, os exemplos de adoção usavam `User Id=sa` — e enquanto a connection string de um tenant usa um usuário amplo, o isolamento físico da ADR-0005 é **convenção, não garantia**: um erro de connection string alcança o banco do tenant vizinho, e a aplicação tem no servidor todo o poder daquele usuário.
+
+O primeiro adotante levantou a lacuna ([issue #3](https://github.com/rafsecco/secco-platform/issues/3)) e registrou, em ADR própria, que **não** custodia credencial capaz de criar database "sob nenhuma circunstância". A pergunta que restava era quem preenche a lacuna.
+
+Duas situações reais de adoção pressionam em direções diferentes: o banco do cliente **já existe** e a aplicação precisa apenas de um usuário próprio com o mínimo naquele banco; ou um **tenant novo** entra e alguém precisa criar o banco dele. Tratá-las como uma coisa só força o pior privilégio nas duas.
+
+### Decisão
+
+1. **Provisionamento é capacidade da plataforma e vive no SecureGate**, que já é o registro de (tenant, produto) → banco e já custodia a connection string cifrada (ADR-0025). Nenhum produto consumidor — e nenhum portal — custodia credencial privilegiada de banco.
+2. **Dois modos, os mesmos artefatos.** O modo **script** está sempre disponível e é o default: o SecureGate gera o SQL e um DBA aplica. O modo **automático** é **opt-in** por configuração (`SecureGate:Provisioning:Targets:<nome>:AdminConnectionString`); sem a credencial declarada, a automação não existe — fail-closed, nunca degradação silenciosa. O script devolvido é exatamente o que a execução automática aplica: um texto só, para os dois caminhos não divergirem.
+3. **O teto do que se concede é `db_owner` no próprio banco do tenant, e nada no servidor.** O usuário criado precisa de DDL porque cada produto roda as próprias migrations; não precisa de mais nada.
+4. **Execução síncrona.** Descartado enfileirar num job: a credencial fica no mesmo processo de qualquer forma, então a assincronia moveria *quando* ela é usada, não *onde* mora. O que protege é opt-in + gate `securegate:admin` + conexão isolada existente só nesta operação. Criar database leva segundos, e repetir DDL automaticamente é mais perigoso que útil.
+5. **Identificadores por allowlist estrita.** Nome de database e de login não podem ser parametrizados em DDL — entram por concatenação. Formato aceito: `^[a-z][a-z0-9_]{2,62}$`, mais recusa de nomes de sistema, mais delimitação com escape. A validação vem **antes** de qualquer concatenação.
+6. **O segredo é gerado no servidor, exibido uma vez, persistido só cifrado.** Senha aleatória criptográfica de alfabeto que não quebra connection string nem literal SQL. Ela aparece apenas dentro do script do modo manual — por necessidade de quem aplica — e nunca é recuperável depois. A connection string resultante vai cifrada para o catálogo e nunca volta em resposta.
+7. **Reprovisionar não sobrescreve.** Par (tenant, produto) já cadastrado responde `409`. Rotação de credencial é operação própria e fica fora desta ADR.
+8. **O painel de estado dos bancos não usa credencial privilegiada**: sonda cada banco com a conexão de runtime do próprio tenant e responde alcançável/inalcançável com classificação de falha, nunca com a exceção crua.
+9. **SQL Server primeiro.** A abstração nasce com dois implementadores previstos (ADR-0018) e um entregue; PostgreSQL vem na rodada seguinte.
+
+### Consequências
+
+- O isolamento entre tenants da ADR-0005 deixa de ser convenção e passa a ser garantia — há teste de integração que conecta com o usuário provisionado de um tenant e prova que o banco do vizinho é inalcançável.
+- O adotante cujo DBA não concede `dbcreator` continua atendido: recebe o script correto, com privilégio mínimo por construção, em vez de nada.
+- Quem liga a automação passa a ter, no processo do SecureGate, uma credencial capaz de criar databases. É privilégio real e assumido: ele é opt-in, exige `securegate:admin` para ser exercido, e a conexão que o usa existe só durante a operação.
+- O modo script grava a connection string no catálogo **antes** de o banco existir. É intencional — a alternativa devolveria ao operador o cadastro manual que a issue quer eliminar — e o painel de estado é quem torna esse intervalo visível.
+- `docker-compose.yml` e `.env.example` deixam de ensinar `sa`: cada banco de desenvolvimento passa a ter login próprio com `db_owner` apenas nele, no mesmo modelo que o provisionamento produz.
+- Fora desta ADR, registrado: rotação de senha de banco, desprovisionamento, e aplicação de migrations pelo SecureGate (cada produto roda as suas).
+- Design detalhado em `docs/superpowers/specs/2026-09-05-provisionamento-banco-tenant-design.md`.
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação

@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SharedKernel.Results;
 
@@ -49,6 +50,40 @@ public static class SecureGateErrors
 		public static readonly Error ConnectionStringTooLong =
 			Error.Validation("SecureGate.TenantDatabase.ConnectionStringTooLong",
 				$"A connection string excede o limite de {TenantDatabase.ConnectionStringMaxLength} caracteres.");
+
+		/// <summary>Já existe banco cadastrado para o par (tenant, produto).</summary>
+		public static readonly Error AlreadyProvisioned =
+			Error.Conflict("SecureGate.TenantDatabase.AlreadyProvisioned",
+				"Este tenant já tem banco cadastrado neste produto. Provisionar por cima apagaria o acesso vigente; rotação de credencial é operação própria.");
+
+		/// <summary>Alvo de provisionamento informado não existe na configuração.</summary>
+		public static readonly Error ProvisioningTargetUnknown =
+			Error.Validation("SecureGate.TenantDatabase.ProvisioningTargetUnknown",
+				"O alvo de provisionamento informado não está declarado em 'SecureGate:Provisioning:Targets'.");
+
+		/// <summary>Sem alvo configurado e sem servidor na requisição, não há destino.</summary>
+		public static readonly Error ProvisioningServerRequired =
+			Error.Validation("SecureGate.TenantDatabase.ProvisioningServerRequired",
+				"Informe o servidor de destino, ou declare um alvo em 'SecureGate:Provisioning:Targets'.");
+
+		/// <summary>Provider do alvo sem provisionador registrado (ADR-0018).</summary>
+		public static readonly Error ProvisioningProviderUnsupported =
+			Error.Validation("SecureGate.TenantDatabase.ProvisioningProviderUnsupported",
+				"O provider do alvo não tem provisionador registrado neste servidor.");
+
+		/// <summary>
+		/// Nome de database ou de login fora do formato aceito. O valor recebido NÃO entra na
+		/// mensagem: ele é justamente o vetor de injeção que a validação barrou (ADR-0020).
+		/// </summary>
+		public static readonly Error ProvisioningIdentifierInvalid =
+			Error.Validation("SecureGate.TenantDatabase.ProvisioningIdentifierInvalid",
+				$"Nome de database e de login devem ter de {DatabaseIdentifierPolicy.MinLength} a {DatabaseIdentifierPolicy.MaxLength} caracteres, começar por letra minúscula e conter apenas letras minúsculas, dígitos e sublinhado.");
+
+		/// <summary>Falha na execução do provisionamento, com a classificação da causa.</summary>
+		/// <param name="reason">Classificação — nunca a exceção crua nem a connection string.</param>
+		public static Error ProvisioningFailed(string reason) =>
+			Error.Failure("SecureGate.TenantDatabase.ProvisioningFailed",
+				$"O provisionamento não pôde ser aplicado: {reason}.");
 	}
 
 	/// <summary>Erros de roles e permissões (ADR-0021).</summary>
