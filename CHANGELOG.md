@@ -12,9 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.EntityFrameworkCore
-
-- **Adicionado** `SeccoDatabaseProviders`: seleção de provider de banco por receita. O produto declara o que aplicar (incluindo o assembly de migrations), o SDK apenas seleciona — **sem nenhuma dependência de engine adicionada ao pacote**, preservando a cláusula de extensibilidade da ADR-0018.
+_Nada pendente._
 
 ---
 
@@ -57,6 +55,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.SDK.EntityFrameworkCore
 
+#### 0.3.0 — 2026-09-05
+
+- **Adicionado** `SeccoDatabaseProviders`: seleção de provider de banco por receita. O produto declara o que aplicar (incluindo o assembly de migrations), o SDK apenas seleciona — **sem nenhuma dependência de engine adicionada ao pacote**, preservando a cláusula de extensibilidade da ADR-0018.
+- Mudança **aditiva**. O código estava entregue desde 2026-08-29 e ficou sem publicar: a última tag era de 12/07, então o adotante não tinha como usá-lo.
+
 | Versão | Data |
 |---|---|
 | 0.2.0 | 2026-07-12 |
@@ -77,6 +80,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.3.0 — 2026-09-05
+
+- **Adicionado** `ProvisionTenantDatabaseAsync` e `GetTenantDatabaseStatusAsync` — o provisionamento de banco de tenant da ADR-0028 e o painel de estado dos bancos.
+- Mudança **aditiva**, sem renomear método existente. Os endpoints do SecureGate usam `.WithName(...)`, então o NSwag gera o nome do método a partir do `operationId` e não do path — nomes ficam estáveis quando um endpoint novo entra. É a diferença que faltou no LogStream, onde a ausência de `.WithName(...)` fez o `LogEntriesGETAsync` renumerar parâmetros na 0.2.0.
 
 | Versão | Data |
 |---|---|
