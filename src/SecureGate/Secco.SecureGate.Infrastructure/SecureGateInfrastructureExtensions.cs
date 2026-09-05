@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Application.Provisioning;
@@ -45,7 +47,24 @@ public static class SecureGateInfrastructureExtensions
 			.BindConfiguration(SecureGateCatalogOptions.SectionKey)
 			.ValidateOnStart();
 		services.TryAddSingleton<IValidateOptions<SecureGateCatalogOptions>, SecureGateCatalogOptionsValidator>();
-		services.AddSingleton<IConnectionStringCipher, AesGcmConnectionStringCipher>();
+		// O cifrador vem do SDK (ADR-0025/0029); a POLITICA de chave fica aqui, no produto:
+		// chave de DEV embutida fora de Production e fail-fast dentro dela. Deixar essa politica
+		// no SDK a imporia a todo consumidor, inclusive aos que nao querem chave embutida nenhuma.
+		services.AddSingleton<ISeccoSecretCipher>(serviceProvider =>
+		{
+			var catalogOptions = serviceProvider.GetRequiredService<IOptions<SecureGateCatalogOptions>>().Value;
+			var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+
+			var activeKey = !string.IsNullOrWhiteSpace(catalogOptions.EncryptionKey)
+				? catalogOptions.EncryptionKey
+				: environment.IsProduction()
+					// Inalcancavel na pratica: o validator falha o startup antes. Defesa em profundidade.
+					? throw new SeccoSecretCipherException(
+						"Chave de cifragem do catalogo ausente em Production (ADR-0025).")
+					: SecureGateCatalogOptions.DevelopmentEncryptionKey;
+
+			return AesGcmSecretCipher.FromBase64Keys(activeKey, catalogOptions.RetiredEncryptionKeys);
+		});
 
 		// Provisionamento de banco de tenant (issue #3). A seção pode estar ausente: isso desliga
 		// apenas a AUTOMAÇÃO — o modo script segue disponível e não exige privilégio nenhum.

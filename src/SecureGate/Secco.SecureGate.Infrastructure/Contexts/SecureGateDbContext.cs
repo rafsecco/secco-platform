@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Conventions;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
@@ -24,7 +25,7 @@ namespace Secco.SecureGate.Infrastructure.Contexts;
 /// </remarks>
 public sealed class SecureGateDbContext(
 	DbContextOptions<SecureGateDbContext> options,
-	IConnectionStringCipher? connectionStringCipher = null)
+	ISeccoSecretCipher? connectionStringCipher = null)
 	: IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options)
 {
 	/// <summary>
@@ -33,7 +34,7 @@ public sealed class SecureGateDbContext(
 	/// </summary>
 	private const int ConnectionStringColumnMaxLength = 4000;
 
-	private readonly IConnectionStringCipher? _connectionStringCipher = connectionStringCipher;
+	private readonly ISeccoSecretCipher? _connectionStringCipher = connectionStringCipher;
 
 	/// <summary>Catálogo de tenants da plataforma (tabela <c>tb_tenants</c>).</summary>
 	public DbSet<Tenant> Tenants => Set<Tenant>();

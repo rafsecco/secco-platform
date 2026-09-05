@@ -12,6 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SDK.EntityFrameworkCore
+
+- **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025 (ADR-0029).
+- Promovidos do `Secco.SecureGate.Infrastructure`, onde eram internos ao produto. O `secco-intranet` já havia reimplementado o mesmo formato por conta própria; o `Secco.NotificationHub` seria a terceira implementação independente do mesmo formato criptográfico. O tipo recebe as chaves já decodificadas e **não** conhece configuração de produto: a política de origem da chave continua em cada produto.
+- **Sem mudança de formato nem de dado.** Os testes de comportamento vieram junto e passam com as mesmas asserções, incluindo a do prefixo literal — que é contrato de dado já gravado.
+
 ### Secco.NotificationHub.Client
 
 - **Adicionado** `DispatchNotificationBatchAsync` — despacho de um conteúdo para muitos destinos numa chamada só (issue #15).
