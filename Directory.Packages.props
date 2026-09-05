@@ -87,6 +87,7 @@
   <!-- NotificationHub: envio de e-mail (Fase 8) -->
   <ItemGroup>
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <PackageVersion Include="SendGrid" Version="9.29.3" />
   </ItemGroup>
 
   <!-- Testes (ADR-0012) -->

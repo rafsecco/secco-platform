@@ -14,6 +14,15 @@ internal sealed class InAppNotificationRepository(NotificationHubDbContext conte
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 	}
 
+	public async Task AddRangeAsync(
+		IReadOnlyCollection<InAppNotification> notifications, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(notifications);
+
+		context.InAppNotifications.AddRange(notifications);
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+	}
+
 	public async Task<InAppNotification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
 		await context.InAppNotifications
 			.FirstOrDefaultAsync(notification => notification.Id == id, cancellationToken)

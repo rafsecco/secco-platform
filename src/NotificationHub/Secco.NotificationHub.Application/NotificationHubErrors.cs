@@ -12,6 +12,27 @@ public static class NotificationHubErrors
 		public static readonly Error ChannelsRequired =
 			Error.Validation("NotificationHub.Notification.ChannelsRequired", "Ao menos um canal é obrigatório.");
 
+		/// <summary>Lote sem nenhum destino.</summary>
+		public static readonly Error DestinationsRequired =
+			Error.Validation("NotificationHub.Notification.DestinationsRequired",
+				"Um lote exige ao menos um destino.");
+
+		/// <summary>Lote acima do teto configurado.</summary>
+		/// <param name="max">Máximo de destinos por lote.</param>
+		public static Error TooManyDestinations(int max) =>
+			Error.Validation("NotificationHub.Notification.TooManyDestinations",
+				$"Um lote aceita no máximo {max} destinos. Divida a publicação em lotes menores.");
+
+		/// <summary>
+		/// Um destino do lote não passou na validação. O índice localiza qual, sem ecoar o
+		/// valor recebido (ADR-0020).
+		/// </summary>
+		/// <param name="index">Posição do destino no lote, começando em zero.</param>
+		/// <param name="reason">Descrição do problema daquele destino.</param>
+		public static Error DestinationInvalid(int index, string reason) =>
+			Error.Validation("NotificationHub.Notification.DestinationInvalid",
+				$"Destino na posição {index} inválido: {reason}");
+
 		/// <summary>Canal informado não é reconhecido pelo Hub.</summary>
 		public static Error ChannelUnsupported(string channel) =>
 			Error.Validation("NotificationHub.Notification.ChannelUnsupported", $"Canal '{channel}' não é reconhecido.");

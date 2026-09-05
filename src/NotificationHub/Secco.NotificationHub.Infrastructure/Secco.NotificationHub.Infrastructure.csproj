@@ -8,6 +8,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <!-- Envio de e-mail (Fase 8): MailKit em vez do System.Net.Mail.SmtpClient obsoleto -->
     <PackageReference Include="MailKit" />
+    <!-- Segundo provider de e-mail (issue #14): SDK oficial da Twilio -->
+    <PackageReference Include="SendGrid" />
   </ItemGroup>
 
   <ItemGroup>

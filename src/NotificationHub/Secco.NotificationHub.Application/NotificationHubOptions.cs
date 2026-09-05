@@ -23,4 +23,15 @@ public sealed class NotificationHubOptions
 
 	/// <summary>Tamanho máximo do link (Fase 8.4 — default 2048, teto prático de URL).</summary>
 	public int MaxLinkLength { get; set; } = 2_048;
+
+	/// <summary>
+	/// Máximo de destinos por lote (issue #15 — default 500).
+	/// </summary>
+	/// <remarks>
+	/// O teto existe porque o lote enfileira um job por destino de e-mail: 
+	/// as gravações das notificações vão numa ida só ao banco, mas o enfileiramento continua
+	/// sendo N inserções na fila do Hangfire, dentro da requisição. Um lote sem limite viraria
+	/// requisição longa e pressão na fila (ADR-0020).
+	/// </remarks>
+	public int MaxBatchDestinations { get; set; } = 500;
 }

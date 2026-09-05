@@ -17,6 +17,7 @@ public static class NotificationHubApplicationExtensions
 		ArgumentNullException.ThrowIfNull(services);
 
 		services.AddScoped<DispatchNotificationHandler>();
+		services.AddScoped<DispatchNotificationBatchHandler>();
 		services.AddScoped<GetNotificationByIdHandler>();
 
 		services.AddScoped<GetUnreadInAppNotificationsHandler>();

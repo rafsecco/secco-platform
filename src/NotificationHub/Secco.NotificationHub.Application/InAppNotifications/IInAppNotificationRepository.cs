@@ -10,6 +10,11 @@ public interface IInAppNotificationRepository
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task AddAsync(InAppNotification notification, CancellationToken cancellationToken = default);
 
+	/// <summary>Persiste vários itens em uma única ida ao banco (issue #15).</summary>
+	/// <param name="notifications">Itens a persistir.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task AddRangeAsync(IReadOnlyCollection<InAppNotification> notifications, CancellationToken cancellationToken = default);
+
 	/// <summary>Busca um item pelo identificador.</summary>
 	/// <param name="id">Identificador do item.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
