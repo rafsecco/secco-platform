@@ -16,6 +16,7 @@
           "Notifications"
         ],
         "summary": "Despacha uma notificação para 1+ canais (e-mail assíncrono com retry — ADR-0015; in-app gravado de imediato).",
+        "operationId": "CreateNotification",
         "requestBody": {
           "content": {
             "application/json": {
@@ -56,6 +57,7 @@
           "Notifications"
         ],
         "summary": "Consulta o status de uma notificação por e-mail (Pending/Sent/Failed).",
+        "operationId": "GetNotification",
         "parameters": [
           {
             "name": "id",
@@ -97,6 +99,7 @@
           "InAppNotifications"
         ],
         "summary": "Lista o inbox não lido de um usuário, mais recentes primeiro.",
+        "operationId": "GetUnreadInAppNotifications",
         "parameters": [
           {
             "name": "userId",
@@ -131,6 +134,7 @@
           "InAppNotifications"
         ],
         "summary": "Conta o inbox não lido de um usuário — para o sino do header, sem a lista completa.",
+        "operationId": "CountUnreadInAppNotifications",
         "parameters": [
           {
             "name": "userId",
@@ -167,6 +171,7 @@
           "InAppNotifications"
         ],
         "summary": "Marca um item do inbox como lido (idempotente).",
+        "operationId": "MarkInAppNotificationAsRead",
         "parameters": [
           {
             "name": "id",

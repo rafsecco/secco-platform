@@ -41,6 +41,7 @@ public static class NotificationEndpoints
 				cancellationToken))
 				.ToHttpResult(result => Results.Accepted(value: result)))
 			.RequireAuthorization(NotificationHubPermissions.Notifications.Write)
+			.WithName("CreateNotification")
 			.WithSummary("Despacha uma notificação para 1+ canais (e-mail assíncrono com retry — ADR-0015; in-app gravado de imediato).")
 			.Produces<DispatchNotificationResult>(StatusCodes.Status202Accepted)
 			.ProducesProblem(StatusCodes.Status400BadRequest);
@@ -49,6 +50,7 @@ public static class NotificationEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.RequireAuthorization(NotificationHubPermissions.Notifications.Read)
+			.WithName("GetNotification")
 			.WithSummary("Consulta o status de uma notificação por e-mail (Pending/Sent/Failed).")
 			.Produces<NotificationDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);

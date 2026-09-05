@@ -29,6 +29,7 @@ public static class SampleEndpoints
 			(await handler.HandleAsync(new CreateSampleCommand(request.Name, request.Description), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/samples/{dto.Id}", dto)))
 			.RequireAuthorization(SampleServicePermissions.Samples.Write)
+			.WithName("CreateSample")
 			.WithSummary("Cria um sample.")
 			.Produces<SampleDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest);
@@ -37,6 +38,7 @@ public static class SampleEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.RequireAuthorization(SampleServicePermissions.Samples.Read)
+			.WithName("GetSample")
 			.WithSummary("Busca um sample pelo identificador.")
 			.Produces<SampleDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -53,6 +55,7 @@ public static class SampleEndpoints
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))
 			.RequireAuthorization(SampleServicePermissions.Samples.Read)
+			.WithName("SearchSamples")
 			.WithSummary("Busca paginada de samples, mais recentes primeiro.")
 			.Produces<PagedResult<SampleDto>>(StatusCodes.Status200OK);
 

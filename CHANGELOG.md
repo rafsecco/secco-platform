@@ -12,7 +12,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._
+### Secco.LogStream.Client
+
+- **Alterado (quebra)** — todos os métodos passam a ser nomeados pelo `operationId` do endpoint, e não mais derivados do path: `LogEntriesPOSTAsync` → `CreateLogEntryAsync`, `BatchAsync` → `CreateLogEntryBatchAsync`, `LogEntriesGETAsync` → `SearchLogEntriesAsync`, `LogEntriesGET2Async` → `GetLogEntryAsync`, e equivalentes para processos, chamadas de API e auditoria.
+- Motivo (issue #9): nome derivado do path **não é estável** — depende de quantos e quais endpoints existem no documento, então adicionar um endpoint renomeia métodos de outros. Foi o que quebrou o `Secco.AdminPortal` na 0.2.0. Esta é a última renomeação: com `operationId` fixo, endpoint novo não mexe mais em método existente.
+
+### Secco.NotificationHub.Client
+
+- **Alterado (quebra)** — mesma correção: `NotificationsPOSTAsync` → `CreateNotificationAsync`, `NotificationsGETAsync` → `GetNotificationAsync`, e os três de inbox in-app para `GetUnreadInAppNotificationsAsync`, `CountUnreadInAppNotificationsAsync` e `MarkInAppNotificationAsReadAsync`.
+- Nenhum consumidor conhecido — o pacote 0.1.0 não é referenciado por nenhum produto nem pelo adotante.
 
 ---
 

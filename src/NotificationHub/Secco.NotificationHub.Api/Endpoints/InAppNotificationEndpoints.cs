@@ -20,12 +20,14 @@ public static class InAppNotificationEndpoints
 		group.MapGet("/", async (Guid userId, GetUnreadInAppNotificationsHandler handler, CancellationToken cancellationToken) =>
 			Results.Ok(await handler.HandleAsync(userId, cancellationToken)))
 			.RequireAuthorization(NotificationHubPermissions.InAppNotifications.Read)
+			.WithName("GetUnreadInAppNotifications")
 			.WithSummary("Lista o inbox não lido de um usuário, mais recentes primeiro.")
 			.Produces<IReadOnlyList<InAppNotificationDto>>(StatusCodes.Status200OK);
 
 		group.MapGet("/count", async (Guid userId, CountUnreadInAppNotificationsHandler handler, CancellationToken cancellationToken) =>
 			Results.Ok(await handler.HandleAsync(userId, cancellationToken)))
 			.RequireAuthorization(NotificationHubPermissions.InAppNotifications.Read)
+			.WithName("CountUnreadInAppNotifications")
 			.WithSummary("Conta o inbox não lido de um usuário — para o sino do header, sem a lista completa.")
 			.Produces<int>(StatusCodes.Status200OK);
 
@@ -33,6 +35,7 @@ public static class InAppNotificationEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(Results.NoContent))
 			.RequireAuthorization(NotificationHubPermissions.InAppNotifications.Write)
+			.WithName("MarkInAppNotificationAsRead")
 			.WithSummary("Marca um item do inbox como lido (idempotente).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);

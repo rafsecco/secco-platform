@@ -16,6 +16,7 @@
           "LogEntries"
         ],
         "summary": "Registra um log (ingestão assíncrona).",
+        "operationId": "CreateLogEntry",
         "requestBody": {
           "content": {
             "application/json": {
@@ -64,6 +65,7 @@
           "LogEntries"
         ],
         "summary": "Busca paginada de registros de log (filtros opcionais, mais recentes primeiro).",
+        "operationId": "SearchLogEntries",
         "parameters": [
           {
             "name": "from",
@@ -172,6 +174,7 @@
           "LogEntries"
         ],
         "summary": "Registra um lote de logs (ingestão assíncrona; headers aplicados a todos os itens).",
+        "operationId": "CreateLogEntryBatch",
         "requestBody": {
           "content": {
             "application/json": {
@@ -225,6 +228,7 @@
           "LogEntries"
         ],
         "summary": "Busca um registro de log pelo identificador.",
+        "operationId": "GetLogEntry",
         "parameters": [
           {
             "name": "id",
@@ -266,6 +270,7 @@
           "LogProcesses"
         ],
         "summary": "Cria um processo (ingestão assíncrona) — o Id devolvido já serve para enviar details.",
+        "operationId": "CreateLogProcess",
         "requestBody": {
           "content": {
             "application/json": {
@@ -314,6 +319,7 @@
           "LogProcesses"
         ],
         "summary": "Busca paginada de processos com status agregado (a auditoria) — filtrável por status.",
+        "operationId": "SearchLogProcesses",
         "parameters": [
           {
             "name": "from",
@@ -408,6 +414,7 @@
           "LogProcesses"
         ],
         "summary": "Busca um processo pelo identificador, com status agregado e contagem de details.",
+        "operationId": "GetLogProcess",
         "parameters": [
           {
             "name": "id",
@@ -449,6 +456,7 @@
           "LogProcesses"
         ],
         "summary": "Registra um detail do processo (ingestão assíncrona).",
+        "operationId": "CreateLogProcessDetail",
         "parameters": [
           {
             "name": "id",
@@ -508,6 +516,7 @@
           "LogProcesses"
         ],
         "summary": "Busca paginada dos details de um processo, mais recentes primeiro.",
+        "operationId": "GetLogProcessDetails",
         "parameters": [
           {
             "name": "id",
@@ -573,6 +582,7 @@
           "LogProcesses"
         ],
         "summary": "Registra um lote de details do processo (ingestão assíncrona).",
+        "operationId": "CreateLogProcessDetailBatch",
         "parameters": [
           {
             "name": "id",
@@ -637,6 +647,7 @@
           "ApiCallLogs"
         ],
         "summary": "Registra uma chamada de API externa (ingestão assíncrona; headers sensíveis são redigidos no servidor).",
+        "operationId": "CreateApiCallLog",
         "requestBody": {
           "content": {
             "application/json": {
@@ -685,6 +696,7 @@
           "ApiCallLogs"
         ],
         "summary": "Busca paginada de chamadas de API (filtros opcionais, mais recentes primeiro).",
+        "operationId": "SearchApiCallLogs",
         "parameters": [
           {
             "name": "from",
@@ -798,6 +810,7 @@
           "ApiCallLogs"
         ],
         "summary": "Busca uma chamada de API pelo identificador.",
+        "operationId": "GetApiCallLog",
         "parameters": [
           {
             "name": "id",
@@ -839,6 +852,7 @@
           "AuditEntries"
         ],
         "summary": "Registra uma entrada de auditoria (ingestão SÍNCRONA — decisão deliberada, ver documentação do produto).",
+        "operationId": "CreateAuditEntry",
         "requestBody": {
           "content": {
             "application/json": {
@@ -877,6 +891,7 @@
           "AuditEntries"
         ],
         "summary": "Busca paginada de entradas de auditoria (filtros opcionais, mais recentes primeiro).",
+        "operationId": "SearchAuditEntries",
         "parameters": [
           {
             "name": "from",
@@ -985,6 +1000,7 @@
           "AuditEntries"
         ],
         "summary": "Busca uma entrada de auditoria pelo identificador.",
+        "operationId": "GetAuditEntry",
         "parameters": [
           {
             "name": "id",

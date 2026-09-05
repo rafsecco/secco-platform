@@ -35,6 +35,7 @@ public static class AuditEntryEndpoints
 			(await handler.HandleAsync(ToCommand(request, correlation), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/audit-entries/{dto.Id}", dto)))
 			.RequireAuthorization(LogStreamPermissions.AuditEntries.Write)
+			.WithName("CreateAuditEntry")
 			.WithSummary("Registra uma entrada de auditoria (ingestão SÍNCRONA — decisão deliberada, ver documentação do produto).")
 			.Produces<AuditEntryDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest);
@@ -43,6 +44,7 @@ public static class AuditEntryEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.RequireAuthorization(LogStreamPermissions.AuditEntries.Read)
+			.WithName("GetAuditEntry")
 			.WithSummary("Busca uma entrada de auditoria pelo identificador.")
 			.Produces<AuditEntryDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -65,6 +67,7 @@ public static class AuditEntryEndpoints
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))
 			.RequireAuthorization(LogStreamPermissions.AuditEntries.Read)
+			.WithName("SearchAuditEntries")
 			.WithSummary("Busca paginada de entradas de auditoria (filtros opcionais, mais recentes primeiro).")
 			.Produces<PagedResult<AuditEntryDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest);
