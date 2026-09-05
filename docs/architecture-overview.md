@@ -23,7 +23,7 @@ A plataforma é um **ecossistema de produtos adotáveis de forma independente** 
 | **Secco.SDK.EntityFrameworkCore** | `SeccoDbContext` + nomenclatura de banco + seeding | 0017, 0018, 0019 |
 | **Secco.LogStream** | Logging & Observability (produto de referência): logs, processos, chamadas de API, retenção | 0002, 0018 |
 | **Secco.SecureGate** | Identity & Access Management (OIDC): emissor de tokens, catálogo de tenants, Role+Permission, login | 0007, 0021, 0022, 0023, 0024 |
-| **Secco.AdminPortal** | Console de operação (Blazor Server, relying party OIDC) | 0023, 0024 |
+| **Secco.AdminPortal** | Console de operação **mínimo, para quem adota sem portal próprio** (Blazor Server, relying party OIDC) | 0023, 0024 |
 | **Secco.NotificationHub** | Notificações multi-canal: e-mail assíncrono com retry + inbox in-app | 0002, 0015 |
 | **Secco.Templates** | `dotnet new secco-service` — destila um produto conforme todas as ADRs | 0013 |
 
@@ -53,6 +53,7 @@ O SecureGate é o **único emissor de tokens** (ADR-0007) e trata identidade com
 - **Login federado por tenant** (ADR-0026): o tenant pode delegar a autenticação ao próprio Microsoft Entra ID. Federação é **só autenticação** — o SecureGate continua o emissor único e tokens do Entra nunca chegam aos produtos; usuários seguem **pré-provisionados** (o diretório do cliente prova identidade, nunca concede acesso).
 - **Autorização granular** (ADR-0021): Role é o perfil, Permission (`recurso:acao`) é a ação; o mapeamento é por tenant e resolvido em runtime.
 - **Operador de plataforma** (ADR-0023/0024): o AdminPortal age **on-behalf-of** um operador cross-tenant; o token do operador é *tenant-less* e recebe um read-set cross-tenant para inspeção (somente leitura).
+  - Leia "operador de plataforma" como **operador desta instalação** (issue #4, 2026-09-04): cada instalação é soberana, e quem opera é a empresa que adotou — não a Secco. Um portal de adotante que queira a mesma leitura cross-tenant deve obtê-la por **elevação explícita** (segundo token sem `tenant_id`, escopo só `logstream`, só leitura, TTL curto, sem refresh), nunca somando a capacidade à sessão tenant-scoped do usuário.
 
 ## Comunicação entre produtos
 

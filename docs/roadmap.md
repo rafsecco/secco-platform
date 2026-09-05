@@ -136,10 +136,20 @@ O canal de demanda passou a ser **GitHub Issues com a label [`adopter-demand`](h
 |---|---|---|---|
 | [#1](https://github.com/rafsecco/secco-platform/issues/1) | `AddLogStream()` — o sink `ILogger` → LogStream que a ADR-0008 promete não existe | Promessa de ADR não cumprida; bloqueava a Fase 0 do adotante | **Entregue** (2026-09-03) |
 | [#2](https://github.com/rafsecco/secco-platform/issues/2) | Trilha de auditoria de ação de usuário — `LogEntry` não tem ator | Lacuna de produto | **Entregue** (2026-09-03) — recurso `AuditEntry` no LogStream |
-| [#3](https://github.com/rafsecco/secco-platform/issues/3) | Provisionamento de banco e usuário de tenant | Lacuna de capacidade; restrições já fixadas pelas ADRs 0005/0020/0025 | Aberta; depende da #4 |
-| [#4](https://github.com/rafsecco/secco-platform/issues/4) | Onde vive o console de operação (futuro do AdminPortal) | Decisão de fronteira; toca a ADR-0024 | Aberta — **próxima** |
+| [#3](https://github.com/rafsecco/secco-platform/issues/3) | Provisionamento de banco e usuário de tenant | Lacuna de capacidade; restrições já fixadas pelas ADRs 0005/0020/0025 | Aberta — **destravada** (2026-09-04), dono definido: o SecureGate |
+| [#4](https://github.com/rafsecco/secco-platform/issues/4) | Onde vive o console de operação (futuro do AdminPortal) | Decisão de fronteira; toca a ADR-0024 | **Modelo definido** (2026-09-04); ADR pendente |
+| [#6](https://github.com/rafsecco/secco-platform/issues/6) | "Acessar como" — representação de usuário pelo admin do tenant | Recurso de alto risco; desenho antes de código | Aberta; escopo inicial e restrições registrados |
 
-A **#1 e a #2 foram entregues juntas** (ver o incremento correspondente acima). Elas foram agrupadas por decisão explícita: pôr o nome do serviço em coluna própria, em vez de prefixo na mensagem, já obrigava migration nos dois engines e regeneração de contrato — exatamente o custo que a #2 também pagaria. Restam a **#4**, que é decisão e destrava a **#3**.
+A **#1 e a #2 foram entregues juntas** (ver o incremento correspondente acima). Elas foram agrupadas por decisão explícita: pôr o nome do serviço em coluna própria, em vez de prefixo na mensagem, já obrigava migration nos dois engines e regeneração de contrato — exatamente o custo que a #2 também pagaria.
+
+**A #4 teve o modelo definido em 2026-09-04** ([discussão registrada na issue](https://github.com/rafsecco/secco-platform/issues/4#issuecomment-5549419595)). O que travava não era UI nem código: era o significado de "administrar todos os tenants". A resposta é que **cada instalação é soberana** — a Intranet é um produto que empresas baixam e rodam por conta, e a multi-tenancy existe para que a empresa desenvolva **outros produtos seus** sobre SecureGate e LogStream. Não é o portal da Secco; é o portal da empresa que adotou. Decorrências:
+
+- **O `Secco.AdminPortal` permanece, com papel redefinido**: console mínimo para quem adota a plataforma **sem** a Intranet. Preserva a promessa de "produtos adotáveis de forma independente" (primeira linha do `CLAUDE.md`), que aposentá-lo quebraria. A Intranet é o portal completo da empresa que a usa; a duplicação de telas entre os dois é real, bounded e é o preço daquela promessa.
+- **"Duas identidades" encolheu**: sob esta leitura não são identidades de mundos diferentes, é hierarquia dentro de uma instalação (admin de instalação × admin de tenant) — o modelo `cluster-admin`/`namespace-admin`. `platform-operator` e "tenant de plataforma" passam a significar **operador desta instalação**; o modelo serve, o nome engana.
+- **Elevação explícita resolve o token, sem tocar em ADR nenhuma**: para ler log cross-tenant, a aplicação pede ao SecureGate um **segundo token** — sem `tenant_id`, escopo só `logstream`, só leitura, TTL curto, sem refresh —, usado apenas naquela área e descartado ao sair. Privilégio como **ato**, não como estado; formato inspirado no [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693) para não inventar protocolo (o adotante planeja pentest).
+- **Descartadas** as alternativas 2 (aposentar o AdminPortal) e 3 (CLI). Dois fatos pesaram: os front-ends não são o mesmo stack (Intranet é MVC, AdminPortal é Blazor Server — "migrar" seria reescrever), e o AdminPortal tem 1222 linhas sem domínio nem banco, mais barato manter que reescrever como CLI.
+- **A #3 sai destravada com dono definido**: a ADR-0007 do `secco-intranet` já determina que criar database, criar login e conceder permissão são capacidades **da plataforma**, que custodia o catálogo cifrado (ADR-0025). O provisionamento vive no **SecureGate**, não no portal — e aí qual UI o chama volta a ser detalhe reversível.
+- **ADR pendente**: a decisão afeta 2+ produtos e é difícil de reverter, então merece ADR própria. Escrevê-la quando a área administrativa da Intranet começar, para nascer ancorada em código e não em intenção.
 
 ### Produtos (só após a fundação amadurecer)
 
@@ -178,6 +188,10 @@ Cada uma tem uma condição que a destrava; nenhuma é "quando sobrar tempo".
 | **Cofre externo de segredos** (Key Vault/Vault, ADR-0025) | adotante que exija; exige ADR nova |
 | **LDAP contra AD on-premises** (ADR-0026) | adotante on-prem real; exige ADR nova |
 | **App registration do Entra por tenant** (ADR-0026) | quando a app multi-tenant única não bastar; exige ADR nova |
+| **Busca cross-tenant "todos de uma vez" no LogStream** (hoje é um tenant por vez via `X-Tenant-Id`, ADR-0024) | decidido em 2026-09-04 na [#4](https://github.com/rafsecco/secco-platform/issues/4); com database-per-tenant exige consultar N bancos e unir na aplicação, com paginação sobre a união — implementar quando a área de análise de log tiver dono |
+| **Elevação explícita para leitura cross-tenant** (segundo token sem `tenant_id`, TTL curto, só `logstream:read`) | quando a área de análise de log sair do AdminPortal; formato inspirado no RFC 8693 |
+| **`OnBehalfOfId` no `AuditEntry`** | junto com o "acessar como" ([#6](https://github.com/rafsecco/secco-platform/issues/6)) — decidir **antes** de a trilha ganhar volume: adicionar coluna a tabela com anos de retenção é mais caro depois |
+| **Renomear o vocabulário de operador** (`platform-operator` → operador de instalação, ADR-0024) | junto com a ADR da fronteira do console; o modelo serve, o nome engana |
 
 ### ADRs futuras
 

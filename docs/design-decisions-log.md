@@ -1535,3 +1535,36 @@ O operador de plataforma já lê o log de qualquer tenant por caso especial da A
 **Resposta:** Aprovar os dois subagentes `sonnet`
 
 Primeiro subagente: promoção do handler de client credentials e esqueleto do `Secco.SDK.Logging`. Segundo: schema, contrato e testes do LogStream (colunas novas no `LogEntry`, recurso `AuditEntry`, retenção por classe, migrations nos dois engines, regeneração de `openapi.json` e client). `sonnet` e não `haiku` porque as duas fatias tocam código publicado e contrato. O modelo principal ficou com o desenho, o núcleo do sink (contexto ambiente, fila, logger, dispatcher, guarda anti-recursão), a fatia do SecureGate e a revisão.
+
+### 116. [Arquitetura] Onde vive o console de operação — o significado de "todos os tenants"
+
+**Resposta:** Cada instalação é soberana; o AdminPortal permanece com papel redefinido
+
+A issue [#4](https://github.com/rafsecco/secco-platform/issues/4) apresentava três alternativas (manter o AdminPortal, migrar para a intranet, virar CLI) e nenhuma delas era a pergunta certa. O que travava era **o significado de "administrar todos os tenants"**, que tinha três leituras com arquiteturas diferentes: SaaS operado pela Secco, auto-hospedado puro, ou instalação com vários tenants.
+
+A resposta é a terceira: a Intranet é um produto que empresas **baixam e rodam por conta**, e a multi-tenancy existe para que a empresa desenvolva **outros produtos seus** sobre SecureGate e LogStream. Não é o portal da Secco — é o portal da empresa que adotou; e a empresa pode implantar só o SecureGate ou só o LogStream, sem tenancy.
+
+Isso encolheu o problema que a issue chamava de "duas identidades incompatíveis": sob esta leitura não são identidades de mundos diferentes, é hierarquia dentro de uma instalação (admin de instalação × admin de tenant) — o modelo `cluster-admin`/`namespace-admin`.
+
+Opções apresentadas e o que decidiu cada uma:
+
+- **AdminPortal permanece** ✓ **ESCOLHIDA**, mas com papel **redefinido**: deixa de ser "o console da plataforma" e passa a ser o console mínimo para quem adota **sem** a Intranet. Preserva "produtos adotáveis de forma independente" (primeira linha do `CLAUDE.md`).
+- **Aposentar e migrar para a Intranet** — descartada. Exigiria ADR nova para a identidade dupla e, na prática, **reescrita**: a Intranet é MVC (`AddControllersWithViews`) e o AdminPortal é Blazor Server. Não é mover código.
+- **CLI de operação** — descartada. O AdminPortal tem 1222 linhas, 4 páginas, sem domínio nem banco: reescrever custa mais que manter. Além disso poria a credencial privilegiada da [#3](https://github.com/rafsecco/secco-platform/issues/3) na máquina de quem opera.
+
+Decisões acessórias da mesma rodada:
+
+- **Elevação explícita** resolve o token sem tocar em ADR: para ler log cross-tenant, a aplicação pede ao SecureGate um segundo token — sem `tenant_id`, escopo só `logstream`, só leitura, TTL curto, sem refresh — usado apenas naquela área. Privilégio como **ato**, não estado. Formato inspirado no RFC 8693 para não inventar protocolo (o adotante planeja pentest).
+- **Multi-tenancy vale mesmo sem console central**, mas com perda: ela compra SSO real (uma identidade por pessoa em todos os produtos da empresa), um lugar só para procurar log, e uma superfície única de operação. Só a terceira depende de UI central — e é justamente a que falta, o que reposiciona a #3 como a perna que falta do modelo.
+- **Dono da #3 definido sem discussão nova**: a ADR-0007 do `secco-intranet` já determina que criar database, criar login e conceder permissão são capacidades **da plataforma**, que custodia o catálogo cifrado (ADR-0025). O provisionamento vive no **SecureGate**; qual UI o chama volta a ser detalhe reversível.
+- **ADR adiada de propósito**: a decisão afeta 2+ produtos e é difícil de reverter, então merece ADR — a ser escrita quando a área administrativa da Intranet começar, para nascer ancorada em código e não em intenção.
+
+### 117. [Segurança] "Acessar como" — quem pode representar quem
+
+**Resposta:** Apenas o admin do tenant, estritamente intra-tenant
+
+Levantado na mesma conversa e movido para issue própria ([#6](https://github.com/rafsecco/secco-platform/issues/6)) por ser decisão de segurança independente da fronteira do console. O operador de instalação (`platform-operator`) **não** ganha o recurso: ele já tem leitura cross-tenant de log, e somar representação de usuário a uma identidade sem `tenant_id` abriria caminho para dado de negócio de qualquer tenant — o oposto do que a ADR-0024 fez ao restringi-lo a um read-set fixo de logs.
+
+Sete regras registradas como escopo inicial, sendo as três primeiras as que impedem os ataques clássicos: token carrega o `sub` do alvo **e** um claim de ator (`act`, RFC 8693) — sem isso não há não-repúdio; somente leitura por padrão; hierarquia verificada **no servidor** contra o cadastro, nunca por parâmetro do cliente. Mais: nunca representar privilégio igual ou maior, sempre no mesmo tenant, TTL curto sem refresh com faixa visível, e início/fim/ações na trilha de auditoria.
+
+Registrada também a alternativa mais barata, para reavaliação antes de construir: uma tela de diagnóstico que **mostra** as permissões efetivas e o menu resolvido do usuário resolve boa parte dos casos de suporte com uma fração da superfície de ataque.
