@@ -29,6 +29,7 @@ public static class LogEntryEndpoints
 			handler.Handle(ToCommand(request, correlation))
 				.ToHttpResult(id => Results.Accepted($"/api/v1/log-entries/{id}", new LogEntryAcceptedResponse(id))))
 			.RequireAuthorization(LogStreamPermissions.LogEntries.Write)
+			.WithName("CreateLogEntry")
 			.WithSummary("Registra um log (ingestão assíncrona).")
 			.Produces<LogEntryAcceptedResponse>(StatusCodes.Status202Accepted)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -41,6 +42,7 @@ public static class LogEntryEndpoints
 			handler.Handle(requests.Select(request => ToCommand(request, correlation)).ToList())
 				.ToHttpResult(ids => Results.Accepted("/api/v1/log-entries", new LogEntryBatchAcceptedResponse(ids))))
 			.RequireAuthorization(LogStreamPermissions.LogEntries.Write)
+			.WithName("CreateLogEntryBatch")
 			.WithSummary("Registra um lote de logs (ingestão assíncrona; headers aplicados a todos os itens).")
 			.Produces<LogEntryBatchAcceptedResponse>(StatusCodes.Status202Accepted)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -50,6 +52,7 @@ public static class LogEntryEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.RequireAuthorization(LogStreamPermissions.LogEntries.Read)
+			.WithName("GetLogEntry")
 			.WithSummary("Busca um registro de log pelo identificador.")
 			.Produces<LogEntryDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -72,6 +75,7 @@ public static class LogEntryEndpoints
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))
 			.RequireAuthorization(LogStreamPermissions.LogEntries.Read)
+			.WithName("SearchLogEntries")
 			.WithSummary("Busca paginada de registros de log (filtros opcionais, mais recentes primeiro).")
 			.Produces<PagedResult<LogEntryDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest);

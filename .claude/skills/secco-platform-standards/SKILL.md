@@ -79,6 +79,7 @@ Na API, `Result` é convertido para HTTP via extensão padrão (`ToActionResult(
 - Paginação sempre com `PageRequest` / `PagedResult<T>` do SharedKernel.
 - Header `X-Correlation-Id` aceito e propagado (o SDK cuida disso — não reimplementar).
 - Todo endpoint documentado no OpenAPI (summary + response types); Scalar como UI.
+- **`.WithName()` obrigatório em todo endpoint do contrato.** O NSwag nomeia o método do client pelo `operationId`; sem `WithName`, ele deriva do path e gera nomes como `LogEntriesGETAsync`/`GET2Async`. Aí **adicionar um endpoint ou um parâmetro renomeia ou renumera métodos de outros endpoints**, quebrando quem já consome o client. Foi exatamente o que aconteceu com o `Secco.LogStream.Client` 0.2.0, cujo `LogEntriesGETAsync` ganhou parâmetros no meio da lista posicional. Nome no padrão verbo+recurso (`CreateLogEntry`, `SearchAuditEntries`), único no documento e **estável**: mudá-lo depois é breaking change de client.
 - OpenAPI sempre via `AddSeccoOpenApi()` do SDK — nunca `AddOpenApi()` cru. Motivo: sem o schema transformer da plataforma, enums serializados como string saem do `AddOpenApi()` puro sem `type: string` no schema, e o NSwag gera o client com enum numérico — quebra a desserialização no consumidor (bug real, já corrigido uma vez no contrato do LogStream).
 - Composição de cross-cutting via `AddSeccoPlatform()` e extensões `AddSecco*()` do SDK.
 
@@ -91,6 +92,7 @@ group.MapGet("/{id:guid}", async (Guid id, GetByIdHandler handler, CancellationT
         (await handler.HandleAsync(id, ct))
             .ToHttpResult(dto => Results.Ok(dto)))
     .RequireAuthorization(<Produto>Permissions.<Recurso>.Read)
+    .WithName("Get<Recurso>")
     .WithSummary("Busca um <recurso> pelo identificador.")
     .Produces<RecursoDto>(StatusCodes.Status200OK)
     .ProducesProblem(StatusCodes.Status404NotFound);

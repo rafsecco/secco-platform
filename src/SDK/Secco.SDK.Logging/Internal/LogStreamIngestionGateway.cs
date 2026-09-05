@@ -41,7 +41,7 @@ internal sealed class LogStreamIngestionGateway(Func<ILogStreamClient> clientFac
 		using var scope = LogStreamTenantScope.For(tenantId);
 
 		await clientFactory()
-			.BatchAsync(entries.Select(ToRequest).ToList(), cancellationToken)
+			.CreateLogEntryBatchAsync(entries.Select(ToRequest).ToList(), cancellationToken)
 			.ConfigureAwait(false);
 	}
 

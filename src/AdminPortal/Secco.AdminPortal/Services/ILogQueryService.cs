@@ -43,7 +43,7 @@ internal sealed class LogStreamQueryService(
 
 		var client = new LogStreamClient(http);
 
-		var result = await client.LogEntriesGETAsync(
+		var result = await client.SearchLogEntriesAsync(
 			filter.From, filter.To, ParseLevel(filter.Level), filter.Message,
 			correlationId: null, serviceName: null, category: null,
 			filter.Page, filter.Size, cancellationToken).ConfigureAwait(false);
