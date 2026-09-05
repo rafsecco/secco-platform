@@ -30,7 +30,8 @@ internal sealed partial class LogRetentionWorker(
 			return;
 		}
 
-		if (_options.DefaultDays is null && _options.DaysByTenant.Count == 0)
+		if (_options.DefaultDays is null && _options.DaysByTenant.Count == 0
+			&& _options.AuditDefaultDays is null && _options.AuditDaysByTenant.Count == 0)
 		{
 			LogInactive(logger);
 			return;
@@ -60,18 +61,23 @@ internal sealed partial class LogRetentionWorker(
 	{
 		foreach (var tenant in await tenantCatalog.ListAsync(cancellationToken).ConfigureAwait(false))
 		{
-			if (RetentionPolicy.ResolveDays(_options, tenant.TenantId) is not { } days)
+			var diagnosticDays = RetentionPolicy.ResolveDays(_options, tenant.TenantId);
+			var auditDays = RetentionPolicy.ResolveAuditDays(_options, tenant.TenantId);
+
+			if (diagnosticDays is null && auditDays is null)
 			{
 				continue;
 			}
 
 			try
 			{
-				var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
-				var (entries, processes, apiCalls) = await PurgeTenantAsync(
-					_databaseOptions.Provider, tenant.ConnectionString, cutoff, cancellationToken).ConfigureAwait(false);
+				var diagnosticCutoff = diagnosticDays is { } days ? DateTimeOffset.UtcNow.AddDays(-days) : (DateTimeOffset?)null;
+				var auditCutoff = auditDays is { } aDays ? DateTimeOffset.UtcNow.AddDays(-aDays) : (DateTimeOffset?)null;
 
-				LogTenantPurged(logger, tenant.TenantId, days, entries, processes, apiCalls);
+				var (entries, processes, apiCalls, auditEntries) = await PurgeTenantAsync(
+					_databaseOptions.Provider, tenant.ConnectionString, diagnosticCutoff, auditCutoff, cancellationToken).ConfigureAwait(false);
+
+				LogTenantPurged(logger, tenant.TenantId, diagnosticDays, entries, processes, apiCalls, auditDays, auditEntries);
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 			{
@@ -85,32 +91,55 @@ internal sealed partial class LogRetentionWorker(
 	}
 
 	/// <summary>
-	/// Expurga um banco de tenant: registros anteriores ao corte nas três tabelas —
-	/// details de processos caem pelo cascade da FK no banco.
+	/// Expurga um banco de tenant: registros de diagnóstico (log geral, processos — details
+	/// caem pelo cascade da FK — e chamadas de API) anteriores a <paramref name="diagnosticCutoff"/>,
+	/// quando informado, e entradas de auditoria anteriores a <paramref name="auditCutoff"/>,
+	/// quando informado. As duas janelas são independentes de propósito: a de diagnóstico
+	/// NUNCA leva a trilha de auditoria junto — só o corte de auditoria expurga <c>tb_audit_entries</c>.
 	/// </summary>
-	internal static async Task<(int Entries, int Processes, int ApiCalls)> PurgeTenantAsync(
+	internal static async Task<(int Entries, int Processes, int ApiCalls, int AuditEntries)> PurgeTenantAsync(
 		LogStreamDatabaseProvider provider,
 		string connectionString,
-		DateTimeOffset cutoff,
-		CancellationToken cancellationToken)
+		DateTimeOffset? diagnosticCutoff,
+		DateTimeOffset? auditCutoff = null,
+		CancellationToken cancellationToken = default)
 	{
 		var contextOptions = LogStreamDatabaseProviderConfigurator.CreateOptions(provider, connectionString);
 
 		await using var context = new LogStreamDbContext(contextOptions);
 
-		var entries = await context.LogEntries
-			.Where(entry => entry.CreatedAt < cutoff)
-			.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+		var entries = 0;
+		var processes = 0;
+		var apiCalls = 0;
+		var auditEntries = 0;
 
-		var processes = await context.LogProcesses
-			.Where(process => process.CreatedAt < cutoff)
-			.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+		if (diagnosticCutoff is { } cutoff)
+		{
+			entries = await context.LogEntries
+				.Where(entry => entry.CreatedAt < cutoff)
+				.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
-		var apiCalls = await context.ApiCallLogs
-			.Where(call => call.CreatedAt < cutoff)
-			.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+			processes = await context.LogProcesses
+				.Where(process => process.CreatedAt < cutoff)
+				.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
-		return (entries, processes, apiCalls);
+			apiCalls = await context.ApiCallLogs
+				.Where(call => call.CreatedAt < cutoff)
+				.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+		}
+
+		if (auditCutoff is { } auditCutoffValue)
+		{
+			// O corte é pelo CreatedAt (carimbo do servidor), NUNCA pelo OccurredAt: este é
+			// declarado pelo chamador, e retenção é operação destrutiva — deixar input externo
+			// governá-la permitiria apagar uma trilha antes da hora com um OccurredAt forjado
+			// no passado (ADR-0020). O OccurredAt serve para consultar o fato, não para expurgá-lo.
+			auditEntries = await context.AuditEntries
+				.Where(entry => entry.CreatedAt < auditCutoffValue)
+				.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+		}
+
+		return (entries, processes, apiCalls, auditEntries);
 	}
 
 	[LoggerMessage(EventId = 1, Level = LogLevel.Warning,
@@ -118,12 +147,13 @@ internal sealed partial class LogRetentionWorker(
 	private static partial void LogInvalidConfiguration(ILogger logger);
 
 	[LoggerMessage(EventId = 2, Level = LogLevel.Information,
-		Message = "Retenção inativa: sem 'LogStream:Retention:DefaultDays' configurado, nenhum log é expurgado (opt-in explícito).")]
+		Message = "Retenção inativa: sem janela de diagnóstico nem de auditoria configurada em 'LogStream:Retention', nada é expurgado (opt-in explícito).")]
 	private static partial void LogInactive(ILogger logger);
 
 	[LoggerMessage(EventId = 3, Level = LogLevel.Information,
-		Message = "Retenção do tenant {TenantId} ({Days} dias): {Entries} log(s), {Processes} processo(s), {ApiCalls} chamada(s) de API expurgados.")]
-	private static partial void LogTenantPurged(ILogger logger, Guid tenantId, int days, int entries, int processes, int apiCalls);
+		Message = "Retenção do tenant {TenantId}: diagnóstico ({DiagnosticDays} dia(s), null = não configurada) expurgou {Entries} log(s), {Processes} processo(s) e {ApiCalls} chamada(s) de API; auditoria ({AuditDays} dia(s), null = não configurada) expurgou {AuditEntries} registro(s).")]
+	private static partial void LogTenantPurged(
+		ILogger logger, Guid tenantId, int? diagnosticDays, int entries, int processes, int apiCalls, int? auditDays, int auditEntries);
 
 	[LoggerMessage(EventId = 4, Level = LogLevel.Error,
 		Message = "Falha na retenção do tenant {TenantId} — os demais tenants seguem.")]

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Secco.SDK.AspNetCore.Authentication;
 using Secco.SDK.AspNetCore.Authorization;
 using Secco.SecureGate.Client.Catalog;
 
@@ -25,7 +26,7 @@ public static class SecureGatePermissionResolverExtensions
 		services.AddSecureGateClientCredentialsOptions();
 
 		// Store próprio: o token de autorização não se mistura com o do catálogo
-		var tokenStore = new SecureGateAccessTokenStore();
+		var tokenStore = new SeccoAccessTokenStore();
 
 		services.AddHttpClient(SecureGatePermissionResolver.HttpClientName)
 			.ConfigureHttpClient((serviceProvider, client) =>
@@ -43,8 +44,9 @@ public static class SecureGatePermissionResolverExtensions
 
 				if (options.IsConfigured)
 				{
-					handlers.Add(new SecureGateClientCredentialsHandler(
-						options, tokenStore, SecureGateClientCredentialsOptions.AuthorizationScope));
+					handlers.Add(new SeccoClientCredentialsHandler(
+						options.BaseUrl!, options.ClientId!, options.ClientSecret!,
+						SecureGateClientCredentialsOptions.AuthorizationScope, tokenStore));
 				}
 			});
 

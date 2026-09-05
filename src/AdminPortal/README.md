@@ -2,6 +2,10 @@
 
 Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro produto que **não é uma API de quatro camadas**: uma aplicação **Blazor Server** que atua como **relying party OIDC** e orquestra os demais produtos via seus clients NSwag (ADR-0006). Não tem domínio nem banco próprios.
 
+> **Papel redefinido em 2026-09-04** ([issue #4](https://github.com/rafsecco/secco-platform/issues/4)): este é o **console mínimo para quem adota a plataforma sem um portal próprio**. Cada instalação da plataforma é soberana — a empresa que adota pode ter o próprio portal (é o caso do `secco-intranet`, que será o portal completo de quem o usa) e, nesse caso, o AdminPortal deixa de ser o caminho principal. Ele existe porque a promessa da plataforma é que **SecureGate e LogStream sejam adotáveis isoladamente**: quem implanta só o SecureGate ainda precisa administrá-lo. A duplicação de telas com um portal de adotante é consciente e é o preço dessa promessa.
+>
+> No mesmo movimento, o vocabulário: `platform-operator` e "tenant de plataforma" significam **operador desta instalação**, não operador da Secco. O nome será revisto na ADR da fronteira.
+
 ## Arquitetura (ADR-0023)
 
 - **Blazor Server** (render interativo por circuito) — C# ponta a ponta, reuso direto dos `Secco.*.Client`.

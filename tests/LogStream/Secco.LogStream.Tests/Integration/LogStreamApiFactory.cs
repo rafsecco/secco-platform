@@ -37,6 +37,8 @@ public sealed class LogStreamApiFactory : SeccoApiFactory<Program>
 			"log-processes:read",
 			"log-processes:write",
 			"api-call-logs:read",
-			"api-call-logs:write");
+			"api-call-logs:write",
+			"audit-entries:read",
+			"audit-entries:write");
 	}
 }

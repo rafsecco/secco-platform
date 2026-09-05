@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Secco.SDK.AspNetCore.Ambient;
 
 namespace Secco.SDK.AspNetCore.Tenancy;
 
@@ -21,5 +22,9 @@ public static class TenantScopeExtensions
 		ArgumentNullException.ThrowIfNull(scopedServices);
 
 		scopedServices.GetRequiredService<TenantContext>().TenantId = tenantId;
+
+		// Fora do pipeline HTTP não há middleware para espelhar o tenant no contexto ambiente —
+		// sem isto, um log emitido dentro de um job não saberia para qual tenant ir.
+		SeccoAmbientContext.SetTenantId(tenantId);
 	}
 }

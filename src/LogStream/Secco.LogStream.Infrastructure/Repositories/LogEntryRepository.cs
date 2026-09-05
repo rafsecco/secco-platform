@@ -53,6 +53,16 @@ internal sealed class LogEntryRepository(LogStreamDbContext context) : ILogEntry
 			query = query.Where(entry => entry.CorrelationId == criteria.CorrelationId);
 		}
 
+		if (criteria.ServiceName is not null)
+		{
+			query = query.Where(entry => entry.ServiceName == criteria.ServiceName);
+		}
+
+		if (criteria.Category is not null)
+		{
+			query = query.Where(entry => entry.Category == criteria.Category);
+		}
+
 		var page = criteria.EffectivePage;
 		var totalCount = await query.LongCountAsync(cancellationToken).ConfigureAwait(false);
 

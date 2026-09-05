@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Secco.SDK.AspNetCore.Ambient;
 using Secco.SharedKernel.Constants;
 
 namespace Secco.SDK.AspNetCore.Tenancy;
@@ -50,6 +51,11 @@ public sealed class SeccoTenancyMiddleware(RequestDelegate next)
 		}
 
 		tenantContext.TenantId = resolution.TenantId;
+
+		// Espelho ambiente para consumidores singleton (ex.: o sink de log do SDK), que não
+		// alcançam o contexto Scoped. Escrito aqui dentro, o valor flui para o restante do
+		// pipeline desta requisição e não vaza para as demais.
+		SeccoAmbientContext.SetTenantId(resolution.TenantId);
 
 		await next(context).ConfigureAwait(false);
 	}

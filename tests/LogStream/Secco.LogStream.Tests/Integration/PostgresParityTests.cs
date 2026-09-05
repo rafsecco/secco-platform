@@ -85,6 +85,8 @@ public sealed class LogStreamPostgresApiFactory : WebApplicationFactory<Program>
 				// Permissões do role dos tokens de teste (Fase 6.4, ADR-0021)
 				["Secco:Authorization:Roles:test-admin:Permissions:0"] = "log-entries:read",
 				["Secco:Authorization:Roles:test-admin:Permissions:1"] = "log-entries:write",
+				["Secco:Authorization:Roles:test-admin:Permissions:2"] = "audit-entries:read",
+				["Secco:Authorization:Roles:test-admin:Permissions:3"] = "audit-entries:write",
 			}));
 	}
 
@@ -158,5 +160,33 @@ public class PostgresParityTests(LogStreamPostgresApiFactory factory) : IClassFi
 		persisted.StatusCode.Should().Be(HttpStatusCode.OK);
 		var dto = await persisted.Content.ReadFromJsonAsync<JsonElement>(Json);
 		dto.GetProperty("message").GetString().Should().Be("paridade postgres");
+	}
+
+	[Fact]
+	public async Task IngestAndQueryAuditEntry_OnPostgres_WorksEndToEndSynchronously()
+	{
+		await factory.Services.MigrateLogStreamTenantDatabasesAsync();
+
+		var client = factory.CreateClient();
+		client.DefaultRequestHeaders.Authorization =
+			new AuthenticationHeaderValue("Bearer", factory.CreateToken(factory.TenantAlfa));
+
+		var response = await client.PostAsJsonAsync("/api/v1/audit-entries", new
+		{
+			actorId = "user-paridade-postgres",
+			actorType = "User",
+			action = "documento.download",
+		});
+
+		// Ingestão síncrona: 201 já com o fato persistido — sem espera/polling, ao contrário do log geral
+		response.StatusCode.Should().Be(HttpStatusCode.Created);
+		var created = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+		var id = created.GetProperty("id").GetGuid();
+
+		var persisted = await client.GetAsync($"/api/v1/audit-entries/{id}");
+		persisted.StatusCode.Should().Be(HttpStatusCode.OK);
+
+		var dto = await persisted.Content.ReadFromJsonAsync<JsonElement>(Json);
+		dto.GetProperty("actorId").GetString().Should().Be("user-paridade-postgres");
 	}
 }

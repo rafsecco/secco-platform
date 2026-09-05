@@ -9,6 +9,8 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="Level">Severidade exata.</param>
 /// <param name="MessageContains">Trecho contido na mensagem (busca por substring; full-text chega na fase 4.7).</param>
 /// <param name="CorrelationId">Correlation id exato.</param>
+/// <param name="ServiceName">Nome do serviço de origem, igualdade exata (nunca <c>LIKE</c>).</param>
+/// <param name="Category">Categoria do <c>ILogger</c> de origem, igualdade exata (nunca <c>LIKE</c>).</param>
 /// <param name="Page">Paginação (1-based, normalizada pelo <see cref="PageRequest"/>).</param>
 public sealed record LogEntrySearchCriteria(
 	DateTimeOffset? From = null,
@@ -16,6 +18,8 @@ public sealed record LogEntrySearchCriteria(
 	LogEntryLevel? Level = null,
 	string? MessageContains = null,
 	Guid? CorrelationId = null,
+	string? ServiceName = null,
+	string? Category = null,
 	PageRequest? Page = null)
 {
 	/// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>

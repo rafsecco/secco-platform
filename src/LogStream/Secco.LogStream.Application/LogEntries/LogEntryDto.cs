@@ -8,6 +8,8 @@ namespace Secco.LogStream.Application.LogEntries;
 /// <param name="Message">Mensagem.</param>
 /// <param name="StackTrace">Stack trace, quando houver.</param>
 /// <param name="CorrelationId">Correlation id de origem, quando propagado.</param>
+/// <param name="ServiceName">Produto/serviço que emitiu o log, quando informado.</param>
+/// <param name="Category">Categoria do <c>ILogger</c> de origem, quando informada.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 public sealed record LogEntryDto(
 	Guid Id,
@@ -15,9 +17,12 @@ public sealed record LogEntryDto(
 	string Message,
 	string? StackTrace,
 	Guid? CorrelationId,
+	string? ServiceName,
+	string? Category,
 	DateTimeOffset CreatedAt)
 {
 	/// <summary>Projeta a entidade para o DTO.</summary>
 	public static LogEntryDto FromEntity(LogEntry entity) =>
-		new(entity.Id, entity.Level, entity.Message, entity.StackTrace, entity.CorrelationId, entity.CreatedAt);
+		new(entity.Id, entity.Level, entity.Message, entity.StackTrace, entity.CorrelationId,
+			entity.ServiceName, entity.Category, entity.CreatedAt);
 }

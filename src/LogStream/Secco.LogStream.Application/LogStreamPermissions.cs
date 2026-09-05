@@ -37,4 +37,14 @@ public static class LogStreamPermissions
 		/// <summary>Ingerir chamadas de API.</summary>
 		public const string Write = "api-call-logs:write";
 	}
+
+	/// <summary>Permissões da trilha de auditoria.</summary>
+	public static class AuditEntries
+	{
+		/// <summary>Consultar entradas de auditoria.</summary>
+		public const string Read = "audit-entries:read";
+
+		/// <summary>Registrar entradas de auditoria.</summary>
+		public const string Write = "audit-entries:write";
+	}
 }

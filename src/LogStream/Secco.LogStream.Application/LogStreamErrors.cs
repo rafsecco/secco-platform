@@ -20,6 +20,14 @@ public static class LogStreamErrors
 		public static Error StackTraceTooLong(int limit) =>
 			Error.Validation("LogStream.LogEntry.StackTraceTooLong", $"O stack trace excede o limite de {limit} caracteres.");
 
+		/// <summary>Nome do serviço acima do limite configurado.</summary>
+		public static Error ServiceNameTooLong(int limit) =>
+			Error.Validation("LogStream.LogEntry.ServiceNameTooLong", $"O nome do serviço excede o limite de {limit} caracteres.");
+
+		/// <summary>Categoria acima do limite configurado.</summary>
+		public static Error CategoryTooLong(int limit) =>
+			Error.Validation("LogStream.LogEntry.CategoryTooLong", $"A categoria excede o limite de {limit} caracteres.");
+
 		/// <summary>Batch vazio.</summary>
 		public static readonly Error BatchEmpty =
 			Error.Validation("LogStream.LogEntry.BatchEmpty", "O batch deve conter ao menos um item.");
@@ -87,6 +95,54 @@ public static class LogStreamErrors
 		/// <summary>Registro não encontrado no banco do tenant atual.</summary>
 		public static readonly Error NotFound =
 			Error.NotFound("LogStream.ApiCallLog.NotFound", "Registro de chamada de API não encontrado.");
+	}
+
+	/// <summary>Erros de entradas de auditoria.</summary>
+	public static class AuditEntries
+	{
+		/// <summary>Identificador do ator ausente ou vazio.</summary>
+		public static readonly Error ActorIdRequired =
+			Error.Validation("LogStream.AuditEntry.ActorIdRequired", "O identificador do ator é obrigatório.");
+
+		/// <summary>Identificador do ator acima do limite configurado.</summary>
+		public static Error ActorIdTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.ActorIdTooLong", $"O identificador do ator excede o limite de {limit} caracteres.");
+
+		/// <summary>Nome do ator acima do limite configurado.</summary>
+		public static Error ActorNameTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.ActorNameTooLong", $"O nome do ator excede o limite de {limit} caracteres.");
+
+		/// <summary>Ação ausente ou vazia.</summary>
+		public static readonly Error ActionRequired =
+			Error.Validation("LogStream.AuditEntry.ActionRequired", "A ação é obrigatória.");
+
+		/// <summary>Ação acima do limite configurado.</summary>
+		public static Error ActionTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.ActionTooLong", $"A ação excede o limite de {limit} caracteres.");
+
+		/// <summary>Tipo de recurso acima do limite configurado.</summary>
+		public static Error ResourceTypeTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.ResourceTypeTooLong", $"O tipo de recurso excede o limite de {limit} caracteres.");
+
+		/// <summary>Identificador do recurso acima do limite configurado.</summary>
+		public static Error ResourceIdTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.ResourceIdTooLong", $"O identificador do recurso excede o limite de {limit} caracteres.");
+
+		/// <summary>Metadata que não é um JSON válido.</summary>
+		public static readonly Error MetadataInvalidJson =
+			Error.Validation("LogStream.AuditEntry.MetadataInvalidJson", "O metadata deve ser um JSON válido.");
+
+		/// <summary>Metadata acima do limite configurado.</summary>
+		public static Error MetadataTooLong(int limit) =>
+			Error.Validation("LogStream.AuditEntry.MetadataTooLong", $"O metadata excede o limite de {limit} caracteres.");
+
+		/// <summary>Entrada não encontrada no banco do tenant atual.</summary>
+		public static readonly Error NotFound =
+			Error.NotFound("LogStream.AuditEntry.NotFound", "Entrada de auditoria não encontrada.");
+
+		/// <summary>Intervalo de busca invertido.</summary>
+		public static readonly Error InvalidDateRange =
+			Error.Validation("LogStream.AuditEntry.InvalidDateRange", "A data inicial não pode ser posterior à final.");
 	}
 
 	/// <summary>Erros de ingestão.</summary>
