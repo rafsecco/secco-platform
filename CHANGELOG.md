@@ -12,15 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.LogStream.Client
-
-- **Alterado (quebra)** — todos os métodos passam a ser nomeados pelo `operationId` do endpoint, e não mais derivados do path: `LogEntriesPOSTAsync` → `CreateLogEntryAsync`, `BatchAsync` → `CreateLogEntryBatchAsync`, `LogEntriesGETAsync` → `SearchLogEntriesAsync`, `LogEntriesGET2Async` → `GetLogEntryAsync`, e equivalentes para processos, chamadas de API e auditoria.
-- Motivo (issue #9): nome derivado do path **não é estável** — depende de quantos e quais endpoints existem no documento, então adicionar um endpoint renomeia métodos de outros. Foi o que quebrou o `Secco.AdminPortal` na 0.2.0. Esta é a última renomeação: com `operationId` fixo, endpoint novo não mexe mais em método existente.
-
-### Secco.NotificationHub.Client
-
-- **Alterado (quebra)** — mesma correção: `NotificationsPOSTAsync` → `CreateNotificationAsync`, `NotificationsGETAsync` → `GetNotificationAsync`, e os três de inbox in-app para `GetUnreadInAppNotificationsAsync`, `CountUnreadInAppNotificationsAsync` e `MarkInAppNotificationAsReadAsync`.
-- Nenhum consumidor conhecido — o pacote 0.1.0 não é referenciado por nenhum produto nem pelo adotante.
+_Nada pendente._
 
 ---
 
@@ -75,6 +67,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.LogStream.Client
 
+#### 0.3.0 — 2026-09-05
+
+- **Alterado (quebra)** — todos os métodos passam a ser nomeados pelo `operationId` do endpoint, e não mais derivados do path: `LogEntriesPOSTAsync` → `CreateLogEntryAsync`, `BatchAsync` → `CreateLogEntryBatchAsync`, `LogEntriesGETAsync` → `SearchLogEntriesAsync`, `LogEntriesGET2Async` → `GetLogEntryAsync`, e equivalentes para processos, chamadas de API e auditoria.
+- Motivo (issue #9): nome derivado do path **não é estável** — depende de quantos e quais endpoints existem no documento, então adicionar um endpoint renomeia métodos de outros. Foi o que quebrou o `Secco.AdminPortal` na 0.2.0. Esta é a última renomeação: com `operationId` fixo, endpoint novo não mexe mais em método existente.
+
 #### 0.2.0 — 2026-09-05
 
 - **Alterado (quebra fonte)** — `LogEntriesGETAsync` ganhou os parâmetros `serviceName` e `category` **antes** de `page`/`size`. Quem chamava posicionalmente quebra e precisa passar a usar argumentos nomeados. Em `0.x`, minor é o sinal de breaking (ADR-0011). O `Secco.AdminPortal` foi corrigido no mesmo PR e serve de exemplo do ajuste.
@@ -126,6 +123,11 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 - Depende de `Secco.SharedKernel` 0.3.3.
 
 ### Secco.NotificationHub.Client
+
+#### 0.2.0 — 2026-09-05
+
+- **Alterado (quebra)** — mesma correção: `NotificationsPOSTAsync` → `CreateNotificationAsync`, `NotificationsGETAsync` → `GetNotificationAsync`, e os três de inbox in-app para `GetUnreadInAppNotificationsAsync`, `CountUnreadInAppNotificationsAsync` e `MarkInAppNotificationAsReadAsync`.
+- Nenhum consumidor conhecido — o pacote 0.1.0 não é referenciado por nenhum produto nem pelo adotante.
 
 #### 0.1.0 — 2026-08-30
 

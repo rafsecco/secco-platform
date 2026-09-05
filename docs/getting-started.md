@@ -41,9 +41,9 @@ Versões publicadas atuais:
 | `Secco.SDK.EntityFrameworkCore` | 0.3.0 | `SeccoDbContext` + nomenclatura de banco por convention (ADR-0017) |
 | `Secco.SDK.Testing` | 0.1.0 | Base das factories de teste de integração (ADR-0027); marcado `DevelopmentDependency` |
 | `Secco.SecureGate.Client` | 0.3.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
-| `Secco.LogStream.Client` | 0.2.0 | Client do LogStream |
+| `Secco.LogStream.Client` | 0.3.0 | Client do LogStream |
 | `Secco.SDK.Logging` | 0.1.0 | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) |
-| `Secco.NotificationHub.Client` | 0.1.0 | Client do NotificationHub |
+| `Secco.NotificationHub.Client` | 0.2.0 | Client do NotificationHub |
 | `Secco.Templates` | 0.1.0 | `dotnet new secco-service` |
 
 ```bash
