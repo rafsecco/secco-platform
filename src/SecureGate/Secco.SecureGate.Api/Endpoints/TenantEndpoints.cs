@@ -1,6 +1,7 @@
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SDK.AspNetCore.Extensions;
 
@@ -84,6 +85,36 @@ public static class TenantEndpoints
 			.WithSummary("Cadastra ou substitui o banco do tenant em um produto (rotação de credencial = novo PUT).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		group.MapPost("/{id:guid}/databases/{product}/provisioning", async (
+				Guid id,
+				string product,
+				ProvisionTenantDatabaseRequest request,
+				ProvisionTenantDatabaseHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(
+				new ProvisionTenantDatabaseCommand(
+					id, product, request.Target, request.Server,
+					request.CreateDatabase, request.DatabaseName, request.LoginName),
+				cancellationToken))
+				.ToHttpResult(dto => Results.Ok(dto)))
+			.WithName("ProvisionTenantDatabase")
+			.WithSummary("Provisiona o banco dedicado do tenant no produto: cria (ou assume) o database, cria o usuário de aplicação com db_owner APENAS nele e grava a connection string cifrada. Sem credencial privilegiada configurada, devolve o script para um DBA aplicar.")
+			.Produces<TenantDatabaseProvisioningDto>(StatusCodes.Status200OK)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
+		group.MapGet("/{id:guid}/databases/status", async (
+				Guid id,
+				GetTenantDatabaseStatusHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(id, cancellationToken))
+				.ToHttpResult(statuses => Results.Ok(statuses)))
+			.WithName("GetTenantDatabaseStatus")
+			.WithSummary("Estado dos bancos do tenant: o que está cadastrado e o que responde. Usa a conexão de runtime de cada tenant — nenhuma credencial privilegiada.")
+			.Produces<IReadOnlyList<TenantDatabaseStatusDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
 		group.MapPut("/{id:guid}/federation", async (

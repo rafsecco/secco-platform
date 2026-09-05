@@ -86,6 +86,22 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 - **Segurança**: PKCE obrigatório, bloqueio contra força bruta (lockout do Identity), `LocalRedirect` (sem open redirect), mensagens de login genéricas (sem enumeração de e-mail), re-derivação de claims no refresh (usuário desativado/role alterado reflete em ≤ vida do refresh).
 - **Consent**: implícito para clients first-party confiáveis (AdminPortal) — a tela de consent entra quando houver um client de terceiros real.
 
+### Provisionamento de banco de tenant (ADR-0028, issue #3)
+
+A plataforma decidiu database-per-tenant na ADR-0005 e, até aqui, não tinha como criar esses bancos — o que fazia o isolamento ser **convenção, não garantia**: uma connection string com `sa` alcança o banco do tenant vizinho.
+
+| Verbo | Rota | Scope |
+|---|---|---|
+| POST | `/api/v1/tenants/{id}/databases/{product}/provisioning` | `securegate:admin` |
+| GET | `/api/v1/tenants/{id}/databases/status` | `securegate:admin` |
+
+**Dois modos, os mesmos artefatos.** Sem credencial privilegiada configurada, o endpoint devolve o **script SQL** para um DBA aplicar; com ela, o próprio SecureGate executa **o mesmo texto**. O modo script existe porque muitos DBAs corporativos jamais concedem `dbcreator` a uma aplicação — e ele já entrega o privilégio mínimo por construção.
+
+O usuário criado recebe **`db_owner` no próprio banco e nada no servidor** (DDL é necessário porque cada produto roda as próprias migrations). A senha é gerada no servidor, aparece **uma única vez** dentro do script e é persistida apenas cifrada (ADR-0025); a connection string nunca volta em resposta. Reprovisionar um par (tenant, produto) já cadastrado responde **409** — apagar o acesso vigente em silêncio seria pior que recusar.
+
+O painel de status **não usa credencial privilegiada**: sonda cada banco com a conexão de runtime do próprio tenant e responde alcançável/inalcançável com classificação de falha, nunca com a exceção crua.
+
+
 ## Configuração
 
 | Seção | Uso |
@@ -95,6 +111,7 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 | `SecureGate:Signing:CertificatePath/CertificatePassword` | Certificado PKCS#12 — obrigatório em Production |
 | `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
 | `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
+| `SecureGate:Provisioning:Targets:<nome>` | Alvo de provisionamento: `Provider`, `Server` e — **opcional** — `AdminConnectionString`. Sem a credencial, a automação não existe e só o modo script funciona (ADR-0028). Alvo declarado pela metade falha no startup |
 
 ## Rodando em desenvolvimento
 

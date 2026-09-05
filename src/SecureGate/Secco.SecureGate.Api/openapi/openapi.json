@@ -311,6 +311,131 @@
         }
       }
     },
+    "/api/v1/tenants/{id}/databases/{product}/provisioning": {
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Provisiona o banco dedicado do tenant no produto: cria (ou assume) o database, cria o usuário de aplicação com db_owner APENAS nele e grava a connection string cifrada. Sem credencial privilegiada configurada, devolve o script para um DBA aplicar.",
+        "operationId": "ProvisionTenantDatabase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "product",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionTenantDatabaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantDatabaseProvisioningDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{id}/databases/status": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Estado dos bancos do tenant: o que está cadastrado e o que responde. Usa a conexão de runtime de cada tenant — nenhuma credencial privilegiada.",
+        "operationId": "GetTenantDatabaseStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantDatabaseStatusDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{id}/federation": {
       "put": {
         "tags": [
@@ -876,6 +1001,39 @@
           }
         }
       },
+      "ProvisionTenantDatabaseRequest": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "server": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createDatabase": {
+            "type": "boolean",
+            "default": true
+          },
+          "databaseName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "loginName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RoleDto": {
         "required": [
           "name",
@@ -908,6 +1066,59 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "TenantDatabaseProvisioningDto": {
+        "required": [
+          "applied",
+          "databaseName",
+          "loginName",
+          "script"
+        ],
+        "type": "object",
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "databaseName": {
+            "type": "string"
+          },
+          "loginName": {
+            "type": "string"
+          },
+          "script": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TenantDatabaseStatusDto": {
+        "required": [
+          "product",
+          "reachable",
+          "failureReason",
+          "checkedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "reachable": {
+            "type": "boolean"
+          },
+          "failureReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

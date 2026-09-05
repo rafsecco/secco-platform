@@ -13,6 +13,28 @@ public sealed record CreateTenantRequest(string? Name, string? Slug);
 public sealed record UpsertTenantDatabaseRequest(string? ConnectionString);
 
 /// <summary>
+/// Payload de provisionamento do banco de um tenant em um produto (issue #3).
+/// </summary>
+/// <param name="Target">
+/// Alvo declarado em <c>SecureGate:Provisioning:Targets</c>; vazio usa o alvo padrão. Sem alvo
+/// configurado, informe <paramref name="Server"/>.
+/// </param>
+/// <param name="Server">Servidor de destino, quando nenhum alvo está configurado.</param>
+/// <param name="CreateDatabase">
+/// <c>true</c> cria o database (tenant novo); <c>false</c> assume um banco já existente e só cria
+/// o usuário de aplicação com o mínimo necessário nele — os dois cenários de adoção da issue,
+/// que exigem privilégios diferentes.
+/// </param>
+/// <param name="DatabaseName">Nome do database; vazio deriva de produto + slug do tenant.</param>
+/// <param name="LoginName">Nome do usuário de aplicação; vazio deriva do nome do database.</param>
+public sealed record ProvisionTenantDatabaseRequest(
+	string? Target = null,
+	string? Server = null,
+	bool CreateDatabase = true,
+	string? DatabaseName = null,
+	string? LoginName = null);
+
+/// <summary>
 /// Payload de cadastro/atualização da federação de autenticação de um tenant (ADR-0026).
 /// O directory id NÃO é segredo (é o <c>tid</c> esperado do Entra ID) — aparece na leitura.
 /// </summary>
