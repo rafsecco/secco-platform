@@ -22,6 +22,13 @@ public class DispatchNotificationHandlerTests
 			return Task.CompletedTask;
 		}
 
+		public Task AddRangeAsync(
+			IReadOnlyCollection<Notification> notifications, CancellationToken cancellationToken = default)
+		{
+			Added.AddRange(notifications);
+			return Task.CompletedTask;
+		}
+
 		public Task<Notification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
 			Task.FromResult(Added.FirstOrDefault(notification => notification.Id == id));
 
@@ -39,6 +46,13 @@ public class DispatchNotificationHandlerTests
 	private sealed class FakeInAppNotificationRepository : IInAppNotificationRepository
 	{
 		public List<InAppNotification> Added { get; } = [];
+
+		public Task AddRangeAsync(
+			IReadOnlyCollection<InAppNotification> notifications, CancellationToken cancellationToken = default)
+		{
+			Added.AddRange(notifications);
+			return Task.CompletedTask;
+		}
 
 		public Task AddAsync(InAppNotification notification, CancellationToken cancellationToken = default)
 		{

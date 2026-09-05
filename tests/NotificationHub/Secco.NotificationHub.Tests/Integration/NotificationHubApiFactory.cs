@@ -42,6 +42,12 @@ public sealed class NotificationHubApiFactory : SeccoApiFactory<Program>
 			"in-app-notifications:read",
 			"in-app-notifications:write");
 
+		// A configuração de e-mail é validada no startup desde a issue #14 (fail-fast, ADR-0020).
+		// O envio em si nunca acontece — o IEmailSender é substituído por um fake logo abaixo —,
+		// mas o host precisa subir, e um deployment real sempre configura isto.
+		settings["NotificationHub:Email:FromAddress"] = "no-reply@secco.test";
+		settings["NotificationHub:Email:Host"] = "localhost";
+
 		// Banco de PLATAFORMA do Hangfire (ADR-0015) — nunca por tenant
 		settings["NotificationHub:BackgroundJobs:ConnectionString"] =
 			GetConnectionStringFor(PlatformDatabaseName);

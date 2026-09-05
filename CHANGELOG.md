@@ -12,7 +12,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._
+### Secco.NotificationHub.Client
+
+- **Adicionado** `DispatchNotificationBatchAsync` — despacho de um conteúdo para muitos destinos numa chamada só (issue #15).
+- Mudança **aditiva**, sem renomear nada. É a primeira validação prática da correção da issue #9: com `operationId` fixo, um endpoint novo entra sem mexer no nome de método de nenhum outro.
 
 ---
 

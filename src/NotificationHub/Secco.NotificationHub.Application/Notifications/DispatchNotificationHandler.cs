@@ -1,4 +1,3 @@
-using System.Net.Mail;
 using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
@@ -50,17 +49,27 @@ public sealed class DispatchNotificationHandler(
 	{
 		ArgumentNullException.ThrowIfNull(command);
 
-		var validation = Validate(command, options);
+		var content = NotificationInputRules.ValidateContent(
+			command.Channels, command.Title, command.Message,
+			command.Source, command.Type, command.Link, options);
 
-		if (validation.IsFailure)
+		if (content.IsFailure)
 		{
-			return Result.Failure<DispatchNotificationResult>(validation.Error);
+			return Result.Failure<DispatchNotificationResult>(content.Error);
+		}
+
+		var destination = NotificationInputRules.ValidateDestination(
+			command.Recipient, command.UserId, content.Value, options);
+
+		if (destination.IsFailure)
+		{
+			return Result.Failure<DispatchNotificationResult>(destination.Error);
 		}
 
 		Guid? emailNotificationId = null;
 		Guid? inAppNotificationId = null;
 
-		if (command.Channels!.Contains(NotificationHubChannels.Email, StringComparer.OrdinalIgnoreCase))
+		if (content.Value.Email)
 		{
 			var notification = new Notification(command.Recipient!, command.Title!, command.Message!);
 
@@ -70,7 +79,7 @@ public sealed class DispatchNotificationHandler(
 			emailNotificationId = notification.Id;
 		}
 
-		if (command.Channels!.Contains(NotificationHubChannels.InApp, StringComparer.OrdinalIgnoreCase))
+		if (content.Value.InApp)
 		{
 			var inAppNotification = new InAppNotification(
 				command.UserId!.Value, command.Source, command.Type, command.Title!, command.Message!, command.Link);
@@ -81,92 +90,5 @@ public sealed class DispatchNotificationHandler(
 		}
 
 		return new DispatchNotificationResult(emailNotificationId, inAppNotificationId);
-	}
-
-	private static Result Validate(DispatchNotificationCommand command, NotificationHubOptions options)
-	{
-		if (command.Channels is not { Count: > 0 })
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.ChannelsRequired);
-		}
-
-		var wantsEmail = false;
-		var wantsInApp = false;
-
-		foreach (var channel in command.Channels)
-		{
-			if (string.Equals(channel, NotificationHubChannels.Email, StringComparison.OrdinalIgnoreCase))
-			{
-				wantsEmail = true;
-			}
-			else if (string.Equals(channel, NotificationHubChannels.InApp, StringComparison.OrdinalIgnoreCase))
-			{
-				wantsInApp = true;
-			}
-			else
-			{
-				return Result.Failure(NotificationHubErrors.Notifications.ChannelUnsupported(channel));
-			}
-		}
-
-		if (wantsEmail)
-		{
-			if (string.IsNullOrWhiteSpace(command.Recipient))
-			{
-				return Result.Failure(NotificationHubErrors.Notifications.RecipientRequired);
-			}
-
-			if (command.Recipient.Length > options.MaxRecipientLength)
-			{
-				return Result.Failure(NotificationHubErrors.Notifications.RecipientTooLong(options.MaxRecipientLength));
-			}
-
-			if (!MailAddress.TryCreate(command.Recipient, out _))
-			{
-				return Result.Failure(NotificationHubErrors.Notifications.RecipientInvalid);
-			}
-		}
-
-		if (wantsInApp && (command.UserId is null || command.UserId == Guid.Empty))
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.UserIdRequired);
-		}
-
-		if (string.IsNullOrWhiteSpace(command.Title))
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.TitleRequired);
-		}
-
-		if (command.Title.Length > options.MaxTitleLength)
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.TitleTooLong(options.MaxTitleLength));
-		}
-
-		if (string.IsNullOrWhiteSpace(command.Message))
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.MessageRequired);
-		}
-
-		if (command.Message.Length > options.MaxMessageLength)
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.MessageTooLong(options.MaxMessageLength));
-		}
-
-		if (command.Source?.Length > options.MaxSourceLength)
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.SourceTooLong(options.MaxSourceLength));
-		}
-
-		if (command.Type?.Length > options.MaxTypeLength)
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.TypeTooLong(options.MaxTypeLength));
-		}
-
-		if (command.Link?.Length > options.MaxLinkLength)
-		{
-			return Result.Failure(NotificationHubErrors.Notifications.LinkTooLong(options.MaxLinkLength));
-		}
-
-		return Result.Success();
 	}
 }

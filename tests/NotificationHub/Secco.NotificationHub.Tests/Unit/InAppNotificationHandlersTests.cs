@@ -19,6 +19,13 @@ public class InAppNotificationHandlersTests
 			return Task.CompletedTask;
 		}
 
+		public Task AddRangeAsync(
+			IReadOnlyCollection<InAppNotification> notifications, CancellationToken cancellationToken = default)
+		{
+			Items.AddRange(notifications);
+			return Task.CompletedTask;
+		}
+
 		public Task<InAppNotification?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
 			Task.FromResult(Items.FirstOrDefault(notification => notification.Id == id));
 

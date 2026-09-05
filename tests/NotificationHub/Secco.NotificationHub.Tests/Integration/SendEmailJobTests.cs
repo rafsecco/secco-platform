@@ -22,6 +22,17 @@ public class SendEmailJobTests
 
 		public void Seed(Notification notification) => _store[notification.Id] = notification;
 
+		public Task AddRangeAsync(
+			IReadOnlyCollection<Notification> notifications, CancellationToken cancellationToken = default)
+		{
+			foreach (var notification in notifications)
+			{
+				_store[notification.Id] = notification;
+			}
+
+			return Task.CompletedTask;
+		}
+
 		public Task AddAsync(Notification notification, CancellationToken cancellationToken = default)
 		{
 			_store[notification.Id] = notification;

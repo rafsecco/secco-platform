@@ -51,6 +51,47 @@
         }
       }
     },
+    "/api/v1/notifications/batch": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Despacha um conteúdo para muitos destinos numa chamada só; um destino inválido reprova o lote inteiro.",
+        "operationId": "DispatchNotificationBatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchNotificationBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispatchNotificationBatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/{id}": {
       "get": {
         "tags": [
@@ -203,6 +244,82 @@
   },
   "components": {
     "schemas": {
+      "DispatchNotificationBatchRequest": {
+        "required": [
+          "title",
+          "message",
+          "source",
+          "type",
+          "link",
+          "channels",
+          "destinations"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channels": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "destinations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/NotificationDestination"
+            }
+          }
+        }
+      },
+      "DispatchNotificationBatchResult": {
+        "required": [
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DispatchNotificationResult"
+            }
+          }
+        }
+      },
       "DispatchNotificationRequest": {
         "required": [
           "userId",
@@ -347,6 +464,28 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "NotificationDestination": {
+        "required": [
+          "userId",
+          "recipient"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipient": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
