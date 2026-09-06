@@ -50,7 +50,17 @@ O terceiro modo responde à pergunta inversa — **existe código entregue que n
 python scripts/check-release-chain.py --pendentes    # sai 1 se houver fonte por publicar
 ```
 
-A diferença entre os dois é o que se mede: a guarda olha distância de commit até o HEAD (que é ruído — um pacote fica dezenas de commits atrás sem ter mudado uma linha); o vigia olha commit que tocou o **diretório do projeto** desde a tag dele. É o modo que o `.github/workflows/release-pendente.yml` roda toda segunda-feira, abrindo (e fechando sozinha) uma issue rotulada `release-pendente`.
+A diferença entre os dois é o que se mede: a guarda olha distância de commit até o HEAD (que é ruído — um pacote fica dezenas de commits atrás sem ter mudado uma linha); o vigia olha commit que tocou o **diretório do projeto** desde a tag dele.
+
+O quarto modo olha a aresta contrária — **quem depende do que acabou de sair e ficou para trás**:
+
+```bash
+python scripts/check-release-chain.py --dependentes logstream-client/v
+```
+
+Este roda sozinho, no último passo do `publish-packages.yml`, e escreve no resumo do run. Não reprova o job: a publicação já aconteceu, e o script não sabe se ela mudou API — ficar para trás só machuca quando mudou, e quem sabe disso é quem publicou.
+
+Foi desenhado sobre a falha real: quando o `logstream-client/v0.3.0` saiu renomeando `BatchAsync`, a `sdk-logging/v0.1.0` estava **5 commits atrás**, já no feed compilada contra a 0.2.0. Um aviso naquele run teria fechado a janela no mesmo dia. Cron foi descartado de propósito — o GitHub **desativa workflow agendado após 60 dias sem atividade no repositório público**, ou seja, a vigia se desligaria exatamente no período de silêncio em que ela seria mais útil.
 
 O mesmo script roda como **guarda no workflow**, antes do Pack: a tag que não tem cadeia íntegra falha cedo, com a mensagem dizendo qual tag criar, em vez de terminar em `NU5104` — que não diz.
 
