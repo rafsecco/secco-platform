@@ -14,6 +14,7 @@ Uso:
     python scripts/check-release-chain.py Secco.SDK.Logging Secco.Templates
     python scripts/check-release-chain.py                  # levantamento: so informa, sai 0
     python scripts/check-release-chain.py --pendentes      # VIGIA: sai 1 se ha fonte por publicar
+    python scripts/check-release-chain.py --dependentes sdk/v   # quem ficou atras do que acabou de sair
 
 Com alvo, o script responde a pergunta que interessa antes de um release: "vou taguear
 este pacote NESTE commit — o que mais precisa de tag aqui?". Aceita varios alvos; um alvo
@@ -25,8 +26,12 @@ release, um pacote com a tag alguns commits atras e a situacao normal, nao um pr
 `--pendentes` cobre o buraco inverso, que e o que de fato machuca o adotante: nao "tag
 faltando na cadeia", e sim CODIGO ENTREGUE E NAO PUBLICADO. A diferenca importa porque
 distancia global de commit e ruido - o sinal e commit que tocou o DIRETORIO do projeto
-desde a ultima tag dele. Foi essa a falha que deixou o Secco.SDK.Logging 0.1.0 no feed
-chamando um metodo que o Secco.LogStream.Client 0.3.0 ja havia renomeado.
+desde a ultima tag dele.
+
+`--dependentes <alvo>` olha a aresta contraria: quem depende do alvo e ficou com a propria
+tag num commit anterior. Roda no fim do publish-packages.yml, porque e ali que a resposta
+muda - foi assim que o Secco.SDK.Logging 0.1.0 ficou no feed chamando um metodo que o
+Secco.LogStream.Client 0.3.0 acabara de renomear.
 """
 
 import subprocess
@@ -143,6 +148,20 @@ def pending_packages(projects: dict) -> list:
             pending.append((info["name"], tag, changed))
 
     return pending
+
+
+def dependents_of(projects: dict, target: Path) -> list:
+    """Publicaveis que alcancam o alvo por ProjectReference, direta ou transitivamente."""
+    dependents = []
+
+    for path, info in sorted(projects.items(), key=lambda item: item[1]["name"]):
+        if not info["packable"] or path == target:
+            continue
+
+        if any(reference == target for _, reference, _ in walk_dependencies(projects, path)):
+            dependents.append((path, info))
+
+    return dependents
 
 
 def registered_in_workflow(prefix: str) -> bool:
@@ -266,6 +285,13 @@ def main() -> int:
     if arguments == ["--pendentes"]:
         return report_pending(projects)
 
+    if arguments[:1] == ["--dependentes"]:
+        if len(arguments) != 2:
+            print("Uso: check-release-chain.py --dependentes <alvo>", file=sys.stderr)
+            return 1
+
+        return report_dependents(projects, arguments[1])
+
     if arguments:
         targets = []
         unknown = []
@@ -319,6 +345,52 @@ def main() -> int:
     print(
         "Cadeia de release INCOMPLETA - veja as linhas FALHA acima. "
         "Publique as dependencias primeiro, tagueando-as NESTE commit (ADR-0011)."
+    )
+    return 1
+
+
+def report_dependents(projects: dict, wanted: str) -> int:
+    """Quem depende do alvo e ficou com a propria tag num commit anterior.
+
+    Roda depois de uma publicacao, que e quando a resposta muda. O aviso e deliberadamente
+    calibrado: o script nao sabe se a publicacao mudou API. Ficar atras so machuca quando
+    mudou - foi o caso do BatchAsync renomeado -, mas quem sabe disso e quem publicou.
+    """
+    target = resolve_target(projects, wanted)
+
+    if target is None:
+        print(f"Alvo '{wanted}' nao corresponde a nenhum projeto publicavel.", file=sys.stderr)
+        return 1
+
+    nome = projects[target]["name"]
+    atrasados = []
+
+    for path, info in dependents_of(projects, target):
+        tag = latest_tag(info["prefix"]) if info["prefix"] else None
+
+        if tag is None:
+            continue
+
+        ahead = commits_ahead(tag)
+
+        if ahead:
+            atrasados.append((info["name"], tag, ahead))
+
+    if not atrasados:
+        print(f"Nenhum dependente de {nome} ficou para tras.")
+        return 0
+
+    print(f"Dependentes de {nome} que ficaram para tras:")
+    print()
+
+    for dependente, tag, ahead in atrasados:
+        print(f"  {dependente}  -  {tag}, {ahead} commit(s) atras deste commit")
+
+    print()
+    print(
+        f"Se esta publicacao de {nome} mudou API, a versao desses dependentes que esta no "
+        "feed foi compilada contra a anterior e quebra em runtime para quem instalar os dois "
+        "na versao mais recente. Publique-os neste mesmo commit."
     )
     return 1
 

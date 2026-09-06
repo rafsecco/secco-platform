@@ -108,3 +108,32 @@ jobs:
           --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           --api-key "${{ secrets.GITHUB_TOKEN }}"
           --skip-duplicate
+
+      - name: Avisar dependente que ficou para tras
+        # A publicacao ja aconteceu; este passo NUNCA reprova o job - so escreve no resumo do
+        # run, que e onde quem publicou ja esta olhando.
+        #
+        # Existe porque foi exatamente aqui que a plataforma falhou: quando o
+        # Secco.LogStream.Client 0.3.0 saiu renomeando BatchAsync, o Secco.SDK.Logging 0.1.0
+        # ja estava no feed compilado contra a 0.2.0, cinco commits atras. Ninguem soube por
+        # um dia, e o sintoma seria log que nao chega (o dispatcher engole por design,
+        # ADR-0008). Aviso no momento do publish e latencia zero para essa classe de falha,
+        # sem cron - que o GitHub desativa depois de 60 dias sem atividade no repo.
+        run: |
+          set +e
+          relatorio=$(python3 scripts/check-release-chain.py --dependentes "${SECCO_TAG%%/v*}/v")
+          codigo=$?
+          set -e
+
+          echo "$relatorio"
+
+          if [ "$codigo" -eq 0 ]; then
+            echo "### ${SECCO_TAG} publicada" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ${SECCO_TAG} publicada - ATENCAO: ha dependente para tras" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$relatorio" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
