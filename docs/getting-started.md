@@ -43,7 +43,7 @@ Versões publicadas atuais:
 | `Secco.SecureGate.Client` | 0.3.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
 | `Secco.LogStream.Client` | 0.3.1 | Client do LogStream |
 | `Secco.SDK.Logging` | 0.1.1 | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) |
-| `Secco.NotificationHub.Client` | 0.3.0 | Client do NotificationHub |
+| `Secco.NotificationHub.Client` | 0.4.0 | Client do NotificationHub |
 | `Secco.Templates` | 0.2.0 | `dotnet new secco-service` |
 
 > **`Secco.SDK.Logging` 0.1.0 não serve mais.** Ela foi empacotada quando o `Secco.LogStream.Client` ainda era 0.2.0 e chama um método que a 0.3.0 renomeou. Com os dois pacotes na versão mais recente, o despacho do lote falha e o dispatcher engole a exceção por design (ADR-0008) — o sintoma é log que não chega, sem nada cair. Suba para a 0.1.1.

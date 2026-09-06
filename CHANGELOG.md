@@ -12,11 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.NotificationHub.Client
-
-- **Adicionado** `SearchNotificationsAsync` — busca paginada de notificações com filtro por período, status, canal, origem e tipo (issue #23). Responde "como foi a entrega deste conjunto" numa chamada só; antes só existia `GetNotification` por id, e um lote de 500 destinos exigia 500 consultas.
-- **Alterado (aditivo)** `NotificationDto` ganhou `Source` e `Type`.
-- Nenhum método existente foi renomeado — segunda confirmação prática da correção da issue #9: com `operationId` fixo, endpoint novo entra sem tocar no nome de método de nenhum outro.
+_Nada pendente._ Tudo que estava aqui foi publicado — a rodada mais recente saiu em 2026-09-06. Detalhes na seção seguinte.
 
 ---
 
@@ -150,6 +146,13 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 - Depende de `Secco.SharedKernel` 0.3.3.
 
 ### Secco.NotificationHub.Client
+
+#### 0.4.0 — 2026-09-06
+
+- **Adicionado** `SearchNotificationsAsync` — busca paginada de notificações com filtro por período, status, canal, origem e tipo (issue #23). Responde "como foi a entrega deste conjunto" numa chamada só; antes só existia `GetNotification` por id, e um lote de 500 destinos exigia 500 consultas.
+- **Alterado (aditivo)** `NotificationDto` ganhou `Source` e `Type`, que passaram a ser persistidos na notificação — antes eram aceitos e validados na requisição e descartados na entidade de entrega.
+- Nenhum método existente foi renomeado — segunda confirmação prática da correção da issue #9: com `operationId` fixo, endpoint novo entra sem tocar no nome de método de nenhum outro.
+- Pacote **independente**: sem `ProjectReference` publicável, saiu com uma tag só, sem a cadeia do MinVer que a ADR-0011 impõe aos demais.
 
 #### 0.3.0 — 2026-09-05
 
