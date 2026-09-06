@@ -27,3 +27,7 @@ Thumbs.db
 # Secrets locais (nunca commitar)
 appsettings.*.local.json
 *.local.env
+
+# Cache do Python (scripts/)
+__pycache__/
+*.py[cod]
