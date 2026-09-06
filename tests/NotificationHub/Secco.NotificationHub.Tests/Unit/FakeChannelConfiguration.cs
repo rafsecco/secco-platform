@@ -1,5 +1,6 @@
 using Secco.NotificationHub.Application.Channels;
 using Secco.NotificationHub.Domain.Channels;
+using Secco.SharedKernel.Pagination;
 
 namespace Secco.NotificationHub.Tests.Unit;
 
@@ -66,6 +67,10 @@ internal sealed class FakeNotificationRepositoryForChannels : Secco.Notification
 
 	public Task UpdateAsync(Secco.NotificationHub.Domain.Notifications.Notification notification, CancellationToken cancellationToken = default) =>
 		Task.CompletedTask;
+
+	public Task<PagedResult<Secco.NotificationHub.Domain.Notifications.Notification>> SearchAsync(
+		Secco.NotificationHub.Application.Notifications.NotificationSearchCriteria criteria, CancellationToken cancellationToken = default) =>
+		throw new NotSupportedException("Não exercitado pelos testes de canal externo.");
 }
 
 /// <summary>Fila de e-mail em memória, para os testes de canal externo.</summary>

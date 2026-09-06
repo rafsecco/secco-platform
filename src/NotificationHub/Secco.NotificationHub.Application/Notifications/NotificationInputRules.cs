@@ -105,16 +105,23 @@ public static class NotificationInputRules
 				NotificationHubErrors.Notifications.MessageTooLong(options.MaxMessageLength));
 		}
 
-		if (source?.Length > options.MaxSourceLength)
+		// A constante do domínio é o teto da coluna: a configuração pode APERTAR o limite, nunca
+		// afrouxá-lo. Sem esse Math.Min, um MaxSourceLength configurado acima da coluna passaria
+		// na validação e estouraria só no INSERT, virando 500 em vez de erro de validação.
+		var sourceLimit = Math.Min(options.MaxSourceLength, Notification.SourceMaxLength);
+
+		if (source?.Length > sourceLimit)
 		{
 			return Result.Failure<RequestedChannels>(
-				NotificationHubErrors.Notifications.SourceTooLong(options.MaxSourceLength));
+				NotificationHubErrors.Notifications.SourceTooLong(sourceLimit));
 		}
 
-		if (type?.Length > options.MaxTypeLength)
+		var typeLimit = Math.Min(options.MaxTypeLength, Notification.TypeMaxLength);
+
+		if (type?.Length > typeLimit)
 		{
 			return Result.Failure<RequestedChannels>(
-				NotificationHubErrors.Notifications.TypeTooLong(options.MaxTypeLength));
+				NotificationHubErrors.Notifications.TypeTooLong(typeLimit));
 		}
 
 		if (link?.Length > options.MaxLinkLength)

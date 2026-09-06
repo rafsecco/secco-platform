@@ -1,6 +1,8 @@
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Application.Notifications;
+using Secco.NotificationHub.Domain.Notifications;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SharedKernel.Pagination;
 
 namespace Secco.NotificationHub.Api.Endpoints;
 
@@ -90,6 +92,24 @@ public static class NotificationEndpoints
 			.WithSummary("Consulta o status de uma notificação por e-mail (Pending/Sent/Failed).")
 			.Produces<NotificationDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		group.MapGet("/", async (
+				SearchNotificationsHandler handler,
+				CancellationToken cancellationToken,
+				DateTimeOffset? from, DateTimeOffset? to,
+				NotificationStatus? status, NotificationChannel? channel,
+				string? source, string? type,
+				int? page, int? size) =>
+			(await handler.HandleAsync(
+				new NotificationSearchCriteria(from, to, status, channel, source, type,
+					new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
+				cancellationToken))
+				.ToHttpResult(result => Results.Ok(result)))
+			.RequireAuthorization(NotificationHubPermissions.Notifications.Read)
+			.WithName("SearchNotifications")
+			.WithSummary("Busca paginada de notificações (filtros opcionais, mais recentes primeiro).")
+			.Produces<PagedResult<NotificationDto>>(StatusCodes.Status200OK)
+			.ProducesProblem(StatusCodes.Status400BadRequest);
 
 		return endpoints;
 	}

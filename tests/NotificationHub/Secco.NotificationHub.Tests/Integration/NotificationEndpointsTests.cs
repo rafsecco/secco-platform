@@ -215,6 +215,72 @@ public class NotificationEndpointsTests(NotificationHubApiFactory factory) : IAs
 		unread[0].GetProperty("title").GetString().Should().Be("Bem-vindo");
 	}
 
+	[Fact]
+	public async Task SearchNotifications_FilteringBySourceAndType_ReturnsOnlyMatching()
+	{
+		// Issue #23: descobrir quais entregas de uma publicação falharam sem fazer N chamadas
+		// por identificador — a consulta em massa filtra por Source/Type (igualdade exata).
+		var client = CreateClientForTenant(factory.TenantAlfa);
+
+		async Task<Guid> Dispatch(string source, string type)
+		{
+			var response = await client.PostAsJsonAsync("/api/v1/notifications", new
+			{
+				recipient = "busca-issue-23@notificationhub.test",
+				title = "Assunto",
+				message = "Corpo",
+				source,
+				type,
+				channels = new[] { "email" },
+			});
+			var dispatched = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+			return dispatched.GetProperty("emailNotificationId").GetGuid();
+		}
+
+		var matchingIdA = await Dispatch("issue-23-search", "mural");
+		var matchingIdB = await Dispatch("issue-23-search", "mural");
+		await Dispatch("issue-23-search", "outro-tipo");
+		await Dispatch("outra-origem", "mural");
+
+		var result = await client.GetFromJsonAsync<JsonElement>(
+			"/api/v1/notifications?source=issue-23-search&type=mural", Json);
+
+		result.GetProperty("totalCount").GetInt64().Should().Be(2);
+		var ids = result.GetProperty("items").EnumerateArray()
+			.Select(item => item.GetProperty("id").GetGuid())
+			.ToList();
+		ids.Should().BeEquivalentTo([matchingIdA, matchingIdB]);
+	}
+
+	[Fact]
+	public async Task SearchNotifications_WithPageSize_ReturnsRequestedPageAndTotalCount()
+	{
+		var client = CreateClientForTenant(factory.TenantBeta);
+
+		for (var index = 0; index < 3; index++)
+		{
+			await client.PostAsJsonAsync("/api/v1/notifications", new
+			{
+				recipient = $"pagina-issue-23-{index}@notificationhub.test",
+				title = "Assunto",
+				message = "Corpo",
+				source = "issue-23-paginacao",
+				channels = new[] { "email" },
+			});
+		}
+
+		var firstPage = await client.GetFromJsonAsync<JsonElement>(
+			"/api/v1/notifications?source=issue-23-paginacao&page=1&size=2", Json);
+
+		firstPage.GetProperty("totalCount").GetInt64().Should().Be(3);
+		firstPage.GetProperty("items").GetArrayLength().Should().Be(2);
+
+		var secondPage = await client.GetFromJsonAsync<JsonElement>(
+			"/api/v1/notifications?source=issue-23-paginacao&page=2&size=2", Json);
+
+		secondPage.GetProperty("items").GetArrayLength().Should().Be(1);
+	}
+
 	private static async Task<JsonElement> PollUntilStatusIsNot(HttpClient client, Guid id, string transientStatus)
 	{
 		var deadline = DateTime.UtcNow + PollTimeout;

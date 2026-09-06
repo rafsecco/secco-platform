@@ -1,4 +1,5 @@
 using Secco.NotificationHub.Domain.Notifications;
+using Secco.SharedKernel.Pagination;
 
 namespace Secco.NotificationHub.Application.Notifications;
 
@@ -30,4 +31,9 @@ public interface INotificationRepository
 	/// <param name="notification">Notificação com estado atualizado.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task UpdateAsync(Notification notification, CancellationToken cancellationToken = default);
+
+	/// <summary>Busca paginada com os filtros informados, ordenada da mais recente à mais antiga.</summary>
+	/// <param name="criteria">Filtros e paginação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<PagedResult<Notification>> SearchAsync(NotificationSearchCriteria criteria, CancellationToken cancellationToken = default);
 }

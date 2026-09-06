@@ -151,6 +151,11 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_sent_at");
 
+                    b.Property<string>("Source")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("ds_source");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("ie_status");
@@ -160,6 +165,11 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_subject");
 
+                    b.Property<string>("Type")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("ds_type");
+
                     b.HasKey("Id")
                         .HasName("pk_notifications");
 
@@ -168,6 +178,9 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("idx_notifications_ie_status");
+
+                    b.HasIndex("Source", "Type")
+                        .HasDatabaseName("idx_notifications_ds_source_ds_type");
 
                     b.ToTable("tb_notifications");
                 });

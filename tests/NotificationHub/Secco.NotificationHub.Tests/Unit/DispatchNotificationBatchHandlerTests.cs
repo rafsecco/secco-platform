@@ -4,6 +4,7 @@ using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
+using Secco.SharedKernel.Pagination;
 using Xunit;
 
 namespace Secco.NotificationHub.Tests.Unit;
@@ -40,6 +41,10 @@ public class DispatchNotificationBatchHandlerTests
 
 		public Task UpdateAsync(Notification notification, CancellationToken cancellationToken = default) =>
 			Task.CompletedTask;
+
+		public Task<PagedResult<Notification>> SearchAsync(
+			NotificationSearchCriteria criteria, CancellationToken cancellationToken = default) =>
+			throw new NotSupportedException("Não exercitado pelos testes de despacho em lote.");
 	}
 
 	private sealed class CountingInAppRepository : IInAppNotificationRepository
@@ -133,6 +138,23 @@ public class DispatchNotificationBatchHandlerTests
 		notifications.Added.Should().HaveCount(50);
 		notifications.SaveCount.Should().Be(1);
 		queue.Enqueued.Should().HaveCount(50, "o retry continua sendo por notificação (ADR-0015)");
+	}
+
+	[Fact]
+	public async Task Batch_WithSourceAndType_PersistsThemOnEveryNotification()
+	{
+		// Defeito corrigido pela issue #23: Source/Type eram validados e depois descartados —
+		// só chegavam ao InAppNotification, nunca à Notification de e-mail.
+		var (handler, notifications, _, _) = Create();
+
+		var destinations = new List<NotificationDestination> { new(null, "pessoa@empresa.com") };
+
+		var result = await handler.HandleAsync(Command(destinations));
+
+		result.IsSuccess.Should().BeTrue();
+		var persisted = notifications.Added.Should().ContainSingle().Subject;
+		persisted.Source.Should().Be("mural");
+		persisted.Type.Should().Be("publicacao");
 	}
 
 	[Fact]

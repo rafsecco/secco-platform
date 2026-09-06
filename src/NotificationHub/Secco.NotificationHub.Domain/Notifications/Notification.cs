@@ -20,6 +20,12 @@ namespace Secco.NotificationHub.Domain.Notifications;
 /// </remarks>
 public sealed class Notification : BaseEntity
 {
+	/// <summary>Tamanho máximo aceito para a origem (coluna <c>ds_source</c>).</summary>
+	public const int SourceMaxLength = 128;
+
+	/// <summary>Tamanho máximo aceito para o tipo (coluna <c>ds_type</c>).</summary>
+	public const int TypeMaxLength = 128;
+
 	private Notification()
 	{
 		// Construtor de rehidratação do EF Core
@@ -31,9 +37,11 @@ public sealed class Notification : BaseEntity
 	/// <param name="recipient">E-mail do destinatário, já resolvido pelo chamador. Obrigatório.</param>
 	/// <param name="subject">Assunto pronto. Obrigatório.</param>
 	/// <param name="body">Corpo pronto (texto ou HTML). Obrigatório.</param>
+	/// <param name="source">Origem, texto livre (o Hub nunca interpreta). Opcional.</param>
+	/// <param name="type">Tipo, texto livre (o Hub nunca interpreta). Opcional.</param>
 	/// <exception cref="DomainInvariantException">Se destinatário, assunto ou corpo forem nulos/vazios.</exception>
-	public Notification(string recipient, string subject, string body)
-		: this(NotificationChannel.Email, recipient, subject, body)
+	public Notification(string recipient, string subject, string body, string? source = null, string? type = null)
+		: this(NotificationChannel.Email, recipient, subject, body, source, type)
 	{
 	}
 
@@ -41,11 +49,15 @@ public sealed class Notification : BaseEntity
 	/// <param name="channel">Canal da entrega.</param>
 	/// <param name="subject">Assunto/título pronto. Obrigatório.</param>
 	/// <param name="body">Corpo pronto. Obrigatório.</param>
+	/// <param name="source">Origem, texto livre (o Hub nunca interpreta). Opcional.</param>
+	/// <param name="type">Tipo, texto livre (o Hub nunca interpreta). Opcional.</param>
 	/// <exception cref="DomainInvariantException">Se assunto ou corpo forem nulos/vazios.</exception>
-	public static Notification ForExternalChannel(NotificationChannel channel, string subject, string body) =>
-		new(channel, recipient: null, subject, body);
+	public static Notification ForExternalChannel(
+		NotificationChannel channel, string subject, string body, string? source = null, string? type = null) =>
+		new(channel, recipient: null, subject, body, source, type);
 
-	private Notification(NotificationChannel channel, string? recipient, string subject, string body)
+	private Notification(
+		NotificationChannel channel, string? recipient, string subject, string body, string? source, string? type)
 	{
 		// O destinatário é exigido apenas no canal de e-mail: nos externos o destino vem da
 		// configuração do tenant, e um endereço no registro seria dado sem significado.
@@ -68,6 +80,8 @@ public sealed class Notification : BaseEntity
 		Recipient = recipient;
 		Subject = subject;
 		Body = body;
+		Source = source;
+		Type = type;
 		Status = NotificationStatus.Pending;
 		CreatedAt = DateTimeOffset.UtcNow;
 	}
@@ -86,6 +100,12 @@ public sealed class Notification : BaseEntity
 
 	/// <summary>Corpo (coluna <c>ds_body</c>).</summary>
 	public string Body { get; private set; }
+
+	/// <summary>Origem, texto livre (coluna <c>ds_source</c>).</summary>
+	public string? Source { get; private set; }
+
+	/// <summary>Tipo, texto livre (coluna <c>ds_type</c>).</summary>
+	public string? Type { get; private set; }
 
 	/// <summary>Estado do envio (coluna <c>ie_status</c>).</summary>
 	public NotificationStatus Status { get; private set; }

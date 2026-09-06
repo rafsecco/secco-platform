@@ -4,6 +4,7 @@ using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Domain.InAppNotifications;
 using Secco.NotificationHub.Domain.Notifications;
+using Secco.SharedKernel.Pagination;
 using Secco.SharedKernel.Results;
 using Xunit;
 
@@ -34,6 +35,10 @@ public class DispatchNotificationHandlerTests
 
 		public Task UpdateAsync(Notification notification, CancellationToken cancellationToken = default) =>
 			Task.CompletedTask;
+
+		public Task<PagedResult<Notification>> SearchAsync(
+			NotificationSearchCriteria criteria, CancellationToken cancellationToken = default) =>
+			throw new NotSupportedException("Não exercitado pelos testes de despacho.");
 	}
 
 	private sealed class FakeDispatchQueue : IEmailDispatchQueue
@@ -112,6 +117,23 @@ public class DispatchNotificationHandlerTests
 		result.Value.InAppNotificationId.Should().BeNull();
 		notifications.Added.Should().ContainSingle().Which.Status.Should().Be(NotificationStatus.Pending);
 		queue.Enqueued.Should().ContainSingle().Which.Should().Be(result.Value.EmailNotificationId!.Value);
+	}
+
+	[Fact]
+	public async Task Handle_WithEmailChannelAndSourceAndType_PersistsThemOnTheNotification()
+	{
+		// Defeito corrigido pela issue #23: Source/Type eram validados e depois descartados —
+		// só chegavam ao InAppNotification, nunca à Notification de e-mail.
+		var handler = CreateHandler(out var notifications, out _, out _);
+
+		var result = await handler.HandleAsync(new DispatchNotificationCommand(
+			null, "destinatario@teste.com", "Título", "Mensagem", "secco-intranet", "aviso", null,
+			[NotificationHubChannels.Email]));
+
+		result.IsSuccess.Should().BeTrue();
+		var persisted = notifications.Added.Should().ContainSingle().Subject;
+		persisted.Source.Should().Be("secco-intranet");
+		persisted.Type.Should().Be("aviso");
 	}
 
 	[Fact]

@@ -8,6 +8,10 @@ public static class NotificationHubErrors
 	/// <summary>Erros de envio/consulta de notificações (e-mail + in-app, Fase 8.4).</summary>
 	public static class Notifications
 	{
+		/// <summary>Data inicial posterior à final na busca.</summary>
+		public static readonly Error InvalidDateRange =
+			Error.Validation("NotificationHub.Notification.InvalidDateRange", "A data inicial não pode ser posterior à final.");
+
 		/// <summary>Nenhum canal informado.</summary>
 		public static readonly Error ChannelsRequired =
 			Error.Validation("NotificationHub.Notification.ChannelsRequired", "Ao menos um canal é obrigatório.");

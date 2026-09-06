@@ -10,6 +10,8 @@ namespace Secco.NotificationHub.Application.Notifications;
 /// <param name="Id">Identificador.</param>
 /// <param name="Channel">Canal da entrega (ADR-0029).</param>
 /// <param name="Recipient">Destinatário no canal de e-mail; nulo em canal externo, cujo destino vem da configuração do tenant.</param>
+/// <param name="Source">Origem, texto livre (o Hub nunca interpreta).</param>
+/// <param name="Type">Tipo, texto livre (o Hub nunca interpreta).</param>
 /// <param name="Subject">Assunto.</param>
 /// <param name="Status">Estado do envio.</param>
 /// <param name="FailureReason">Motivo da falha, quando houver.</param>
@@ -19,6 +21,8 @@ public sealed record NotificationDto(
 	Guid Id,
 	NotificationChannel Channel,
 	string? Recipient,
+	string? Source,
+	string? Type,
 	string Subject,
 	NotificationStatus Status,
 	string? FailureReason,
@@ -27,6 +31,6 @@ public sealed record NotificationDto(
 {
 	/// <summary>Projeta a entidade para o DTO.</summary>
 	public static NotificationDto FromEntity(Notification entity) =>
-		new(entity.Id, entity.Channel, entity.Recipient, entity.Subject, entity.Status,
+		new(entity.Id, entity.Channel, entity.Recipient, entity.Source, entity.Type, entity.Subject, entity.Status,
 			entity.FailureReason, entity.CreatedAt, entity.SentAt);
 }

@@ -22,6 +22,7 @@ public static class NotificationHubApplicationExtensions
 		services.AddScoped<Channels.ListChannelConfigurationsHandler>();
 		services.AddScoped<Channels.DeleteChannelConfigurationHandler>();
 		services.AddScoped<GetNotificationByIdHandler>();
+		services.AddScoped<SearchNotificationsHandler>();
 
 		services.AddScoped<GetUnreadInAppNotificationsHandler>();
 		services.AddScoped<CountUnreadInAppNotificationsHandler>();

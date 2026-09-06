@@ -78,7 +78,8 @@ public sealed class DispatchNotificationHandler(
 
 		if (content.Value.Email)
 		{
-			var notification = new Notification(command.Recipient!, command.Title!, command.Message!);
+			var notification = new Notification(
+				command.Recipient!, command.Title!, command.Message!, command.Source, command.Type);
 
 			await notificationRepository.AddAsync(notification, cancellationToken).ConfigureAwait(false);
 			emailDispatchQueue.Enqueue(notification.Id);
@@ -114,7 +115,8 @@ public sealed class DispatchNotificationHandler(
 
 		foreach (var channel in content.Value.External)
 		{
-			var delivery = Notification.ForExternalChannel(channel, command.Title!, command.Message!);
+			var delivery = Notification.ForExternalChannel(
+				channel, command.Title!, command.Message!, command.Source, command.Type);
 
 			await notificationRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
 			externalChannelDispatchQueue.Enqueue(delivery.Id);

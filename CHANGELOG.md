@@ -12,7 +12,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada de 2026-09-06 publicou tudo o que estava aqui: `Secco.SDK.Logging` 0.1.1, `Secco.SDK.EntityFrameworkCore` 0.4.0 e `Secco.Templates` 0.2.0, mais os três bumps de cadeia exigidos pelo MinVer. Detalhes na seção seguinte.
+### Secco.NotificationHub.Client
+
+- **Adicionado** `SearchNotificationsAsync` — busca paginada de notificações com filtro por período, status, canal, origem e tipo (issue #23). Responde "como foi a entrega deste conjunto" numa chamada só; antes só existia `GetNotification` por id, e um lote de 500 destinos exigia 500 consultas.
+- **Alterado (aditivo)** `NotificationDto` ganhou `Source` e `Type`.
+- Nenhum método existente foi renomeado — segunda confirmação prática da correção da issue #9: com `operationId` fixo, endpoint novo entra sem tocar no nome de método de nenhum outro.
 
 ---
 

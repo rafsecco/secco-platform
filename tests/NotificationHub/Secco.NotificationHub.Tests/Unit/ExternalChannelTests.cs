@@ -134,7 +134,7 @@ public class ExternalChannelTests
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
 			UserId: null, Recipient: null, Title: "Titulo", Message: "Mensagem",
-			Source: null, Type: null, Link: null, Channels: [NotificationHubChannels.Teams]));
+			Source: "secco-intranet", Type: "manutencao", Link: null, Channels: [NotificationHubChannels.Teams]));
 
 		result.IsSuccess.Should().BeTrue();
 		result.Value.ExternalNotificationIds.Should().ContainSingle();
@@ -143,6 +143,11 @@ public class ExternalChannelTests
 		delivery.Channel.Should().Be(NotificationChannel.Teams);
 		delivery.Recipient.Should().BeNull("canal externo tem destino na configuração, não no registro");
 		delivery.Status.Should().Be(NotificationStatus.Pending);
+
+		// Defeito corrigido pela issue #23: Source/Type eram validados e descartados, nunca
+		// chegavam à Notification (só ao InAppNotification).
+		delivery.Source.Should().Be("secco-intranet");
+		delivery.Type.Should().Be("manutencao");
 
 		externalQueue.Enqueued.Should().ContainSingle();
 	}

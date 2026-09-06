@@ -126,7 +126,8 @@ public sealed class DispatchNotificationBatchHandler(
 
 			if (content.Value.Email)
 			{
-				notification = new Notification(destination.Recipient!, command.Title!, command.Message!);
+				notification = new Notification(
+					destination.Recipient!, command.Title!, command.Message!, command.Source, command.Type);
 				notifications.Add(notification);
 			}
 
@@ -172,7 +173,8 @@ public sealed class DispatchNotificationBatchHandler(
 					NotificationHubErrors.Channels.NotConfiguredForTenant(channelName));
 			}
 
-			var delivery = Notification.ForExternalChannel(channel, command.Title!, command.Message!);
+			var delivery = Notification.ForExternalChannel(
+				channel, command.Title!, command.Message!, command.Source, command.Type);
 
 			await notificationRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
 			externalChannelDispatchQueue.Enqueue(delivery.Id);

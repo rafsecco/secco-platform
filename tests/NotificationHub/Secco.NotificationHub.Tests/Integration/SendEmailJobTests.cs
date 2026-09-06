@@ -2,6 +2,7 @@ using FluentAssertions;
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Domain.Notifications;
 using Secco.NotificationHub.Infrastructure.Email;
+using Secco.SharedKernel.Pagination;
 using Xunit;
 
 namespace Secco.NotificationHub.Tests.Integration;
@@ -47,6 +48,10 @@ public class SendEmailJobTests
 			Updated = notification;
 			return Task.CompletedTask;
 		}
+
+		public Task<PagedResult<Notification>> SearchAsync(
+			NotificationSearchCriteria criteria, CancellationToken cancellationToken = default) =>
+			throw new NotSupportedException("Não exercitado pelos testes do job de envio.");
 	}
 
 	private sealed class FakeSender(Exception? failWith = null) : IEmailSender
