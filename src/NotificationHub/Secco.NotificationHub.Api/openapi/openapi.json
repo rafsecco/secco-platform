@@ -240,10 +240,145 @@
           }
         }
       }
+    },
+    "/api/v1/channel-configurations/{channel}": {
+      "put": {
+        "tags": [
+          "ChannelConfigurations"
+        ],
+        "summary": "Cadastra ou substitui o destino de um canal externo do tenant (idempotente; rotação de URL é um novo PUT).",
+        "operationId": "UpsertChannelConfiguration",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertChannelConfigurationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ChannelConfigurations"
+        ],
+        "summary": "Remove o destino configurado de um canal externo do tenant.",
+        "operationId": "DeleteChannelConfiguration",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-configurations": {
+      "get": {
+        "tags": [
+          "ChannelConfigurations"
+        ],
+        "summary": "Lista os canais configurados do tenant. O destino NUNCA é devolvido — a superfície é write-only para o segredo.",
+        "operationId": "ListChannelConfigurations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChannelConfigurationDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ChannelConfigurationDto": {
+        "required": [
+          "channel",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "DispatchNotificationBatchRequest": {
         "required": [
           "title",
@@ -316,6 +451,16 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DispatchNotificationResult"
+            }
+          },
+          "externalNotificationIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         }
@@ -407,6 +552,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "externalNotificationIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -467,6 +622,14 @@
           }
         }
       },
+      "NotificationChannel": {
+        "enum": [
+          "Email",
+          "Teams",
+          "Slack"
+        ],
+        "type": "string"
+      },
       "NotificationDestination": {
         "required": [
           "userId",
@@ -492,6 +655,7 @@
       "NotificationDto": {
         "required": [
           "id",
+          "channel",
           "recipient",
           "subject",
           "status",
@@ -505,8 +669,14 @@
             "type": "string",
             "format": "uuid"
           },
+          "channel": {
+            "$ref": "#/components/schemas/NotificationChannel"
+          },
           "recipient": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "subject": {
             "type": "string"
@@ -578,6 +748,24 @@
             ]
           }
         }
+      },
+      "UpsertChannelConfigurationRequest": {
+        "required": [
+          "destination"
+        ],
+        "type": "object",
+        "properties": {
+          "destination": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        }
       }
     }
   },
@@ -587,6 +775,9 @@
     },
     {
       "name": "InAppNotifications"
+    },
+    {
+      "name": "ChannelConfigurations"
     }
   ]
 }

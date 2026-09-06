@@ -22,6 +22,47 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Secco.NotificationHub.Domain.Channels.ChannelConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pk_channel_configuration");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("ds_channel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("ds_destination");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_enabled");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_channel_configurations");
+
+                    b.HasIndex("Channel")
+                        .IsUnique()
+                        .HasDatabaseName("uk_channel_configurations_ds_channel");
+
+                    b.ToTable("tb_channel_configurations");
+                });
+
             modelBuilder.Entity("Secco.NotificationHub.Domain.InAppNotifications.InAppNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -90,6 +131,10 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_body");
 
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_channel");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
@@ -99,7 +144,6 @@ namespace Secco.NotificationHub.Migrations.Postgres.Migrations
                         .HasColumnName("ds_failure_reason");
 
                     b.Property<string>("Recipient")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("ds_recipient");
 

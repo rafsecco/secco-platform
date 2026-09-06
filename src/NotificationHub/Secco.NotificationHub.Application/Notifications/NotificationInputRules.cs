@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Secco.NotificationHub.Domain.Notifications;
 using Secco.SharedKernel.Results;
 
 namespace Secco.NotificationHub.Application.Notifications;
@@ -6,7 +7,17 @@ namespace Secco.NotificationHub.Application.Notifications;
 /// <summary>Canais efetivamente solicitados, depois de validados.</summary>
 /// <param name="Email">O canal de e-mail foi solicitado.</param>
 /// <param name="InApp">O canal de inbox in-app foi solicitado.</param>
-public readonly record struct RequestedChannels(bool Email, bool InApp);
+/// <param name="External">
+/// Canais externos solicitados (ADR-0029), cujo destino vem da configuração do tenant.
+/// </param>
+public readonly record struct RequestedChannels(
+	bool Email,
+	bool InApp,
+	IReadOnlyList<NotificationChannel> External)
+{
+	/// <summary>Nenhum canal externo solicitado.</summary>
+	public static readonly IReadOnlyList<NotificationChannel> NoExternal = [];
+}
 
 /// <summary>
 /// Validação de entrada compartilhada entre o despacho unitário e o em lote (ADR-0020).
@@ -45,6 +56,7 @@ public static class NotificationInputRules
 
 		var wantsEmail = false;
 		var wantsInApp = false;
+		var external = new List<NotificationChannel>();
 
 		foreach (var channel in channels)
 		{
@@ -55,6 +67,14 @@ public static class NotificationInputRules
 			else if (string.Equals(channel, NotificationHubChannels.InApp, StringComparison.OrdinalIgnoreCase))
 			{
 				wantsInApp = true;
+			}
+			else if (string.Equals(channel, NotificationHubChannels.Teams, StringComparison.OrdinalIgnoreCase))
+			{
+				external.Add(NotificationChannel.Teams);
+			}
+			else if (string.Equals(channel, NotificationHubChannels.Slack, StringComparison.OrdinalIgnoreCase))
+			{
+				external.Add(NotificationChannel.Slack);
 			}
 			else
 			{
@@ -103,7 +123,7 @@ public static class NotificationInputRules
 				NotificationHubErrors.Notifications.LinkTooLong(options.MaxLinkLength));
 		}
 
-		return Result.Success(new RequestedChannels(wantsEmail, wantsInApp));
+		return Result.Success(new RequestedChannels(wantsEmail, wantsInApp, external));
 	}
 
 	/// <summary>Valida um destino contra os canais solicitados.</summary>

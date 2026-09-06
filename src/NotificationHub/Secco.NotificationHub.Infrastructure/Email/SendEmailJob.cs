@@ -1,4 +1,5 @@
 using Secco.NotificationHub.Application.Notifications;
+using Secco.NotificationHub.Domain.Notifications;
 using Secco.SDK.AspNetCore.BackgroundJobs;
 
 namespace Secco.NotificationHub.Infrastructure.Email;
@@ -27,9 +28,16 @@ internal sealed class SendEmailJob(INotificationRepository repository, IEmailSen
 			return;
 		}
 
+		if (notification.Channel != NotificationChannel.Email || notification.Recipient is not { } recipient)
+		{
+			// Invariante desde a ADR-0029: só entrega de e-mail chega a este job, e só ela tem
+			// destinatário no próprio registro. Canal externo tem job próprio.
+			return;
+		}
+
 		try
 		{
-			await emailSender.SendAsync(notification.Recipient, notification.Subject, notification.Body, cancellationToken)
+			await emailSender.SendAsync(recipient, notification.Subject, notification.Body, cancellationToken)
 				.ConfigureAwait(false);
 
 			notification.MarkAsSent();

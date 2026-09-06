@@ -12,6 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.NotificationHub.Client
+
+- **Adicionado** `UpsertChannelConfigurationAsync`, `ListChannelConfigurationsAsync` e `DeleteChannelConfigurationAsync` — gestão do destino dos canais externos por tenant (issue #13, ADR-0029).
+- **Alterado (aditivo)** `NotificationDto` ganhou `Channel`, e `Recipient` passou a ser anulável: a entrega deixou de ser sempre de e-mail. O resultado de despacho ganhou `ExternalNotificationIds`.
+- Nenhum método existente foi renomeado — segunda validação prática da correção da issue #9.
+
 ### Secco.SDK.EntityFrameworkCore
 
 - **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025 (ADR-0029).
