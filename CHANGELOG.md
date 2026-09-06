@@ -12,22 +12,26 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.NotificationHub.Client
+### Secco.SDK.Logging
 
-- **Adicionado** `UpsertChannelConfigurationAsync`, `ListChannelConfigurationsAsync` e `DeleteChannelConfigurationAsync` — gestão do destino dos canais externos por tenant (issue #13, ADR-0029).
-- **Alterado (aditivo)** `NotificationDto` ganhou `Channel`, e `Recipient` passou a ser anulável: a entrega deixou de ser sempre de e-mail. O resultado de despacho ganhou `ExternalNotificationIds`.
-- Nenhum método existente foi renomeado — segunda validação prática da correção da issue #9.
+- **Corrigido** a chamada de ingestão em lote acompanha a renomeação do `Secco.LogStream.Client` 0.3.0: `BatchAsync` → `CreateLogEntryBatchAsync` (issue #9).
+- **A 0.1.0 que está no feed é incompatível com o `Secco.LogStream.Client` 0.3.0.** Ela foi empacotada em `8cd8d55`, o commit em que o client ainda era 0.2.0, então o IL publicado chama um método que a 0.3.0 não tem mais. Instalar os dois pacotes na versão mais recente produz `MissingMethodException` no despacho do lote — e o dispatcher captura tudo por design (ADR-0008: LogStream indisponível não derruba o produto), então o sintoma não é processo caído: é log que simplesmente não chega, com a falha registrada só no logger local. Publicar esta correção é o que fecha a combinação quebrada.
 
 ### Secco.SDK.EntityFrameworkCore
 
-- **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025 (ADR-0029).
+- **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025.
 - Promovidos do `Secco.SecureGate.Infrastructure`, onde eram internos ao produto. O `secco-intranet` já havia reimplementado o mesmo formato por conta própria; o `Secco.NotificationHub` seria a terceira implementação independente do mesmo formato criptográfico. O tipo recebe as chaves já decodificadas e **não** conhece configuração de produto: a política de origem da chave continua em cada produto.
 - **Sem mudança de formato nem de dado.** Os testes de comportamento vieram junto e passam com as mesmas asserções, incluindo a do prefixo literal — que é contrato de dado já gravado.
 
-### Secco.NotificationHub.Client
+### Secco.Templates
 
-- **Adicionado** `DispatchNotificationBatchAsync` — despacho de um conteúdo para muitos destinos numa chamada só (issue #15).
-- Mudança **aditiva**, sem renomear nada. É a primeira validação prática da correção da issue #9: com `operationId` fixo, um endpoint novo entra sem mexer no nome de método de nenhum outro.
+O pacote está oito commits atrás do template que o CI valida. O job `validate-template` instancia o template **a partir do fonte**, então a divergência do pacote publicado não aparece em lugar nenhum — ADR-0013 trata divergência entre template e padrão como defeito de prioridade alta. O que o pacote 0.1.0 ainda não tem:
+
+- `.WithName(...)` nos três endpoints do recurso Sample (issue #9) — sem ele, todo produto gerado nasce com o defeito de `operationId` que custou uma renomeação de client.
+- Permissões (ADR-0021) nos endpoints do recurso Sample.
+- `Secco.SDK.Testing` na suíte de testes gerada (ADR-0027) e a seleção de provider por receita (`SeccoDatabaseProviders`).
+- `AddOptions<T>().BindConfiguration()` no lugar do `BindSection` apagado.
+- Indentação com tab e as correções de build de imagem e compose.
 
 ---
 
@@ -138,6 +142,13 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 - Depende de `Secco.SharedKernel` 0.3.3.
 
 ### Secco.NotificationHub.Client
+
+#### 0.3.0 — 2026-09-05
+
+- **Adicionado** `DispatchNotificationBatchAsync` — despacho de um conteúdo para muitos destinos numa chamada só (issue #15).
+- **Adicionado** `UpsertChannelConfigurationAsync`, `ListChannelConfigurationsAsync` e `DeleteChannelConfigurationAsync` — gestão do destino dos canais externos por tenant (issue #13, ADR-0029). O destino nunca vem no payload da notificação: é configuração de tenant, e é isso que impede o chamador de escolher para onde a plataforma faz POST.
+- **Alterado (aditivo)** `NotificationDto` ganhou `Channel`, e `Recipient` passou a ser anulável — a entrega deixou de ser sempre de e-mail. O resultado de despacho ganhou `ExternalNotificationIds`.
+- Nenhum método existente foi renomeado nas duas entregas. É a validação prática da correção da issue #9: com `operationId` fixo, endpoint novo entra sem mexer no nome de método de nenhum outro.
 
 #### 0.2.0 — 2026-09-05
 
