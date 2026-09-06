@@ -32,6 +32,8 @@ Formato: `<prefixo>/v<semver>` — ex. `sharedkernel/v0.3.0`.
 
 **Empurrar tags uma de cada vez**: `git push origin <tag>` por tag, nunca várias tags no mesmo `git push`. Confirmado empiricamente nesta plataforma: o GitHub Actions **não dispara o evento de tag-push (`create`) para mais de 3 tags empurradas juntas** no mesmo comando — falha silenciosa, sem erro no push, o workflow simplesmente não roda para as tags excedentes. Publicando vários pacotes de uma vez, iterar o push tag por tag (loop), não montar `git push origin tag1 tag2 tag3 tag4 tag5`.
 
+**Reincidiu em 2026-09-06**, numa levada de seis tags empurradas num comando só — escolhido, ironicamente, para evitar uma corrida entre os workflows. As seis tags entraram no remoto, **zero** workflows rodaram, e nada avisou. A regra acima já estava escrita aqui; o que faltou foi ler a skill antes de publicar. Se você chegou até aqui só depois do push, veja a seção 6.
+
 ### Dependência entre pacotes: tag estável exige tag estável da dependência no mesmo commit
 
 **Não faça essa conferência de cabeça — rode o script:**
@@ -40,7 +42,15 @@ Formato: `<prefixo>/v<semver>` — ex. `sharedkernel/v0.3.0`.
 python scripts/check-release-chain.py <prefixo-da-tag>/v    # ex.: sdk-logging/v
 ```
 
-Ele lê os `.csproj` (a fonte da verdade: `IsPackable` + `MinVerTagPrefix`), percorre os `ProjectReference` **transitivamente** e diz, para cada dependência publicável, se a tag dela está neste commit ou quantos commits atrás está. Sai com 1 se faltar alguma, e também acusa pacote publicável que não esteja registrado no `publish-packages.yml`. Sem alvo, faz apenas um levantamento de todos os pacotes e nunca falha.
+Ele lê os `.csproj` (a fonte da verdade: `IsPackable` + `MinVerTagPrefix`), percorre os `ProjectReference` **transitivamente** e diz, para cada dependência publicável, se a tag dela está neste commit ou quantos commits atrás está. Sai com 1 se faltar alguma, e também acusa pacote publicável que não esteja registrado no `publish-packages.yml`. Aceita **vários alvos** no mesmo comando; alvo que não resolve é erro, nunca omissão silenciosa. Sem alvo, faz apenas um levantamento de todos os pacotes e nunca falha.
+
+O terceiro modo responde à pergunta inversa — **existe código entregue que nunca virou pacote?**:
+
+```bash
+python scripts/check-release-chain.py --pendentes    # sai 1 se houver fonte por publicar
+```
+
+A diferença entre os dois é o que se mede: a guarda olha distância de commit até o HEAD (que é ruído — um pacote fica dezenas de commits atrás sem ter mudado uma linha); o vigia olha commit que tocou o **diretório do projeto** desde a tag dele. É o modo que o `.github/workflows/release-pendente.yml` roda toda segunda-feira, abrindo (e fechando sozinha) uma issue rotulada `release-pendente`.
 
 O mesmo script roda como **guarda no workflow**, antes do Pack: a tag que não tem cadeia íntegra falha cedo, com a mensagem dizendo qual tag criar, em vez de terminar em `NU5104` — que não diz.
 
@@ -77,7 +87,15 @@ Push de tag bem-sucedido **não** significa que o publish rodou. Depois de empur
 gh run list --workflow=publish-packages.yml --limit 10
 ```
 
-Ou checar a aba Actions no GitHub. Se uma tag não aparecer como run recente, ela provavelmente caiu na limitação da seção 3 (batch >3 tags) — apagar a tag remota (`git push origin --delete <tag>`) e reempurrar sozinha.
+Ou checar a aba Actions no GitHub. Se uma tag não aparecer como run recente, ela provavelmente caiu na limitação da seção 3 (batch >3 tags).
+
+**Recuperação — republicar uma tag que já existe**, sem cirurgia em tag:
+
+```bash
+gh workflow run publish-packages.yml -f tag=sdk-logging/v0.1.1
+```
+
+O `workflow_dispatch` faz checkout **da tag** (é dela que o MinVer tira a versão) e segue idêntico ao caminho do push. Serve também para reexecutar uma publicação que falhou por motivo transitório. Apagar e reempurrar a tag continua funcionando, mas é o caminho pior: durante a janela em que a tag não existe, a guarda de cadeia de qualquer dependente em execução reprova.
 
 ## 7. Versões atualmente publicadas
 

@@ -11,13 +11,22 @@ O NU5104 nao diz qual tag falta. Este script diz, antes de empurrar.
 
 Uso:
     python scripts/check-release-chain.py sdk-logging/v    # GUARDA: sai 1 se a cadeia falha
-    python scripts/check-release-chain.py Secco.SDK.Logging
+    python scripts/check-release-chain.py Secco.SDK.Logging Secco.Templates
     python scripts/check-release-chain.py                  # levantamento: so informa, sai 0
+    python scripts/check-release-chain.py --pendentes      # VIGIA: sai 1 se ha fonte por publicar
 
 Com alvo, o script responde a pergunta que interessa antes de um release: "vou taguear
-este pacote NESTE commit — o que mais precisa de tag aqui?". Sem alvo, ele apenas mostra
-o estado de todos os publicaveis e nunca falha: fora de um release, um pacote com a tag
-alguns commits atras e a situacao normal, nao um problema.
+este pacote NESTE commit — o que mais precisa de tag aqui?". Aceita varios alvos; um alvo
+que nao resolve e erro, nunca omissao silenciosa.
+
+Sem alvo, ele apenas mostra o estado de todos os publicaveis e nunca falha: fora de um
+release, um pacote com a tag alguns commits atras e a situacao normal, nao um problema.
+
+`--pendentes` cobre o buraco inverso, que e o que de fato machuca o adotante: nao "tag
+faltando na cadeia", e sim CODIGO ENTREGUE E NAO PUBLICADO. A diferenca importa porque
+distancia global de commit e ruido - o sinal e commit que tocou o DIRETORIO do projeto
+desde a ultima tag dele. Foi essa a falha que deixou o Secco.SDK.Logging 0.1.0 no feed
+chamando um metodo que o Secco.LogStream.Client 0.3.0 ja havia renomeado.
 """
 
 import subprocess
@@ -101,6 +110,41 @@ def commits_ahead(tag: str) -> int:
     return int(count) if count.isdigit() else 0
 
 
+def source_commits_since(tag: str, project: Path) -> int:
+    """Commits que tocaram o DIRETORIO do projeto desde a tag.
+
+    Distancia global de commit nao serve para detectar pendencia: um pacote fica dezenas
+    de commits atras do HEAD sem ter tido uma linha alterada. O que indica release
+    pendente e commit no proprio projeto.
+    """
+    directory = project.parent.relative_to(ROOT).as_posix()
+    count = git("rev-list", "--count", f"{tag}..HEAD", "--", directory)
+
+    return int(count) if count.isdigit() else 0
+
+
+def pending_packages(projects: dict) -> list:
+    """Publicaveis com fonte alterada desde a propria tag, por nome."""
+    pending = []
+
+    for path, info in sorted(projects.items(), key=lambda item: item[1]["name"]):
+        if not info["packable"] or not info["prefix"]:
+            continue
+
+        tag = latest_tag(info["prefix"])
+
+        if tag is None:
+            pending.append((info["name"], None, 0))
+            continue
+
+        changed = source_commits_since(tag, path)
+
+        if changed:
+            pending.append((info["name"], tag, changed))
+
+    return pending
+
+
 def registered_in_workflow(prefix: str) -> bool:
     if not WORKFLOW.exists():
         return True
@@ -155,11 +199,17 @@ def report(projects: dict, target: Path) -> bool:
     healthy = True
 
     own_tag = latest_tag(info["prefix"]) if info["prefix"] else None
-    own_state = (
-        f"tag mais recente: {own_tag} ({commits_ahead(own_tag)} commits atras)"
-        if own_tag
-        else "sem tag ainda (primeira publicacao)"
-    )
+
+    if own_tag:
+        changed = source_commits_since(own_tag, target)
+        pendencia = (
+            f", {changed} commit(s) de fonte por publicar" if changed else ", nada por publicar"
+        )
+        own_state = (
+            f"tag mais recente: {own_tag} ({commits_ahead(own_tag)} commits atras{pendencia})"
+        )
+    else:
+        own_state = "sem tag ainda (primeira publicacao)"
 
     print(f"\n{info['name']}  [{info['prefix']}]  - {own_state}")
 
@@ -211,42 +261,92 @@ def main() -> int:
         print("Nenhum projeto publicavel encontrado.", file=sys.stderr)
         return 1
 
-    if len(sys.argv) > 1:
-        wanted = sys.argv[1]
-        target = resolve_target(projects, wanted)
+    arguments = sys.argv[1:]
 
-        if target is None:
+    if arguments == ["--pendentes"]:
+        return report_pending(projects)
+
+    if arguments:
+        targets = []
+        unknown = []
+
+        for wanted in arguments:
+            target = resolve_target(projects, wanted)
+
+            if target is None:
+                unknown.append(wanted)
+            elif target not in targets:
+                targets.append(target)
+
+        # Alvo que nao resolve e erro, e nao omissao: um guarda que ignora em silencio o
+        # que nao entendeu passa a dar verde sobre pacote nenhum.
+        if unknown:
             print(
-                f"Alvo '{wanted}' nao corresponde a nenhum projeto publicavel.\n"
+                f"Alvo(s) sem projeto publicavel correspondente: {', '.join(unknown)}. "
                 f"Prefixos conhecidos: "
                 f"{', '.join(sorted(i['prefix'] or '(sem prefixo)' for i in packable.values()))}",
                 file=sys.stderr,
             )
             return 1
-
-        targets = [target]
     else:
         targets = sorted(packable, key=lambda path: projects[path]["name"])
 
-    targeted = len(sys.argv) > 1
+    targeted = bool(arguments)
     healthy = all([report(projects, target) for target in targets])
 
     print()
 
     if not targeted:
+        pending = pending_packages(projects)
+
+        if pending:
+            print("Com fonte por publicar:")
+            for name, tag, changed in pending:
+                origem = f"desde {tag}" if tag else "nunca publicado"
+                print(f"  - {name} ({origem}, {changed} commit(s))")
+            print()
+
         print(
             "Levantamento apenas - nenhum veredito. Para checar antes de um release, "
-            "passe o alvo: python scripts/check-release-chain.py <prefixo-da-tag>"
+            "passe o(s) alvo(s): python scripts/check-release-chain.py <prefixo-da-tag>"
         )
         return 0
 
     if healthy:
-        print("Cadeia de release integra.")
+        print(f"Cadeia de release integra ({len(targets)} pacote(s) conferido(s)).")
         return 0
 
     print(
         "Cadeia de release INCOMPLETA - veja as linhas FALHA acima. "
         "Publique as dependencias primeiro, tagueando-as NESTE commit (ADR-0011)."
+    )
+    return 1
+
+
+def report_pending(projects: dict) -> int:
+    """Modo vigia: lista o que esta entregue e nao publicado, e reprova se houver algo.
+
+    Existe para rodar agendado. O atraso entre merge e release e normal por alguns dias -
+    o que nao e normal e ele ser esquecido, que foi como o Secco.SDK.Logging 0.1.0 ficou
+    no feed incompativel com o client publicado ao lado dele.
+    """
+    pending = pending_packages(projects)
+
+    if not pending:
+        print("Nenhum pacote com fonte por publicar.")
+        return 0
+
+    print("Pacotes com codigo entregue e NAO publicado:")
+    print()
+
+    for name, tag, changed in pending:
+        origem = f"ultima tag {tag}" if tag else "nunca publicado"
+        print(f"  {name}  -  {origem}, {changed} commit(s) de fonte depois dela")
+
+    print()
+    print(
+        "Publicar exige tag NESTE commit para cada dependencia publicavel (ADR-0011). "
+        "Rode 'python scripts/check-release-chain.py <alvo>' para ver a cadeia de cada um."
     )
     return 1
 

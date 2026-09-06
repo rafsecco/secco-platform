@@ -11,6 +11,12 @@ name: Publish NuGet
 #   notificationhub-client/v0.1.0 → Secco.NotificationHub.Client 0.1.0
 #   securegate-client/v0.1.0 → Secco.SecureGate.Client 0.1.0
 
+# ATENCAO ao empurrar varias tags: o GitHub IGNORA os gatilhos quando um unico push traz
+# MAIS DE TRES tags - nenhum workflow roda, e nada avisa. Aconteceu em 2026-09-06 com a
+# levada de seis; as tags entraram no remoto e pacote nenhum foi publicado. Empurre em levas
+# de ate tres, na ordem de dependencia, ou use o disparo manual abaixo.
+# https://github.com/orgs/community/discussions/56152
+
 on:
   push:
     tags:
@@ -24,6 +30,15 @@ on:
       - "securegate-client/v*"
       - "templates/v*"
 
+  # Disparo manual: republica uma tag que ja existe. Existe porque, sem ele, a unica forma
+  # de reexecutar uma publicacao era apagar e recriar a tag no remoto.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag ja existente a publicar (ex.: sdk-logging/v0.1.1)"
+        required: true
+        type: string
+
 permissions:
   contents: read
   packages: write
@@ -31,17 +46,23 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      # No push a tag e a propria ref; no disparo manual vem da entrada. Tudo abaixo usa
+      # SECCO_TAG, para que os dois caminhos sejam identicos daqui para frente.
+      SECCO_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           # MinVer precisa do histórico completo e das tags para calcular a versão
           fetch-depth: 0
+          # No disparo manual o checkout precisa ser DA TAG: e dela que o MinVer tira a versao.
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Map tag to project
         id: map
         run: |
-          case "${GITHUB_REF_NAME}" in
+          case "${SECCO_TAG}" in
             sharedkernel/v*) echo "project=src/SharedKernel/Secco.SharedKernel/Secco.SharedKernel.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk/v*)          echo "project=src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-efcore/v*)   echo "project=src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" >> "$GITHUB_OUTPUT" ;;
@@ -51,13 +72,13 @@ jobs:
             notificationhub-client/v*) echo "project=src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             securegate-client/v*) echo "project=src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             templates/v*)    echo "project=templates/Secco.Templates.csproj" >> "$GITHUB_OUTPUT" ;;
-            *) echo "Tag ${GITHUB_REF_NAME} sem mapeamento de pacote" >&2; exit 1 ;;
+            *) echo "Tag ${SECCO_TAG} sem mapeamento de pacote" >&2; exit 1 ;;
           esac
 
       - name: Check release chain
         # Falha ANTES do Pack, dizendo qual tag falta. Sem isto, uma dependencia sem tag
         # estavel neste commit so aparece no fim, como NU5104 — que nao diz qual e (ADR-0011).
-        run: python3 scripts/check-release-chain.py "${GITHUB_REF_NAME%%/v*}/v"
+        run: python3 scripts/check-release-chain.py "${SECCO_TAG%%/v*}/v"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
