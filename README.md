@@ -21,15 +21,16 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 
 | Produto | Descrição | Pacote / status |
 |---|---|---|
-| [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.3.3** |
-| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.4.1** |
-| [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding | `Secco.SDK.EntityFrameworkCore` **0.2.0** |
+| [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.3.5** |
+| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.5.1** |
+| [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding e cifragem de segredo em repouso (ADR-0025) | `Secco.SDK.EntityFrameworkCore` **0.4.0** |
+| [Secco.SDK.Logging](src/SDK/Secco.SDK.Logging/README.md) | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) | `Secco.SDK.Logging` **0.1.1** |
 | [Secco.SDK.Testing](src/SDK/Secco.SDK.Testing/README.md) | Base das factories de teste de integração (SQL Server real, tokens, tenancy/permissões) | `Secco.SDK.Testing` **0.1.0** |
-| [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.1.1** |
-| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.2.1** |
+| [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.3.1** |
+| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.3.0** |
 | [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Disponível (aplicação, não pacote) |
-| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail + inbox in-app) | Disponível · client `Secco.NotificationHub.Client` **0.1.0** |
-| [Secco.Templates](templates/README.md) | `dotnet new secco-service` | `Secco.Templates` **0.1.0** |
+| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail + inbox in-app) | Disponível · client `Secco.NotificationHub.Client` **0.3.0** |
+| [Secco.Templates](templates/README.md) | `dotnet new secco-service` | `Secco.Templates` **0.2.0** |
 
 ## Começando
 

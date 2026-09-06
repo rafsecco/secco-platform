@@ -12,32 +12,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.Logging
-
-- **Corrigido** a chamada de ingestão em lote acompanha a renomeação do `Secco.LogStream.Client` 0.3.0: `BatchAsync` → `CreateLogEntryBatchAsync` (issue #9).
-- **A 0.1.0 que está no feed é incompatível com o `Secco.LogStream.Client` 0.3.0.** Ela foi empacotada em `8cd8d55`, o commit em que o client ainda era 0.2.0, então o IL publicado chama um método que a 0.3.0 não tem mais. Instalar os dois pacotes na versão mais recente produz `MissingMethodException` no despacho do lote — e o dispatcher captura tudo por design (ADR-0008: LogStream indisponível não derruba o produto), então o sintoma não é processo caído: é log que simplesmente não chega, com a falha registrada só no logger local. Publicar esta correção é o que fecha a combinação quebrada.
-
-### Secco.SDK.EntityFrameworkCore
-
-- **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025.
-- Promovidos do `Secco.SecureGate.Infrastructure`, onde eram internos ao produto. O `secco-intranet` já havia reimplementado o mesmo formato por conta própria; o `Secco.NotificationHub` seria a terceira implementação independente do mesmo formato criptográfico. O tipo recebe as chaves já decodificadas e **não** conhece configuração de produto: a política de origem da chave continua em cada produto.
-- **Sem mudança de formato nem de dado.** Os testes de comportamento vieram junto e passam com as mesmas asserções, incluindo a do prefixo literal — que é contrato de dado já gravado.
-
-### Secco.Templates
-
-O pacote está oito commits atrás do template que o CI valida. O job `validate-template` instancia o template **a partir do fonte**, então a divergência do pacote publicado não aparece em lugar nenhum — ADR-0013 trata divergência entre template e padrão como defeito de prioridade alta. O que o pacote 0.1.0 ainda não tem:
-
-- `.WithName(...)` nos três endpoints do recurso Sample (issue #9) — sem ele, todo produto gerado nasce com o defeito de `operationId` que custou uma renomeação de client.
-- Permissões (ADR-0021) nos endpoints do recurso Sample.
-- `Secco.SDK.Testing` na suíte de testes gerada (ADR-0027) e a seleção de provider por receita (`SeccoDatabaseProviders`).
-- `AddOptions<T>().BindConfiguration()` no lugar do `BindSection` apagado.
-- Indentação com tab e as correções de build de imagem e compose.
+_Nada pendente._ A rodada de 2026-09-06 publicou tudo o que estava aqui: `Secco.SDK.Logging` 0.1.1, `Secco.SDK.EntityFrameworkCore` 0.4.0 e `Secco.Templates` 0.2.0, mais os três bumps de cadeia exigidos pelo MinVer. Detalhes na seção seguinte.
 
 ---
 
 ## Publicado
 
 ### Secco.SharedKernel
+
+#### 0.3.5 — 2026-09-06
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` entre a 0.3.4 e esta tag é vazio. Mesmo motivo da 0.3.4 e da 0.3.3 — seis pacotes saem do commit `56e4a3f` e dependem do SharedKernel por `ProjectReference`; sem tag estável da dependência **no mesmo commit**, o MinVer a resolveria como pré-release e o Pack falharia com NU5104 (ADR-0011).
 
 #### 0.3.4 — 2026-09-05
 
@@ -58,6 +43,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.SDK.AspNetCore
 
+#### 0.5.1 — 2026-09-06
+
+Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre a 0.5.0 e esta tag é vazio. Sai do commit `56e4a3f` pela mesma cadeia de dependência do MinVer (ADR-0011) — o `Secco.SDK.Logging` 0.1.1 o referencia por `ProjectReference`.
+
 #### 0.5.0 — 2026-09-05
 
 - **Adicionado** `SeccoAmbientContext`: espelho ambiente (`AsyncLocal`) do tenant e da correlação, escrito pelos middlewares de correlação e tenancy e por `TenantScopeExtensions.SetTenant`. Existe porque `ITenantContext`/`ICorrelationContext` são `Scoped` e há consumidores singleton por natureza — o caso concreto é um `ILoggerProvider`. Dentro de um job do Hangfire há escopo de DI mas não há `HttpContext`, então `IHttpContextAccessor` não resolveria o caso geral.
@@ -74,6 +63,12 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.SDK.EntityFrameworkCore
 
+#### 0.4.0 — 2026-09-06
+
+- **Adicionado** `ISeccoSecretCipher` e `AesGcmSecretCipher`: cifragem AES-256-GCM de segredo em repouso, no formato versionado `secco-enc:v1:` da ADR-0025.
+- Promovidos do `Secco.SecureGate.Infrastructure`, onde eram internos ao produto. O `secco-intranet` já havia reimplementado o mesmo formato por conta própria; o `Secco.NotificationHub` seria a terceira implementação independente do mesmo formato criptográfico. O tipo recebe as chaves já decodificadas e **não** conhece configuração de produto: a política de origem da chave continua em cada produto.
+- **Sem mudança de formato nem de dado.** Os testes de comportamento vieram junto e passam com as mesmas asserções, incluindo a do prefixo literal — que é contrato de dado já gravado.
+
 #### 0.3.0 — 2026-09-05
 
 - **Adicionado** `SeccoDatabaseProviders`: seleção de provider de banco por receita. O produto declara o que aplicar (incluindo o assembly de migrations), o SDK apenas seleciona — **sem nenhuma dependência de engine adicionada ao pacote**, preservando a cláusula de extensibilidade da ADR-0018.
@@ -85,6 +80,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-11 |
 
 ### Secco.LogStream.Client
+
+#### 0.3.1 — 2026-09-06
+
+Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Client` entre a 0.3.0 e esta tag é vazio. Sai do commit `56e4a3f` pela cadeia de dependência do MinVer (ADR-0011).
 
 #### 0.3.0 — 2026-09-05
 
@@ -117,6 +116,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.Logging
+
+#### 0.1.1 — 2026-09-06
+
+- **Corrigido** a chamada de ingestão em lote acompanha a renomeação do `Secco.LogStream.Client` 0.3.0: `BatchAsync` → `CreateLogEntryBatchAsync` (issue #9).
+- **Fecha a combinação quebrada do feed.** A 0.1.0 foi empacotada em `8cd8d55`, commit em que o client ainda era 0.2.0, então o IL publicado chamava um método que a 0.3.0 não tem mais. Instalar os dois pacotes na versão mais recente produzia `MissingMethodException` no despacho do lote — e o dispatcher captura tudo por design (ADR-0008: LogStream indisponível não derruba o produto), então o sintoma não era processo caído: era log que simplesmente não chegava, com a falha registrada só no logger local.
 
 #### 0.1.0 — 2026-09-05
 
@@ -160,6 +164,16 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 Primeira versão. Client NSwag gerado do `openapi.json` versionado do NotificationHub (ADR-0006) — a única forma legítima de outro produto da plataforma falar com ele. Cobre o despacho multi-canal, a consulta de status e os endpoints de inbox in-app.
 
 ### Secco.Templates
+
+#### 0.2.0 — 2026-09-06
+
+Alinha o pacote publicado ao template que o CI valida. O job `validate-template` instancia o template **a partir do fonte**, então a divergência do pacote não aparecia em lugar nenhum — e a ADR-0013 trata divergência entre template e padrão como defeito de prioridade alta. O que a 0.1.0 não tinha:
+
+- `.WithName(...)` nos três endpoints do recurso Sample (issue #9) — sem ele, todo produto gerado nascia com o defeito de `operationId` que custou uma renomeação de client.
+- Permissões (ADR-0021) nos endpoints do recurso Sample.
+- `Secco.SDK.Testing` na suíte de testes gerada (ADR-0027) e a seleção de provider por receita (`SeccoDatabaseProviders`).
+- `AddOptions<T>().BindConfiguration()` no lugar do `BindSection` apagado.
+- Indentação com tab e as correções de build de imagem e compose.
 
 | Versão | Data |
 |---|---|
