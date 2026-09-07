@@ -17,6 +17,7 @@ public sealed record NotificationDestination(Guid? UserId, string? Recipient);
 /// <param name="Source">Origem, texto livre (o Hub nunca interpreta). Opcional.</param>
 /// <param name="Type">Tipo, texto livre (o Hub nunca interpreta). Opcional.</param>
 /// <param name="Link">Link de destino do item in-app, quando houver. Opcional.</param>
+/// <param name="ScheduledFor">Instante da entrega. Ausente = imediato; no passado = imediato. Opcional.</param>
 /// <param name="Channels">Canais de entrega solicitados, iguais para todos os destinos. Obrigatório.</param>
 /// <param name="Destinations">Destinos. Obrigatório, não vazio, limitado por configuração.</param>
 public sealed record DispatchNotificationBatchCommand(
@@ -25,6 +26,7 @@ public sealed record DispatchNotificationBatchCommand(
 	string? Source,
 	string? Type,
 	string? Link,
+	DateTimeOffset? ScheduledFor,
 	IReadOnlyCollection<string>? Channels,
 	IReadOnlyList<NotificationDestination>? Destinations);
 
@@ -82,7 +84,7 @@ public sealed class DispatchNotificationBatchHandler(
 
 		var content = NotificationInputRules.ValidateContent(
 			command.Channels, command.Title, command.Message,
-			command.Source, command.Type, command.Link, options);
+			command.Source, command.Type, command.Link, command.ScheduledFor, options);
 
 		if (content.IsFailure)
 		{
@@ -127,7 +129,8 @@ public sealed class DispatchNotificationBatchHandler(
 			if (content.Value.Email)
 			{
 				notification = new Notification(
-					destination.Recipient!, command.Title!, command.Message!, command.Source, command.Type);
+					destination.Recipient!, command.Title!, command.Message!, command.Source, command.Type,
+					command.ScheduledFor);
 				notifications.Add(notification);
 			}
 
@@ -135,7 +138,7 @@ public sealed class DispatchNotificationBatchHandler(
 			{
 				inAppNotification = new InAppNotification(
 					destination.UserId!.Value, command.Source, command.Type,
-					command.Title!, command.Message!, command.Link);
+					command.Title!, command.Message!, command.Link, command.ScheduledFor);
 				inAppNotifications.Add(inAppNotification);
 			}
 
@@ -149,7 +152,7 @@ public sealed class DispatchNotificationBatchHandler(
 			// Só depois de persistido: um job que rode antes do commit não acharia a notificação.
 			foreach (var notification in notifications)
 			{
-				emailDispatchQueue.Enqueue(notification.Id);
+				emailDispatchQueue.Enqueue(notification.Id, command.ScheduledFor);
 			}
 		}
 
@@ -174,10 +177,10 @@ public sealed class DispatchNotificationBatchHandler(
 			}
 
 			var delivery = Notification.ForExternalChannel(
-				channel, command.Title!, command.Message!, command.Source, command.Type);
+				channel, command.Title!, command.Message!, command.Source, command.Type, command.ScheduledFor);
 
 			await notificationRepository.AddAsync(delivery, cancellationToken).ConfigureAwait(false);
-			externalChannelDispatchQueue.Enqueue(delivery.Id);
+			externalChannelDispatchQueue.Enqueue(delivery.Id, command.ScheduledFor);
 
 			externalIds.Add(delivery.Id);
 		}

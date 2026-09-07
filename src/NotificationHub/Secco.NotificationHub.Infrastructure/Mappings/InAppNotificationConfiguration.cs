@@ -13,6 +13,8 @@ internal sealed class InAppNotificationConfiguration : IEntityTypeConfiguration<
 {
 	public void Configure(EntityTypeBuilder<InAppNotification> builder)
 	{
-		builder.HasIndex(notification => new { notification.UserId, notification.IsRead });
+		// ScheduledFor entra no mesmo índice: a consulta de não lidas sempre filtra os três
+		// campos juntos (UserId, IsRead e o porteiro de visibilidade por tempo).
+		builder.HasIndex(notification => new { notification.UserId, notification.IsRead, notification.ScheduledFor });
 	}
 }

@@ -86,12 +86,19 @@ public class DispatchNotificationBatchHandlerTests
 	{
 		public List<Guid> Enqueued { get; } = [];
 
-		public void Enqueue(Guid notificationId) => Enqueued.Add(notificationId);
+		/// <summary>Instante pedido em cada chamada, na ordem recebida — nulo quando foi imediata.</summary>
+		public List<DateTimeOffset?> ScheduledFor { get; } = [];
+
+		public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
+		{
+			Enqueued.Add(notificationId);
+			ScheduledFor.Add(scheduledFor);
+		}
 	}
 
 	private static DispatchNotificationBatchCommand Command(
 		IReadOnlyList<NotificationDestination> destinations, params string[] channels) =>
-		new("Aviso do Mural", "Corpo da publicacao", "mural", "publicacao", null,
+		new("Aviso do Mural", "Corpo da publicacao", "mural", "publicacao", null, null,
 			channels.Length > 0 ? channels : [NotificationHubChannels.Email], destinations);
 
 	private static (DispatchNotificationBatchHandler Handler,
@@ -246,11 +253,51 @@ public class DispatchNotificationBatchHandlerTests
 
 		var result = await handler.HandleAsync(
 			new DispatchNotificationBatchCommand(
-				Title: null, Message: "Corpo", Source: null, Type: null, Link: null,
+				Title: null, Message: "Corpo", Source: null, Type: null, Link: null, ScheduledFor: null,
 				Channels: [NotificationHubChannels.Email],
 				Destinations: [new NotificationDestination(null, "ok@empresa.com")]));
 
 		result.Error.Should().Be(NotificationHubErrors.Notifications.TitleRequired);
 		notifications.Added.Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task Batch_WithScheduledFor_SchedulesEveryNotificationInsteadOfEnqueuingImmediately()
+	{
+		var (handler, notifications, _, queue) = Create();
+		var scheduledFor = DateTimeOffset.UtcNow.AddDays(2);
+
+		var destinations = new List<NotificationDestination>
+		{
+			new(null, "um@empresa.com"),
+			new(null, "dois@empresa.com"),
+		};
+
+		var command = new DispatchNotificationBatchCommand(
+			"Aviso do Mural", "Corpo da publicacao", "mural", "publicacao", null, scheduledFor,
+			[NotificationHubChannels.Email], destinations);
+
+		var result = await handler.HandleAsync(command);
+
+		result.IsSuccess.Should().BeTrue();
+		notifications.Added.Should().AllSatisfy(notification => notification.ScheduledFor.Should().Be(scheduledFor));
+		queue.ScheduledFor.Should().AllSatisfy(value => value.Should().Be(scheduledFor));
+	}
+
+	[Fact]
+	public async Task Batch_WithScheduledForBeyondHorizon_IsRefused()
+	{
+		var (handler, _, _, _) = Create();
+		var options = new NotificationHubOptions();
+		var scheduledFor = DateTimeOffset.UtcNow.AddDays(options.MaxScheduleHorizonDays + 1);
+
+		var command = new DispatchNotificationBatchCommand(
+			"Aviso do Mural", "Corpo da publicacao", "mural", "publicacao", null, scheduledFor,
+			[NotificationHubChannels.Email], [new NotificationDestination(null, "um@empresa.com")]);
+
+		var result = await handler.HandleAsync(command);
+
+		result.IsFailure.Should().BeTrue();
+		result.Error.Should().Be(NotificationHubErrors.Notifications.ScheduledTooFarAhead(options.MaxScheduleHorizonDays));
 	}
 }

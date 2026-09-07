@@ -37,6 +37,7 @@ public static class NotificationInputRules
 	/// <param name="source">Origem (texto livre).</param>
 	/// <param name="type">Tipo (texto livre).</param>
 	/// <param name="link">Link do item in-app.</param>
+	/// <param name="scheduledFor">Instante da entrega. Nulo ou no passado = imediata.</param>
 	/// <param name="options">Limites configurados.</param>
 	public static Result<RequestedChannels> ValidateContent(
 		IReadOnlyCollection<string>? channels,
@@ -45,6 +46,7 @@ public static class NotificationInputRules
 		string? source,
 		string? type,
 		string? link,
+		DateTimeOffset? scheduledFor,
 		NotificationHubOptions options)
 	{
 		ArgumentNullException.ThrowIfNull(options);
@@ -128,6 +130,17 @@ public static class NotificationInputRules
 		{
 			return Result.Failure<RequestedChannels>(
 				NotificationHubErrors.Notifications.LinkTooLong(options.MaxLinkLength));
+		}
+
+		// Teto de horizonte, não de passado: o storage do Hangfire fica no banco de PLATAFORMA,
+		// compartilhado entre tenants (ADR-0015). Sem teto, um chamador acumularia jobs
+		// indefinidamente em infraestrutura comum — negação de serviço, não só desperdício
+		// (ADR-0020). Data no passado NÃO é validada aqui: vira entrega imediata, e recusar
+		// criaria modo de falha por diferença de relógio entre chamador e servidor.
+		if (scheduledFor > DateTimeOffset.UtcNow.AddDays(options.MaxScheduleHorizonDays))
+		{
+			return Result.Failure<RequestedChannels>(
+				NotificationHubErrors.Notifications.ScheduledTooFarAhead(options.MaxScheduleHorizonDays));
 		}
 
 		return Result.Success(new RequestedChannels(wantsEmail, wantsInApp, external));

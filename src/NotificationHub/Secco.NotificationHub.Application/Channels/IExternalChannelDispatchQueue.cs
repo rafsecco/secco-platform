@@ -10,5 +10,9 @@ public interface IExternalChannelDispatchQueue
 {
 	/// <summary>Enfileira a entrega de uma notificação já persistida.</summary>
 	/// <param name="notificationId">Identificador da entrega.</param>
-	void Enqueue(Guid notificationId);
+	/// <param name="scheduledFor">
+	/// Instante da entrega. Nulo (default) = imediata; um instante no passado também enfileira
+	/// de imediato.
+	/// </param>
+	void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null);
 }

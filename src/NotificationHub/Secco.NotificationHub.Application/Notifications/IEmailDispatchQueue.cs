@@ -10,5 +10,9 @@ public interface IEmailDispatchQueue
 {
 	/// <summary>Enfileira o envio de uma notificação já persistida.</summary>
 	/// <param name="notificationId">Identificador da notificação a enviar.</param>
-	void Enqueue(Guid notificationId);
+	/// <param name="scheduledFor">
+	/// Instante do envio. Nulo (default) = imediato; um instante no passado também enfileira
+	/// de imediato.
+	/// </param>
+	void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null);
 }

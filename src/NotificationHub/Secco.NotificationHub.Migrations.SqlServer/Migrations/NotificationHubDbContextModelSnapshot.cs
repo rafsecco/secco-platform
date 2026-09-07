@@ -91,6 +91,10 @@ namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("dt_read_at");
 
+                    b.Property<DateTimeOffset?>("ScheduledFor")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_scheduled_for");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -113,8 +117,8 @@ namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
                     b.HasKey("Id")
                         .HasName("pk_in_app_notifications");
 
-                    b.HasIndex("UserId", "IsRead")
-                        .HasDatabaseName("idx_in_app_notifications_user_id_fl_read");
+                    b.HasIndex("UserId", "IsRead", "ScheduledFor")
+                        .HasDatabaseName("idx_in_app_notifications_user_id_fl_read_dt_scheduled_for");
 
                     b.ToTable("tb_in_app_notifications");
                 });
@@ -147,6 +151,10 @@ namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("ds_recipient");
 
+                    b.Property<DateTimeOffset?>("ScheduledFor")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_scheduled_for");
+
                     b.Property<DateTimeOffset?>("SentAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("dt_sent_at");
@@ -175,6 +183,9 @@ namespace Secco.NotificationHub.Migrations.SqlServer.Migrations
 
                     b.HasIndex("CreatedAt")
                         .HasDatabaseName("idx_notifications_dt_created_at");
+
+                    b.HasIndex("ScheduledFor")
+                        .HasDatabaseName("idx_notifications_dt_scheduled_for");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("idx_notifications_ie_status");

@@ -10,6 +10,14 @@ namespace Secco.NotificationHub.Application.Notifications;
 /// <param name="Channel">Canal da entrega exato.</param>
 /// <param name="Source">Origem, texto livre — igualdade exata (nunca <c>LIKE</c>).</param>
 /// <param name="Type">Tipo, texto livre — igualdade exata (nunca <c>LIKE</c>).</param>
+/// <param name="ScheduledFrom">
+/// Agendadas a partir deste momento (inclusive). Filtra <see cref="Notification.ScheduledFor"/> —
+/// diferente de <paramref name="From"/>/<paramref name="To"/>, que filtram a criação.
+/// </param>
+/// <param name="ScheduledTo">
+/// Agendadas até este momento (inclusive). Filtra <see cref="Notification.ScheduledFor"/> —
+/// diferente de <paramref name="From"/>/<paramref name="To"/>, que filtram a criação.
+/// </param>
 /// <param name="Page">Paginação (1-based, normalizada pelo <see cref="PageRequest"/>).</param>
 public sealed record NotificationSearchCriteria(
 	DateTimeOffset? From = null,
@@ -18,6 +26,8 @@ public sealed record NotificationSearchCriteria(
 	NotificationChannel? Channel = null,
 	string? Source = null,
 	string? Type = null,
+	DateTimeOffset? ScheduledFrom = null,
+	DateTimeOffset? ScheduledTo = null,
 	PageRequest? Page = null)
 {
 	/// <summary>Paginação efetiva (default da plataforma quando não informada).</summary>

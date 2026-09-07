@@ -26,6 +26,7 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
 
 		builder.HasIndex(notification => notification.Status);
 		builder.HasIndex(notification => notification.CreatedAt);
+		builder.HasIndex(notification => notification.ScheduledFor);
 		builder.HasIndex(notification => new { notification.Source, notification.Type });
 	}
 }

@@ -27,8 +27,13 @@ public sealed class InAppNotification : BaseEntity
 	/// <param name="title">Título pronto. Obrigatório.</param>
 	/// <param name="message">Mensagem pronta. Obrigatório.</param>
 	/// <param name="link">Link de destino ao clicar, quando houver. Opcional.</param>
+	/// <param name="scheduledFor">
+	/// Instante a partir do qual o item fica visível no inbox. Nulo = visível de imediato. Opcional.
+	/// </param>
 	/// <exception cref="DomainInvariantException">Se o dono for <see cref="Guid.Empty"/>, ou título/mensagem forem nulos/vazios.</exception>
-	public InAppNotification(Guid userId, string? source, string? type, string title, string message, string? link)
+	public InAppNotification(
+		Guid userId, string? source, string? type, string title, string message, string? link,
+		DateTimeOffset? scheduledFor = null)
 	{
 		if (userId == Guid.Empty)
 		{
@@ -51,6 +56,7 @@ public sealed class InAppNotification : BaseEntity
 		Title = title;
 		Message = message;
 		Link = link;
+		ScheduledFor = scheduledFor;
 		IsRead = false;
 		CreatedAt = DateTimeOffset.UtcNow;
 	}
@@ -78,6 +84,13 @@ public sealed class InAppNotification : BaseEntity
 
 	/// <summary>Momento da criação (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }
+
+	/// <summary>
+	/// Instante a partir do qual o item fica visível no inbox (coluna <c>dt_scheduled_for</c>).
+	/// Nulo significa visível desde a criação. Não há job de transição: a visibilidade é
+	/// derivada comparando este valor ao relógio no momento da consulta.
+	/// </summary>
+	public DateTimeOffset? ScheduledFor { get; private set; }
 
 	/// <summary>Momento em que foi marcada como lida, quando houver (coluna <c>dt_read_at</c>).</summary>
 	public DateTimeOffset? ReadAt { get; private set; }

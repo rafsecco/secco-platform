@@ -39,9 +39,12 @@ public sealed class Notification : BaseEntity
 	/// <param name="body">Corpo pronto (texto ou HTML). Obrigatório.</param>
 	/// <param name="source">Origem, texto livre (o Hub nunca interpreta). Opcional.</param>
 	/// <param name="type">Tipo, texto livre (o Hub nunca interpreta). Opcional.</param>
+	/// <param name="scheduledFor">Instante da entrega. Nulo = imediata. Opcional.</param>
 	/// <exception cref="DomainInvariantException">Se destinatário, assunto ou corpo forem nulos/vazios.</exception>
-	public Notification(string recipient, string subject, string body, string? source = null, string? type = null)
-		: this(NotificationChannel.Email, recipient, subject, body, source, type)
+	public Notification(
+		string recipient, string subject, string body, string? source = null, string? type = null,
+		DateTimeOffset? scheduledFor = null)
+		: this(NotificationChannel.Email, recipient, subject, body, source, type, scheduledFor)
 	{
 	}
 
@@ -51,13 +54,16 @@ public sealed class Notification : BaseEntity
 	/// <param name="body">Corpo pronto. Obrigatório.</param>
 	/// <param name="source">Origem, texto livre (o Hub nunca interpreta). Opcional.</param>
 	/// <param name="type">Tipo, texto livre (o Hub nunca interpreta). Opcional.</param>
+	/// <param name="scheduledFor">Instante da entrega. Nulo = imediata. Opcional.</param>
 	/// <exception cref="DomainInvariantException">Se assunto ou corpo forem nulos/vazios.</exception>
 	public static Notification ForExternalChannel(
-		NotificationChannel channel, string subject, string body, string? source = null, string? type = null) =>
-		new(channel, recipient: null, subject, body, source, type);
+		NotificationChannel channel, string subject, string body, string? source = null, string? type = null,
+		DateTimeOffset? scheduledFor = null) =>
+		new(channel, recipient: null, subject, body, source, type, scheduledFor);
 
 	private Notification(
-		NotificationChannel channel, string? recipient, string subject, string body, string? source, string? type)
+		NotificationChannel channel, string? recipient, string subject, string body, string? source, string? type,
+		DateTimeOffset? scheduledFor)
 	{
 		// O destinatário é exigido apenas no canal de e-mail: nos externos o destino vem da
 		// configuração do tenant, e um endereço no registro seria dado sem significado.
@@ -82,6 +88,7 @@ public sealed class Notification : BaseEntity
 		Body = body;
 		Source = source;
 		Type = type;
+		ScheduledFor = scheduledFor;
 		Status = NotificationStatus.Pending;
 		CreatedAt = DateTimeOffset.UtcNow;
 	}
@@ -115,6 +122,12 @@ public sealed class Notification : BaseEntity
 
 	/// <summary>Momento da criação (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }
+
+	/// <summary>
+	/// Instante em que a entrega deve ser enfileirada para envio (coluna <c>dt_scheduled_for</c>).
+	/// Nulo significa entrega imediata.
+	/// </summary>
+	public DateTimeOffset? ScheduledFor { get; private set; }
 
 	/// <summary>Momento do envio bem-sucedido, quando houver (coluna <c>dt_sent_at</c>).</summary>
 	public DateTimeOffset? SentAt { get; private set; }

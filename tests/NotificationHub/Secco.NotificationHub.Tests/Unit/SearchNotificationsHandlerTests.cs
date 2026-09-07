@@ -36,6 +36,19 @@ public class SearchNotificationsHandlerTests
 	}
 
 	[Fact]
+	public async Task HandleAsync_WithScheduledFromAfterScheduledTo_ReturnsInvalidDateRange()
+	{
+		var handler = CreateHandler(out _);
+		var now = DateTimeOffset.UtcNow;
+
+		var result = await handler.HandleAsync(
+			new NotificationSearchCriteria(ScheduledFrom: now, ScheduledTo: now.AddDays(-1)));
+
+		result.IsFailure.Should().BeTrue();
+		result.Error.Should().Be(NotificationHubErrors.Notifications.InvalidDateRange);
+	}
+
+	[Fact]
 	public async Task HandleAsync_WithSourceAboveLimit_ReturnsSourceTooLong()
 	{
 		var handler = CreateHandler(out _);

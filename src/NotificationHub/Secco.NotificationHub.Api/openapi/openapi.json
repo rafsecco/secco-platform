@@ -102,6 +102,22 @@
             }
           },
           {
+            "name": "scheduledFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "scheduledTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -485,6 +501,7 @@
           "source",
           "type",
           "link",
+          "scheduledFor",
           "channels",
           "destinations"
         ],
@@ -519,6 +536,13 @@
               "null",
               "string"
             ]
+          },
+          "scheduledFor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "channels": {
             "type": [
@@ -573,6 +597,7 @@
           "source",
           "type",
           "link",
+          "scheduledFor",
           "channels"
         ],
         "type": "object",
@@ -619,6 +644,13 @@
               "null",
               "string"
             ]
+          },
+          "scheduledFor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "channels": {
             "type": [
@@ -675,6 +707,7 @@
           "link",
           "isRead",
           "createdAt",
+          "scheduledFor",
           "readAt"
         ],
         "type": "object",
@@ -710,6 +743,13 @@
           },
           "createdAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "readAt": {
@@ -762,6 +802,7 @@
           "status",
           "failureReason",
           "createdAt",
+          "scheduledFor",
           "sentAt"
         ],
         "type": "object",
@@ -805,6 +846,13 @@
           },
           "createdAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           },
           "sentAt": {

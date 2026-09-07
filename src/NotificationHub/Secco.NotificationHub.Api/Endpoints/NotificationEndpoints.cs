@@ -14,6 +14,7 @@ namespace Secco.NotificationHub.Api.Endpoints;
 /// <param name="Source">Origem, texto livre — o Hub nunca interpreta. Opcional.</param>
 /// <param name="Type">Tipo, texto livre — o Hub nunca interpreta. Opcional.</param>
 /// <param name="Link">Link de destino do item in-app, quando houver. Opcional.</param>
+/// <param name="ScheduledFor">Instante da entrega. Ausente = imediato; no passado = imediato.</param>
 /// <param name="Channels">Canais de entrega: <c>email</c>, <c>in_app</c>, ou ambos.</param>
 public sealed record DispatchNotificationRequest(
 	Guid? UserId,
@@ -23,6 +24,7 @@ public sealed record DispatchNotificationRequest(
 	string? Source,
 	string? Type,
 	string? Link,
+	DateTimeOffset? ScheduledFor,
 	IReadOnlyCollection<string>? Channels);
 
 
@@ -34,6 +36,7 @@ public sealed record DispatchNotificationRequest(
 /// <param name="Source">Origem, texto livre. Opcional.</param>
 /// <param name="Type">Tipo, texto livre. Opcional.</param>
 /// <param name="Link">Link do item in-app, quando houver. Opcional.</param>
+/// <param name="ScheduledFor">Instante da entrega. Ausente = imediato; no passado = imediato.</param>
 /// <param name="Channels">Canais solicitados, iguais para todos os destinos. Obrigatório.</param>
 /// <param name="Destinations">Destinos. Um destino inválido reprova o lote inteiro.</param>
 public sealed record DispatchNotificationBatchRequest(
@@ -42,6 +45,7 @@ public sealed record DispatchNotificationBatchRequest(
 	string? Source,
 	string? Type,
 	string? Link,
+	DateTimeOffset? ScheduledFor,
 	IReadOnlyCollection<string>? Channels,
 	IReadOnlyList<NotificationDestination>? Destinations);
 
@@ -59,7 +63,7 @@ public static class NotificationEndpoints
 			(await handler.HandleAsync(
 				new DispatchNotificationCommand(
 					request.UserId, request.Recipient, request.Title, request.Message,
-					request.Source, request.Type, request.Link, request.Channels),
+					request.Source, request.Type, request.Link, request.ScheduledFor, request.Channels),
 				cancellationToken))
 				.ToHttpResult(result => Results.Accepted(value: result)))
 			.RequireAuthorization(NotificationHubPermissions.Notifications.Write)
@@ -75,7 +79,7 @@ public static class NotificationEndpoints
 			(await handler.HandleAsync(
 				new DispatchNotificationBatchCommand(
 					request.Title, request.Message, request.Source, request.Type,
-					request.Link, request.Channels, request.Destinations),
+					request.Link, request.ScheduledFor, request.Channels, request.Destinations),
 				cancellationToken))
 				.ToHttpResult(result => Results.Accepted(value: result)))
 			.RequireAuthorization(NotificationHubPermissions.Notifications.Write)
@@ -99,9 +103,10 @@ public static class NotificationEndpoints
 				DateTimeOffset? from, DateTimeOffset? to,
 				NotificationStatus? status, NotificationChannel? channel,
 				string? source, string? type,
+				DateTimeOffset? scheduledFrom, DateTimeOffset? scheduledTo,
 				int? page, int? size) =>
 			(await handler.HandleAsync(
-				new NotificationSearchCriteria(from, to, status, channel, source, type,
+				new NotificationSearchCriteria(from, to, status, channel, source, type, scheduledFrom, scheduledTo,
 					new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize)),
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))

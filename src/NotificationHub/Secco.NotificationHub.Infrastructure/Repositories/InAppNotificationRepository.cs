@@ -28,19 +28,32 @@ internal sealed class InAppNotificationRepository(NotificationHubDbContext conte
 			.FirstOrDefaultAsync(notification => notification.Id == id, cancellationToken)
 			.ConfigureAwait(false);
 
-	public async Task<IReadOnlyList<InAppNotification>> GetUnreadByUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
-		await context.InAppNotifications
+	public async Task<IReadOnlyList<InAppNotification>> GetUnreadByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		// Sem job de transição (Fase 8.4 + agendamento): "não lido" também exige que o instante
+		// agendado já tenha chegado. Capturado ANTES da query para o EF traduzir como parâmetro,
+		// não recalcular a cada linha avaliada.
+		var now = DateTimeOffset.UtcNow;
+
+		return await context.InAppNotifications
 			.AsNoTracking()
-			.Where(notification => notification.UserId == userId && !notification.IsRead)
+			.Where(notification => notification.UserId == userId && !notification.IsRead
+				&& (notification.ScheduledFor == null || notification.ScheduledFor <= now))
 			.OrderByDescending(notification => notification.CreatedAt)
 			.ThenByDescending(notification => notification.Id)
 			.ToListAsync(cancellationToken)
 			.ConfigureAwait(false);
+	}
 
-	public Task<int> CountUnreadByUserAsync(Guid userId, CancellationToken cancellationToken = default) =>
-		context.InAppNotifications
+	public Task<int> CountUnreadByUserAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		var now = DateTimeOffset.UtcNow;
+
+		return context.InAppNotifications
 			.AsNoTracking()
-			.CountAsync(notification => notification.UserId == userId && !notification.IsRead, cancellationToken);
+			.CountAsync(notification => notification.UserId == userId && !notification.IsRead
+				&& (notification.ScheduledFor == null || notification.ScheduledFor <= now), cancellationToken);
+	}
 
 	public async Task UpdateAsync(InAppNotification notification, CancellationToken cancellationToken = default)
 	{

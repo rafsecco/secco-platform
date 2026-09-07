@@ -12,7 +12,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ Tudo que estava aqui foi publicado — a rodada mais recente saiu em 2026-09-06. Detalhes na seção seguinte.
+### Secco.SDK.AspNetCore
+
+- **Adicionado** `IBackgroundJobScheduler.Schedule<TJob, TPayload>(Guid tenantId, TPayload payload, DateTimeOffset enqueueAt)` — agenda um job para um instante futuro (issue #24). O `Enqueue` continua igual, o `TenantJobRunner` restaura o tenant do mesmo jeito, e instante no passado o Hangfire enfileira imediatamente.
+- **Atenção a quem implementa a interface**: membro novo em interface pública quebra implementações próprias. Nenhuma é conhecida — a única no repositório é a `HangfireBackgroundJobScheduler`, interna ao SDK —, mas quem tiver a sua precisa acrescentar o método.
+
+### Secco.NotificationHub.Client
+
+- **Adicionado (aditivo)** `ScheduledFor` em `DispatchNotificationRequest` e `DispatchNotificationBatchRequest` — instante da entrega (issue #24). Ausente ou no passado: entrega imediata, o comportamento de hoje.
+- **Adicionado (aditivo)** `ScheduledFor` em `NotificationDto` e `InAppNotificationDto`, e os filtros `scheduledFrom`/`scheduledTo` em `SearchNotificationsAsync`.
+- Nenhum método existente foi renomeado.
 
 ---
 

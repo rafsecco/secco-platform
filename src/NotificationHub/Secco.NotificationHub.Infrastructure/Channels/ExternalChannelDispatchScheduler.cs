@@ -13,7 +13,7 @@ namespace Secco.NotificationHub.Infrastructure.Channels;
 internal sealed class ExternalChannelDispatchScheduler(
 	IBackgroundJobScheduler scheduler, ITenantContext tenantContext) : IExternalChannelDispatchQueue
 {
-	public void Enqueue(Guid notificationId)
+	public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
 	{
 		if (tenantContext.TenantId is not { } tenantId)
 		{
@@ -21,7 +21,15 @@ internal sealed class ExternalChannelDispatchScheduler(
 			throw new DomainInvariantException("Não é possível enfileirar a entrega sem um tenant resolvido.");
 		}
 
-		scheduler.Enqueue<SendExternalChannelJob, SendExternalChannelPayload>(
-			tenantId, new SendExternalChannelPayload(notificationId));
+		var payload = new SendExternalChannelPayload(notificationId);
+
+		if (scheduledFor is { } enqueueAt)
+		{
+			scheduler.Schedule<SendExternalChannelJob, SendExternalChannelPayload>(tenantId, payload, enqueueAt);
+		}
+		else
+		{
+			scheduler.Enqueue<SendExternalChannelJob, SendExternalChannelPayload>(tenantId, payload);
+		}
 	}
 }

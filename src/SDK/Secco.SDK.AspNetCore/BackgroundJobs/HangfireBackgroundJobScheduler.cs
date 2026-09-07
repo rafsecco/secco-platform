@@ -9,4 +9,9 @@ internal sealed class HangfireBackgroundJobScheduler(IBackgroundJobClient client
 		where TJob : IBackgroundJob<TPayload> =>
 		client.Enqueue<TenantJobRunner<TJob, TPayload>>(
 			runner => runner.RunAsync(tenantId, payload, CancellationToken.None));
+
+	public string Schedule<TJob, TPayload>(Guid tenantId, TPayload payload, DateTimeOffset enqueueAt)
+		where TJob : IBackgroundJob<TPayload> =>
+		client.Schedule<TenantJobRunner<TJob, TPayload>>(
+			runner => runner.RunAsync(tenantId, payload, CancellationToken.None), enqueueAt);
 }

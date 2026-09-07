@@ -42,7 +42,14 @@ internal sealed class FakeExternalChannelDispatchQueue : IExternalChannelDispatc
 {
 	public List<Guid> Enqueued { get; } = [];
 
-	public void Enqueue(Guid notificationId) => Enqueued.Add(notificationId);
+	/// <summary>Instante pedido em cada chamada, na ordem recebida — nulo quando foi imediata.</summary>
+	public List<DateTimeOffset?> ScheduledFor { get; } = [];
+
+	public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
+	{
+		Enqueued.Add(notificationId);
+		ScheduledFor.Add(scheduledFor);
+	}
 }
 
 /// <summary>Repositório de notificações em memória, para os testes de canal externo.</summary>
@@ -78,7 +85,14 @@ internal sealed class FakeEmailDispatchQueue : Secco.NotificationHub.Application
 {
 	public List<Guid> Enqueued { get; } = [];
 
-	public void Enqueue(Guid notificationId) => Enqueued.Add(notificationId);
+	/// <summary>Instante pedido em cada chamada, na ordem recebida — nulo quando foi imediata.</summary>
+	public List<DateTimeOffset?> ScheduledFor { get; } = [];
+
+	public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
+	{
+		Enqueued.Add(notificationId);
+		ScheduledFor.Add(scheduledFor);
+	}
 }
 
 /// <summary>Inbox in-app em memória, para os testes de canal externo.</summary>

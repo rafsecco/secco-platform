@@ -85,6 +85,10 @@ public static class NotificationHubErrors
 		public static Error LinkTooLong(int limit) =>
 			Error.Validation("NotificationHub.Notification.LinkTooLong", $"O link excede o limite de {limit} caracteres.");
 
+		/// <summary>Agendamento além do horizonte máximo configurado.</summary>
+		public static Error ScheduledTooFarAhead(int days) =>
+			Error.Validation("NotificationHub.Notification.ScheduledTooFarAhead", $"A entrega não pode ser agendada para mais de {days} dias à frente.");
+
 		/// <summary>Notificação por e-mail não encontrada no banco do tenant atual.</summary>
 		public static readonly Error NotFound =
 			Error.NotFound("NotificationHub.Notification.NotFound", "Notificação não encontrada.");

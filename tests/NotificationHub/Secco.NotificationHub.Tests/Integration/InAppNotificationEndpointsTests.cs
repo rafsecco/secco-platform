@@ -28,7 +28,8 @@ public class InAppNotificationEndpointsTests(NotificationHubApiFactory factory) 
 		return client;
 	}
 
-	private static async Task<Guid> DispatchInAppAsync(HttpClient client, Guid userId, string title = "Título")
+	private static async Task<Guid> DispatchInAppAsync(
+		HttpClient client, Guid userId, string title = "Título", DateTimeOffset? scheduledFor = null)
 	{
 		var response = await client.PostAsJsonAsync("/api/v1/notifications", new
 		{
@@ -38,6 +39,7 @@ public class InAppNotificationEndpointsTests(NotificationHubApiFactory factory) 
 			source = "secco-intranet",
 			type = "aviso",
 			link = "/pagina",
+			scheduledFor,
 			channels = new[] { "in_app" },
 		});
 
@@ -110,6 +112,36 @@ public class InAppNotificationEndpointsTests(NotificationHubApiFactory factory) 
 		var response = await client.PostAsync($"/api/v1/in-app-notifications/{Guid.NewGuid()}/read", content: null);
 
 		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task GetUnread_WithFutureScheduledFor_DoesNotSeeTheItemNorCountsIt()
+	{
+		// Issue #24: não há job de transição — a visibilidade é derivada do relógio no
+		// momento da consulta, não de um estado gravado.
+		var client = CreateClientForTenant(factory.TenantAlfa);
+		var userId = Guid.NewGuid();
+		await DispatchInAppAsync(client, userId, "Aviso agendado", DateTimeOffset.UtcNow.AddDays(1));
+
+		var unread = await client.GetFromJsonAsync<JsonElement>($"/api/v1/in-app-notifications?userId={userId}", Json);
+		var count = await client.GetFromJsonAsync<JsonElement>($"/api/v1/in-app-notifications/count?userId={userId}", Json);
+
+		unread.GetArrayLength().Should().Be(0, "o instante agendado ainda não chegou");
+		count.GetInt32().Should().Be(0);
+	}
+
+	[Fact]
+	public async Task GetUnread_WithPastScheduledFor_SeesTheItem()
+	{
+		var client = CreateClientForTenant(factory.TenantAlfa);
+		var userId = Guid.NewGuid();
+		await DispatchInAppAsync(client, userId, "Aviso já vencido", DateTimeOffset.UtcNow.AddMinutes(-5));
+
+		var unread = await client.GetFromJsonAsync<JsonElement>($"/api/v1/in-app-notifications?userId={userId}", Json);
+		var count = await client.GetFromJsonAsync<JsonElement>($"/api/v1/in-app-notifications/count?userId={userId}", Json);
+
+		unread.GetArrayLength().Should().Be(1, "o instante agendado já passou");
+		count.GetInt32().Should().Be(1);
 	}
 
 	[Fact]

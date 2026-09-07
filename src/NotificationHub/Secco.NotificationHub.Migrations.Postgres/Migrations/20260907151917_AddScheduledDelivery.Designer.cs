@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Secco.NotificationHub.Infrastructure.Contexts;
@@ -11,9 +12,11 @@ using Secco.NotificationHub.Infrastructure.Contexts;
 namespace Secco.NotificationHub.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(NotificationHubDbContext))]
-    partial class NotificationHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907151917_AddScheduledDelivery")]
+    partial class AddScheduledDelivery
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

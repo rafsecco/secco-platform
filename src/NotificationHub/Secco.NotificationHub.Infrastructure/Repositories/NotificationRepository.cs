@@ -71,6 +71,16 @@ internal sealed class NotificationRepository(NotificationHubDbContext context) :
 			query = query.Where(notification => notification.Type == criteria.Type);
 		}
 
+		if (criteria.ScheduledFrom is not null)
+		{
+			query = query.Where(notification => notification.ScheduledFor >= criteria.ScheduledFrom);
+		}
+
+		if (criteria.ScheduledTo is not null)
+		{
+			query = query.Where(notification => notification.ScheduledFor <= criteria.ScheduledTo);
+		}
+
 		var page = criteria.EffectivePage;
 		var totalCount = await query.LongCountAsync(cancellationToken).ConfigureAwait(false);
 

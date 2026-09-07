@@ -14,7 +14,7 @@ namespace Secco.NotificationHub.Infrastructure.Email;
 internal sealed class EmailDispatchScheduler(IBackgroundJobScheduler scheduler, ITenantContext tenantContext)
 	: IEmailDispatchQueue
 {
-	public void Enqueue(Guid notificationId)
+	public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
 	{
 		if (tenantContext.TenantId is not { } tenantId)
 		{
@@ -23,6 +23,15 @@ internal sealed class EmailDispatchScheduler(IBackgroundJobScheduler scheduler, 
 			throw new DomainInvariantException("Não é possível enfileirar o envio sem um tenant resolvido.");
 		}
 
-		scheduler.Enqueue<SendEmailJob, SendEmailPayload>(tenantId, new SendEmailPayload(notificationId));
+		var payload = new SendEmailPayload(notificationId);
+
+		if (scheduledFor is { } enqueueAt)
+		{
+			scheduler.Schedule<SendEmailJob, SendEmailPayload>(tenantId, payload, enqueueAt);
+		}
+		else
+		{
+			scheduler.Enqueue<SendEmailJob, SendEmailPayload>(tenantId, payload);
+		}
 	}
 }

@@ -121,7 +121,7 @@ public class ExternalChannelTests
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
 			UserId: null, Recipient: null, Title: "Titulo", Message: "Mensagem",
-			Source: null, Type: null, Link: null, Channels: [NotificationHubChannels.Teams]));
+			Source: null, Type: null, Link: null, ScheduledFor: null, Channels: [NotificationHubChannels.Teams]));
 
 		result.Error.Should().Be(NotificationHubErrors.Channels.NotConfiguredForTenant("teams"));
 		externalQueue.Enqueued.Should().BeEmpty();
@@ -134,7 +134,8 @@ public class ExternalChannelTests
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
 			UserId: null, Recipient: null, Title: "Titulo", Message: "Mensagem",
-			Source: "secco-intranet", Type: "manutencao", Link: null, Channels: [NotificationHubChannels.Teams]));
+			Source: "secco-intranet", Type: "manutencao", Link: null, ScheduledFor: null,
+			Channels: [NotificationHubChannels.Teams]));
 
 		result.IsSuccess.Should().BeTrue();
 		result.Value.ExternalNotificationIds.Should().ContainSingle();

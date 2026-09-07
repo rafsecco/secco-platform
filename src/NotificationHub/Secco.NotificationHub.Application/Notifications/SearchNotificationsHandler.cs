@@ -21,6 +21,12 @@ public sealed class SearchNotificationsHandler(INotificationRepository repositor
 			return NotificationHubErrors.Notifications.InvalidDateRange;
 		}
 
+		if (criteria.ScheduledFrom is not null && criteria.ScheduledTo is not null
+			&& criteria.ScheduledFrom > criteria.ScheduledTo)
+		{
+			return NotificationHubErrors.Notifications.InvalidDateRange;
+		}
+
 		// Filtro é input externo indo para uma cláusula WHERE: sem teto de tamanho é vetor de
 		// negação de serviço (ADR-0020). O teto da coluna vence a configuração, como na escrita.
 		var sourceLimit = Math.Min(options.MaxSourceLength, Notification.SourceMaxLength);

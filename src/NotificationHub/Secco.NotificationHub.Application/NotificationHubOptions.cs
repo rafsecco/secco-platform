@@ -28,10 +28,20 @@ public sealed class NotificationHubOptions
 	/// Máximo de destinos por lote (issue #15 — default 500).
 	/// </summary>
 	/// <remarks>
-	/// O teto existe porque o lote enfileira um job por destino de e-mail: 
+	/// O teto existe porque o lote enfileira um job por destino de e-mail:
 	/// as gravações das notificações vão numa ida só ao banco, mas o enfileiramento continua
 	/// sendo N inserções na fila do Hangfire, dentro da requisição. Um lote sem limite viraria
 	/// requisição longa e pressão na fila (ADR-0020).
 	/// </remarks>
 	public int MaxBatchDestinations { get; set; } = 500;
+
+	/// <summary>
+	/// Horizonte máximo, em dias, para agendar uma entrega no futuro (issue #24 — default 365).
+	/// </summary>
+	/// <remarks>
+	/// O storage do Hangfire fica no banco de PLATAFORMA, compartilhado entre tenants
+	/// (ADR-0015). Agendamento sem horizonte deixaria um chamador acumular jobs indefinidamente
+	/// em infraestrutura comum — negação de serviço, não só desperdício (ADR-0020).
+	/// </remarks>
+	public int MaxScheduleHorizonDays { get; set; } = 365;
 }

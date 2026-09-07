@@ -45,7 +45,14 @@ public class DispatchNotificationHandlerTests
 	{
 		public List<Guid> Enqueued { get; } = [];
 
-		public void Enqueue(Guid notificationId) => Enqueued.Add(notificationId);
+		/// <summary>Instante pedido em cada chamada, na ordem recebida — nulo quando foi imediata.</summary>
+		public List<DateTimeOffset?> ScheduledFor { get; } = [];
+
+		public void Enqueue(Guid notificationId, DateTimeOffset? scheduledFor = null)
+		{
+			Enqueued.Add(notificationId);
+			ScheduledFor.Add(scheduledFor);
+		}
 	}
 
 	private sealed class FakeInAppNotificationRepository : IInAppNotificationRepository
@@ -110,7 +117,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out var notifications, out var queue, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, [NotificationHubChannels.Email]));
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsSuccess.Should().BeTrue();
 		result.Value.EmailNotificationId.Should().NotBeNull();
@@ -127,7 +134,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out var notifications, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", "Título", "Mensagem", "secco-intranet", "aviso", null,
+			null, "destinatario@teste.com", "Título", "Mensagem", "secco-intranet", "aviso", null, null,
 			[NotificationHubChannels.Email]));
 
 		result.IsSuccess.Should().BeTrue();
@@ -143,7 +150,7 @@ public class DispatchNotificationHandlerTests
 		var userId = Guid.NewGuid();
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			userId, null, "Título", "Mensagem", "secco-intranet", "aviso", "/pagina", [NotificationHubChannels.InApp]));
+			userId, null, "Título", "Mensagem", "secco-intranet", "aviso", "/pagina", null, [NotificationHubChannels.InApp]));
 
 		result.IsSuccess.Should().BeTrue();
 		result.Value.InAppNotificationId.Should().NotBeNull();
@@ -159,7 +166,7 @@ public class DispatchNotificationHandlerTests
 		var userId = Guid.NewGuid();
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			userId, "destinatario@teste.com", "Título", "Mensagem", null, null, null,
+			userId, "destinatario@teste.com", "Título", "Mensagem", null, null, null, null,
 			[NotificationHubChannels.Email, NotificationHubChannels.InApp]));
 
 		result.IsSuccess.Should().BeTrue();
@@ -174,7 +181,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, []));
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, null, []));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.ChannelsRequired);
@@ -186,7 +193,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, ["sms"]));
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, null, ["sms"]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.ChannelUnsupported("sms"));
@@ -198,7 +205,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, null, "Título", "Mensagem", null, null, null, [NotificationHubChannels.Email]));
+			null, null, "Título", "Mensagem", null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.RecipientRequired);
@@ -210,7 +217,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, null, "Título", "Mensagem", null, null, null, [NotificationHubChannels.InApp]));
+			null, null, "Título", "Mensagem", null, null, null, null, [NotificationHubChannels.InApp]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.UserIdRequired);
@@ -225,7 +232,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", title, "Mensagem", null, null, null, [NotificationHubChannels.Email]));
+			null, "destinatario@teste.com", title, "Mensagem", null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.TitleRequired);
@@ -237,7 +244,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "destinatario@teste.com", "Título", "", null, null, null, [NotificationHubChannels.Email]));
+			null, "destinatario@teste.com", "Título", "", null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.MessageRequired);
@@ -249,7 +256,7 @@ public class DispatchNotificationHandlerTests
 		var handler = CreateHandler(out _, out _, out _);
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
-			null, "não é um e-mail", "Título", "Mensagem", null, null, null, [NotificationHubChannels.Email]));
+			null, "não é um e-mail", "Título", "Mensagem", null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(NotificationHubErrors.Notifications.RecipientInvalid);
@@ -262,9 +269,57 @@ public class DispatchNotificationHandlerTests
 
 		var result = await handler.HandleAsync(new DispatchNotificationCommand(
 			null, "destinatario@teste.com", new string('x', Options.MaxTitleLength + 1), "Mensagem",
-			null, null, null, [NotificationHubChannels.Email]));
+			null, null, null, null, [NotificationHubChannels.Email]));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Type.Should().Be(ErrorType.Validation);
+	}
+
+	[Fact]
+	public async Task Handle_WithScheduledFor_SchedulesInsteadOfEnqueuingImmediately()
+	{
+		// Issue #24: um ScheduledFor futuro precisa chegar à porta de despacho como
+		// agendamento, não como enfileiramento imediato.
+		var handler = CreateHandler(out var notifications, out var queue, out _);
+		var scheduledFor = DateTimeOffset.UtcNow.AddDays(3);
+
+		var result = await handler.HandleAsync(new DispatchNotificationCommand(
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, scheduledFor,
+			[NotificationHubChannels.Email]));
+
+		result.IsSuccess.Should().BeTrue();
+		notifications.Added.Should().ContainSingle().Which.ScheduledFor.Should().Be(scheduledFor);
+		queue.ScheduledFor.Should().ContainSingle().Which.Should().Be(scheduledFor);
+	}
+
+	[Fact]
+	public async Task Handle_WithScheduledForInThePast_IsAcceptedAsImmediateDispatch()
+	{
+		// Data no passado NÃO é erro: recusar criaria modo de falha por diferença de relógio
+		// entre chamador e servidor. Vira entrega imediata.
+		var handler = CreateHandler(out var notifications, out var queue, out _);
+		var scheduledFor = DateTimeOffset.UtcNow.AddDays(-1);
+
+		var result = await handler.HandleAsync(new DispatchNotificationCommand(
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, scheduledFor,
+			[NotificationHubChannels.Email]));
+
+		result.IsSuccess.Should().BeTrue();
+		notifications.Added.Should().ContainSingle().Which.ScheduledFor.Should().Be(scheduledFor);
+		queue.ScheduledFor.Should().ContainSingle().Which.Should().Be(scheduledFor);
+	}
+
+	[Fact]
+	public async Task Handle_WithScheduledForBeyondHorizon_ReturnsValidationFailure()
+	{
+		var handler = CreateHandler(out _, out _, out _);
+		var scheduledFor = DateTimeOffset.UtcNow.AddDays(Options.MaxScheduleHorizonDays + 1);
+
+		var result = await handler.HandleAsync(new DispatchNotificationCommand(
+			null, "destinatario@teste.com", "Título", "Mensagem", null, null, null, scheduledFor,
+			[NotificationHubChannels.Email]));
+
+		result.IsFailure.Should().BeTrue();
+		result.Error.Should().Be(NotificationHubErrors.Notifications.ScheduledTooFarAhead(Options.MaxScheduleHorizonDays));
 	}
 }
