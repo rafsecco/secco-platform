@@ -12,22 +12,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.AspNetCore
-
-- **Adicionado** `IBackgroundJobScheduler.Schedule<TJob, TPayload>(Guid tenantId, TPayload payload, DateTimeOffset enqueueAt)` — agenda um job para um instante futuro (issue #24). O `Enqueue` continua igual, o `TenantJobRunner` restaura o tenant do mesmo jeito, e instante no passado o Hangfire enfileira imediatamente.
-- **Atenção a quem implementa a interface**: membro novo em interface pública quebra implementações próprias. Nenhuma é conhecida — a única no repositório é a `HangfireBackgroundJobScheduler`, interna ao SDK —, mas quem tiver a sua precisa acrescentar o método.
-
-### Secco.NotificationHub.Client
-
-- **Adicionado (aditivo)** `ScheduledFor` em `DispatchNotificationRequest` e `DispatchNotificationBatchRequest` — instante da entrega (issue #24). Ausente ou no passado: entrega imediata, o comportamento de hoje.
-- **Adicionado (aditivo)** `ScheduledFor` em `NotificationDto` e `InAppNotificationDto`, e os filtros `scheduledFrom`/`scheduledTo` em `SearchNotificationsAsync`.
-- Nenhum método existente foi renomeado.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-07. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
 ## Publicado
 
 ### Secco.SharedKernel
+
+#### 0.3.6 — 2026-09-07
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` desde a 0.3.5 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SDK.AspNetCore` 0.6.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.3.5 — 2026-09-06
 
@@ -51,6 +46,12 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.6.0 — 2026-09-07
+
+- **Adicionado** `IBackgroundJobScheduler.Schedule<TJob, TPayload>(Guid tenantId, TPayload payload, DateTimeOffset enqueueAt)` — agenda um job para um instante futuro (issue #24). O `Enqueue` não mudou, o `TenantJobRunner` restaura o tenant do mesmo jeito, e instante no passado o Hangfire enfileira imediatamente.
+- **Atenção a quem implementa a interface**: membro novo em interface pública quebra implementações próprias. Nenhuma conhecida — a única no repositório é a `HangfireBackgroundJobScheduler`, interna ao SDK.
+- Para quem apenas **consome**, a mudança é aditiva: `Secco.SDK.Logging` 0.1.1 e `Secco.SecureGate.Client` 0.3.0 seguem compatíveis, porque nada foi renomeado nem removido.
 
 #### 0.5.1 — 2026-09-06
 
@@ -155,6 +156,12 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 - Depende de `Secco.SharedKernel` 0.3.3.
 
 ### Secco.NotificationHub.Client
+
+#### 0.5.0 — 2026-09-07
+
+- **Adicionado (aditivo)** `ScheduledFor` em `DispatchNotificationRequest` e `DispatchNotificationBatchRequest` (issue #24). Ausente ou no passado: entrega imediata, o comportamento anterior.
+- **Adicionado (aditivo)** `ScheduledFor` em `NotificationDto` e `InAppNotificationDto`, e os filtros `scheduledFrom`/`scheduledTo` em `SearchNotificationsAsync`.
+- Nenhum método existente foi renomeado.
 
 #### 0.4.0 — 2026-09-06
 

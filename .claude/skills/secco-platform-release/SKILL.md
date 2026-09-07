@@ -89,6 +89,22 @@ Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mud
 
 Hoje só `templates/Secco.Templates.csproj` está nesse caso — fora da `.slnx` **de propósito** (não é produto buildável, é o gerador de templates). Consequência: o step de Pack do workflow **não pode usar `--no-build`**. O `dotnet build Secco.Platform.slnx` do job nunca restaura nem builda esse projeto, então `--no-build` no Pack falha com `NETSDK1004` (assets file não encontrado). O workflow atual já reflete isso (Pack deixa o `dotnet pack` restaurar/buildar por conta própria) — este item existe para ninguém "otimizar" reintroduzindo `--no-build` e quebrar esse pacote de novo.
 
+## 5.1. O que avisa que falta publicar
+
+Publicar é o passo que mais escapa: o código entra na `main` e a tag fica para depois. Três automações cobrem isso, todas em `scripts/check-release-chain.py`:
+
+| Comando | Quando roda | O que responde |
+|---|---|---|
+| `--pendentes` | job `release-pendente` do CI, **a cada push na `main`** | que pacote tem fonte entregue e não publicada |
+| (alvo, ex. `sdk/v`) | passo `Check release chain` do publish, **antes do Pack** | que tag de dependência falta neste commit — em vez de NU5104, que não diz qual |
+| `--dependentes <alvo>` | último passo do publish | quem depende do que acabou de sair e ficou com versão antiga no feed |
+
+Os três **avisam, não reprovam**: release pendente não é build quebrado, e reprovar a `main` a cada commit até alguém publicar vira ruído que se aprende a ignorar. O relatório vai para o resumo do run.
+
+O gatilho é push na `main`, e não cron, de propósito: o GitHub desativa workflow agendado após 60 dias sem atividade no repositório — justamente o repositório parado onde o aviso mais faria falta.
+
+**Ponto cego já corrigido, que vale conhecer:** a detecção conta commits na fonte do pacote, e um client NSwag não tem fonte própria — é gerado do `openapi.json`, que mora no projeto da Api. Até 2026-09-07 mudança de contrato não acusava pendência no client. O script passou a somar os caminhos de `OpenApiReference` ao diretório do projeto.
+
 ## 6. Verificar, não assumir
 
 Push de tag bem-sucedido **não** significa que o publish rodou. Depois de empurrar, confirmar o workflow de fato disparou e concluiu:

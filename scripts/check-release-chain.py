@@ -93,11 +93,25 @@ def load_projects() -> dict:
                     (csproj.parent / include.replace("\\", "/")).resolve()
                 )
 
+        # Um client NSwag NAO tem codigo proprio: e gerado no build a partir do
+        # openapi.json, que mora no projeto da Api. Sem registrar esse caminho aqui, o
+        # vigia fica cego justamente para os pacotes que mais mudam - mudanca de contrato
+        # altera a API publica do client sem tocar um arquivo do diretorio dele.
+        contracts = []
+
+        for element in root.iter("OpenApiReference"):
+            include = element.get("Include")
+            if include:
+                contracts.append(
+                    (csproj.parent / include.replace("\\", "/")).resolve()
+                )
+
         projects[csproj.resolve()] = {
             "name": csproj.stem,
             "packable": packable,
             "prefix": prefix,
             "references": references,
+            "contracts": contracts,
         }
 
     return projects
@@ -115,15 +129,22 @@ def commits_ahead(tag: str) -> int:
     return int(count) if count.isdigit() else 0
 
 
-def source_commits_since(tag: str, project: Path) -> int:
-    """Commits que tocaram o DIRETORIO do projeto desde a tag.
+def source_commits_since(tag: str, project: Path, contracts=()) -> int:
+    """Commits que tocaram a FONTE do projeto desde a tag.
 
     Distancia global de commit nao serve para detectar pendencia: um pacote fica dezenas
     de commits atras do HEAD sem ter tido uma linha alterada. O que indica release
-    pendente e commit no proprio projeto.
+    pendente e commit na propria fonte.
+
+    "Fonte" e o diretorio do projeto MAIS os contratos de onde ele e gerado. Sem a
+    segunda parte, um client NSwag nunca aparece como pendente: em 2026-09-07 o
+    Secco.NotificationHub.Client ganhou metodo e campos novos, e o vigia reportou
+    apenas o Secco.SDK.AspNetCore - porque o openapi.json que gerou o client vive no
+    projeto da Api, fora do diretorio do client.
     """
-    directory = project.parent.relative_to(ROOT).as_posix()
-    count = git("rev-list", "--count", f"{tag}..HEAD", "--", directory)
+    paths = [project.parent.relative_to(ROOT).as_posix()]
+    paths += [contract.relative_to(ROOT).as_posix() for contract in contracts]
+    count = git("rev-list", "--count", f"{tag}..HEAD", "--", *paths)
 
     return int(count) if count.isdigit() else 0
 
@@ -142,7 +163,7 @@ def pending_packages(projects: dict) -> list:
             pending.append((info["name"], None, 0))
             continue
 
-        changed = source_commits_since(tag, path)
+        changed = source_commits_since(tag, path, info["contracts"])
 
         if changed:
             pending.append((info["name"], tag, changed))
@@ -220,7 +241,7 @@ def report(projects: dict, target: Path) -> bool:
     own_tag = latest_tag(info["prefix"]) if info["prefix"] else None
 
     if own_tag:
-        changed = source_commits_since(own_tag, target)
+        changed = source_commits_since(own_tag, target, info["contracts"])
         pendencia = (
             f", {changed} commit(s) de fonte por publicar" if changed else ", nada por publicar"
         )

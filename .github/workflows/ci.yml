@@ -275,3 +275,45 @@ jobs:
       - name: Teardown
         if: always()
         run: docker compose --profile ${{ matrix.product }} down -v
+
+  release-pendente:
+    # O elo que faltava: codigo de pacote entra na main e ninguem se lembra de publicar.
+    # A deteccao ja existia (scripts/check-release-chain.py --pendentes) e nada a chamava:
+    # o cron que fazia isso foi removido de proposito, porque o GitHub desativa cron apos
+    # 60 dias sem atividade no repositorio - justamente o repositorio parado onde o aviso
+    # mais faria falta. Push na main nunca e desativado, e e exatamente o instante em que
+    # a pendencia nasce.
+    #
+    # NAO reprova o job de proposito. Release pendente nao e build quebrado, e reprovar a
+    # main em todo commit de feature ate alguem publicar vira ruido que se aprende a
+    # ignorar. Vai para o resumo do run, mesma escolha do passo "Avisar dependente que
+    # ficou para tras" em publish-packages.yml.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Precisa do historico e das TAGS: a pendencia e a distancia entre a ultima tag
+          # de cada pacote e o que ja esta na main.
+          fetch-depth: 0
+
+      - name: Pacotes com codigo por publicar
+        run: |
+          set +e
+          relatorio=$(python3 scripts/check-release-chain.py --pendentes)
+          codigo=$?
+          set -e
+
+          echo "$relatorio"
+
+          if [ "$codigo" -eq 0 ]; then
+            echo "### Nada por publicar" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Ha pacote com codigo entregue e NAO publicado" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$relatorio" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
