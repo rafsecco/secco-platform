@@ -21,7 +21,14 @@
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <PackageReference Include="MinVer" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
+    <!-- Microsoft.SourceLink.GitHub NAO entra aqui: desde o .NET 8 o SourceLink e parte do
+         SDK, e a referencia explicita so arrastava Microsoft.Build.Tasks.Git 8.0.0, que
+         ganhou CVE moderada (GHSA-23fw-v26w-5fgq). Com TreatWarningsAsErrors, o NU1902
+         virava ERRO em todo projeto empacotavel e travava ate o build do SharedKernel.
+         As propriedades acima (PublishRepositoryUrl, EmbedUntrackedSources) sao o que o
+         SourceLink do SDK consome - elas continuam valendo. Segunda vez que um pin de
+         seguranca envelhece neste repositorio (a primeira foi o NU1903 do
+         System.Security.Cryptography.Xml): reavaliar e manutencao, nao evento unico. -->
   </ItemGroup>
 
 </Project>

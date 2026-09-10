@@ -13,6 +13,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\LogStream\Secco.LogStream.Api\Secco.LogStream.Api.csproj" />
     <ProjectReference Include="..\..\..\src\SDK\Secco.SDK.Testing\Secco.SDK.Testing.csproj" />
+    <!-- Composição de DI do client (issue #25) -->
+    <ProjectReference Include="..\..\..\src\LogStream\Secco.LogStream.Client\Secco.LogStream.Client.csproj" />
   </ItemGroup>
 
 </Project>

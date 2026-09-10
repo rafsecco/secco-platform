@@ -19,6 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Client credentials (issue #25): pacote fino, sem Hangfire/JwtBearer/AspNetCore -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.ClientCredentials\Secco.SDK.ClientCredentials.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <OpenApiReference Include="..\Secco.LogStream.Api\openapi\openapi.json"
                       CodeGenerator="NSwagCSharp"
                       Namespace="Secco.LogStream.Client"

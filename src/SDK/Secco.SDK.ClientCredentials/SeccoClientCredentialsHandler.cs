@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace Secco.SDK.AspNetCore.Authentication;
+namespace Secco.SDK.ClientCredentials;
 
 /// <summary>
 /// Client credentials do OAuth 2 para chamadas de máquina a máquina dentro da plataforma:
@@ -9,7 +9,7 @@ namespace Secco.SDK.AspNetCore.Authentication;
 /// (ADR-0020), e renova antes de expirar. O endpoint <c>/connect/token</c> é protocolo OAuth
 /// padrão, não contrato de produto — por isso a chamada é HTTP direta e não passa por um
 /// client NSwag gerado (exceção consciente à ADR-0006). Genérico de propósito: qualquer
-/// pacote do SDK que precise de um token de máquina reusa este handler sem depender de
+/// pacote da plataforma que precise de um token de máquina reusa este handler sem depender de
 /// nenhum client de produto específico.
 /// </summary>
 /// <param name="tokenEndpointBaseUrl">URL base do emissor; o handler completa com <c>connect/token</c>.</param>

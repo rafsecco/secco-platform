@@ -2,8 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using Secco.SDK.AspNetCore.Authentication;
 using Secco.SDK.AspNetCore.Tenancy;
+using Secco.SDK.ClientCredentials;
 
 namespace Secco.SecureGate.Client.Catalog;
 

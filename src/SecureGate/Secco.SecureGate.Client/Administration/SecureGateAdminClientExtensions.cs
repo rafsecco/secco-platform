@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Secco.SDK.AspNetCore.Authentication;
+using Secco.SDK.ClientCredentials;
 using Secco.SecureGate.Client.Catalog;
 
 namespace Secco.SecureGate.Client.Administration;

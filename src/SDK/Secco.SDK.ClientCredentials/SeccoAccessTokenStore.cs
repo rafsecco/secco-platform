@@ -1,4 +1,4 @@
-namespace Secco.SDK.AspNetCore.Authentication;
+namespace Secco.SDK.ClientCredentials;
 
 /// <summary>
 /// Estado compartilhado de um token de acesso (singleton POR PIPELINE): o pipeline de

@@ -14,6 +14,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\NotificationHub\Secco.NotificationHub.Api\Secco.NotificationHub.Api.csproj" />
     <ProjectReference Include="..\..\..\src\SDK\Secco.SDK.Testing\Secco.SDK.Testing.csproj" />
+    <!-- Composição de DI do client (issue #25) -->
+    <ProjectReference Include="..\..\..\src\NotificationHub\Secco.NotificationHub.Client\Secco.NotificationHub.Client.csproj" />
   </ItemGroup>
 
 </Project>

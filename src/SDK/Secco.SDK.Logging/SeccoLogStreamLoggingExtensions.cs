@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Secco.LogStream.Client;
-using Secco.SDK.AspNetCore.Authentication;
+using Secco.SDK.ClientCredentials;
 using Secco.SDK.Logging.Internal;
 
 namespace Secco.SDK.Logging;

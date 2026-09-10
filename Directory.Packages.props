@@ -13,7 +13,6 @@
   <!-- Build e versionamento -->
   <ItemGroup>
     <PackageVersion Include="MinVer" Version="6.0.0" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
   </ItemGroup>
 
   <!-- Dados (Fase 2+) — SQL Server é o provider padrão (ADR-0018) -->
@@ -60,6 +59,11 @@
   <!-- Camadas de aplicação (abstrações puras, sem I/O) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.9" />
+    <!-- IConfiguration.Bind(): normalmente chega via FrameworkReference a Microsoft.AspNetCore.App
+         (ADR-0004); pacotes finos sem esse FrameworkReference (Secco.SDK.ClientCredentials) o
+         referenciam direto. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
   </ItemGroup>
 
   <!-- Contratos HTTP (Fase 4, ADR-0006) -->
@@ -109,6 +113,10 @@
          chegam transitivamente pelo produto referenciado, mas um pacote publicável precisa
          declará-las. Versões alinhadas com as que já se resolvem hoje. -->
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="6.1.1" />
+    <!-- Secco.SDK.ClientCredentials.Tests: ServiceCollection/ConfigurationBuilder concretos —
+         nos demais projetos de teste chegam transitivamente via Microsoft.AspNetCore.Mvc.Testing,
+         mas este projeto de teste é fino e não referencia ASP.NET Core. -->
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <!-- 8.16.0 é o piso do OpenIddict 7.5.0 (SecureGate); com o pinning transitivo central
          ligado, a versão aqui vale para a solution inteira. -->
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.16.0" />

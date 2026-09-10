@@ -27,6 +27,7 @@ public sealed class SecureGateReferenceDataSeeder(
 	private static readonly IReadOnlyDictionary<string, string> ProductScopes = new Dictionary<string, string>
 	{
 		["logstream"] = "secco-logstream",
+		["notificationhub"] = "secco-notificationhub",
 		["securegate"] = SecureGateResource,
 	};
 

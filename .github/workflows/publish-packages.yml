@@ -7,6 +7,7 @@ name: Publish NuGet
 #   sdk-efcore/v0.1.0     → Secco.SDK.EntityFrameworkCore 0.1.0
 #   sdk-testing/v0.1.0    → Secco.SDK.Testing 0.1.0
 #   sdk-logging/v0.1.0    → Secco.SDK.Logging 0.1.0
+#   sdk-credentials/v0.1.0 → Secco.SDK.ClientCredentials 0.1.0
 #   logstream-client/v0.1.0 → Secco.LogStream.Client 0.1.0
 #   notificationhub-client/v0.1.0 → Secco.NotificationHub.Client 0.1.0
 #   securegate-client/v0.1.0 → Secco.SecureGate.Client 0.1.0
@@ -25,6 +26,7 @@ on:
       - "sdk-efcore/v*"
       - "sdk-testing/v*"
       - "sdk-logging/v*"
+      - "sdk-credentials/v*"
       - "logstream-client/v*"
       - "notificationhub-client/v*"
       - "securegate-client/v*"
@@ -68,6 +70,7 @@ jobs:
             sdk-efcore/v*)   echo "project=src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-testing/v*)  echo "project=src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-logging/v*)  echo "project=src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj" >> "$GITHUB_OUTPUT" ;;
+            sdk-credentials/v*) echo "project=src/SDK/Secco.SDK.ClientCredentials/Secco.SDK.ClientCredentials.csproj" >> "$GITHUB_OUTPUT" ;;
             logstream-client/v*) echo "project=src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             notificationhub-client/v*) echo "project=src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             securegate-client/v*) echo "project=src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj" >> "$GITHUB_OUTPUT" ;;

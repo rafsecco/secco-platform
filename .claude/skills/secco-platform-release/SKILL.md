@@ -79,6 +79,7 @@ Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mud
 | `sdk/v*` | `src/SDK/Secco.SDK.AspNetCore/Secco.SDK.AspNetCore.csproj` |
 | `sdk-efcore/v*` | `src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj` |
 | `sdk-testing/v*` | `src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj` |
+| `sdk-credentials/v*` | `src/SDK/Secco.SDK.ClientCredentials/Secco.SDK.ClientCredentials.csproj` |
 | `sdk-logging/v*` | `src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj` |
 | `logstream-client/v*` | `src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj` |
 | `notificationhub-client/v*` | `src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj` |

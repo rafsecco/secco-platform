@@ -22,6 +22,10 @@
     <!-- ITenantCatalog/TenantInfo vivem no SDK (ADR-0005) — o pacote entrega a
          implementação remota pronta para os produtos (Fase 6.3) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <!-- SeccoClientCredentialsHandler/SeccoAccessTokenStore: extraídos do SDK.AspNetCore para
+         um pacote fino (issue #25) — este client não precisa de Hangfire/JwtBearer/AspNetCore
+         só para autenticar chamadas de máquina a máquina. -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.ClientCredentials\Secco.SDK.ClientCredentials.csproj" />
   </ItemGroup>
 
   <ItemGroup>
