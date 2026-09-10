@@ -12,35 +12,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.ClientCredentials
-
-Pacote **novo** (issue #25). Client credentials do OAuth 2 para chamadas de máquina a máquina entre produtos da plataforma: `SeccoClientCredentialsHandler`, `SeccoAccessTokenStore`, `SeccoClientCredentialsOptions` e a composição de DI.
-
-- Os dois primeiros **saíram** do `Secco.SDK.AspNetCore`. O motivo é dependência: aquele pacote arrasta Hangfire.Core, Hangfire.SqlServer, Hangfire.AspNetCore e JwtBearer, e um client de produto — inclusive um worker de console que só quer disparar uma notificação — não deveria carregar nada disso. Este depende só de `Microsoft.Extensions.Http` e das abstrações de DI/Configuration.
-- É a **segunda** promoção destas peças: o handler já havia subido do `Secco.SecureGate.Client` para o SDK pelo mesmo raciocínio, e as options ficaram para trás. Agora vieram junto.
-- Options ligadas por seção com **fallback** para `Secco:SecureGate`, registradas como serviço **keyed** pela seção: dois clients no mesmo host usam seções diferentes, e um singleton comum faria o segundo herdar em silêncio as credenciais do primeiro.
-
-### Secco.SDK.AspNetCore
-
-- **Removido (quebra)** `SeccoClientCredentialsHandler` e `SeccoAccessTokenStore` — foram para o `Secco.SDK.ClientCredentials`. Quem os usava troca o `using` de `Secco.SDK.AspNetCore.Authentication` para `Secco.SDK.ClientCredentials` e acrescenta o pacote. O `Secco.SDK.AspNetCore` **não** os usava internamente, então nada mais muda nele.
-
-### Secco.LogStream.Client · Secco.NotificationHub.Client
-
-- **Adicionado** as duas extensões aceitam client credentials (issue #25): `AuthorityUrl`, `ClientId`, `ClientSecret` e `Scope` nas options, com o handler anexado automaticamente. Antes o client compilava, injetava e tomava 401 na primeira chamada, porque todos os endpoints dos dois produtos exigem permissão.
-- `Scope` tem **default do próprio produto** (`logstream` / `notificationhub`): o adotante não precisa conhecer o valor nem pode errá-lo por omissão — scope errado produz 403, que numa trilha de auditoria falha-aberta se manifesta como trilha vazia, sem nada quebrar.
-- Credenciais são **opcionais** (ausentes = nenhum handler, serve DEV com token emitido fora da plataforma) mas **parciais falham rápido**. `BaseUrl` vazia continua lançando.
-
-### Secco.SDK.Logging · Secco.SecureGate.Client
-
-- **Alterado** passam a depender do `Secco.SDK.ClientCredentials`. Sem mudança de comportamento nem de API própria.
-
-### Todos os pacotes publicáveis
-
-- **Corrigido** `Microsoft.SourceLink.GitHub` deixou de ser referenciado explicitamente: desde o .NET 8 o SourceLink é parte do SDK, e a referência só arrastava `Microsoft.Build.Tasks.Git` 8.0.0, que ganhou CVE moderada (GHSA-23fw-v26w-5fgq). Com `TreatWarningsAsErrors`, o `NU1902` virava **erro** e travava o build de todo projeto empacotável — o do SharedKernel inclusive. Verificado que o SourceLink continua valendo: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-10. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
 ## Publicado
+
+### Todos os pacotes publicáveis — 2026-09-10
+
+- **Corrigido** `Microsoft.SourceLink.GitHub` deixou de ser referenciado explicitamente: desde o .NET 8 o SourceLink é parte do SDK, e a referência só arrastava `Microsoft.Build.Tasks.Git` 8.0.0, alvo do **CVE-2026-62900** (GHSA-23fw-v26w-5fgq, publicado em 2026-09-08) — divulgação de informação, CWE-212, CVSS 5.9. Com `TreatWarningsAsErrors`, o `NU1902` virava **erro** e travava o build de todo projeto empacotável — o do SharedKernel inclusive.
+- **Remover foi o único caminho, não uma preferência:** para a 8.0.0 o advisory declara *"No patched NuGet version; update to a fixed .NET 8 SDK"*. Não havia versão para subir.
+- **Nenhum pacote publicado carregava a dependência vulnerável**, antes ou depois: a referência sempre foi `PrivateAssets="all"`, ou seja, de build, e não entra na lista de dependências do `.nupkg` (o `.nuspec` gerado tem grupo de dependências vazio). A exposição era de quem **compila** o repositório, não de quem consome os pacotes.
+- Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
 
@@ -70,6 +53,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.7.0 — 2026-09-10
+
+- **Removido (quebra)** `SeccoClientCredentialsHandler` e `SeccoAccessTokenStore` — foram para o `Secco.SDK.ClientCredentials`. Quem os usava troca o `using` de `Secco.SDK.AspNetCore.Authentication` para `Secco.SDK.ClientCredentials` e acrescenta o pacote. O `Secco.SDK.AspNetCore` **não** os usava internamente, então nada mais muda nele.
 
 #### 0.6.0 — 2026-09-07
 
@@ -115,6 +102,13 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 
 ### Secco.LogStream.Client
 
+#### 0.4.0 — 2026-09-10
+
+- **Adicionado** `AddLogStreamClient()` aceita client credentials (issue #25): `AuthorityUrl`, `ClientId`, `ClientSecret` e `Scope` nas options, com o handler anexado automaticamente. Antes o client compilava, injetava e tomava 401 na primeira chamada, porque todos os endpoints do produto exigem permissão.
+- `Scope` tem default do próprio produto (`logstream`): o adotante não precisa conhecer o valor nem pode errá-lo por omissão.
+- Credenciais **opcionais** (ausentes = nenhum handler, serve DEV com token emitido fora da plataforma), **parciais falham rápido**. `BaseUrl` vazia continua lançando.
+- Passa a depender de `Secco.SDK.ClientCredentials`.
+
 #### 0.3.1 — 2026-09-06
 
 Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Client` entre a 0.3.0 e esta tag é vazio. Sai do commit `56e4a3f` pela cadeia de dependência do MinVer (ADR-0011).
@@ -138,6 +132,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.4.0 — 2026-09-10
+
+- **Alterado** passa a depender de `Secco.SDK.ClientCredentials` em vez dos tipos que viviam no `Secco.SDK.AspNetCore`. Sem mudança de comportamento nem de API própria — e quem usa este pacote deixa de carregar Hangfire por tabela.
+
 #### 0.3.0 — 2026-09-05
 
 - **Adicionado** `ProvisionTenantDatabaseAsync` e `GetTenantDatabaseStatusAsync` — o provisionamento de banco de tenant da ADR-0028 e o painel de estado dos bancos.
@@ -149,7 +147,21 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.2.0 | 2026-07-19 |
 | 0.1.0 | 2026-07-14 |
 
+### Secco.SDK.ClientCredentials
+
+#### 0.1.0 — 2026-09-10
+
+Primeira versão (issue #25). Client credentials do OAuth 2 para chamadas de máquina a máquina entre produtos: `SeccoClientCredentialsHandler`, `SeccoAccessTokenStore`, `SeccoClientCredentialsOptions` e a composição de DI.
+
+- Os dois primeiros **saíram** do `Secco.SDK.AspNetCore`, que arrasta Hangfire.Core, Hangfire.SqlServer, Hangfire.AspNetCore e JwtBearer — peso que um client de produto, inclusive um worker de console que só quer disparar uma notificação, não deveria carregar. Este depende só de `Microsoft.Extensions.Http` e das abstrações de DI/Configuration.
+- É a **segunda** promoção destas peças: o handler já havia subido do `Secco.SecureGate.Client` para o SDK pelo mesmo raciocínio, e as options ficaram para trás. Agora vieram junto.
+- Options ligadas por seção com **fallback** para `Secco:SecureGate`, registradas como serviço **keyed** pela seção: dois clients no mesmo host usam seções diferentes, e um singleton comum faria o segundo herdar em silêncio as credenciais do primeiro.
+
 ### Secco.SDK.Logging
+
+#### 0.2.0 — 2026-09-10
+
+- **Alterado** passa a depender de `Secco.SDK.ClientCredentials`. Sem mudança de comportamento nem de API própria.
 
 #### 0.1.1 — 2026-09-06
 
@@ -180,6 +192,12 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 - Depende de `Secco.SharedKernel` 0.3.3.
 
 ### Secco.NotificationHub.Client
+
+#### 0.6.0 — 2026-09-10
+
+- **Adicionado** `AddNotificationHubClient()` aceita client credentials, nos mesmos termos do `Secco.LogStream.Client` 0.4.0 (issue #25). `Scope` default: `notificationhub`.
+- **Pré-requisito que saiu junto, do lado do SecureGate:** não existia scope mapeado para o resource `secco-notificationhub` que a API do produto valida, então nenhum token emitido seria aceito. O seed de referência passou a declará-lo.
+- Passa a depender de `Secco.SDK.ClientCredentials`.
 
 #### 0.5.0 — 2026-09-07
 

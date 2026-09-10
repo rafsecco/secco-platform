@@ -41,4 +41,10 @@ O repositório usa Central Package Management (ADR-0011) e pins explícitos quan
 dotnet list Secco.Platform.slnx package --vulnerable --include-transitive
 ```
 
-O build trata `NU1903` como sinal a investigar, não ruído.
+O build trata `NU1902`/`NU1903` como sinal a investigar, não ruído — com `TreatWarningsAsErrors`, um advisory novo em dependência transitiva **quebra o build sem nenhuma mudança de código**, e é assim que a plataforma fica sabendo.
+
+Três coisas aprendidas nas duas vezes em que isso aconteceu (`NU1903` no `System.Security.Cryptography.Xml`, 2026-08-29; `NU1902` no `Microsoft.Build.Tasks.Git`, 2026-09-10):
+
+- **Nem toda CVE tem versão corrigida.** O `Microsoft.Build.Tasks.Git` 8.0.0 (CVE-2026-62900) não tem: o advisory manda atualizar o SDK, não o pacote. Quando não há para onde subir, a saída é remover a referência — e só dá para remover com segurança quem souber **por que ela existia**. Naquele caso, era SourceLink, que desde o .NET 8 já vem no SDK.
+- **Dependência de build não é dependência de produto.** Referência com `PrivateAssets="all"` não entra na lista de dependências do `.nupkg`: ela não alcança quem consome o pacote, expõe quem o **compila**. Confirme antes de dimensionar o impacto — o `.nuspec` do pacote gerado diz.
+- **O audit enxerga pacote NuGet, não componente embutido no SDK.** Removida a referência explícita, o aviso some; mas quem passa a fazer o trabalho é o SDK, e aí a versão **dele** é que governa. Confira `dotnet --list-sdks` contra as faixas do advisory, e lembre que o CI resolve a própria versão (`actions/setup-dotnet`).
