@@ -150,7 +150,7 @@ O canal de demanda passou a ser **GitHub Issues com a label [`adopter-demand`](h
 |---|---|---|---|
 | [#1](https://github.com/rafsecco/secco-platform/issues/1) | `AddLogStream()` — o sink `ILogger` → LogStream que a ADR-0008 promete não existe | Promessa de ADR não cumprida; bloqueava a Fase 0 do adotante | **Entregue** (2026-09-03) |
 | [#2](https://github.com/rafsecco/secco-platform/issues/2) | Trilha de auditoria de ação de usuário — `LogEntry` não tem ator | Lacuna de produto | **Entregue** (2026-09-03) — recurso `AuditEntry` no LogStream |
-| [#3](https://github.com/rafsecco/secco-platform/issues/3) | Provisionamento de banco e usuário de tenant | Lacuna de capacidade; restrições já fixadas pelas ADRs 0005/0020/0025 | **Entregue** (2026-09-05, ADR-0028) — SQL Server; Postgres na rodada seguinte |
+| [#3](https://github.com/rafsecco/secco-platform/issues/3) | Provisionamento de banco e usuário de tenant | Lacuna de capacidade; restrições já fixadas pelas ADRs 0005/0018/0025 | **Entregue** (2026-09-05, ADR-0028) — SQL Server; Postgres na rodada seguinte |
 | [#4](https://github.com/rafsecco/secco-platform/issues/4) | Onde vive o console de operação (futuro do AdminPortal) | Decisão de fronteira; toca a ADR-0024 | **Modelo definido** (2026-09-04); ADR pendente |
 | [#6](https://github.com/rafsecco/secco-platform/issues/6) | "Acessar como" — representação de usuário pelo admin do tenant | Recurso de alto risco; desenho antes de código | Aberta; escopo inicial e restrições registrados |
 
