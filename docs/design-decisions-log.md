@@ -1557,7 +1557,7 @@ Decisões acessórias da mesma rodada:
 - **Elevação explícita** resolve o token sem tocar em ADR: para ler log cross-tenant, a aplicação pede ao SecureGate um segundo token — sem `tenant_id`, escopo só `logstream`, só leitura, TTL curto, sem refresh — usado apenas naquela área. Privilégio como **ato**, não estado. Formato inspirado no RFC 8693 para não inventar protocolo (o adotante planeja pentest).
 - **Multi-tenancy vale mesmo sem console central**, mas com perda: ela compra SSO real (uma identidade por pessoa em todos os produtos da empresa), um lugar só para procurar log, e uma superfície única de operação. Só a terceira depende de UI central — e é justamente a que falta, o que reposiciona a #3 como a perna que falta do modelo.
 - **Dono da #3 definido sem discussão nova**: a ADR-0007 do `secco-intranet` já determina que criar database, criar login e conceder permissão são capacidades **da plataforma**, que custodia o catálogo cifrado (ADR-0025). O provisionamento vive no **SecureGate**; qual UI o chama volta a ser detalhe reversível.
-- **ADR adiada de propósito**: a decisão afeta 2+ produtos e é difícil de reverter, então merece ADR — a ser escrita quando a área administrativa da Intranet começar, para nascer ancorada em código e não em intenção.
+- **ADR adiada de propósito**: a decisão afeta 2+ produtos e é difícil de reverter, então merece ADR — a ser escrita quando a área administrativa da Intranet começar, para nascer ancorada em código e não em intenção. **Cumprido: a ADR-0030 saiu em 2026-09-12**, disparada pelo início daquela área (ADR-0008 do `secco-intranet`).
 
 ### 117. [Segurança] "Acessar como" — quem pode representar quem
 

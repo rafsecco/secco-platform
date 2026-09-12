@@ -13,13 +13,22 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 /// <c>AddSeccoAuthentication()</c> do produto) e os do catálogo/gestão do SecureGate
 /// (Fase 6.3): <c>catalog:&lt;produto&gt;</c> concede leitura do catálogo daquele produto
 /// apenas, e <c>securegate:admin</c> a gestão — todos com resource <c>secco-securegate</c>.
-/// Estrutura de operador: o tenant de plataforma e o role <c>platform-operator</c> que
+/// Estrutura de operador: o tenant de plataforma e o role de operador de instalação que
 /// habilita o scope admin no login (Fase 7.1). Tudo idempotente por nome/id.
 /// </summary>
 public sealed class SecureGateReferenceDataSeeder(
 	IOpenIddictScopeManager scopeManager,
 	SecureGateDbContext context) : IReferenceDataSeeder
 {
+	/// <summary>
+	/// Nome de exibição ANTIGO do tenant de plataforma (issue #4/2026-09) — sugeria que a
+	/// instalação era "da Secco". Só usado para a convergência abaixo.
+	/// </summary>
+	private const string LegacyTenantName = "Plataforma Secco";
+
+	/// <summary>Slug ANTIGO do tenant de plataforma. Só usado para a convergência abaixo.</summary>
+	private const string LegacyTenantSlug = "plataforma";
+
 	/// <summary>Audience do próprio SecureGate — resource dos scopes de catálogo e gestão.</summary>
 	private const string SecureGateResource = "secco-securegate";
 
@@ -64,12 +73,18 @@ public sealed class SecureGateReferenceDataSeeder(
 			SecureGateResource,
 			cancellationToken).ConfigureAwait(false);
 
-		// Fase 7.1 (ADR-0023): estrutura do operador de plataforma
-		await SeedPlatformOperatorAsync(cancellationToken).ConfigureAwait(false);
+		// Fase 7.1 (ADR-0023): estrutura do operador de instalação
+		await SeedInstallationOperatorAsync(cancellationToken).ConfigureAwait(false);
 	}
 
-	/// <summary>Tenant de plataforma + role <c>platform-operator</c> (gate do scope admin no login).</summary>
-	private async Task SeedPlatformOperatorAsync(CancellationToken cancellationToken)
+	/// <summary>
+	/// Tenant de plataforma + role de operador de instalação (gate do scope admin no login).
+	/// Convergência idempotente de vocabulário (issue #4/2026-09, mesmo padrão da ADR-0025 para
+	/// segredo legado em claro): tenant e role são localizados por chave estável (Guid/tenant+
+	/// nome), e valores antigos gravados por uma instalação anterior são atualizados NO LUGAR
+	/// em vez de deixados órfãos ao lado de uma linha nova.
+	/// </summary>
+	private async Task SeedInstallationOperatorAsync(CancellationToken cancellationToken)
 	{
 		if (!await context.Tenants.AnyAsync(t => t.Id == SecureGatePlatform.TenantId, cancellationToken).ConfigureAwait(false))
 		{
@@ -78,26 +93,78 @@ public sealed class SecureGateReferenceDataSeeder(
 			context.Tenants.Add(tenant);
 			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 		}
+		else
+		{
+			// Convergência de nome/slug (issue #4/2026-09): localizado por Guid, nunca por slug —
+			// só atualiza se ainda estiver nos valores antigos ("Plataforma Secco"/"plataforma"),
+			// então rodar de novo depois de convergido não escreve nada (idempotência, ADR-0019).
+			var tenant = await context.Tenants
+				.SingleAsync(t => t.Id == SecureGatePlatform.TenantId, cancellationToken)
+				.ConfigureAwait(false);
+
+			// Campo a campo, e nao com OR sobre os dois: casar apenas o slug legado nao deve
+			// sobrescrever um Name que alguem tenha ajustado, e vice-versa.
+			var convergiu = false;
+
+			if (tenant.Name == LegacyTenantName)
+			{
+				context.Entry(tenant).Property(nameof(Tenant.Name)).CurrentValue = SecureGatePlatform.TenantName;
+				convergiu = true;
+			}
+
+			if (tenant.Slug == LegacyTenantSlug)
+			{
+				context.Entry(tenant).Property(nameof(Tenant.Slug)).CurrentValue = SecureGatePlatform.TenantSlug;
+				convergiu = true;
+			}
+
+			if (convergiu)
+			{
+				await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+			}
+		}
 
 		var normalized = SecureGatePlatform.OperatorRole.ToUpperInvariant();
 
-		var roleExists = await context.Roles
-			.AnyAsync(r => r.TenantId == SecureGatePlatform.TenantId && r.NormalizedName == normalized, cancellationToken)
+		var role = await context.Roles
+			.SingleOrDefaultAsync(r => r.TenantId == SecureGatePlatform.TenantId && r.NormalizedName == normalized, cancellationToken)
 			.ConfigureAwait(false);
 
-		if (!roleExists)
+		if (role is not null)
 		{
-			// O role só marca o operador — os poderes vêm do scope admin, não de permissões (ADR-0023)
-			context.Roles.Add(new Identity.Role
-			{
-				Id = Guid.CreateVersion7(),
-				TenantId = SecureGatePlatform.TenantId,
-				Name = SecureGatePlatform.OperatorRole,
-				NormalizedName = normalized,
-				ConcurrencyStamp = Guid.NewGuid().ToString(),
-			});
-			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+			// Ramo 1: o nome novo já existe — nada a fazer.
+			return;
 		}
+
+		var legacyNormalized = SecureGatePlatform.LegacyOperatorRole.ToUpperInvariant();
+
+		var legacyRole = await context.Roles
+			.SingleOrDefaultAsync(r => r.TenantId == SecureGatePlatform.TenantId && r.NormalizedName == legacyNormalized, cancellationToken)
+			.ConfigureAwait(false);
+
+		if (legacyRole is not null)
+		{
+			// Ramo 2: renomeia NO LUGAR — o Id não muda, e é isso que mantém as atribuições
+			// existentes em tb_user_roles apontando para o mesmo role (só o nome mudou de
+			// vocabulário, o role continua sendo o mesmo objeto de autorização).
+			legacyRole.Name = SecureGatePlatform.OperatorRole;
+			legacyRole.NormalizedName = normalized;
+			legacyRole.ConcurrencyStamp = Guid.NewGuid().ToString();
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+			return;
+		}
+
+		// Ramo 3: nenhum dos dois existe — cria com o nome novo, como antes.
+		// O role só marca o operador — os poderes vêm do scope admin, não de permissões (ADR-0023)
+		context.Roles.Add(new Identity.Role
+		{
+			Id = Guid.CreateVersion7(),
+			TenantId = SecureGatePlatform.TenantId,
+			Name = SecureGatePlatform.OperatorRole,
+			NormalizedName = normalized,
+			ConcurrencyStamp = Guid.NewGuid().ToString(),
+		});
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	private async Task UpsertScopeAsync(

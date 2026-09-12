@@ -7,11 +7,14 @@ using Xunit;
 namespace Secco.SecureGate.Tests.Unit;
 
 /// <summary>
-/// Reserva do nome <c>platform-operator</c> na gestão de roles (ADR-0020/0023/0024): a
-/// criação e a substituição de permissões rejeitam esse nome em qualquer tenant — o role
-/// legítimo nasce só pelo seed de referência, nunca por API. A rejeição acontece antes de
-/// qualquer acesso ao repositório (guarda em memória), então o repositório é apenas um
-/// substituto que nunca deve ser tocado no caminho reservado.
+/// Reserva do nome do role de operador na gestão de roles (ADR-0020/0023/0024): a criação e a
+/// substituição de permissões rejeitam tanto o nome ATUAL (<see cref="SecureGatePlatform.OperatorRole"/>)
+/// quanto o LEGADO (<see cref="SecureGatePlatform.LegacyOperatorRole"/>, issue #4/2026-09) em
+/// qualquer tenant — o role legítimo nasce só pelo seed de referência, nunca por API. Reservar
+/// só o nome novo permitiria criar o legado via API depois da convergência do seed, e o seed de
+/// uma instalação futura o renomearia sem querer. A rejeição acontece antes de qualquer acesso
+/// ao repositório (guarda em memória), então o repositório é apenas um substituto que nunca
+/// deve ser tocado no caminho reservado.
 /// </summary>
 public class ReservedRoleNameTests
 {
@@ -31,6 +34,9 @@ public class ReservedRoleNameTests
 	}
 
 	[Theory]
+	[InlineData("INSTALLATION-OPERATOR")]
+	[InlineData("Installation-Operator")]
+	[InlineData("installation-Operator")]
 	[InlineData("PLATFORM-OPERATOR")]
 	[InlineData("Platform-Operator")]
 	[InlineData("platform-Operator")]
@@ -39,8 +45,24 @@ public class ReservedRoleNameTests
 		var repository = Substitute.For<IRoleRepository>();
 		var handler = new CreateRoleHandler(repository);
 
-		// O Identity normaliza o nome — quase-variações de caixa também não podem ser criadas
+		// O Identity normaliza o nome — quase-variações de caixa também não podem ser criadas,
+		// nem do nome atual, nem do legado (issue #4/2026-09)
 		var result = await handler.HandleAsync(new CreateRoleCommand(AnyTenant, name));
+
+		result.IsFailure.Should().BeTrue();
+		result.Error.Should().Be(SecureGateErrors.Roles.NameReserved);
+		await repository.DidNotReceiveWithAnyArgs().CreateRoleAsync(default, default!, default);
+	}
+
+	[Fact]
+	public async Task CreateRole_ComNomeLegado_RetornaNameReserved()
+	{
+		var repository = Substitute.For<IRoleRepository>();
+		var handler = new CreateRoleHandler(repository);
+
+		// O nome antigo também é reservado — senão alguém cria "platform-operator" via API
+		// depois da convergência do seed, e uma instalação futura o renomearia sem querer
+		var result = await handler.HandleAsync(new CreateRoleCommand(AnyTenant, SecureGatePlatform.LegacyOperatorRole));
 
 		result.IsFailure.Should().BeTrue();
 		result.Error.Should().Be(SecureGateErrors.Roles.NameReserved);
@@ -76,9 +98,26 @@ public class ReservedRoleNameTests
 			.ReplacePermissionsAsync(default, default!, default!, default);
 	}
 
+	[Fact]
+	public async Task SetPermissions_ComNomeLegado_RetornaNameReserved()
+	{
+		var repository = Substitute.For<IRoleRepository>();
+		var handler = new SetRolePermissionsHandler(repository);
+
+		var result = await handler.HandleAsync(new SetRolePermissionsCommand(
+			AnyTenant, SecureGatePlatform.LegacyOperatorRole, ["log-entries:read"]));
+
+		result.IsFailure.Should().BeTrue();
+		result.Error.Should().Be(SecureGateErrors.Roles.NameReserved);
+		await repository.DidNotReceiveWithAnyArgs()
+			.ReplacePermissionsAsync(default, default!, default!, default);
+	}
+
 	[Theory]
 	[InlineData("PLATFORM-OPERATOR")]
 	[InlineData("Platform-Operator")]
+	[InlineData("INSTALLATION-OPERATOR")]
+	[InlineData("Installation-Operator")]
 	public async Task SetPermissions_ComVariacaoDeCaixaDoNomeReservado_RetornaNameReserved(string name)
 	{
 		var repository = Substitute.For<IRoleRepository>();

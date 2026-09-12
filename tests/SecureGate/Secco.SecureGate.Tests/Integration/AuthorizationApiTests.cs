@@ -112,16 +112,16 @@ public class AuthorizationApiTests(SecureGateApiFactory factory) : IAsyncLifetim
 	}
 
 	[Fact]
-	public async Task GetPermissions_ForPlatformOperator_ReturnsReadSetForAnyTenant()
+	public async Task GetPermissions_ForInstallationOperator_ReturnsReadSetForAnyTenant()
 	{
 		var reader = CreateClientWithScopes(SecureGateScopes.AuthorizationRead);
 
-		// Um tenant aleatório onde o role platform-operator nunca foi cadastrado (ADR-0024)
+		// Um tenant aleatório onde o role de operador nunca foi cadastrado (ADR-0024)
 		var permissions = await reader.GetFromJsonAsync<string[]>(
 			$"/api/v1/authorization/tenants/{Guid.NewGuid()}/roles/{SecureGatePlatform.OperatorRole}/permissions", Json);
 
 		permissions.Should().BeEquivalentTo(SecureGatePlatform.OperatorReadPermissions,
-			"o operador de plataforma recebe o read-set em qualquer tenant, resolvido no SecureGate");
+			"o operador de instalação recebe o read-set em qualquer tenant, resolvido no SecureGate");
 		permissions.Should().OnlyContain(p => p.EndsWith(":read", StringComparison.Ordinal),
 			"a capacidade cross-tenant do operador é somente leitura");
 	}

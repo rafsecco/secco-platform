@@ -9,9 +9,10 @@ namespace Secco.SecureGate.Tests.Unit;
 
 /// <summary>
 /// Gate de emissão do token tenant-less (ADR-0020/0023/0024): o tratamento de operador
-/// (sem <c>tenant_id</c>) só vale para quem tem o role <c>platform-operator</c> E está no
-/// tenant de plataforma. O nome do role é único apenas por tenant — um "platform-operator"
-/// forjado num tenant de cliente NÃO pode receber o token tenant-less.
+/// (sem <c>tenant_id</c>) só vale para quem tem o role de operador de instalação
+/// (<see cref="SecureGatePlatform.OperatorRole"/>) E está no tenant de plataforma. O nome do
+/// role é único apenas por tenant — um role forjado com o mesmo nome num tenant de cliente
+/// NÃO pode receber o token tenant-less.
 /// </summary>
 public class OidcPrincipalBuilderTests
 {
@@ -37,13 +38,13 @@ public class OidcPrincipalBuilderTests
 			user, [SecureGatePlatform.OperatorRole], scopes: [], resources: []);
 
 		TenantClaim(principal).Should().BeNull(
-			"o operador de plataforma é tenant-less — escolhe o tenant por requisição (ADR-0024)");
+			"o operador de instalação é tenant-less — escolhe o tenant por requisição (ADR-0024)");
 	}
 
 	[Fact]
 	public void ForUser_RoleDeOperadorNumTenantDeCliente_AindaRecebeTenantId()
 	{
-		// Impostor: role LITERALMENTE chamado platform-operator, mas num tenant de cliente
+		// Impostor: role LITERALMENTE com o mesmo nome do role de operador, mas num tenant de cliente
 		var user = UserIn(CustomerTenant);
 
 		var principal = OidcPrincipalBuilder.ForUser(

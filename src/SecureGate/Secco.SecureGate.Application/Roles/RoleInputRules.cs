@@ -21,13 +21,18 @@ internal static partial class RoleInputRules
 		!string.IsNullOrEmpty(name) && name.Length <= NameMaxLength && RoleName().IsMatch(name);
 
 	/// <summary>
-	/// Indica se o nome é reservado à estrutura de plataforma (ADR-0023/0024). O role
-	/// <c>platform-operator</c> só pode nascer pelo seed de referência — criá-lo/gerí-lo via
-	/// API num tenant de cliente forjaria um operador por colisão de nome (ADR-0020).
+	/// Indica se o nome é reservado à estrutura de instalação (ADR-0023/0024). O role
+	/// <see cref="SecureGatePlatform.OperatorRole"/> só pode nascer pelo seed de referência —
+	/// criá-lo/gerí-lo via API num tenant de cliente forjaria um operador por colisão de nome
+	/// (ADR-0020). O nome LEGADO (<see cref="SecureGatePlatform.LegacyOperatorRole"/>) também é
+	/// reservado, e não só o novo: reservar só o novo permitiria criar um
+	/// <c>platform-operator</c> via API depois da convergência do seed, e o seed de uma
+	/// instalação futura o renomearia sem querer (mesmo risco de colisão, um passo adiante).
 	/// Comparação case-insensitive: o Identity normaliza o nome, então quase-variações de
 	/// caixa também não podem ser criadas.
 	/// </summary>
 	/// <param name="name">Nome candidato (já aparado).</param>
 	public static bool IsReservedName(string name) =>
-		string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.OrdinalIgnoreCase);
+		string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.OrdinalIgnoreCase)
+		|| string.Equals(name, SecureGatePlatform.LegacyOperatorRole, StringComparison.OrdinalIgnoreCase);
 }

@@ -4,14 +4,14 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 > **Papel redefinido em 2026-09-04** ([issue #4](https://github.com/rafsecco/secco-platform/issues/4)): este é o **console mínimo para quem adota a plataforma sem um portal próprio**. Cada instalação da plataforma é soberana — a empresa que adota pode ter o próprio portal (é o caso do `secco-intranet`, que será o portal completo de quem o usa) e, nesse caso, o AdminPortal deixa de ser o caminho principal. Ele existe porque a promessa da plataforma é que **SecureGate e LogStream sejam adotáveis isoladamente**: quem implanta só o SecureGate ainda precisa administrá-lo. A duplicação de telas com um portal de adotante é consciente e é o preço dessa promessa.
 >
-> No mesmo movimento, o vocabulário: `platform-operator` e "tenant de plataforma" significam **operador desta instalação**, não operador da Secco. O nome será revisto na ADR da fronteira.
+> No mesmo movimento, o vocabulário: o papel passou a ser `installation-operator` — **operador desta instalação**, não operador da Secco (ADR-0030). O seed de referência converge o nome antigo renomeando a linha no lugar, o que preserva o `Id` do papel e, com ele, as atribuições de usuário.
 
 ## Arquitetura (ADR-0023)
 
 - **Blazor Server** (render interativo por circuito) — C# ponta a ponta, reuso direto dos `Secco.*.Client`.
 - **Relying party OIDC**, não resource server: autentica via **authorization code + PKCE** contra o SecureGate (Fase 6.5), com sessão em **cookie**. Não usa `AddSeccoAuthentication()` (isso é para APIs que validam JWT); reusa apenas o cross-cutting não-de-auth do SDK (correlation, resilience, health).
 - **On-behalf-of**: chama as APIs de produto com o **access token do operador** (um `IOperatorTokenProvider` lê o token custodiado como claim no cookie de sessão e o anexa às chamadas). Cada ação carrega a identidade e as permissões reais do operador; a auditoria é a pessoa, não o AdminPortal.
-- **Operador cross-tenant**: o usuário do AdminPortal é o operador de plataforma — um usuário com o role `platform-operator` no tenant de plataforma. O SecureGate **filtra o scope `securegate:admin` no login** (só operadores o recebem, ADR-0020): login de usuário comum não escala para admin. As telas exigem a policy `Operator` (`RequireRole("platform-operator")`).
+- **Operador cross-tenant**: o usuário do AdminPortal é o operador de instalação — um usuário com o role `installation-operator` no tenant de plataforma. O SecureGate **filtra o scope `securegate:admin` no login** (só operadores o recebem, ADR-0020): login de usuário comum não escala para admin. As telas exigem a policy `Operator` (`RequireRole("installation-operator")`).
 
 ## O que está entregue
 

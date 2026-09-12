@@ -34,7 +34,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 	/// <summary>Secret do client do AdminPortal (conhecido — só existe em DEV).</summary>
 	public const string AdminPortalClientSecret = "secco-adminportal-secret-32-chars-min!";
 
-	/// <summary>Usuário OPERADOR de plataforma (ADR-0023) — recebe o scope admin no login.</summary>
+	/// <summary>Usuário OPERADOR de instalação (ADR-0023) — recebe o scope admin no login.</summary>
 	public const string OperatorEmail = "operador@secco.local";
 
 	/// <summary>Senha do operador demo (conhecida — só existe em DEV).</summary>
@@ -106,7 +106,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		await SeedWebClientAsync(cancellationToken).ConfigureAwait(false);
 		await SeedDevUserAsync(cancellationToken).ConfigureAwait(false);
 
-		// Fase 7.1 (ADR-0023): client do AdminPortal + usuário operador de plataforma
+		// Fase 7.1 (ADR-0023): client do AdminPortal + usuário operador de instalação
 		await SeedAdminPortalClientAsync(cancellationToken).ConfigureAwait(false);
 		await SeedOperatorUserAsync(cancellationToken).ConfigureAwait(false);
 	}
@@ -154,7 +154,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		await applicationManager.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
 	}
 
-	/// <summary>Usuário operador de plataforma no tenant de plataforma, com o role platform-operator.</summary>
+	/// <summary>Usuário operador de instalação no tenant de plataforma, com o role de operador.</summary>
 	private async Task SeedOperatorUserAsync(CancellationToken cancellationToken)
 	{
 		if (await userManager.FindByNameAsync(OperatorEmail).ConfigureAwait(false) is not null)

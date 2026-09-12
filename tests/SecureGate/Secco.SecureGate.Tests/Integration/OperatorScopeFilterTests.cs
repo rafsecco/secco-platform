@@ -21,8 +21,9 @@ namespace Secco.SecureGate.Tests.Integration;
 
 /// <summary>
 /// Filtro do scope admin no login (Fase 7.1, ADR-0023, defesa em profundidade da ADR-0020):
-/// o scope <c>securegate:admin</c> só é emitido a usuários com o role <c>platform-operator</c>
-/// — mesmo que o client tenha o scope permitido, login de usuário comum NÃO escala para admin.
+/// o scope <c>securegate:admin</c> só é emitido a usuários com o role de operador de instalação
+/// (<see cref="SecureGatePlatform.OperatorRole"/>) — mesmo que o client tenha o scope permitido,
+/// login de usuário comum NÃO escala para admin.
 /// </summary>
 [Collection(SelfIssuedApiCollectionDefinition.Name)]
 public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory secureGate) : IAsyncLifetime
@@ -50,7 +51,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
-		// Operador: no tenant de plataforma, com o role platform-operator (semeado por referência)
+		// Operador: no tenant de plataforma, com o role de operador (semeado por referência)
 		var normalizedOperator = SecureGatePlatform.OperatorRole.ToUpperInvariant();
 		var operatorRole = await context.Roles.FirstAsync(
 			r => r.TenantId == SecureGatePlatform.TenantId && r.NormalizedName == normalizedOperator);
@@ -81,9 +82,9 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 		};
 		(await userManager.CreateAsync(regularUser, Password)).Succeeded.Should().BeTrue();
 
-		// Impostor: num tenant de CLIENTE, com um role LITERALMENTE chamado platform-operator
-		// (inserido direto no contexto, driblando a reserva de nome da gestão). O gate de
-		// emissão exige o tenant de plataforma — o nome sozinho não escala (ADR-0020/0023/0024).
+		// Impostor: num tenant de CLIENTE, com um role LITERALMENTE com o mesmo nome do role de
+		// operador (inserido direto no contexto, driblando a reserva de nome da gestão). O gate
+		// de emissão exige o tenant de plataforma — o nome sozinho não escala (ADR-0020/0023/0024).
 		var impostorTenant = new Tenant("Tenant impostor", $"t-{Guid.NewGuid():N}");
 		context.Tenants.Add(impostorTenant);
 		await context.SaveChangesAsync();
@@ -118,7 +119,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 	{
 		var token = await LoginAndReadAccessTokenAsync(_operatorEmail);
 
-		Scopes(token).Should().Contain(SecureGateScopes.Admin, "o operador de plataforma recebe o scope admin");
+		Scopes(token).Should().Contain(SecureGateScopes.Admin, "o operador de instalação recebe o scope admin");
 		Scopes(token).Should().Contain("logstream");
 	}
 
@@ -156,7 +157,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 		var token = await LoginAndReadAccessTokenAsync(_impostorEmail);
 
 		Scopes(token).Should().NotContain(SecureGateScopes.Admin,
-			"um role platform-operator num tenant de cliente não escala para admin (ADR-0020)");
+			"um role de operador num tenant de cliente não escala para admin (ADR-0020)");
 	}
 
 	[Fact]

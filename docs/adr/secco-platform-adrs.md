@@ -819,6 +819,48 @@ Ou seja: as duas ferramentas **não** são equivalentes por ambas aceitarem HTTP
 - Design detalhado em `docs/superpowers/specs/2026-09-05-canais-externos-notificationhub-design.md`.
 ---
 
+## ADR-0030: Soberania da instalação — fronteira entre console de operação e portal do adotante
+
+**Status:** Aceita
+**Data:** 2026-09-12
+
+### Contexto
+
+O `Secco.AdminPortal` nasceu como exercício, para exercitar a fundação (ADR-0023). Quando o primeiro adotante — a Intranet — planejou a própria área administrativa, a pergunta "o que migra do AdminPortal?" travou, e não por questão de UI.
+
+O que travava era **o significado de "administrar todos os tenants"**. Havia três leituras, e cada uma levava a uma arquitetura diferente:
+
+| Leitura | Quem é o operador | O que "todos" significa |
+|---|---|---|
+| SaaS | a Secco, operando para várias empresas | todas as empresas clientes, numa instalação só |
+| Auto-hospedado puro | cada empresa que baixa | nada — cada instalação vê o próprio tenant |
+| **Instalação com vários tenants** | **o admin da empresa que instalou** | **os produtos e filiais daquela empresa** |
+
+A preocupação inicial — "duas identidades incompatíveis na mesma aplicação", porque a ADR-0024 decidiu que o token do operador **não** carrega `tenant_id` enquanto um produto tenant-scoped precisa dele — pressupunha a primeira leitura. Sob a terceira, ela encolhe: não são identidades de mundos diferentes, é uma **hierarquia dentro de uma instalação**, o modelo `cluster-admin`/`namespace-admin` do Kubernetes.
+
+### Decisão
+
+- **Cada instalação da plataforma é soberana.** A multi-tenancy existe para que a **empresa que adota** rode vários produtos seus sobre um SecureGate e um LogStream — não para a Secco operar várias empresas. O console não é o portal da Secco: é o portal de quem instalou. Uma empresa pode implantar só o SecureGate, ou só o LogStream, sem tenancy nenhuma.
+- **O `Secco.AdminPortal` permanece, com papel redefinido:** deixa de ser "o console de operação da plataforma" e passa a ser o **console mínimo para quem adota a plataforma sem a Intranet**. Quem quer só o SecureGate ainda precisa administrá-lo, e é isso que preserva a adoção independente da ADR-0001.
+- **Quem usa a Intranet tem nela o portal completo**, incluindo a área de operação cross-tenant. A duplicação de telas entre os dois é **aceita conscientemente**: é o preço de o SecureGate seguir adotável sozinho.
+- **Vocabulário:** `platform-operator` passa a `installation-operator`, e "operador de plataforma" a "operador de instalação". O modelo da ADR-0024 continua servindo inteiro; o nome antigo é que induz ao erro, sugerindo um operador da Secco.
+- **Gestão administrativa comum não exige elevação.** Criar e gerir tenant, role e usuário, e provisionar banco (ADR-0028), já são gated por scope `securegate:admin` **sem checar o tenant do chamador** — a superfície de operação cross-tenant que este modelo pede já existe, sem mudança de contrato.
+- **Leitura de log cross-tenant exige elevação explícita.** Um usuário de produto tenant-scoped loga com `tenant_id` no token; para ler log de qualquer tenant precisa de um token **sem** esse claim (ADR-0024), e a mesma sessão não carrega os dois. Ao entrar na área de análise, a aplicação pede ao emissor um **segundo token**: sem `tenant_id`, escopo só `logstream`, permissões só de leitura, TTL curto, sem refresh. Esse token nunca é usado nas chamadas do domínio próprio, e é descartado ao sair da área. O formato segue o espírito do [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693) (OAuth Token Exchange) — não é preciso implementá-lo inteiro, mas seguir o padrão evita inventar protocolo.
+
+**Alternativas rejeitadas.** Aposentar o AdminPortal e migrar a operação para a Intranet quebraria a adoção independente da ADR-0001, e "migrar" seria **reescrever**: os dois front-ends não são o mesmo stack (a Intranet é MVC com temas em Razor Class Library, o AdminPortal é Blazor Server). Transformar a operação em CLI também foi descartado: o AdminPortal tem 1222 linhas em 4 páginas, sem domínio nem banco próprios — reescrevê-lo custa mais do que mantê-lo.
+
+### Consequências
+
+- **A ADR-0024 segue válida e intacta.** O token do operador continua sem `tenant_id`, e o read-set cross-tenant continua resolvido como caso especial no SecureGate. Muda o nome do papel, não o mecanismo.
+- **A elevação explícita é o que permite um produto tenant-scoped hospedar a área cross-tenant** sem reabrir a ADR-0024. Privilégio passa a ser um **ato**, não um estado — o espírito do `sudo`. Ganhos: o token privilegiado é estreito, curto e separado; a elevação vira evento auditável; e se vazar, o que vaza é leitura de log, não a sessão do usuário.
+- **O rename não é find/replace.** O papel é criado pelo seed de referência **por nome**, então trocar a constante criaria um papel novo e deixaria o antigo órfão, com os operadores atribuídos a ele e sem acesso ao console. A convergência renomeia a linha **no lugar**, preservando o `Id` — é o que mantém as atribuições válidas —, no mesmo padrão idempotente que a ADR-0025 usa para converter connection string legada (ADR-0019: o seed de referência roda em todos os ambientes).
+- **Busca de log "de todos os tenants de uma vez" é trabalho novo**, não ajuste. Com database-per-tenant (ADR-0005), significa consultar N bancos e unir os resultados na aplicação, com paginação e ordenação sobre a união. É o caso de uso real ("deu erro em algum lugar, não sei onde") e fica no backlog como item próprio.
+- **A duplicação de telas entre AdminPortal e Intranet é permanente e bounded** — não é débito a pagar. Quem consolidar as duas quebra a adoção independente.
+- O nome e o slug do tenant de plataforma (`Plataforma Secco` / `plataforma`) carregavam a mesma marca enganosa e **foram renomeados junto** (`Instalação` / `instalacao`), pelo mesmo mecanismo de convergência. São display: o tenant é sempre localizado por Guid fixo, e verificou-se que nada no repositório o busca por slug.
+- Fica registrado o que **não** decorre desta ADR: o recurso "acessar como" é decisão de segurança independente, permitida **apenas ao admin do tenant** e nunca ao operador de instalação.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação
