@@ -948,6 +948,10 @@ A decisão de auditoria acima tem uma lacuna, encontrada ao fixar o contrato de 
 
 **O que muda nas consequências.** Os nomes de papel reservados passam de três para **quatro**: `installation-operator`, o legado `platform-operator`, `installation-log-reader` e `installation-auditor`. E à bateria de testes negativos somam-se: o `installation-auditor` recebe **apenas** `audit-entries:write`, sem nenhuma leitura; nenhum outro papel ganha escrita cross-tenant; e, sem a credencial de auditoria configurada, toda troca é recusada.
 
+**Correção factual, também de 2026-09-13.** A decisão acima diz que o grant é registrado "via `AllowCustomFlow` do OpenIddict". Está errado. Eu confirmei que `AllowCustomFlow` existe no OpenIddict 7.5.0, mas não procurei suporte nativo — e ele existe: `AllowTokenExchangeFlow()`, com o handler `ValidateSubjectToken`, que valida o token de entrada e entrega o principal já validado em `SubjectTokenPrincipal`. O grant usa o suporte **nativo**. A consequência é de segurança, não de estilo: a validação criptográfica do `subject_token` — a parte mais fácil de errar num handler escrito à mão — passa a ser do OpenIddict.
+
+Isso **não** dispensa verificação. A documentação desses handlers é `<inheritdoc/>` e não diz o que exatamente é checado, então a bateria de testes negativos passa a provar também o que o nativo recusa: `subject_token` forjado, expirado, de outro emissor, malformado, e refresh token apresentado no lugar de access token. O que o nativo não cobrir vira checagem explícita. As invariantes de política — escopo por allowlist, sem refresh, TTL com teto, não re-trocável, subject de usuário, auditoria — continuam sendo desta ADR, e não do OpenIddict.
+
 ---
 
 ## Backlog de ADRs futuras
