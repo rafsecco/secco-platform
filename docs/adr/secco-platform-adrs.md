@@ -861,6 +861,74 @@ A preocupação inicial — "duas identidades incompatíveis na mesma aplicaçã
 
 ---
 
+## ADR-0031: Token exchange como mecanismo de privilégio efêmero
+
+**Status:** Proposta
+**Data:** 2026-09-13
+
+### Contexto
+
+A ADR-0030 decidiu que ler log cross-tenant a partir de um produto tenant-scoped exige **elevação explícita**: um segundo token, sem `tenant_id`, escopo só `logstream`, leitura, TTL curto, sem refresh, descartado ao sair da área. Ela definiu a **forma** do token, mas não **quem tem autoridade para obtê-lo** — e é aí que o modelo atual não fecha:
+
+- Um usuário pertence a **exatamente um tenant** (`User.TenantId`, ADR-0022).
+- O read-set cross-tenant da ADR-0024 é concedido por **casamento de nome de papel**, sem contexto de usuário, e o que impede abuso é o nome ser **reservado**: `installation-operator` não pode existir em tenant de cliente.
+
+Logo, um usuário da Intranet — que vive num tenant de cliente — **não pode portar o papel que concede leitura cross-tenant**. A autoridade para elevar tem de vir de outro lugar.
+
+O recurso "acessar como" (#6) parece o mesmo problema e não é: é a direção oposta. A elevação **sobe** alcance e atravessa a fronteira de tenant; a representação **desce** privilégio e nunca a atravessa. A #6 barra o operador de instalação justamente porque somar representação a uma identidade sem `tenant_id` abriria caminho para dado de negócio de qualquer tenant. O que as duas compartilham é o **mecanismo**: ambas são privilégio como ato, ambas precisam de um segundo token estreito e curto, e ambas apontam para o [RFC 8693](https://www.rfc-editor.org/rfc/rfc8693).
+
+### Decisão
+
+#### Mecanismo, desenhado uma vez
+
+O **token exchange do RFC 8693** entra no `/connect/token` do SecureGate como `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, registrado via `AllowCustomFlow` do OpenIddict. Troca de token vive no emissor, e o emissor é único (ADR-0007/0022).
+
+Cada uso do mecanismo é uma **capacidade**, com autoridade própria e allowlist própria. Esta ADR define o mecanismo e a capacidade de **elevação**; a **representação** (#6) fica registrada como capacidade prevista sobre o mesmo grant, com a política em aberto na própria issue.
+
+#### Invariantes de todo token trocado
+
+Valem para qualquer capacidade, presente ou futura, e cada uma corresponde a um teste negativo obrigatório:
+
+1. **Mais estreito, nunca mais largo.** O escopo sai do allowlist da capacidade e **nunca** é herdado do `subject_token`. `securegate:admin` não é emitível por troca, em hipótese nenhuma.
+2. **Sem refresh token.**
+3. **TTL próprio, com teto.** Configurável para menos, nunca para mais: o teto é constante no código, e a configuração só pode apertá-lo — o mesmo padrão já usado no NotificationHub para tamanho de coluna (issue #23).
+4. **Não re-trocável.** Token trocado não serve de `subject_token`. Isso corta a cadeia A→B→C de escalada.
+5. **O subject é token de usuário.** Client credentials já emite token tenant-less; máquina não eleva.
+6. **Fail-closed com erro genérico.** Sem concessão, concessão expirada, capacidade desconhecida ou subject inválido respondem **igual**, sem revelar se o usuário existe nem por que foi recusado (ADR-0020).
+7. **Troca não auditada não acontece.** Ver a política de auditoria abaixo.
+
+#### Capacidade de elevação
+
+**Autoridade — concessão explícita na plataforma.** Uma entidade nova, `ElevationGrant`, no banco de plataforma do SecureGate registra que tal usuário pode elevar. É gerida por quem tem `securegate:admin`, aceita expiração opcional, e **sem linha não há elevação**. A revogação bloqueia a próxima troca imediatamente.
+
+**Token resultante.** `sub` é a pessoa real — a auditoria no produto continua sendo quem agiu, como na ADR-0024. **Sem `tenant_id`**, então o tenant alvo viaja em `X-Tenant-Id` pelo caminho "sem claim → header" que a ADR-0005 já permite, sem reformar a regra de conflito. Escopo só `logstream`. TTL padrão de 15 minutos, teto de 60.
+
+**Papel próprio: `installation-log-reader`.** O token elevado leva esse papel, **carimbado pelo emissor**. Ele não é persistido em `tb_roles`, não é atribuível pela gestão, e seu nome é **reservado** ao lado de `installation-operator` e do legado `platform-operator`. O read-set dele é resolvido no mesmo caso especial da ADR-0024.
+
+Reusar `installation-operator` no token elevado custaria menos e foi **recusado de propósito**: o token afirmaria ser algo que o portador não é, e a trilha não distinguiria um leitor elevado de um operador real — a mesma preocupação de repúdio que a #6 levanta para a representação.
+
+**Read-set menor que o do operador.** O `installation-log-reader` recebe `log-entries:read`, `log-processes:read` e `api-call-logs:read` — **não** recebe `audit-entries:read`, que o operador tem. O caso de uso que motivou a elevação é diagnóstico ("deu erro em algum lugar, não sei onde"), e a trilha de auditoria é dado mais sensível que o diagnóstico. Um usuário de tenant de cliente que eleva não ganha leitura da trilha de auditoria alheia.
+
+**Auditoria — síncrona e fail-closed.** Cada troca grava um `AuditEntry` no LogStream, **no tenant do usuário que elevou**, antes de o token ser emitido: quem, qual capacidade, quando e a partir de qual subject. **Se o registro falhar, a troca é recusada.** Três razões: a issue #2 já fez do LogStream a trilha de auditoria da plataforma, com ingestão síncrona justamente para registro obrigatório não sumir numa fila; uma elevação que não pode ser auditada é exatamente o que a ADR-0020 manda impedir; e registrar no tenant de origem permite aos admins **daquela empresa** verem quem, entre os seus, atravessou a fronteira.
+
+#### Alternativas rejeitadas
+
+- **Conta separada no tenant de plataforma.** Já funciona hoje, sem código — mas quebra a promessa de uma identidade por pessoa que justificou a tenancy (ADR-0030), e a Intranet passaria a exigir segundo login.
+- **Permitir `installation-operator` em qualquer tenant.** O mínimo de código, reaproveitando o caso especial existente — mas remove a barreira **estrutural** que protege o read-set (nome impossível em tenant de cliente) e a troca por uma dependência de a gestão nunca conceder o papel por engano. É a opção com risco real de vazamento cross-tenant.
+- **Tabela de auditoria local no SecureGate.** Evitaria a dependência nova entre produtos e a indisponibilidade acoplada — mas fragmentaria a trilha que a #2 decidiu ser uma só, e o admin do tenant não veria a elevação no mesmo lugar em que vê o resto.
+
+### Consequências
+
+- **Produtos e SDK ficam inalterados.** O LogStream recebe uma lista de permissões e autoriza como sempre; quem decide que um leitor elevado vê log de qualquer tenant é o IAM, no mesmo caso especial da ADR-0024.
+- **Dependência nova: o SecureGate passa a chamar o LogStream** para gravar a auditoria da troca, via client credentials. Até aqui o SecureGate **não dependia de produto nenhum** — LogStream e AdminPortal dependem dele, e ele de ninguém —, então deixa de ser a folha do grafo de dependências. Não há deadlock — são requisições distintas —, mas passa a haver ordem de subida a respeitar.
+- **LogStream indisponível implica elevação indisponível.** Aceito: elevar é ato raro e deliberado, falhar fechado é o lado seguro, e login e uso normal **não** são afetados.
+- **Revogação tem janela de até um TTL**: a concessão revogada impede a próxima troca na hora, mas o token já emitido vale até expirar. O teto de 60 minutos limita essa janela — o mesmo compromisso que a ADR-0021 aceita para a revogação de permissão.
+- **Passam a existir três nomes de papel reservados**, e nenhum pode ser criado pela gestão em tenant algum.
+- **A bateria de testes negativos é parte da decisão, não da implementação.** A capacidade só pode ser considerada entregue com testes provando que: usuário sem concessão não troca; concessão expirada ou revogada não troca; token trocado não é re-trocável; token de client credentials não serve de subject; o token emitido não carrega `securegate:admin` nem escopo além de `logstream`; nenhum refresh token é emitido; o TTL não passa do teto mesmo com configuração maior; o leitor elevado **não** lê `audit-entries`; falha de auditoria recusa a troca; e as respostas de recusa são indistinguíveis entre si.
+- **A #6 herda o mecanismo e não herda a política.** Quando a representação for decidida, ela ganha autoridade própria (admin do tenant), `sub` do alvo com claim `act`, e a restrição intra-tenant — e continua respondendo às próprias perguntas em aberto, a começar pela existência de hierarquia no modelo.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação
