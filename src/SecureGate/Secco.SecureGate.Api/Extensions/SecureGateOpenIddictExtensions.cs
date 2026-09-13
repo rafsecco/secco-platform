@@ -47,6 +47,10 @@ public static class SecureGateOpenIddictExtensions
 				server.AllowAuthorizationCodeFlow();
 				server.AllowRefreshTokenFlow();
 
+				// ADR-0031: token exchange (RFC 8693) nativo — o OpenIddict valida o subject_token;
+				// a política de elevação vive no /connect/token. Client só troca com permissão explícita.
+				server.AllowTokenExchangeFlow();
+
 				// PKCE OBRIGATÓRIO em todo authorization code (ADR-0020): protege o code de
 				// interceptação inclusive em clients públicos (SPA/nativo, sem client_secret)
 				server.RequireProofKeyForCodeExchange();

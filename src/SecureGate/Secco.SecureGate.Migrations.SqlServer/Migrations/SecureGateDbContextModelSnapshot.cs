@@ -22,6 +22,48 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Elevation.ElevationGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_elevation_grant");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_expires_at");
+
+                    b.Property<string>("GrantedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_granted_by");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_user");
+
+                    b.HasKey("Id")
+                        .HasName("pk_elevation_grants");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("idx_elevation_grants_id_fk_tenant");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_elevation_grants_id_fk_user");
+
+                    b.ToTable("tb_elevation_grants");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -668,6 +710,23 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .HasDatabaseName("idx_oidc_tokens_id_fk_application_ds_status_ds_subject_ds_type");
 
                     b.ToTable("tb_oidc_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.Elevation.ElevationGrant", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_elevation_grants_tenant");
+
+                    b.HasOne("Secco.SecureGate.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_elevation_grants_user");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantDatabase", b =>

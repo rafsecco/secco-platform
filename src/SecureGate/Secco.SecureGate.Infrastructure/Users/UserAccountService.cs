@@ -58,6 +58,11 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return new UserDto(user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)]);
 	}
 
+	public Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
+		context.Users
+			.AsNoTracking()
+			.AnyAsync(user => user.Id == userId && user.TenantId == tenantId, cancellationToken);
+
 	public async Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
 	{
 		var users = await context.Users

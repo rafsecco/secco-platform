@@ -37,6 +37,23 @@ public sealed class GetRolePermissionsHandler(IRoleRepository repository)
 			return Result.Success(SecureGatePlatform.OperatorReadPermissions);
 		}
 
+		// ADR-0031: o leitor elevado recebe um read-set MENOR que o do operador (sem a trilha de
+		// auditoria). O alcance cross-tenant não vem daqui: vem de o token elevado não carregar
+		// tenant_id. Um token comum com este papel por colisão continuaria preso ao próprio tenant
+		// pela regra de conflito da ADR-0005 — e o nome é reservado, então a colisão nem nasce.
+		if (string.Equals(name, SecureGatePlatform.ElevatedLogReaderRole, StringComparison.Ordinal))
+		{
+			return Result.Success(SecureGatePlatform.ElevatedLogReaderPermissions);
+		}
+
+		// ADR-0031, emenda de 2026-09-13: a ÚNICA escrita cross-tenant da plataforma, restrita a
+		// gravar auditoria. Nenhuma leitura. Qualquer outra escrita cross-tenant exige ADR própria
+		// (ADR-0024).
+		if (string.Equals(name, SecureGatePlatform.AuditorRole, StringComparison.Ordinal))
+		{
+			return Result.Success(SecureGatePlatform.AuditorPermissions);
+		}
+
 		var permissions = await repository.GetPermissionsAsync(tenantId, name, cancellationToken)
 			.ConfigureAwait(false);
 

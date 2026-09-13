@@ -12,7 +12,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-10. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+- **Adicionado (aditivo)** `GrantElevationAsync`, `GetElevationAsync` e `RevokeElevationAsync` — gestão da concessão de elevação por usuário (ADR-0031), gated por `securegate:admin`. A concessão é a autoridade que permite a um usuário de tenant de cliente trocar o próprio token por um token estreito de leitura de log cross-tenant.
+- Usuário de outro tenant na rota responde **exatamente como usuário inexistente** (404), para a diferença de resposta não revelar quais usuários existem.
+- Nenhum método existente foi renomeado; o contrato cresceu 211 linhas e não perdeu nenhuma.
 
 ---
 

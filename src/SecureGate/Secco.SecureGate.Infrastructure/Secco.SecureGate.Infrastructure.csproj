@@ -16,6 +16,9 @@
     <ProjectReference Include="..\..\SDK\Secco.SDK.EntityFrameworkCore\Secco.SDK.EntityFrameworkCore.csproj" />
     <!-- Tenancy (ITenantConnectionFactory/ITenantCatalog) vive no SDK.AspNetCore (ADR-0004/0005) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <!-- ADR-0031 (emenda): o SecureGate grava a auditoria das trocas de elevação no LogStream.
+         Primeira dependência dele em produto — deixa de ser a folha do grafo. -->
+    <ProjectReference Include="..\..\LogStream\Secco.LogStream.Client\Secco.LogStream.Client.csproj" />
   </ItemGroup>
 
 </Project>

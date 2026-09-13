@@ -95,6 +95,53 @@ public static class SecureGateInfrastructureExtensions
 		// Provisionamento de usuários (Fase 6.5) — sobre o ASP.NET Identity
 		services.AddScoped<Application.Users.IUserDirectory, Users.UserAccountService>();
 
+		// Concessão de elevação de leitura cross-tenant (ADR-0031)
+		services.AddScoped<Application.Elevation.IElevationGrantRepository, Repositories.ElevationGrantRepository>();
+
+		// TTL do token de elevação (ADR-0031). A Application recebe o POCO — o teto é aplicado no
+		// próprio tipo (EffectiveTokenLifetime), então a configuração só consegue apertar.
+		services.AddOptions<Application.Elevation.ElevationOptions>()
+			.BindConfiguration(Application.Elevation.ElevationOptions.SectionKey);
+		services.TryAddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<Application.Elevation.ElevationOptions>>().Value);
+
+		// Identidade de auditoria das trocas (ADR-0031, emenda de 2026-09-13). Seção ausente = elevação
+		// DESLIGADA (fail-closed); seção pela metade = startup falha.
+		services.AddOptions<Elevation.ElevationAuditOptions>()
+			.BindConfiguration(Elevation.ElevationAuditOptions.SectionKey)
+			.ValidateOnStart();
+		services.TryAddSingleton<IValidateOptions<Elevation.ElevationAuditOptions>, Elevation.ElevationAuditOptionsValidator>();
+
+		// Store fora do pipeline do IHttpClientFactory: o token sobrevive à reciclagem dos handlers
+		var auditTokenStore = new Secco.SDK.ClientCredentials.SeccoAccessTokenStore();
+
+		services.AddHttpClient(Elevation.LogStreamElevationAuditor.HttpClientName)
+			.ConfigureHttpClient((serviceProvider, client) =>
+			{
+				var options = serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value;
+
+				if (options.IsConfigured)
+				{
+					client.BaseAddress = new Uri(options.LogStreamBaseUrl!, UriKind.Absolute);
+				}
+			})
+			.ConfigureAdditionalHttpMessageHandlers((handlers, serviceProvider) =>
+			{
+				var options = serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value;
+
+				if (options.IsConfigured)
+				{
+					// Token da IDENTIDADE DE AUDITORIA, nunca o do usuário que elevou
+					handlers.Add(new Secco.SDK.ClientCredentials.SeccoClientCredentialsHandler(
+						options.AuthorityUrl!, options.ClientId!, options.ClientSecret!, "logstream", auditTokenStore));
+				}
+			});
+
+		services.AddSingleton<Application.Elevation.IElevationAuditor>(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value.IsConfigured
+				? ActivatorUtilities.CreateInstance<Elevation.LogStreamElevationAuditor>(serviceProvider)
+				: Elevation.NotConfiguredElevationAuditor.Instance);
+
 		// Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
 		services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
 		services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();

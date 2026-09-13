@@ -21,18 +21,35 @@ internal static partial class RoleInputRules
 		!string.IsNullOrEmpty(name) && name.Length <= NameMaxLength && RoleName().IsMatch(name);
 
 	/// <summary>
-	/// Indica se o nome é reservado à estrutura de instalação (ADR-0023/0024). O role
-	/// <see cref="SecureGatePlatform.OperatorRole"/> só pode nascer pelo seed de referência —
-	/// criá-lo/gerí-lo via API num tenant de cliente forjaria um operador por colisão de nome
-	/// (ADR-0020). O nome LEGADO (<see cref="SecureGatePlatform.LegacyOperatorRole"/>) também é
-	/// reservado, e não só o novo: reservar só o novo permitiria criar um
-	/// <c>platform-operator</c> via API depois da convergência do seed, e o seed de uma
-	/// instalação futura o renomearia sem querer (mesmo risco de colisão, um passo adiante).
-	/// Comparação case-insensitive: o Identity normaliza o nome, então quase-variações de
-	/// caixa também não podem ser criadas.
+	/// Nomes reservados à estrutura de instalação. Nenhum pode ser criado nem ter permissões
+	/// definidas via API, em tenant algum. Comparação case-insensitive: o Identity normaliza o nome,
+	/// então quase-variações de caixa também não podem ser criadas.
 	/// </summary>
+	/// <remarks>
+	/// <list type="bullet">
+	/// <item><see cref="SecureGatePlatform.OperatorRole"/> — só nasce pelo seed de referência;
+	/// criá-lo num tenant de cliente forjaria um operador por colisão de nome (ADR-0023/0024).</item>
+	/// <item><see cref="SecureGatePlatform.LegacyOperatorRole"/> — reservado junto do novo:
+	/// reservar só o novo permitiria recriar o antigo via API depois da convergência, e o seed de
+	/// uma instalação futura o renomearia sem querer (ADR-0030).</item>
+	/// <item><see cref="SecureGatePlatform.ElevatedLogReaderRole"/> — carimbado pelo emissor no
+	/// token de elevação; nunca existe em <c>tb_roles</c> (ADR-0031).</item>
+	/// <item><see cref="SecureGatePlatform.AuditorRole"/> — só existe no <c>ds_roles</c> do client
+	/// de auditoria; carrega a única escrita cross-tenant da plataforma (ADR-0031, emenda).</item>
+	/// </list>
+	/// Os quatro resolvem permissões por casamento de NOME, sem contexto de usuário, no
+	/// <c>GetRolePermissionsHandler</c> — e é esta reserva que impede um tenant de cliente de criar
+	/// um papel com o mesmo nome e herdar o caso especial.
+	/// </remarks>
+	private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+	{
+		SecureGatePlatform.OperatorRole,
+		SecureGatePlatform.LegacyOperatorRole,
+		SecureGatePlatform.ElevatedLogReaderRole,
+		SecureGatePlatform.AuditorRole,
+	};
+
+	/// <summary>Indica se o nome é reservado à estrutura de instalação.</summary>
 	/// <param name="name">Nome candidato (já aparado).</param>
-	public static bool IsReservedName(string name) =>
-		string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.OrdinalIgnoreCase)
-		|| string.Equals(name, SecureGatePlatform.LegacyOperatorRole, StringComparison.OrdinalIgnoreCase);
+	public static bool IsReservedName(string name) => ReservedNames.Contains(name);
 }

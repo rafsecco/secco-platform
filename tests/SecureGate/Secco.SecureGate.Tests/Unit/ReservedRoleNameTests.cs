@@ -7,7 +7,9 @@ using Xunit;
 namespace Secco.SecureGate.Tests.Unit;
 
 /// <summary>
-/// Reserva do nome do role de operador na gestão de roles (ADR-0020/0023/0024): a criação e a
+/// Reserva dos nomes de papel da estrutura de instalação na gestão de roles (ADR-0020/0023/0024,
+/// e ADR-0031 para <c>installation-log-reader</c> e <c>installation-auditor</c>, que resolvem permissões
+/// cross-tenant por NOME e por isso não podem nascer em tenant nenhum). A criação e a
 /// substituição de permissões rejeitam tanto o nome ATUAL (<see cref="SecureGatePlatform.OperatorRole"/>)
 /// quanto o LEGADO (<see cref="SecureGatePlatform.LegacyOperatorRole"/>, issue #4/2026-09) em
 /// qualquer tenant — o role legítimo nasce só pelo seed de referência, nunca por API. Reservar
@@ -40,6 +42,12 @@ public class ReservedRoleNameTests
 	[InlineData("PLATFORM-OPERATOR")]
 	[InlineData("Platform-Operator")]
 	[InlineData("platform-Operator")]
+	[InlineData("installation-log-reader")]
+	[InlineData("INSTALLATION-LOG-READER")]
+	[InlineData("Installation-Log-Reader")]
+	[InlineData("installation-auditor")]
+	[InlineData("INSTALLATION-AUDITOR")]
+	[InlineData("Installation-Auditor")]
 	public async Task CreateRole_ComVariacaoDeCaixaDoNomeReservado_RetornaNameReserved(string name)
 	{
 		var repository = Substitute.For<IRoleRepository>();
@@ -118,6 +126,12 @@ public class ReservedRoleNameTests
 	[InlineData("Platform-Operator")]
 	[InlineData("INSTALLATION-OPERATOR")]
 	[InlineData("Installation-Operator")]
+	[InlineData("installation-log-reader")]
+	[InlineData("INSTALLATION-LOG-READER")]
+	[InlineData("Installation-Log-Reader")]
+	[InlineData("installation-auditor")]
+	[InlineData("INSTALLATION-AUDITOR")]
+	[InlineData("Installation-Auditor")]
 	public async Task SetPermissions_ComVariacaoDeCaixaDoNomeReservado_RetornaNameReserved(string name)
 	{
 		var repository = Substitute.For<IRoleRepository>();

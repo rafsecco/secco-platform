@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application.Authorization;
 using Secco.SecureGate.Application.Catalog;
+using Secco.SecureGate.Application.Elevation;
 using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Application.Users;
@@ -39,6 +40,11 @@ public static class SecureGateApplicationExtensions
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
 		services.AddScoped<ListUsersHandler>();
+
+		// Concessão de elevação de leitura cross-tenant (ADR-0031)
+		services.AddScoped<GrantElevationHandler>();
+		services.AddScoped<GetElevationHandler>();
+		services.AddScoped<RevokeElevationHandler>();
 
 		return services;
 	}

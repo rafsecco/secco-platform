@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Conventions;
+using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -44,6 +45,9 @@ public sealed class SecureGateDbContext(
 
 	/// <summary>Federações de autenticação por tenant (tabela <c>tb_tenant_federations</c>, ADR-0026).</summary>
 	public DbSet<TenantFederation> TenantFederations => Set<TenantFederation>();
+
+	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
+	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
 
 	/// <inheritdoc />
 	protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -142,6 +146,21 @@ public sealed class SecureGateDbContext(
 
 			// Cascade: a federação é dado intrínseco do tenant (como TenantDatabase)
 			federation.HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+		});
+
+		builder.Entity<ElevationGrant>(grant =>
+		{
+			grant.Property(g => g.GrantedBy).HasMaxLength(ElevationGrant.GrantedByMaxLength);
+
+			// Uma concessão por usuário (ADR-0031). A convention nomeia como
+			// uk_elevation_grants_id_fk_user (padrão ADR-0017).
+			grant.HasIndex(g => g.UserId).IsUnique();
+
+			// Cascade nas duas FKs: usuário ou tenant apagado leva a concessão junto — concessão órfã
+			// apontando para ninguém é lixo com cara de privilégio. Não há múltiplos caminhos de
+			// cascade até esta tabela porque tenant → usuário é Restrict (acima).
+			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
+			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
 		});
 	}
 }

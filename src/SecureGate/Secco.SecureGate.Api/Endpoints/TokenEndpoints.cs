@@ -6,6 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Elevation;
+using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -13,7 +16,8 @@ namespace Secco.SecureGate.Api.Endpoints;
 
 /// <summary>
 /// Endpoint de token OIDC (ADR-0022): client credentials (máquinas, Fase 6.2) e
-/// authorization code / refresh token (usuários, Fase 6.5). O OpenIddict valida credenciais,
+/// authorization code / refresh token (usuários, Fase 6.5) e token exchange por elevação
+/// (ADR-0031). O OpenIddict valida credenciais,
 /// PKCE e o próprio code/refresh ANTES do passthrough — aqui apenas montamos a identidade
 /// com as claims curtas da ADR-0007.
 /// </summary>
@@ -41,6 +45,11 @@ public static class TokenEndpoints
 			if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
 			{
 				return await HandleUserGrantAsync(context, scopeManager, userManager, signInManager);
+			}
+
+			if (request.IsTokenExchangeGrantType())
+			{
+				return await HandleElevationAsync(context, request, scopeManager, userManager, signInManager);
 			}
 
 			return UnsupportedGrant("Grant type não suportado.");
@@ -109,6 +118,142 @@ public static class TokenEndpoints
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}
+
+	/// <summary>Tipo de token aceito como <c>subject_token</c> — valor fixado pelo RFC 8693, seção 3.</summary>
+	private const string AccessTokenType = "urn:ietf:params:oauth:token-type:access_token";
+
+	/// <summary>
+	/// Token exchange por ELEVAÇÃO (ADR-0031): troca o token de um usuário por um token estreito,
+	/// sem <c>tenant_id</c>, de leitura de log cross-tenant.
+	/// </summary>
+	/// <remarks>
+	/// Antes deste método o OpenIddict já validou o client, a permissão dele para este grant e
+	/// escopo, e o próprio <c>subject_token</c> (<c>ValidateSubjectToken</c>). Aqui fica a POLÍTICA.
+	/// <para>
+	/// Os serviços da elevação são resolvidos aqui dentro, e não injetados no endpoint: assim o
+	/// caminho quente — client credentials, authorization code e refresh — não paga por eles.
+	/// </para>
+	/// <para>
+	/// Toda recusa desta política é idêntica (invariante 6), para que a resposta não diga se o
+	/// usuário existe nem por que foi recusado. As recusas anteriores, do próprio OpenIddict, têm
+	/// códigos próprios — mas falam do CLIENT e do token apresentado, que o chamador já controla, e
+	/// nunca do usuário.
+	/// </para>
+	/// </remarks>
+	private static async Task<IResult> HandleElevationAsync(
+		HttpContext context,
+		OpenIddictRequest request,
+		IOpenIddictScopeManager scopeManager,
+		UserManager<User> userManager,
+		SignInManager<User> signInManager)
+	{
+		var services = context.RequestServices;
+		var auditor = services.GetRequiredService<IElevationAuditor>();
+
+		// Sem identidade de auditoria a capacidade está desligada (invariante 7, emenda). Checado
+		// ANTES de qualquer consulta: uma instalação sem auditoria não pode servir de oráculo de
+		// existência de usuário.
+		if (!auditor.IsConfigured)
+		{
+			return ElevationRefused();
+		}
+
+		// Refresh token ou qualquer outro tipo no lugar de access token: recusado aqui, e não só
+		// confiado ao OpenIddict (defesa em profundidade).
+		if (!string.Equals(request.SubjectTokenType, AccessTokenType, StringComparison.Ordinal))
+		{
+			return ElevationRefused();
+		}
+
+		// Invariante 1: exatamente o escopo elevado. Vazio também recusa — exigir o pedido explícito é
+		// o que faz o OpenIddict conferir a permissão de escopo do client, que ele não confere para
+		// escopo não pedido. Fora do allowlist recusa em vez de estreitar em silêncio.
+		var requestedScopes = request.GetScopes();
+
+		if (requestedScopes.Length != 1
+			|| !string.Equals(requestedScopes[0], SecureGatePlatform.ElevatedScope, StringComparison.Ordinal))
+		{
+			return ElevationRefused();
+		}
+
+		// Principal do subject_token, já validado pelo OpenIddict
+		var subject = (await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)).Principal;
+
+		if (subject is null)
+		{
+			return ElevationRefused();
+		}
+
+		// Invariante 4: token trocado não é re-trocável. Sem isto, o mesmo usuário renovaria o TTL do
+		// próprio token elevado indefinidamente.
+		if (subject.HasClaim(claim => claim.Type == SecureGatePlatform.TokenExchangeClaim))
+		{
+			return ElevationRefused();
+		}
+
+		// Invariante 5: subject de usuário e ativo. Client credentials tem sub = client_id, que não é
+		// usuário. Tenant e nome vêm do CADASTRO, nunca de claim do token de entrada.
+		var user = subject.GetClaim(Claims.Subject) is { } subjectId && Guid.TryParse(subjectId, out var userId)
+			? await userManager.FindByIdAsync(userId.ToString())
+			: null;
+
+		// CanSignInAsync NÃO cobre bloqueio nem tenant desativado — só confirmação de conta. As duas
+		// checagens abaixo são explícitas pelo mesmo motivo que o login federado as faz
+		// (EntraSignInProcessor). Para a elevação elas importam mais que em qualquer outro fluxo: a
+		// desativação de tenant é cumprida pelo CATÁLOGO, que deixa de resolver o banco daquele tenant
+		// — e um token elevado lê log de OUTROS tenants, ativos, onde o catálogo resolve normalmente.
+		// Sem isto, usuário de tenant desativado seguiria lendo log alheio.
+		if (user is null
+			|| !await signInManager.CanSignInAsync(user)
+			|| await userManager.IsLockedOutAsync(user))
+		{
+			return ElevationRefused();
+		}
+
+		var tenant = await services.GetRequiredService<ITenantRepository>()
+			.GetByIdAsync(user.TenantId, context.RequestAborted);
+
+		if (tenant is not { IsActive: true })
+		{
+			return ElevationRefused();
+		}
+
+		// Autoridade (ADR-0031): concessão explícita e vigente. Revogada ou expirada, não troca.
+		var now = DateTimeOffset.UtcNow;
+		var grant = await services.GetRequiredService<IElevationGrantRepository>()
+			.GetByUserAsync(user.Id, context.RequestAborted);
+
+		if (grant is null || !grant.IsActiveAt(now))
+		{
+			return ElevationRefused();
+		}
+
+		// Invariante 3: TTL já limitado pelo teto
+		var lifetime = services.GetRequiredService<ElevationOptions>().EffectiveTokenLifetime;
+		string[] scopes = [SecureGatePlatform.ElevatedScope];
+
+		// Invariante 7: auditoria ANTES da emissão. Falhou, não emite. Se a emissão falhar depois de
+		// auditada, sobra um registro a mais — o lado seguro: nunca uma troca sem registro.
+		var recorded = await auditor.RecordAsync(
+			new ElevationAuditRecord(user.Id, user.TenantId, user.UserName, request.ClientId, scopes, now.Add(lifetime)),
+			context.RequestAborted);
+
+		if (!recorded)
+		{
+			return ElevationRefused();
+		}
+
+		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
+
+		return Results.SignIn(
+			OidcPrincipalBuilder.ForElevation(user, resources, lifetime),
+			properties: null,
+			OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+	}
+
+	/// <summary>Recusa única da política de elevação (ADR-0031, invariante 6).</summary>
+	private static IResult ElevationRefused() =>
+		Forbid(Errors.InvalidGrant, "A troca de token não foi autorizada.");
 
 	private static IResult UnsupportedGrant(string description) => Forbid(Errors.UnsupportedGrantType, description);
 

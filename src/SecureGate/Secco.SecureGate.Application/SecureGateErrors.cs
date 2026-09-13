@@ -190,4 +190,32 @@ public static class SecureGateErrors
 		public static Error CreationFailed(string detail) =>
 			Error.Validation("SecureGate.User.CreationFailed", detail);
 	}
+
+	/// <summary>Erros da concessão de elevação (ADR-0031).</summary>
+	public static class Elevation
+	{
+		/// <summary>
+		/// Usuário não encontrado no tenant da rota — MESMA resposta para usuário inexistente e
+		/// para usuário que existe em OUTRO tenant (ADR-0020): a rota de um tenant não pode
+		/// revelar que um <c>userId</c> pertence a outro.
+		/// </summary>
+		public static readonly Error UserNotFound =
+			Error.NotFound("SecureGate.Elevation.UserNotFound", "Usuário não encontrado neste tenant.");
+
+		/// <summary>Não há concessão de elevação registrada para o usuário.</summary>
+		public static readonly Error GrantNotFound =
+			Error.NotFound("SecureGate.Elevation.GrantNotFound", "Não há concessão de elevação para este usuário.");
+
+		/// <summary>Data de expiração no passado (ou igual a agora — a concessão nasceria inativa).</summary>
+		public static readonly Error ExpiresAtInPast =
+			Error.Validation("SecureGate.Elevation.ExpiresAtInPast", "A data de expiração deve ser no futuro.");
+
+		/// <summary>
+		/// Claim <c>sub</c> ausente no chamador autenticado — inalcançável em uso normal (o gate
+		/// de scope já exige autenticação); defesa em profundidade (ADR-0020) contra token
+		/// malformado que burlasse a validação de assinatura.
+		/// </summary>
+		public static readonly Error GrantedByRequired =
+			Error.Validation("SecureGate.Elevation.GrantedByRequired", "O chamador autenticado não carrega a claim 'sub'.");
+	}
 }

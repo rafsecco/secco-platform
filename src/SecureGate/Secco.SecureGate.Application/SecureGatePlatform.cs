@@ -55,4 +55,78 @@ public static class SecureGatePlatform
 		// simplesmente não apareceria no AdminPortal.
 		"audit-entries:read",
 	];
+
+	/// <summary>
+	/// Papel carimbado pelo emissor no token de ELEVAÇÃO (ADR-0031). Nunca é persistido em
+	/// <c>tb_roles</c> nem atribuível pela gestão, e seu nome é reservado. Não reusa
+	/// <see cref="OperatorRole"/> de propósito: o token afirmaria ser o que o portador não é, e a
+	/// trilha de auditoria não distinguiria um leitor elevado de um operador real.
+	/// </summary>
+	/// <remarks>
+	/// O alcance cross-tenant NÃO vem deste papel — vem de o token elevado não carregar
+	/// <c>tenant_id</c>. Um token comum que, por colisão de nome, trouxesse este papel continuaria
+	/// carregando o <c>tenant_id</c> do usuário, e a regra de conflito da ADR-0005 (claim vence,
+	/// header divergente = 400) o prenderia ao próprio tenant. Há teste provando isso.
+	/// </remarks>
+	public const string ElevatedLogReaderRole = "installation-log-reader";
+
+	/// <summary>
+	/// Papel da identidade de serviço do SecureGate que grava a auditoria das trocas
+	/// (ADR-0031, emenda de 2026-09-13). Vive só no <c>ds_roles</c> de um client OIDC semeado —
+	/// papel de client não é gerido por API —, e seu nome é reservado.
+	/// </summary>
+	public const string AuditorRole = "installation-auditor";
+
+	/// <summary>
+	/// Read-set do leitor elevado (ADR-0031). Listado EXPLICITAMENTE, e não derivado de
+	/// <see cref="OperatorReadPermissions"/>: uma leitura acrescentada ao operador no futuro não
+	/// pode fluir em silêncio para quem só elevou. Deliberadamente SEM <c>audit-entries:read</c> —
+	/// o caso de uso é diagnóstico, e a trilha de auditoria é dado mais sensível que o diagnóstico.
+	/// </summary>
+	public static readonly IReadOnlyList<string> ElevatedLogReaderPermissions =
+	[
+		"log-entries:read",
+		"log-processes:read",
+		"api-call-logs:read",
+	];
+
+	/// <summary>
+	/// Única permissão cross-tenant de ESCRITA da plataforma (ADR-0031, emenda de 2026-09-13) —
+	/// a "nova ADR" que a ADR-0024 exige para escrita cross-tenant, com escopo mínimo: uma
+	/// permissão, uma identidade, um propósito. Nenhuma leitura. Seguro porque o SecureGate já é a
+	/// raiz de confiança: quem o compromete emite token para qualquer um, então escrever auditoria
+	/// não amplia o que um atacante nele consegue fazer.
+	/// </summary>
+	public static readonly IReadOnlyList<string> AuditorPermissions =
+	[
+		"audit-entries:write",
+	];
+
+	/// <summary>TTL padrão do token de elevação (ADR-0031).</summary>
+	public static readonly TimeSpan ElevatedTokenDefaultLifetime = TimeSpan.FromMinutes(15);
+
+	/// <summary>
+	/// Teto do TTL do token de elevação (ADR-0031). A configuração pode APERTAR o TTL, nunca
+	/// afrouxá-lo além deste valor — o teto limita a janela em que um token emitido segue válido
+	/// depois de a concessão ser revogada.
+	/// </summary>
+	public static readonly TimeSpan ElevatedTokenMaxLifetime = TimeSpan.FromMinutes(60);
+
+	/// <summary>
+	/// Único escopo emitível pela capacidade de elevação (ADR-0031, invariante 1). Qualquer outro
+	/// escopo pedido na troca faz a troca ser recusada — nunca estreitado em silêncio, para que o
+	/// uso indevido apareça em vez de ser mascarado.
+	/// </summary>
+	public const string ElevatedScope = "logstream";
+
+	/// <summary>
+	/// Claim que marca um token como produto de troca (ADR-0031, invariante 4), com o nome da
+	/// capacidade como valor. É o que torna o token NÃO re-trocável: sem ele, um token elevado
+	/// poderia ser trocado de novo pelo mesmo usuário e renovar o próprio TTL indefinidamente.
+	/// Fica no SecureGate e não no SharedKernel (ADR-0003): só o emissor o lê.
+	/// </summary>
+	public const string TokenExchangeClaim = "token_exchange";
+
+	/// <summary>Valor de <see cref="TokenExchangeClaim"/> para a capacidade de elevação (ADR-0031).</summary>
+	public const string ElevationCapability = "elevation";
 }

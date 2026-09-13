@@ -25,4 +25,14 @@ public interface IUserDirectory
 	/// <param name="tenantId">Tenant dono dos usuários.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Indica se o usuário existe E pertence ao tenant, numa consulta pontual. Existe para quem só
+	/// precisa da resposta sim/não: listar o tenant inteiro para procurar um id carregaria todos os
+	/// usuários e os papéis de cada um a cada chamada.
+	/// </summary>
+	/// <param name="tenantId">Tenant esperado.</param>
+	/// <param name="userId">Usuário a conferir.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 }

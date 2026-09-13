@@ -61,6 +61,50 @@ internal static class OidcPrincipalBuilder
 		return new ClaimsPrincipal(identity);
 	}
 
+	/// <summary>
+	/// Constrói o principal do token de ELEVAÇÃO (ADR-0031). Deliberadamente mais pobre que
+	/// <see cref="ForUser"/>: só o necessário para ler log de outro tenant, e nada que permita mais.
+	/// </summary>
+	/// <remarks>
+	/// Três ausências são a própria segurança deste token, e cada uma tem teste:
+	/// <list type="bullet">
+	/// <item><b>Sem <c>tenant_id</c>.</b> É daqui que vem o alcance cross-tenant: o tenant alvo viaja
+	/// em <c>X-Tenant-Id</c>, pelo caminho "sem claim → header" que a ADR-0005 já permite.</item>
+	/// <item><b>Sem os papéis do próprio usuário</b> — só <see cref="SecureGatePlatform.ElevatedLogReaderRole"/>.
+	/// Se os papéis do usuário viessem junto, um <c>admin</c> do tenant A mirando o tenant B faria o
+	/// resolvedor consultar <c>(B, admin)</c>; havendo lá um papel com esse nome e permissão de
+	/// escrita, o token viraria escrita cross-tenant. Esta é a invariante mais fácil de quebrar sem
+	/// perceber, porque <see cref="ForUser"/> copia os papéis e este método não pode.</item>
+	/// <item><b>Sem <c>offline_access</c></b>, logo sem refresh token (invariante 2).</item>
+	/// </list>
+	/// </remarks>
+	/// <param name="user">Usuário que elevou.</param>
+	/// <param name="resources">Audiences do escopo elevado.</param>
+	/// <param name="lifetime">TTL já limitado pelo teto (invariante 3).</param>
+	public static ClaimsPrincipal ForElevation(User user, IEnumerable<string> resources, TimeSpan lifetime)
+	{
+		ArgumentNullException.ThrowIfNull(user);
+
+		var identity = new ClaimsIdentity(
+			TokenValidationParameters.DefaultAuthenticationType, Claims.Name, SeccoClaims.Role);
+
+		// A pessoa real: a auditoria no produto continua sendo quem agiu (ADR-0024)
+		identity.SetClaim(Claims.Subject, user.Id.ToString());
+		identity.SetClaim(Claims.Name, user.UserName);
+
+		identity.SetClaims(SeccoClaims.Role, [SecureGatePlatform.ElevatedLogReaderRole]);
+		identity.SetClaim(SecureGatePlatform.TokenExchangeClaim, SecureGatePlatform.ElevationCapability);
+
+		identity.SetScopes([SecureGatePlatform.ElevatedScope]);
+		identity.SetResources(resources);
+		identity.SetAccessTokenLifetime(lifetime);
+
+		// Só no access token: não há id_token numa troca, e nada disto é informação de perfil
+		identity.SetDestinations(static _ => [Destinations.AccessToken]);
+
+		return new ClaimsPrincipal(identity);
+	}
+
 	/// <summary>Resolve as audiences (resources) dos scopes de produto via scope manager.</summary>
 	/// <param name="scopeManager">Gerenciador de scopes do OpenIddict.</param>
 	/// <param name="scopes">Scopes concedidos.</param>
