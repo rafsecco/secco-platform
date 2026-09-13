@@ -863,7 +863,7 @@ A preocupação inicial — "duas identidades incompatíveis na mesma aplicaçã
 
 ## ADR-0031: Token exchange como mecanismo de privilégio efêmero
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-13
 
 ### Contexto
