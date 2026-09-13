@@ -927,6 +927,27 @@ Reusar `installation-operator` no token elevado custaria menos e foi **recusado 
 - **A bateria de testes negativos é parte da decisão, não da implementação.** A capacidade só pode ser considerada entregue com testes provando que: usuário sem concessão não troca; concessão expirada ou revogada não troca; token trocado não é re-trocável; token de client credentials não serve de subject; o token emitido não carrega `securegate:admin` nem escopo além de `logstream`; nenhum refresh token é emitido; o TTL não passa do teto mesmo com configuração maior; o leitor elevado **não** lê `audit-entries`; falha de auditoria recusa a troca; e as respostas de recusa são indistinguíveis entre si.
 - **A #6 herda o mecanismo e não herda a política.** Quando a representação for decidida, ela ganha autoridade própria (admin do tenant), `sub` do alvo com claim `act`, e a restrição intra-tenant — e continua respondendo às próprias perguntas em aberto, a começar pela existência de hierarquia no modelo.
 
+
+### Emenda de 2026-09-13 — de onde a auditoria da troca escreve
+
+A decisão de auditoria acima tem uma lacuna, encontrada ao fixar o contrato de implementação e **antes de qualquer código**: gravar `AuditEntry` no tenant de quem elevou exige que o SecureGate **escreva em qualquer tenant**, e isso a ADR-0024 proíbe textualmente — *"escrita cross-tenant não é concedida; se algum dia for necessário, exige nova ADR"*. Permissão de escrita de máquina hoje só existe por papel dentro de um tenant específico. O texto original desta ADR fica intacto acima; o que segue o completa.
+
+**Decisão.** Uma identidade de serviço do SecureGate recebe **exatamente uma** permissão cross-tenant de escrita — `audit-entries:write` — e nada mais:
+
+- É um client OIDC reservado, com grant client credentials, escopo `logstream` e o papel **`installation-auditor`**, também reservado.
+- O caso especial fica no mesmo lugar do read-set da ADR-0024: resolvido `installation-auditor`, o SecureGate devolve `audit-entries:write` em qualquer tenant. Produtos e SDK seguem inalterados.
+- Esta emenda é a "nova ADR" que a ADR-0024 exige para escrita cross-tenant, com escopo **mínimo e nomeado**: uma permissão, uma identidade, um propósito. Não abre precedente para escrita cross-tenant em geral — qualquer outra continua exigindo ADR própria.
+
+**Por que isso é seguro, e não só conveniente.** O SecureGate já é a raiz de confiança da plataforma: quem o compromete emite token para qualquer usuário, de qualquer tenant, com qualquer papel. Dar a ele escrita de auditoria **não amplia** o que um atacante no SecureGate consegue fazer. A mesma permissão numa identidade de produto seria outra conversa.
+
+**Três salvaguardas, cada uma com teste:**
+
+1. **O papel nunca chega a um client pela gestão.** Hoje isso é estrutural: os papéis de client OIDC (`ds_roles`) só são escritos por seeders, e não existe endpoint para geri-los. Se um dia existir, os nomes reservados têm de ser recusados ali também — do contrário, quem cria um client com `installation-auditor` ganha escrita de auditoria em todos os tenants.
+2. **O segredo nunca vem do seed de referência.** O seed de referência roda em todos os ambientes (ADR-0019), e segredo semeado seria segredo conhecido em produção. A credencial vem de configuração.
+3. **Sem a credencial configurada, não há elevação.** Sem identidade de auditoria não há como auditar, e pela invariante 7 troca não auditada não acontece. A capacidade é, portanto, **opt-in por configuração e fail-closed** — o mesmo padrão da automação de provisionamento (ADR-0028) e da federação (ADR-0026), cuja seção ausente desliga o recurso.
+
+**O que muda nas consequências.** Os nomes de papel reservados passam de três para **quatro**: `installation-operator`, o legado `platform-operator`, `installation-log-reader` e `installation-auditor`. E à bateria de testes negativos somam-se: o `installation-auditor` recebe **apenas** `audit-entries:write`, sem nenhuma leitura; nenhum outro papel ganha escrita cross-tenant; e, sem a credencial de auditoria configurada, toda troca é recusada.
+
 ---
 
 ## Backlog de ADRs futuras
