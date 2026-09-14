@@ -12,11 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-- **Adicionado (aditivo)** `GrantElevationAsync`, `GetElevationAsync` e `RevokeElevationAsync` — gestão da concessão de elevação por usuário (ADR-0031), gated por `securegate:admin`. A concessão é a autoridade que permite a um usuário de tenant de cliente trocar o próprio token por um token estreito de leitura de log cross-tenant.
-- Usuário de outro tenant na rota responde **exatamente como usuário inexistente** (404), para a diferença de resposta não revelar quais usuários existem.
-- Nenhum método existente foi renomeado; o contrato cresceu 211 linhas e não perdeu nenhuma.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-13. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -30,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.3.8 — 2026-09-13
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` desde a 0.3.7 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SDK.AspNetCore` 0.7.1 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.3.6 — 2026-09-07
 
@@ -57,6 +57,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.7.1 — 2026-09-13
+
+Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` desde a 0.7.0 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.5.0 o referencia.
 
 #### 0.7.0 — 2026-09-10
 
@@ -136,6 +140,12 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.5.0 — 2026-09-13
+
+- **Adicionado (aditivo)** `GrantElevationAsync`, `GetElevationAsync` e `RevokeElevationAsync` — gestão da concessão de elevação por usuário (ADR-0031), gated por `securegate:admin`. A concessão é a autoridade que permite a um usuário de tenant de cliente trocar o próprio token por um token estreito de leitura de log cross-tenant.
+- Usuário de outro tenant na rota responde **exatamente como usuário inexistente** (404), para a diferença de resposta não revelar quais usuários existem.
+- Nenhum método existente foi renomeado; o contrato cresceu 211 linhas e não perdeu nenhuma.
+
 #### 0.4.0 — 2026-09-10
 
 - **Alterado** passa a depender de `Secco.SDK.ClientCredentials` em vez dos tipos que viviam no `Secco.SDK.AspNetCore`. Sem mudança de comportamento nem de API própria — e quem usa este pacote deixa de carregar Hangfire por tabela.
@@ -152,6 +162,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.1 — 2026-09-13
+
+Patch **sem mudança funcional**: o diff desde a 0.1.0 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.5.0 o referencia.
 
 #### 0.1.0 — 2026-09-10
 
