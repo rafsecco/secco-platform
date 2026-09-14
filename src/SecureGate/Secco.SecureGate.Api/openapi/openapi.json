@@ -218,7 +218,7 @@
         "tags": [
           "Tenants"
         ],
-        "summary": "Desativa um tenant — some do catálogo em até um TTL de cache dos produtos.",
+        "summary": "Desativa um tenant — some do catálogo em até um TTL de cache dos produtos, e seus usuários param de renovar token.",
         "operationId": "DeactivateTenant",
         "parameters": [
           {
@@ -237,6 +237,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -871,6 +881,104 @@
                   "items": {
                     "$ref": "#/components/schemas/UserDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/users/{userId}/deactivate": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.",
+        "operationId": "DeactivateUser",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/users/{userId}/activate": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reativa um usuário desativado ou bloqueado por tentativas.",
+        "operationId": "ActivateUser",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

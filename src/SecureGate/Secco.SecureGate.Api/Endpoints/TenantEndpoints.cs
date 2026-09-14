@@ -68,9 +68,10 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, active: false, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeactivateTenant")
-			.WithSummary("Desativa um tenant — some do catálogo em até um TTL de cache dos produtos.")
+			.WithSummary("Desativa um tenant — some do catálogo em até um TTL de cache dos produtos, e seus usuários param de renovar token.")
 			.Produces(StatusCodes.Status204NoContent)
-			.ProducesProblem(StatusCodes.Status404NotFound);
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
 
 		group.MapPut("/{id:guid}/databases/{product}", async (
 				Guid id,

@@ -161,4 +161,22 @@ public class UserManagementTests(SecureGateApiFactory factory) : IAsyncLifetime
 
 		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 	}
+
+	[Theory]
+	[InlineData("deactivate")]
+	[InlineData("activate")]
+	public async Task SetUserActivation_WithoutAdminScope_Returns403(string action)
+	{
+		var admin = CreateClientWithScopes(SecureGateScopes.Admin);
+		var tenantId = await CreateTenantAsync(admin);
+		var created = await admin.PostAsJsonAsync($"/api/v1/tenants/{tenantId}/users",
+			new { email = UniqueEmail(), password = ValidPassword });
+		var userId = (await created.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("id").GetGuid();
+
+		// Token válido para o SecureGate, sem securegate:admin: encerrar sessão alheia é ato de admin
+		var response = await CreateClientWithScopes("logstream")
+			.PostAsync($"/api/v1/tenants/{tenantId}/users/{userId}/{action}", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+	}
 }

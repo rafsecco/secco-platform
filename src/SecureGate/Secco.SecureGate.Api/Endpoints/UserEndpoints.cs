@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Users;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SharedKernel.Constants;
 
 namespace Secco.SecureGate.Api.Endpoints;
 
@@ -43,6 +45,37 @@ public static class UserEndpoints
 			.WithName("ListUsers")
 			.WithSummary("Lista os usuários do tenant com seus roles (sem segredos).")
 			.Produces<IReadOnlyList<UserDto>>(StatusCodes.Status200OK);
+
+		group.MapPost("/{userId:guid}/deactivate", async (
+				Guid tenantId,
+				Guid userId,
+				ClaimsPrincipal caller,
+				SetUserActivationHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(
+				new SetUserActivationCommand(tenantId, userId, Active: false, caller.FindFirst(SeccoClaims.Subject)?.Value),
+				cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("DeactivateUser")
+			.WithSummary("Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
+		group.MapPost("/{userId:guid}/activate", async (
+				Guid tenantId,
+				Guid userId,
+				ClaimsPrincipal caller,
+				SetUserActivationHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(
+				new SetUserActivationCommand(tenantId, userId, Active: true, caller.FindFirst(SeccoClaims.Subject)?.Value),
+				cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("ActivateUser")
+			.WithSummary("Reativa um usuário desativado ou bloqueado por tentativas.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound);
 
 		return endpoints;
 	}

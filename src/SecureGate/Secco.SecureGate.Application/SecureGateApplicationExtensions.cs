@@ -40,6 +40,7 @@ public static class SecureGateApplicationExtensions
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
 		services.AddScoped<ListUsersHandler>();
+		services.AddScoped<SetUserActivationHandler>();
 
 		// Concessão de elevação de leitura cross-tenant (ADR-0031)
 		services.AddScoped<GrantElevationHandler>();

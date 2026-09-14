@@ -14,6 +14,15 @@ public static class SecureGateErrors
 		public static readonly Error NotFound =
 			Error.NotFound("SecureGate.Tenant.NotFound", "Tenant não encontrado.");
 
+		/// <summary>
+		/// O tenant de plataforma não pode ser desativado. Os operadores da instalação vivem nele;
+		/// desativá-lo impediria a renovação de token deles, e reativar exige justamente um token
+		/// de operador — um bloqueio total sem caminho de volta pela API.
+		/// </summary>
+		public static readonly Error PlatformTenantCannotBeDeactivated =
+			Error.Conflict("SecureGate.Tenant.PlatformTenantCannotBeDeactivated",
+				"O tenant de plataforma não pode ser desativado: os operadores da instalação perderiam o acesso sem caminho de volta.");
+
 		/// <summary>Nome do tenant ausente.</summary>
 		public static readonly Error NameRequired =
 			Error.Validation("SecureGate.Tenant.NameRequired", "O nome do tenant é obrigatório.");
@@ -178,6 +187,17 @@ public static class SecureGateErrors
 			Error.Validation("SecureGate.User.PasswordTooLong", "A senha deve ter no máximo 128 caracteres.");
 
 		/// <summary>Algum role informado não existe no tenant.</summary>
+		/// <summary>Usuário inexistente, ou pertencente a outro tenant — a resposta é a mesma de propósito.</summary>
+		public static readonly Error NotFound =
+			Error.NotFound("SecureGate.User.NotFound", "Usuário não encontrado.");
+
+		/// <summary>
+		/// Ninguém desativa a própria conta: trancaria o chamador para fora e, sendo ele o último
+		/// operador, a instalação inteira.
+		/// </summary>
+		public static readonly Error CannotDeactivateSelf =
+			Error.Conflict("SecureGate.User.CannotDeactivateSelf", "Não é possível desativar a própria conta.");
+
 		public static readonly Error RoleNotFound =
 			Error.Validation("SecureGate.User.RoleNotFound", "Um dos roles informados não existe neste tenant.");
 

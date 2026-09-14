@@ -14,6 +14,13 @@ public sealed class SetTenantActivationHandler(ITenantRepository repository)
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	public async Task<Result> HandleAsync(Guid id, bool active, CancellationToken cancellationToken = default)
 	{
+		// Os operadores da instalação vivem no tenant de plataforma. Desativado, eles deixam de renovar
+		// token — e reativar exige token de operador. Não há caminho de volta pela API.
+		if (!active && id == SecureGatePlatform.TenantId)
+		{
+			return Result.Failure(SecureGateErrors.Tenants.PlatformTenantCannotBeDeactivated);
+		}
+
 		var tenant = await repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
 
 		if (tenant is null)

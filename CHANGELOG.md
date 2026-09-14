@@ -12,7 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-13. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+- **Adicionado (aditivo)** `DeactivateUserAsync` e `ActivateUserAsync` — desativar um usuário impede novo login e **encerra a sessão já aberta** na próxima renovação de token; reativar devolve o acesso. Gated por `securegate:admin`; usuário de outro tenant na rota responde 404, como inexistente.
+- **Mudança de comportamento do servidor que o adotante percebe:** renovação de token e troca do authorization code passam a recusar (`invalid_grant`) conta bloqueada, conta desativada e tenant desativado. Antes só o próximo login era barrado, e com a expiração deslizante do refresh token uma sessão em uso não terminava nunca. Quem trata falha de renovação mandando o usuário ao login não precisa mudar nada.
+- `DeactivateTenantAsync` pode responder **409** para o tenant de plataforma, e `DeactivateUserAsync` **409** para a própria conta de quem chama: as duas operações trancariam o operador para fora sem caminho de volta pela API.
+- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
 
 ---
 

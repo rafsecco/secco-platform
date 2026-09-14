@@ -58,6 +58,52 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return new UserDto(user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)]);
 	}
 
+	public async Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+
+		// Usuário de outro tenant responde como inexistente: a rota é por tenant
+		if (user is null || user.TenantId != tenantId)
+		{
+			return false;
+		}
+
+		// A desativação é LOCKOUT, e não uma coluna nova, de propósito: login por senha, login
+		// federado, renovação de token e elevação já respeitam lockout — uma única operação passa a
+		// valer em todos os caminhos, sem migration e sem um quinto lugar para esquecer de checar.
+		if (active)
+		{
+			// Sem lockout habilitado o usuário já não está bloqueado, e SetLockoutEndDateAsync falharia
+			if (await userManager.GetLockoutEnabledAsync(user).ConfigureAwait(false))
+			{
+				EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, null).ConfigureAwait(false));
+			}
+
+			EnsureSucceeded(await userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false));
+		}
+		else
+		{
+			// Ordem obrigatória: IsLockedOutAsync IGNORA a data de bloqueio quando o lockout está
+			// desligado, e SetLockoutEndDateAsync falha nesse estado. Ligar primeiro é o que faz a
+			// desativação valer de fato.
+			EnsureSucceeded(await userManager.SetLockoutEnabledAsync(user, true).ConfigureAwait(false));
+			EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue).ConfigureAwait(false));
+		}
+
+		return true;
+	}
+
+	private static void EnsureSucceeded(IdentityResult result)
+	{
+		if (!result.Succeeded)
+		{
+			// Falha de infraestrutura, não regra de negócio: ativação que não gravou não pode parecer
+			// bem-sucedida. Só os códigos, nunca a descrição (ADR-0020).
+			throw new InvalidOperationException(
+				"O Identity recusou a alteração de estado do usuário: " + string.Join(", ", result.Errors.Select(e => e.Code)));
+		}
+	}
+
 	public Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
 		context.Users
 			.AsNoTracking()

@@ -105,9 +105,17 @@ public static class TokenEndpoints
 			? await userManager.FindByIdAsync(subject)
 			: null;
 
-		// Re-deriva as claims do banco a cada emissão (ADR-0020): usuário desativado/bloqueado
-		// ou com role alterado é refletido no refresh — sem esperar o token expirar
-		if (user is null || !await signInManager.CanSignInAsync(user))
+		// Re-deriva do cadastro a cada emissão (ADR-0020): papel alterado reflete na renovação, e o
+		// ESTADO da conta também — usuário desativado ou bloqueado, e tenant desativado, encerram a
+		// sessão na próxima renovação. Com a expiração deslizante do refresh token (padrão do
+		// OpenIddict), esta checagem é o ÚNICO ponto em que uma sessão em uso termina.
+		if (user is null
+			|| !await AccountStateGuard.CanReceiveTokensAsync(
+				user,
+				userManager,
+				signInManager,
+				context.RequestServices.GetRequiredService<ITenantRepository>(),
+				context.RequestAborted))
 		{
 			return Forbid(Errors.InvalidGrant, "A conta não pode mais ser autenticada.");
 		}
@@ -197,23 +205,16 @@ public static class TokenEndpoints
 			? await userManager.FindByIdAsync(userId.ToString())
 			: null;
 
-		// CanSignInAsync NÃO cobre bloqueio nem tenant desativado — só confirmação de conta. As duas
-		// checagens abaixo são explícitas pelo mesmo motivo que o login federado as faz
-		// (EntraSignInProcessor). Para a elevação elas importam mais que em qualquer outro fluxo: a
-		// desativação de tenant é cumprida pelo CATÁLOGO, que deixa de resolver o banco daquele tenant
-		// — e um token elevado lê log de OUTROS tenants, ativos, onde o catálogo resolve normalmente.
-		// Sem isto, usuário de tenant desativado seguiria lendo log alheio.
+		// Estado atual da conta: bloqueio, desativação e tenant desativado. Para a elevação isto importa
+		// mais que em qualquer outro fluxo — a desativação de tenant é cumprida pelo CATÁLOGO, e um
+		// token elevado lê log de OUTROS tenants, ativos, onde o catálogo resolve normalmente.
 		if (user is null
-			|| !await signInManager.CanSignInAsync(user)
-			|| await userManager.IsLockedOutAsync(user))
-		{
-			return ElevationRefused();
-		}
-
-		var tenant = await services.GetRequiredService<ITenantRepository>()
-			.GetByIdAsync(user.TenantId, context.RequestAborted);
-
-		if (tenant is not { IsActive: true })
+			|| !await AccountStateGuard.CanReceiveTokensAsync(
+				user,
+				userManager,
+				signInManager,
+				services.GetRequiredService<ITenantRepository>(),
+				context.RequestAborted))
 		{
 			return ElevationRefused();
 		}

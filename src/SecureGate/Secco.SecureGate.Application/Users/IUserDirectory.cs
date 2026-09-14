@@ -35,4 +35,15 @@ public interface IUserDirectory
 	/// <param name="userId">Usuário a conferir.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Ativa ou desativa um usuário do tenant. Desativar impede novo login e encerra a sessão na
+	/// próxima renovação de token; ativar devolve o acesso.
+	/// </summary>
+	/// <param name="tenantId">Tenant esperado.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="active"><c>true</c> para ativar; <c>false</c> para desativar.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
+	Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default);
 }
