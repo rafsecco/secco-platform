@@ -12,12 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-- **Adicionado (aditivo)** `DeactivateUserAsync` e `ActivateUserAsync` — desativar um usuário impede novo login e **encerra a sessão já aberta** na próxima renovação de token; reativar devolve o acesso. Gated por `securegate:admin`; usuário de outro tenant na rota responde 404, como inexistente.
-- **Mudança de comportamento do servidor que o adotante percebe:** renovação de token e troca do authorization code passam a recusar (`invalid_grant`) conta bloqueada, conta desativada e tenant desativado. Antes só o próximo login era barrado, e com a expiração deslizante do refresh token uma sessão em uso não terminava nunca. Quem trata falha de renovação mandando o usuário ao login não precisa mudar nada.
-- `DeactivateTenantAsync` pode responder **409** para o tenant de plataforma, e `DeactivateUserAsync` **409** para a própria conta de quem chama: as duas operações trancariam o operador para fora sem caminho de volta pela API.
-- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-14. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -31,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.3.9 — 2026-09-14
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` desde a 0.3.8 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SDK.AspNetCore` 0.7.2 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.3.8 — 2026-09-13
 
@@ -62,6 +61,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.7.2 — 2026-09-14
+
+Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` desde a 0.7.1 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.6.0 o referencia.
 
 #### 0.7.1 — 2026-09-13
 
@@ -145,6 +148,13 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.6.0 — 2026-09-14
+
+- **Adicionado (aditivo)** `DeactivateUserAsync` e `ActivateUserAsync` — desativar um usuário impede novo login e **encerra a sessão já aberta** na próxima renovação de token; reativar devolve o acesso. Gated por `securegate:admin`; usuário de outro tenant na rota responde 404, como inexistente.
+- **Mudança de comportamento do servidor que o adotante percebe:** renovação de token e troca do authorization code passam a recusar (`invalid_grant`) conta bloqueada, conta desativada e tenant desativado. Antes só o próximo login era barrado, e com a expiração deslizante do refresh token uma sessão em uso não terminava nunca. Quem trata falha de renovação mandando o usuário ao login não precisa mudar nada.
+- `DeactivateTenantAsync` pode responder **409** para o tenant de plataforma, e `DeactivateUserAsync` **409** para a própria conta de quem chama: as duas operações trancariam o operador para fora sem caminho de volta pela API.
+- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
+
 #### 0.5.0 — 2026-09-13
 
 - **Adicionado (aditivo)** `GrantElevationAsync`, `GetElevationAsync` e `RevokeElevationAsync` — gestão da concessão de elevação por usuário (ADR-0031), gated por `securegate:admin`. A concessão é a autoridade que permite a um usuário de tenant de cliente trocar o próprio token por um token estreito de leitura de log cross-tenant.
@@ -167,6 +177,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.2 — 2026-09-14
+
+Patch **sem mudança funcional**: o diff desde a 0.1.1 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.6.0 o referencia.
 
 #### 0.1.1 — 2026-09-13
 
