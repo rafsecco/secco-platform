@@ -7,6 +7,7 @@ WORKDIR /src
 COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config .editorconfig ./
 COPY src/SharedKernel/ src/SharedKernel/
 COPY src/SDK/ src/SDK/
+COPY src/LogStream/ src/LogStream/
 COPY src/SecureGate/ src/SecureGate/
 
 # MinVerSkip: dentro da imagem não há repositório git (versionamento é papel do CI, ADR-0011)
