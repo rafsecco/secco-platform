@@ -65,4 +65,29 @@ public class ProfileAssignmentTokenTests(SelfIssuedAuthSecureGateApiFactory secu
 
 		(await RolesAfterRefreshAsync(await Driver.RefreshAsync(session.RefreshToken))).Should().Contain("inventario-admin");
 	}
+
+	[Fact]
+	public async Task Remover_PerfilSomeDoTokenDaRenovacao()
+	{
+		using var admin = await OperatorAsync();
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/roles/inventario-admin", null))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
+
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/roles/inventario-admin"))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		(await RolesAfterRefreshAsync(await Driver.RefreshAsync(session.RefreshToken))).Should().NotContain("inventario-admin");
+	}
+
+	[Fact]
+	public async Task Remover_ASiMesmoDoPerfilDeOperador_Retorna409()
+	{
+		using var admin = await OperatorAsync();
+
+		var response = await admin.DeleteAsync(
+			$"/api/v1/tenants/{SecureGatePlatform.TenantId}/users/{_operatorId}/roles/{SecureGatePlatform.OperatorRole}");
+
+		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+	}
 }

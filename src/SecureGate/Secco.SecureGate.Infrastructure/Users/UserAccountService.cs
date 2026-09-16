@@ -145,6 +145,69 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return RoleAssignmentOutcome.Done;
 	}
 
+	public async Task<RoleAssignmentOutcome> RemoveRoleAsync(
+		Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
+	{
+		if (!await BelongsToTenantAsync(tenantId, userId, cancellationToken).ConfigureAwait(false))
+		{
+			return RoleAssignmentOutcome.UserNotFound;
+		}
+
+		var roleId = await FindRoleIdAsync(tenantId, roleName, cancellationToken).ConfigureAwait(false);
+
+		if (roleId is null)
+		{
+			return RoleAssignmentOutcome.RoleNotFound;
+		}
+
+		var assignment = await context.UserRoles
+			.FirstOrDefaultAsync(userRole => userRole.UserId == userId && userRole.RoleId == roleId, cancellationToken)
+			.ConfigureAwait(false);
+
+		if (assignment is not null)
+		{
+			context.UserRoles.Remove(assignment);
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		}
+
+		return RoleAssignmentOutcome.Done;
+	}
+
+	public Task<bool> HasRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
+	{
+		var normalized = roleName.ToUpperInvariant();
+
+		return (
+			from userRole in context.UserRoles.AsNoTracking()
+			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+			join user in context.Users.AsNoTracking() on userRole.UserId equals user.Id
+			where userRole.UserId == userId
+				&& user.TenantId == tenantId
+				&& role.TenantId == tenantId
+				&& role.NormalizedName == normalized
+			select userRole.UserId)
+			.AnyAsync(cancellationToken);
+	}
+
+	public Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default)
+	{
+		var normalized = SecureGatePlatform.OperatorRole.ToUpperInvariant();
+		var now = DateTimeOffset.UtcNow;
+
+		return (
+			from userRole in context.UserRoles.AsNoTracking()
+			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+			join user in context.Users.AsNoTracking() on userRole.UserId equals user.Id
+			where role.TenantId == SecureGatePlatform.TenantId
+				&& role.NormalizedName == normalized
+				&& user.TenantId == SecureGatePlatform.TenantId
+				&& user.Id != excludingUserId
+				&& (!user.LockoutEnabled || user.LockoutEnd == null || user.LockoutEnd <= now)
+			select user.Id)
+			.Distinct()
+			.CountAsync(cancellationToken);
+	}
+
 	/// <summary>
 	/// Perfil por (tenant, nome normalizado) — NUNCA por nome global: o nome só é único por tenant, e a
 	/// busca global acharia o perfil homônimo de outro tenant.

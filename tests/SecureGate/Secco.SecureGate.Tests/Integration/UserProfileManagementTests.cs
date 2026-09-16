@@ -244,4 +244,57 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 		(await response.Content.ReadAsStringAsync()).Should().Contain("SecureGate.User.RoleNotAssignable");
 	}
+
+	[Fact]
+	public async Task RemoveUserRole_RemoveESomeDoDetalhe()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email(), "leitor");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/leitor");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+		Strings(await GetUserAsync(userId), "roles").Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task RemoveUserRole_NaoMembro_Idempotente()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/leitor");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+	}
+
+	[Fact]
+	public async Task RemoveUserRole_UsuarioDeOutroTenant_Retorna404ENaoAltera()
+	{
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		await IdentitySeed.RoleAsync(factory, otherTenant, "leitor");
+		var stranger = await IdentitySeed.UserAsync(factory, otherTenant, Email(), "leitor");
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{stranger}/roles/leitor");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+		var detail = await IdentitySeed.AdminClient(factory)
+			.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{otherTenant}/users/{stranger}", Json);
+		Strings(detail, "roles").Should().Equal("leitor");
+	}
+
+	[Fact]
+	public async Task RemoveUserRole_NomeInvalido_Retorna400()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/nome%20invalido");
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+	}
 }

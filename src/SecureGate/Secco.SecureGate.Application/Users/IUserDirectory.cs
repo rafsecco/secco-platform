@@ -89,4 +89,25 @@ public interface IUserDirectory
 	/// <param name="roleName">Nome do perfil já validado.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<RoleAssignmentOutcome> AddRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
+
+	/// <summary>Retira o usuário do perfil, ambos no tenant. Idempotente.</summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="roleName">Nome do perfil já validado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<RoleAssignmentOutcome> RemoveRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
+
+	/// <summary>Indica se o usuário do tenant é membro do perfil do MESMO tenant.</summary>
+	/// <param name="tenantId">Tenant.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="roleName">Nome do perfil.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> HasRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Conta operadores de instalação ATIVOS (não desativados nem bloqueados), exceto o informado.
+	/// </summary>
+	/// <param name="excludingUserId">Usuário alvo da operação, fora da contagem.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default);
 }

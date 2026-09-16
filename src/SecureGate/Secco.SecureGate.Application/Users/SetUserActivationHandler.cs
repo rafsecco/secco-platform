@@ -29,6 +29,16 @@ public sealed class SetUserActivationHandler(IUserDirectory userDirectory)
 			return Result.Failure(SecureGateErrors.Users.CannotDeactivateSelf);
 		}
 
+		// Vale também para client de máquina com securegate:admin, que não é operador e por isso não é
+		// barrado pela regra de desativar a si mesmo
+		if (!command.Active
+			&& command.TenantId == SecureGatePlatform.TenantId
+			&& await OperatorGuard.WouldLeaveNoActiveOperatorAsync(userDirectory, command.UserId, cancellationToken)
+				.ConfigureAwait(false))
+		{
+			return Result.Failure(SecureGateErrors.Users.LastActiveOperator);
+		}
+
 		var found = await userDirectory
 			.SetActiveAsync(tenantId: command.TenantId, userId: command.UserId, command.Active, cancellationToken)
 			.ConfigureAwait(false);

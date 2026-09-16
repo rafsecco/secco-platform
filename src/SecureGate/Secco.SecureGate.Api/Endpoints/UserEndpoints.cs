@@ -103,6 +103,24 @@ public static class UserEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapDelete("/{userId:guid}/roles/{role}", async (
+				Guid tenantId,
+				Guid userId,
+				string role,
+				ClaimsPrincipal caller,
+				RemoveUserRoleHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(
+				new RemoveUserRoleCommand(tenantId, userId, role, caller.FindFirst(SeccoClaims.Subject)?.Value),
+				cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("RemoveUserRole")
+			.WithSummary("Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
 		return endpoints;
 	}
 }
