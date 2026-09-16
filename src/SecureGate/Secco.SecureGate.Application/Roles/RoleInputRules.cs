@@ -52,4 +52,14 @@ internal static partial class RoleInputRules
 	/// <summary>Indica se o nome é reservado à estrutura de instalação.</summary>
 	/// <param name="name">Nome candidato (já aparado).</param>
 	public static bool IsReservedName(string name) => ReservedNames.Contains(name);
+
+	/// <summary>
+	/// Indica se usuários podem ser membros do perfil. Dos reservados, só o de operador de instalação:
+	/// os demais são identidades exclusivas de token (ADR-0031) — um usuário membro de
+	/// <see cref="SecureGatePlatform.ElevatedLogReaderRole"/> receberia o read-set cross-tenant pelo nome.
+	/// </summary>
+	/// <param name="name">Nome já aparado.</param>
+	public static bool IsAssignableToUsers(string name) =>
+		!IsReservedName(name)
+		|| string.Equals(name, SecureGatePlatform.OperatorRole, StringComparison.OrdinalIgnoreCase);
 }

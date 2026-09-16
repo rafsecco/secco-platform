@@ -129,6 +129,19 @@ public static class SecureGateErrors
 		public static readonly Error TooManyPermissions =
 			Error.Validation("SecureGate.Role.TooManyPermissions",
 				"O conjunto de permissões excede o limite por role.");
+
+		/// <summary>Perfis reservados sustentam a estrutura da instalação e nunca são excluídos.</summary>
+		public static readonly Error CannotDeleteReserved =
+			Error.Conflict("SecureGate.Role.CannotDeleteReserved",
+				"Perfis reservados da plataforma não podem ser excluídos.");
+
+		/// <summary>
+		/// Excluir perfil com membros retiraria o acesso de todos num clique irreversível; esvaziar
+		/// primeiro é ato explícito.
+		/// </summary>
+		public static readonly Error HasMembers =
+			Error.Conflict("SecureGate.Role.HasMembers",
+				"O perfil tem membros. Remova-os antes de excluir.");
 	}
 
 	/// <summary>Erros do endpoint de catálogo (leitura pelos produtos).</summary>
@@ -186,7 +199,6 @@ public static class SecureGateErrors
 		public static readonly Error PasswordTooLong =
 			Error.Validation("SecureGate.User.PasswordTooLong", "A senha deve ter no máximo 128 caracteres.");
 
-		/// <summary>Algum role informado não existe no tenant.</summary>
 		/// <summary>Usuário inexistente, ou pertencente a outro tenant — a resposta é a mesma de propósito.</summary>
 		public static readonly Error NotFound =
 			Error.NotFound("SecureGate.User.NotFound", "Usuário não encontrado.");
@@ -198,8 +210,29 @@ public static class SecureGateErrors
 		public static readonly Error CannotDeactivateSelf =
 			Error.Conflict("SecureGate.User.CannotDeactivateSelf", "Não é possível desativar a própria conta.");
 
+		/// <summary>Algum role informado não existe no tenant.</summary>
 		public static readonly Error RoleNotFound =
 			Error.Validation("SecureGate.User.RoleNotFound", "Um dos roles informados não existe neste tenant.");
+
+		/// <summary>
+		/// Perfil reservado que é identidade só de token (ADR-0031): nenhum usuário pode ser membro.
+		/// </summary>
+		public static readonly Error RoleNotAssignable =
+			Error.Validation("SecureGate.User.RoleNotAssignable",
+				"Este perfil é reservado à plataforma e não pode ser atribuído a usuários.");
+
+		/// <summary>Remover a si mesmo do perfil de operador trancaria o chamador para fora.</summary>
+		public static readonly Error CannotRemoveSelfFromOperator =
+			Error.Conflict("SecureGate.User.CannotRemoveSelfFromOperator",
+				"Não é possível remover a si mesmo do perfil de operador da instalação.");
+
+		/// <summary>
+		/// A operação deixaria a instalação sem operador ativo — reativar exige token de operador, então
+		/// não haveria caminho de volta pela API.
+		/// </summary>
+		public static readonly Error LastActiveOperator =
+			Error.Conflict("SecureGate.User.LastActiveOperator",
+				"A operação deixaria a instalação sem nenhum operador ativo.");
 
 		/// <summary>Já existe usuário com este e-mail.</summary>
 		public static readonly Error AlreadyExists =
