@@ -45,6 +45,7 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<ListUsersHandler>();
 		services.AddScoped<SetUserActivationHandler>();
 		services.AddScoped<GetUserHandler>();
+		services.AddScoped<AddUserRoleHandler>();
 
 		// Concessão de elevação de leitura cross-tenant (ADR-0031)
 		services.AddScoped<GrantElevationHandler>();

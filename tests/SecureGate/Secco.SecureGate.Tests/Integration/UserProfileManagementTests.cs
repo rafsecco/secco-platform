@@ -137,4 +137,111 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		users.EnumerateArray().Single(u => u.GetProperty("id").GetGuid() == deactivated)
 			.GetProperty("status").GetString().Should().Be("Deactivated");
 	}
+
+	[Fact]
+	public async Task AddUserRole_AtribuiEApareceNoDetalhe()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "inventario-admin", "inventario:write");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/inventario-admin", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+		Strings(await GetUserAsync(userId), "roles").Should().Equal("inventario-admin");
+	}
+
+	[Fact]
+	public async Task AddUserRole_Repetido_Idempotente()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		var admin = IdentitySeed.AdminClient(factory);
+		var url = $"/api/v1/tenants/{_tenantId}/users/{userId}/roles/leitor";
+
+		(await admin.PostAsync(url, null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+		(await admin.PostAsync(url, null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		Strings(await GetUserAsync(userId), "roles").Should().Equal("leitor");
+	}
+
+	[Fact]
+	public async Task AddUserRole_PerfilSoDeOutroTenant_Retorna404()
+	{
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		await IdentitySeed.RoleAsync(factory, otherTenant, "admin", "tudo:write");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/admin", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+		Strings(await GetUserAsync(userId), "roles").Should().BeEmpty("o perfil homônimo do vizinho não pode ser atribuído");
+	}
+
+	[Fact]
+	public async Task AddUserRole_UsuarioDeOutroTenant_Retorna404()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		var stranger = await IdentitySeed.UserAsync(factory, otherTenant, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{stranger}/roles/leitor", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task AddUserRole_PerfilInexistente_Retorna404()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/nao-existe", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task AddUserRole_NomeInvalido_Retorna400()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/roles/nome%20invalido", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+	}
+
+	[Theory]
+	[InlineData(SecureGatePlatform.ElevatedLogReaderRole)]
+	[InlineData(SecureGatePlatform.AuditorRole)]
+	[InlineData(SecureGatePlatform.LegacyOperatorRole)]
+	public async Task AddUserRole_PerfilSoDeToken_Retorna400(string reserved)
+	{
+		var userId = await IdentitySeed.UserAsync(factory, SecureGatePlatform.TenantId, Email());
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.PostAsync($"/api/v1/tenants/{SecureGatePlatform.TenantId}/users/{userId}/roles/{reserved}", null);
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+		(await response.Content.ReadAsStringAsync()).Should().Contain("SecureGate.User.RoleNotAssignable");
+	}
+
+	[Theory]
+	[InlineData(SecureGatePlatform.ElevatedLogReaderRole)]
+	[InlineData(SecureGatePlatform.AuditorRole)]
+	[InlineData(SecureGatePlatform.LegacyOperatorRole)]
+	public async Task CreateUser_ComPerfilSoDeToken_Retorna400(string reserved)
+	{
+		var response = await IdentitySeed.AdminClient(factory).PostAsJsonAsync(
+			$"/api/v1/tenants/{SecureGatePlatform.TenantId}/users",
+			new { email = Email(), password = IdentitySeed.Password, roles = new[] { reserved } });
+
+		// O código importa: esses perfis não existem como linha, então sem a regra a resposta JÁ seria
+		// 400 — mas por RoleNotFound, que deixaria de proteger no dia em que alguém os semeasse
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+		(await response.Content.ReadAsStringAsync()).Should().Contain("SecureGate.User.RoleNotAssignable");
+	}
 }

@@ -57,6 +57,11 @@ public sealed class CreateUserHandler(IRoleRepository roleRepository, IUserDirec
 
 		foreach (var role in roles)
 		{
+			if (!RoleInputRules.IsAssignableToUsers(role))
+			{
+				return Result.Failure<UserDto>(SecureGateErrors.Users.RoleNotAssignable);
+			}
+
 			if (!await roleRepository.RoleExistsAsync(command.TenantId, role, cancellationToken).ConfigureAwait(false))
 			{
 				return Result.Failure<UserDto>(SecureGateErrors.Users.RoleNotFound);

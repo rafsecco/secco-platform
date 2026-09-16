@@ -89,6 +89,20 @@ public static class UserEndpoints
 			.Produces<UserDetailDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapPost("/{userId:guid}/roles/{role}", async (
+				Guid tenantId,
+				Guid userId,
+				string role,
+				AddUserRoleHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, role, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("AddUserRole")
+			.WithSummary("Torna o usuário membro do perfil (idempotente). Vale no token na próxima renovação.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		return endpoints;
 	}
 }

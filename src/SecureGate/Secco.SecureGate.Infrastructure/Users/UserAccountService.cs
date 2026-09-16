@@ -104,6 +104,67 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		}
 	}
 
+	public async Task<RoleAssignmentOutcome> AddRoleAsync(
+		Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
+	{
+		if (!await BelongsToTenantAsync(tenantId, userId, cancellationToken).ConfigureAwait(false))
+		{
+			return RoleAssignmentOutcome.UserNotFound;
+		}
+
+		var roleId = await FindRoleIdAsync(tenantId, roleName, cancellationToken).ConfigureAwait(false);
+
+		if (roleId is null)
+		{
+			return RoleAssignmentOutcome.RoleNotFound;
+		}
+
+		if (await IsAssignedAsync(userId, roleId.Value, cancellationToken).ConfigureAwait(false))
+		{
+			return RoleAssignmentOutcome.Done;
+		}
+
+		context.UserRoles.Add(new UserRole { UserId = userId, RoleId = roleId.Value });
+
+		try
+		{
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		}
+		catch (DbUpdateException)
+		{
+			// Duas atribuições simultâneas (clique duplo, retry): a segunda bate na PK. Se a linha existe,
+			// o estado pedido foi atingido — idempotente; qualquer outra falha sobe.
+			context.ChangeTracker.Clear();
+
+			if (!await IsAssignedAsync(userId, roleId.Value, cancellationToken).ConfigureAwait(false))
+			{
+				throw;
+			}
+		}
+
+		return RoleAssignmentOutcome.Done;
+	}
+
+	/// <summary>
+	/// Perfil por (tenant, nome normalizado) — NUNCA por nome global: o nome só é único por tenant, e a
+	/// busca global acharia o perfil homônimo de outro tenant.
+	/// </summary>
+	private Task<Guid?> FindRoleIdAsync(Guid tenantId, string roleName, CancellationToken cancellationToken)
+	{
+		var normalized = roleName.ToUpperInvariant();
+
+		return context.Roles
+			.AsNoTracking()
+			.Where(role => role.TenantId == tenantId && role.NormalizedName == normalized)
+			.Select(role => (Guid?)role.Id)
+			.FirstOrDefaultAsync(cancellationToken);
+	}
+
+	private Task<bool> IsAssignedAsync(Guid userId, Guid roleId, CancellationToken cancellationToken) =>
+		context.UserRoles
+			.AsNoTracking()
+			.AnyAsync(userRole => userRole.UserId == userId && userRole.RoleId == roleId, cancellationToken);
+
 	public Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
 		context.Users
 			.AsNoTracking()

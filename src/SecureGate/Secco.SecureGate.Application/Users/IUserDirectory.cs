@@ -26,6 +26,19 @@ public sealed record UserAccountData(
 	IReadOnlyList<string> Roles,
 	IReadOnlyList<string> ExternalLogins);
 
+/// <summary>Resultado de atribuir ou remover perfil.</summary>
+public enum RoleAssignmentOutcome
+{
+	/// <summary>Estado final atingido (inclusive se já estava assim).</summary>
+	Done,
+
+	/// <summary>Usuário não existe neste tenant.</summary>
+	UserNotFound,
+
+	/// <summary>Perfil não existe neste tenant.</summary>
+	RoleNotFound,
+}
+
 /// <summary>
 /// Porta de provisionamento de usuários (ADR-0002): o hash de senha, a política e a
 /// atribuição de roles são responsabilidade do ASP.NET Identity, que vive na Infrastructure.
@@ -69,4 +82,11 @@ public interface IUserDirectory
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<UserAccountData?> GetAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Torna o usuário membro do perfil, ambos no tenant. Idempotente.</summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="roleName">Nome do perfil já validado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<RoleAssignmentOutcome> AddRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
 }
