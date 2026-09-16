@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -178,7 +179,8 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 	[MemberData(nameof(NovasRotas))]
 	public async Task NovasRotas_SemToken_Retornam401(string method, string template)
 	{
-		var request = new HttpRequestMessage(new HttpMethod(method), string.Format(template, _tenantId, Guid.CreateVersion7()));
+		using var request = new HttpRequestMessage(
+			new HttpMethod(method), string.Format(CultureInfo.InvariantCulture, template, _tenantId, Guid.CreateVersion7()));
 
 		(await factory.CreateClient().SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 	}
@@ -190,7 +192,8 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		var client = factory.CreateClient();
 		client.DefaultRequestHeaders.Authorization =
 			new AuthenticationHeaderValue("Bearer", factory.CreateTokenWithScopes("logstream"));
-		var request = new HttpRequestMessage(new HttpMethod(method), string.Format(template, _tenantId, Guid.CreateVersion7()));
+		using var request = new HttpRequestMessage(
+			new HttpMethod(method), string.Format(CultureInfo.InvariantCulture, template, _tenantId, Guid.CreateVersion7()));
 
 		(await client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 	}

@@ -12,7 +12,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-14. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+- **Adicionado (aditivo)** gestão de perfis sobre o Identity (issue #26): `GetRoleAsync`, `DeleteRoleAsync`, `ListRoleMembersAsync` (paginado), `GetUserAsync` (situação, perfis, permissões efetivas e provedores de login externo — nunca o identificador do diretório), `AddUserRoleAsync` e `RemoveUserRoleAsync`, ambos idempotentes.
+- **Adicionado (aditivo)** `UserDto.Status` (`Active`, `Deactivated`, `LockedOut`).
+- **Novas recusas em operações existentes:** `CreateUserAsync` responde **400** (`SecureGate.User.RoleNotAssignable`) para perfis reservados que são identidades só de token; `DeactivateUserAsync` responde **409** quando deixaria a instalação sem operador ativo.
+- **Mudança de comportamento do servidor:** a renovação de token passou a reaplicar o filtro de operador aos scopes. Um operador retirado do perfil `installation-operator` perde `securegate:admin` e volta a ter `tenant_id` na renovação seguinte — antes, seguia renovando `securegate:admin` indefinidamente.
+- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
 
 ---
 

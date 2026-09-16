@@ -114,14 +114,14 @@ Sob `/api/v1/tenants/{tenantId}`, `securegate:admin`.
 | --- | --- | --- | --- |
 | `GetRole` | `GET /roles/{role}` | 200 `{ name, permissions, isReserved, memberCount }` | 400 nome inválido, 404 |
 | `DeleteRole` | `DELETE /roles/{role}` | 204 | 400, 404, 409 reservado, 409 tem membros |
-| `ListRoleMembers` | `GET /roles/{role}/members?page&size` | 200 `PagedResult` de `{ userId, email, status }`, `size` ≤ 100 | 400, 404 |
+| `ListRoleMembers` | `GET /roles/{role}/members?page&size` | 200 `PagedResult` de `{ userId, email, status }`, tamanho limitado pelo SharedKernel (200) | 400, 404 |
 
 ### Usuários (`/users`)
 
 | Operação | Rota | Sucesso | Erros |
 | --- | --- | --- | --- |
 | `GetUser` | `GET /users/{userId}` | 200 detalhe | 404 (inexistente ou de outro tenant) |
-| `AddUserRole` | `POST /users/{userId}/roles/{role}` | 204, idempotente | 400, 404, 409 não atribuível |
+| `AddUserRole` | `POST /users/{userId}/roles/{role}` | 204, idempotente | 400, 404, 400 não atribuível |
 | `RemoveUserRole` | `DELETE /users/{userId}/roles/{role}` | 204, idempotente | 400, 404, 409 remover a si do operador, 409 último operador ativo |
 | `DeactivateUser` *(existe)* | `POST /users/{userId}/deactivate` | 204 | + 409 último operador ativo |
 | `CreateUser` *(existe)* | `POST /users` | 201 | + 400 perfil não atribuível em `roles` |
