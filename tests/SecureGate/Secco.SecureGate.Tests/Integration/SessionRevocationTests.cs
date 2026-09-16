@@ -1,13 +1,7 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
@@ -29,7 +23,7 @@ namespace Secco.SecureGate.Tests.Integration;
 /// instalação que fez login, e as sessões revogadas são sessões reais do fluxo code + PKCE.
 /// </remarks>
 [Collection(SelfIssuedApiCollectionDefinition.Name)]
-public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGate) : IAsyncLifetime
+public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGate) : IAsyncLifetime
 {
 	private const string ClientId = "revogacao-e2e";
 	private const string RedirectUri = "https://localhost/callback";
@@ -44,8 +38,7 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	private Guid _tenantId;
 	private Guid _otherTenantId;
 
-	[GeneratedRegex("__RequestVerificationToken.*?value=\"([^\"]+)\"", RegexOptions.Singleline)]
-	private static partial Regex AntiforgeryField();
+	private OidcLoginDriver Driver => new(secureGate, ClientId, RedirectUri, Password);
 
 	public async Task InitializeAsync()
 	{
@@ -89,9 +82,9 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	[Fact]
 	public async Task Refresh_ComContaAtiva_Renova()
 	{
-		var session = await LoginAsync(_userEmail, UserScope);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
 
-		(await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
 	}
 
 	// ─────────────────────────────── a sessão aberta termina ───────────────────────────────
@@ -99,18 +92,18 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	[Fact]
 	public async Task Refresh_AposDesativarUsuario_Recusa()
 	{
-		var session = await LoginAsync(_userEmail, UserScope);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
 		var admin = await OperatorClientAsync();
 
 		(await admin.PostAsync(DeactivateUserUrl(_tenantId, _userId), null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		await AssertRefusedAsync(await RefreshAsync(session.RefreshToken));
+		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
 	}
 
 	[Fact]
 	public async Task Refresh_AposBloqueioPorTentativas_Recusa()
 	{
-		var session = await LoginAsync(_userEmail, UserScope);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
 
 		using (var scope = secureGate.Services.CreateScope())
 		{
@@ -121,30 +114,30 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 		}
 
 		// O CanSignInAsync do Identity diria "pode": ele não olha bloqueio
-		await AssertRefusedAsync(await RefreshAsync(session.RefreshToken));
+		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
 	}
 
 	[Fact]
 	public async Task Refresh_AposDesativarTenant_Recusa()
 	{
-		var session = await LoginAsync(_userEmail, UserScope);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
 		var admin = await OperatorClientAsync();
 
 		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/deactivate", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		await AssertRefusedAsync(await RefreshAsync(session.RefreshToken));
+		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
 	}
 
 	[Fact]
 	public async Task AuthorizationCode_UsuarioDesativadoEntreLoginETroca_Recusa()
 	{
-		using var browser = CreateBrowser();
-		var (verifier, code) = await ObtainCodeAsync(browser, _userEmail, UserScope);
+		using var browser = Driver.CreateBrowser();
+		var (verifier, code) = await Driver.ObtainCodeAsync(browser, _userEmail, UserScope);
 
 		var admin = await OperatorClientAsync();
 		(await admin.PostAsync(DeactivateUserUrl(_tenantId, _userId), null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		await AssertRefusedAsync(await ExchangeCodeAsync(browser, code, verifier));
+		await AssertRefusedAsync(await Driver.ExchangeCodeAsync(browser, code, verifier));
 	}
 
 	[Fact]
@@ -153,8 +146,8 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 		var admin = await OperatorClientAsync();
 		(await admin.PostAsync(DeactivateUserUrl(_tenantId, _userId), null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		using var browser = CreateBrowser();
-		var loginPost = await SubmitLoginAsync(browser, _userEmail, UserScope, CreatePkce().Challenge);
+		using var browser = Driver.CreateBrowser();
+		var loginPost = await Driver.SubmitLoginAsync(browser, _userEmail, UserScope, OidcLoginDriver.CreatePkce().Challenge);
 
 		// Sem redirect de volta ao authorize: a tela é re-renderizada com o erro
 		loginPost.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -168,8 +161,8 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/activate", null))
 			.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		var session = await LoginAsync(_userEmail, UserScope);
-		(await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
 	}
 
 	// ─────────────────────────────── perímetro dos endpoints ───────────────────────────────
@@ -187,8 +180,8 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	{
 		// Token legítimo, emitido de verdade — mas para o LogStream: a audience não é a do SecureGate.
 		// O 403 por falta de securegate:admin está em UserManagementTests, onde dá para cunhar o token.
-		var session = await LoginAsync(_userEmail, UserScope);
-		using var client = BearerClient(session.AccessToken);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
+		using var client = Driver.BearerClient(session.AccessToken);
 
 		(await client.PostAsync(DeactivateUserUrl(_tenantId, _operatorId), null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 		(await client.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/activate", null))
@@ -198,12 +191,12 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	[Fact]
 	public async Task Desativar_UsuarioPelaRotaDeOutroTenant_Retorna404ENaoAltera()
 	{
-		var session = await LoginAsync(_userEmail, UserScope);
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
 		var admin = await OperatorClientAsync();
 
 		(await admin.PostAsync(DeactivateUserUrl(_otherTenantId, _userId), null)).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-		(await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK, "a rota errada não pode ter desativado ninguém");
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK, "a rota errada não pode ter desativado ninguém");
 	}
 
 	[Fact]
@@ -219,26 +212,26 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	[Fact]
 	public async Task Desativar_APropriaConta_Retorna409ESessaoSegue()
 	{
-		var session = await LoginAsync(_operatorEmail, OperatorScope);
-		using var admin = BearerClient(session.AccessToken);
+		var session = await Driver.LoginAsync(_operatorEmail, OperatorScope);
+		using var admin = Driver.BearerClient(session.AccessToken);
 
 		(await admin.PostAsync(DeactivateUserUrl(SecureGatePlatform.TenantId, _operatorId), null))
 			.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
-		(await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
 	}
 
 	[Fact]
 	public async Task DesativarTenantDePlataforma_Retorna409EOperadorSegue()
 	{
-		var session = await LoginAsync(_operatorEmail, OperatorScope);
-		using var admin = BearerClient(session.AccessToken);
+		var session = await Driver.LoginAsync(_operatorEmail, OperatorScope);
+		using var admin = Driver.BearerClient(session.AccessToken);
 
 		(await admin.PostAsync($"/api/v1/tenants/{SecureGatePlatform.TenantId}/deactivate", null))
 			.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
 		// Sem a guarda, os operadores parariam de renovar — e reativar exige token de operador
-		(await RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.OK);
 	}
 
 	// ─────────────────────────────── infraestrutura do teste ───────────────────────────────
@@ -266,105 +259,5 @@ public partial class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory s
 	}
 
 	private async Task<HttpClient> OperatorClientAsync() =>
-		BearerClient((await LoginAsync(_operatorEmail, OperatorScope)).AccessToken);
-
-	private HttpClient BearerClient(string accessToken)
-	{
-		var client = secureGate.CreateClient();
-		client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-		return client;
-	}
-
-	private HttpClient CreateBrowser() => secureGate.CreateClient(new WebApplicationFactoryClientOptions
-	{
-		AllowAutoRedirect = false,
-		HandleCookies = true,
-	});
-
-	private async Task<HttpResponseMessage> RefreshAsync(string refreshToken)
-	{
-		using var client = secureGate.CreateClient();
-
-		return await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
-		{
-			["grant_type"] = "refresh_token",
-			["refresh_token"] = refreshToken,
-			["client_id"] = ClientId,
-		}));
-	}
-
-	private async Task<(string AccessToken, string RefreshToken)> LoginAsync(string email, string scope)
-	{
-		using var browser = CreateBrowser();
-		var (verifier, code) = await ObtainCodeAsync(browser, email, scope);
-
-		var response = await ExchangeCodeAsync(browser, code, verifier);
-		var body = await response.Content.ReadAsStringAsync();
-		response.StatusCode.Should().Be(HttpStatusCode.OK, body);
-
-		using var json = JsonDocument.Parse(body);
-
-		return (json.RootElement.GetProperty("access_token").GetString()!, json.RootElement.GetProperty("refresh_token").GetString()!);
-	}
-
-	private static async Task<(string Verifier, string Code)> ObtainCodeAsync(HttpClient browser, string email, string scope)
-	{
-		var (verifier, challenge) = CreatePkce();
-
-		var loginPost = await SubmitLoginAsync(browser, email, scope, challenge);
-		loginPost.StatusCode.Should().Be(HttpStatusCode.Redirect, "credenciais válidas voltam ao authorize");
-
-		var codeResponse = await browser.GetAsync(loginPost.Headers.Location!.ToString());
-		codeResponse.StatusCode.Should().Be(HttpStatusCode.Redirect);
-
-		return (verifier, QueryHelpers.ParseQuery(codeResponse.Headers.Location!.Query)["code"].ToString());
-	}
-
-	private static async Task<HttpResponseMessage> SubmitLoginAsync(HttpClient browser, string email, string scope, string challenge)
-	{
-		var authorizeUrl = QueryHelpers.AddQueryString("/connect/authorize", new Dictionary<string, string?>
-		{
-			["response_type"] = "code",
-			["client_id"] = ClientId,
-			["redirect_uri"] = RedirectUri,
-			["scope"] = scope,
-			["code_challenge"] = challenge,
-			["code_challenge_method"] = "S256",
-			["state"] = Guid.NewGuid().ToString("N"),
-			["nonce"] = Guid.NewGuid().ToString("N"),
-		});
-
-		var loginUrl = (await browser.GetAsync(authorizeUrl)).Headers.Location!.ToString();
-		var loginPage = await browser.GetAsync(loginUrl);
-		loginPage.EnsureSuccessStatusCode();
-		var antiforgery = AntiforgeryField().Match(await loginPage.Content.ReadAsStringAsync()).Groups[1].Value;
-
-		return await browser.PostAsync(loginUrl, new FormUrlEncodedContent(new Dictionary<string, string>
-		{
-			["Input.Email"] = email,
-			["Input.Password"] = Password,
-			["__RequestVerificationToken"] = antiforgery,
-		}));
-	}
-
-	private static Task<HttpResponseMessage> ExchangeCodeAsync(HttpClient browser, string code, string verifier) =>
-		browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
-		{
-			["grant_type"] = "authorization_code",
-			["code"] = code,
-			["redirect_uri"] = RedirectUri,
-			["client_id"] = ClientId,
-			["code_verifier"] = verifier,
-		}));
-
-	private static (string Verifier, string Challenge) CreatePkce()
-	{
-		var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
-
-		return (verifier, Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))));
-	}
-
-	private static string Base64Url(byte[] bytes) =>
-		Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+		Driver.BearerClient((await Driver.LoginAsync(_operatorEmail, OperatorScope)).AccessToken);
 }

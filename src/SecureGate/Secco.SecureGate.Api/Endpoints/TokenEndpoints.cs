@@ -120,9 +120,12 @@ public static class TokenEndpoints
 			return Forbid(Errors.InvalidGrant, "A conta não pode mais ser autenticada.");
 		}
 
-		var scopes = stored!.GetScopes();
+		// Os scopes também são re-derivados, e não copiados do token anterior: sem o filtro aqui, um
+		// operador retirado do perfil seguiria renovando securegate:admin indefinidamente.
+		var roles = await userManager.GetRolesAsync(user);
+		var scopes = InstallationOperatorPolicy.FilterScopes(user, roles, stored!.GetScopes());
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
-		var principal = OidcPrincipalBuilder.ForUser(user, await userManager.GetRolesAsync(user), scopes, resources);
+		var principal = OidcPrincipalBuilder.ForUser(user, roles, scopes, resources);
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}

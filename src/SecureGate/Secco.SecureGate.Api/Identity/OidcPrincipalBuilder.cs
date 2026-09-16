@@ -42,8 +42,7 @@ internal static class OidcPrincipalBuilder
 		// tenant de plataforma impede que um operador forjado (role com o mesmo nome) num
 		// tenant de cliente receba o token tenant-less (defesa contra colisão de nome,
 		// ADR-0020/0023/0024).
-		var isInstallationOperator = user.TenantId == SecureGatePlatform.TenantId
-			&& roleList.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal);
+		var isInstallationOperator = InstallationOperatorPolicy.IsInstallationOperator(user, roleList);
 
 		if (!isInstallationOperator)
 		{

@@ -81,17 +81,7 @@ public static class InteractiveEndpoints
 		// O nome do role é único só por tenant: exigir também o tenant de plataforma impede
 		// que um operador forjado (role com o mesmo nome) num tenant de cliente ganhe o scope
 		// admin (defesa contra colisão de nome, ADR-0020/0023/0024).
-		var scopes = request.GetScopes().AsEnumerable();
-
-		var isInstallationOperator = user.TenantId == SecureGatePlatform.TenantId
-			&& roles.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal);
-
-		if (!isInstallationOperator)
-		{
-			scopes = scopes.Where(scope => scope != SecureGateScopes.Admin);
-		}
-
-		var granted = scopes.ToList();
+		var granted = InstallationOperatorPolicy.FilterScopes(user, roles, request.GetScopes());
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, granted, context.RequestAborted);
 
 		// Client first-party confiável (ConsentType Implicit no registro) → sem tela de consent (Fase 6.5)
