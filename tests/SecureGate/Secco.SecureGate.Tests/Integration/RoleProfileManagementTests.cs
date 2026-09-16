@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -161,5 +162,36 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/do-vizinho")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
 		(await admin.GetAsync($"/api/v1/tenants/{otherTenant}/roles/do-vizinho")).StatusCode.Should().Be(HttpStatusCode.OK);
+	}
+
+	public static TheoryData<string, string> NovasRotas() => new()
+	{
+		{ "GET", "/api/v1/tenants/{0}/roles/leitor" },
+		{ "DELETE", "/api/v1/tenants/{0}/roles/leitor" },
+		{ "GET", "/api/v1/tenants/{0}/roles/leitor/members" },
+		{ "GET", "/api/v1/tenants/{0}/users/{1}" },
+		{ "POST", "/api/v1/tenants/{0}/users/{1}/roles/leitor" },
+		{ "DELETE", "/api/v1/tenants/{0}/users/{1}/roles/leitor" },
+	};
+
+	[Theory]
+	[MemberData(nameof(NovasRotas))]
+	public async Task NovasRotas_SemToken_Retornam401(string method, string template)
+	{
+		var request = new HttpRequestMessage(new HttpMethod(method), string.Format(template, _tenantId, Guid.CreateVersion7()));
+
+		(await factory.CreateClient().SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+	}
+
+	[Theory]
+	[MemberData(nameof(NovasRotas))]
+	public async Task NovasRotas_SemScopeAdmin_Retornam403(string method, string template)
+	{
+		var client = factory.CreateClient();
+		client.DefaultRequestHeaders.Authorization =
+			new AuthenticationHeaderValue("Bearer", factory.CreateTokenWithScopes("logstream"));
+		var request = new HttpRequestMessage(new HttpMethod(method), string.Format(template, _tenantId, Guid.CreateVersion7()));
+
+		(await client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 	}
 }
