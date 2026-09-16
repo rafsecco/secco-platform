@@ -1,0 +1,257 @@
+@page "/tenants/{TenantId:guid}/roles/{RoleName}"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject IRoleAdminService RoleAdminService
+@inject IUserAdminService UserAdminService
+@inject NavigationManager Navigation
+@inject ILogger<RoleManagement> Logger
+@using Secco.SecureGate.Client
+
+<PageTitle>Perfil @RoleName — Secco AdminPortal</PageTitle>
+
+<p><a href="@($"tenants/{TenantId}")">&larr; Tenant</a></p>
+
+@if (_loadError is not null)
+{
+    <p class="error" role="alert">@_loadError</p>
+}
+else if (_role is null || _members is null)
+{
+    <p>Carregando…</p>
+}
+else
+{
+    <h1>Perfil @_role.Name</h1>
+    <p class="muted">@(_role.IsReserved ? "Reservado da plataforma · " : string.Empty)@_role.MemberCount membro(s)</p>
+
+    @if (_message is not null)
+    {
+        <p class="success" role="status">@_message</p>
+    }
+    @if (_actionError is not null)
+    {
+        <p class="error" role="alert">@_actionError</p>
+    }
+    @if (_pending is not null)
+    {
+        <div class="form-card" role="alertdialog">
+            <p>@_pending.Message</p>
+            <button @onclick="ConfirmAsync" disabled="@_busy">Confirmar</button>
+            <button @onclick="() => _pending = null" disabled="@_busy">Cancelar</button>
+        </div>
+    }
+
+    <section>
+        <h2>Permissões</h2>
+        @if (_role.IsReserved)
+        {
+            <p class="muted">Definidas pela plataforma; não editáveis.</p>
+            <ul>
+                @foreach (var permission in _role.Permissions)
+                {
+                    <li><code>@permission</code></li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div class="form-card">
+                <label>Permissões (uma <code>recurso:acao</code> por linha)
+                    <textarea rows="6" @bind="_permissionsText"></textarea>
+                </label>
+                <button @onclick="SavePermissionsAsync" disabled="@_busy">Salvar permissões</button>
+            </div>
+        }
+    </section>
+
+    <section>
+        <h2>Membros</h2>
+        @if (_members.Items.Count == 0)
+        {
+            <p>Nenhum membro.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>E-mail</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var member in _members.Items)
+                    {
+                        <tr>
+                            <td><a href="@($"tenants/{TenantId}/users/{member.UserId}")">@member.Email</a></td>
+                            <td>@UserStatusText.Describe(member.Status)</td>
+                            <td>
+                                <button @onclick="() => AskRemoveMember(member)" disabled="@_busy">Remover</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p>
+                <button @onclick="() => GoToPageAsync(_members.Page - 1)" disabled="@(_busy || _members.Page <= 1)">Anterior</button>
+                Página @_members.Page de @Math.Max(_members.TotalPages, 1)
+                <button @onclick="() => GoToPageAsync(_members.Page + 1)" disabled="@(_busy || _members.Page >= _members.TotalPages)">Próxima</button>
+            </p>
+        }
+
+        @if (Candidates.Count > 0)
+        {
+            <div class="form-card">
+                <h3>Adicionar membro</h3>
+                <label>Usuário
+                    <select @bind="_userToAdd">
+                        <option value="">Selecione…</option>
+                        @foreach (var user in Candidates)
+                        {
+                            <option value="@user.Id">@user.Email</option>
+                        }
+                    </select>
+                </label>
+                <button @onclick="AddMemberAsync" disabled="@(_busy || string.IsNullOrEmpty(_userToAdd))">Adicionar</button>
+            </div>
+        }
+    </section>
+
+    @if (!_role.IsReserved)
+    {
+        <section>
+            <h2>Excluir perfil</h2>
+            @if (_role.MemberCount > 0)
+            {
+                <p class="muted">Remova os membros antes de excluir.</p>
+            }
+            <button @onclick="AskDeleteRole" disabled="@(_busy || _role.MemberCount > 0)">Excluir perfil</button>
+        </section>
+    }
+}
+
+@code {
+    /// <summary>Tenant alvo (rota).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+
+    /// <summary>Perfil alvo (rota).</summary>
+    [Parameter] public string RoleName { get; set; } = string.Empty;
+
+    private RoleDetail? _role;
+    private MemberPage? _members;
+    private IReadOnlyList<UserSummary> _users = [];
+    private string _permissionsText = string.Empty;
+    private string? _userToAdd;
+
+    private string? _loadError;
+    private string? _actionError;
+    private string? _message;
+    private bool _busy;
+    private PendingAction? _pending;
+
+    private sealed record PendingAction(string Message, Func<Task> Action);
+
+    private IReadOnlyList<UserSummary> Candidates =>
+        _role is null
+            ? []
+            : [.. _users.Where(user => !user.Roles.Contains(_role.Name, StringComparer.OrdinalIgnoreCase))];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            await ReloadAsync(page: 1);
+        }
+        catch (ApiException exception) when (exception.StatusCode == 404)
+        {
+            _loadError = "Perfil não encontrado.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao carregar o perfil {Role} do tenant {TenantId}.", RoleName, TenantId);
+            _loadError = "Não foi possível carregar o perfil.";
+        }
+    }
+
+    private async Task ReloadAsync(int page)
+    {
+        _role = await RoleAdminService.GetRoleAsync(TenantId, RoleName);
+        _permissionsText = string.Join('\n', _role.Permissions);
+        _members = await RoleAdminService.ListMembersAsync(TenantId, RoleName, page);
+        _users = await UserAdminService.ListUsersAsync(TenantId);
+    }
+
+    private Task GoToPageAsync(int page) => RunAsync(() => ReloadAsync(page));
+
+    private async Task SavePermissionsAsync()
+    {
+        await RunAsync(async () =>
+        {
+            await RoleAdminService.SetPermissionsAsync(TenantId, RoleName, ParseLines(_permissionsText));
+            await ReloadAsync(_members?.Page ?? 1);
+            _message = "Permissões salvas.";
+        });
+    }
+
+    private async Task AddMemberAsync()
+    {
+        if (!Guid.TryParse(_userToAdd, out var userId))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await UserAdminService.AddRoleAsync(TenantId, userId, RoleName);
+            _userToAdd = null;
+            await ReloadAsync(_members?.Page ?? 1);
+            _message = "Membro adicionado.";
+        });
+    }
+
+    private void AskRemoveMember(RoleMemberSummary member) =>
+        _pending = new PendingAction($"Remover {member.Email} do perfil {RoleName}?", async () =>
+        {
+            await UserAdminService.RemoveRoleAsync(TenantId, member.UserId, RoleName);
+            await ReloadAsync(_members?.Page ?? 1);
+            _message = "Membro removido.";
+        });
+
+    private void AskDeleteRole() =>
+        _pending = new PendingAction($"Excluir o perfil {RoleName}? Esta ação não pode ser desfeita.", async () =>
+        {
+            await RoleAdminService.DeleteRoleAsync(TenantId, RoleName);
+            Navigation.NavigateTo($"tenants/{TenantId}");
+        });
+
+    private async Task ConfirmAsync()
+    {
+        var pending = _pending;
+        _pending = null;
+
+        if (pending is not null)
+        {
+            await RunAsync(pending.Action);
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _actionError = _message = null;
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _actionError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha na gestão do perfil {Role} do tenant {TenantId}.", RoleName, TenantId);
+            _actionError = "Falha inesperada. Tente novamente.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static IReadOnlyList<string> ParseLines(string value) =>
+        [.. value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+}

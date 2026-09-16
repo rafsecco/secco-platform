@@ -1,0 +1,242 @@
+@page "/tenants/{TenantId:guid}/users/{UserId:guid}"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject IUserAdminService UserAdminService
+@inject IRoleAdminService RoleAdminService
+@inject ILogger<UserManagement> Logger
+@using Secco.SecureGate.Client
+
+<PageTitle>@(_user?.Email ?? "Usuário") — Secco AdminPortal</PageTitle>
+
+<p><a href="@($"tenants/{TenantId}")">&larr; Tenant</a></p>
+
+@if (_loadError is not null)
+{
+    <p class="error" role="alert">@_loadError</p>
+}
+else if (_user is null)
+{
+    <p>Carregando…</p>
+}
+else
+{
+    <h1>@_user.Email</h1>
+    <p class="muted">
+        @UserStatusText.Describe(_user.Status)
+        @if (_user.LockoutEnd is { } until)
+        {
+            <text> até @until.ToLocalTime().ToString("g")</text>
+        }
+        @if (_user.ExternalLogins.Count > 0)
+        {
+            <text> · login externo: @string.Join(", ", _user.ExternalLogins)</text>
+        }
+    </p>
+
+    @if (_message is not null)
+    {
+        <p class="success" role="status">@_message</p>
+    }
+    @if (_actionError is not null)
+    {
+        <p class="error" role="alert">@_actionError</p>
+    }
+    @if (_pending is not null)
+    {
+        <div class="form-card" role="alertdialog">
+            <p>@_pending.Message</p>
+            <button @onclick="ConfirmAsync" disabled="@_busy">Confirmar</button>
+            <button @onclick="() => _pending = null" disabled="@_busy">Cancelar</button>
+        </div>
+    }
+
+    <section>
+        <h2>Perfis</h2>
+        @if (_user.Roles.Count == 0)
+        {
+            <p>Sem perfis — a conta não tem acesso a nada.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <tbody>
+                    @foreach (var role in _user.Roles)
+                    {
+                        <tr>
+                            <td><a href="@($"tenants/{TenantId}/roles/{Uri.EscapeDataString(role)}")">@role</a></td>
+                            <td><button @onclick="() => AskRemoveRole(role)" disabled="@_busy">Remover</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (AvailableRoles.Count > 0)
+        {
+            <div class="form-card">
+                <label>Adicionar perfil
+                    <select @bind="_roleToAdd">
+                        <option value="">Selecione…</option>
+                        @foreach (var role in AvailableRoles)
+                        {
+                            <option value="@role">@role</option>
+                        }
+                    </select>
+                </label>
+                <button @onclick="AddRoleAsync" disabled="@(_busy || string.IsNullOrEmpty(_roleToAdd))">Adicionar</button>
+            </div>
+        }
+    </section>
+
+    <section>
+        <h2>Acesso efetivo</h2>
+        @if (_user.EffectivePermissions.Count == 0)
+        {
+            <p>Nenhuma permissão.</p>
+        }
+        else
+        {
+            <ul>
+                @foreach (var permission in _user.EffectivePermissions)
+                {
+                    <li><code>@permission</code></li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section>
+        <h2>Conta</h2>
+        @if (_user.Status == "Active")
+        {
+            <button @onclick="AskDeactivate" disabled="@_busy">Desativar</button>
+            <p class="muted">Impede novo login e encerra a sessão na próxima renovação de token.</p>
+        }
+        else
+        {
+            <button @onclick="ActivateAsync" disabled="@_busy">Ativar</button>
+        }
+    </section>
+}
+
+@code {
+    /// <summary>Tenant alvo (rota).</summary>
+    [Parameter] public Guid TenantId { get; set; }
+
+    /// <summary>Usuário alvo (rota).</summary>
+    [Parameter] public Guid UserId { get; set; }
+
+    private UserDetail? _user;
+    private IReadOnlyList<RoleSummary> _roles = [];
+    private string? _roleToAdd;
+
+    private string? _loadError;
+    private string? _actionError;
+    private string? _message;
+    private bool _busy;
+    private PendingAction? _pending;
+
+    private sealed record PendingAction(string Message, Func<Task> Action);
+
+    private IReadOnlyList<string> AvailableRoles =>
+        _user is null
+            ? []
+            : [.. _roles.Select(role => role.Name).Where(name => !_user.Roles.Contains(name, StringComparer.OrdinalIgnoreCase))];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            await ReloadAsync();
+        }
+        catch (ApiException exception) when (exception.StatusCode == 404)
+        {
+            _loadError = "Usuário não encontrado.";
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao carregar o usuário {UserId} do tenant {TenantId}.", UserId, TenantId);
+            _loadError = "Não foi possível carregar o usuário.";
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _user = await UserAdminService.GetUserAsync(TenantId, UserId);
+        _roles = await RoleAdminService.ListRolesAsync(TenantId);
+    }
+
+    private async Task AddRoleAsync()
+    {
+        if (string.IsNullOrEmpty(_roleToAdd))
+        {
+            return;
+        }
+
+        var role = _roleToAdd;
+
+        await RunAsync(async () =>
+        {
+            await UserAdminService.AddRoleAsync(TenantId, UserId, role);
+            _roleToAdd = null;
+            await ReloadAsync();
+            _message = $"Perfil {role} adicionado. Vale na próxima renovação de token do usuário.";
+        });
+    }
+
+    private void AskRemoveRole(string role) =>
+        _pending = new PendingAction($"Remover o perfil {role} deste usuário?", async () =>
+        {
+            await UserAdminService.RemoveRoleAsync(TenantId, UserId, role);
+            await ReloadAsync();
+            _message = $"Perfil {role} removido. Vale na próxima renovação de token do usuário.";
+        });
+
+    private void AskDeactivate() =>
+        _pending = new PendingAction("Desativar esta conta? A sessão aberta termina na próxima renovação de token.", async () =>
+        {
+            await UserAdminService.SetActiveAsync(TenantId, UserId, active: false);
+            await ReloadAsync();
+            _message = "Conta desativada.";
+        });
+
+    private Task ActivateAsync() => RunAsync(async () =>
+    {
+        await UserAdminService.SetActiveAsync(TenantId, UserId, active: true);
+        await ReloadAsync();
+        _message = "Conta ativada.";
+    });
+
+    private async Task ConfirmAsync()
+    {
+        var pending = _pending;
+        _pending = null;
+
+        if (pending is not null)
+        {
+            await RunAsync(pending.Action);
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _actionError = _message = null;
+        try
+        {
+            await action();
+        }
+        catch (ApiException exception)
+        {
+            _actionError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha na gestão do usuário {UserId} do tenant {TenantId}.", UserId, TenantId);
+            _actionError = "Falha inesperada. Tente novamente.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
