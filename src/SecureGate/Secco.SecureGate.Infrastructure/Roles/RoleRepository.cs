@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
+using Secco.SharedKernel.Pagination;
 
 namespace Secco.SecureGate.Infrastructure.Roles;
 
@@ -117,6 +118,41 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
 		return true;
+	}
+
+	public async Task<RoleSummaryData?> FindRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default)
+	{
+		var normalized = Normalize(name);
+
+		return await context.Roles
+			.AsNoTracking()
+			.Where(r => r.TenantId == tenantId && r.NormalizedName == normalized)
+			.Select(r => new RoleSummaryData(r.Id, r.Name!, context.UserRoles.Count(ur => ur.RoleId == r.Id)))
+			.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task<PagedResult<RoleMemberData>> ListMembersAsync(
+		Guid roleId, PageRequest page, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(page);
+
+		var members =
+			from userRole in context.UserRoles.AsNoTracking()
+			join user in context.Users.AsNoTracking() on userRole.UserId equals user.Id
+			where userRole.RoleId == roleId
+			select user;
+
+		var total = await members.LongCountAsync(cancellationToken).ConfigureAwait(false);
+
+		var items = await members
+			.OrderBy(user => user.Email)
+			.ThenBy(user => user.Id)
+			.Skip(page.Skip)
+			.Take(page.Size)
+			.Select(user => new RoleMemberData(user.Id, user.Email!, user.LockoutEnabled, user.LockoutEnd))
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		return PagedResult.Create<RoleMemberData>(items, page, total);
 	}
 
 	private static string Normalize(string name) => name.ToUpperInvariant();

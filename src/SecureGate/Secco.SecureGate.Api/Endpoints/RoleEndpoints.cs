@@ -3,6 +3,7 @@ using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Roles;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SharedKernel.Pagination;
 
 namespace Secco.SecureGate.Api.Endpoints;
 
@@ -57,6 +58,38 @@ public static class RoleEndpoints
 			.WithName("SetRolePermissions")
 			.WithSummary("Substitui o conjunto de permissões do role (idempotente; revogação propaga em até um TTL).")
 			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		group.MapGet("/{role}", async (
+				Guid tenantId,
+				string role,
+				GetRoleHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, role, cancellationToken))
+				.ToHttpResult(dto => Results.Ok(dto)))
+			.WithName("GetRole")
+			.WithSummary("Detalha um perfil: permissões efetivas, se é reservado e quantos membros tem.")
+			.Produces<RoleDetailDto>(StatusCodes.Status200OK)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		group.MapGet("/{role}/members", async (
+				Guid tenantId,
+				string role,
+				int? page,
+				int? size,
+				ListRoleMembersHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(
+				tenantId,
+				role,
+				new PageRequest(page ?? PageRequest.FirstPage, size ?? PageRequest.DefaultSize),
+				cancellationToken))
+				.ToHttpResult(result => Results.Ok(result)))
+			.WithName("ListRoleMembers")
+			.WithSummary("Lista, paginados, os membros do perfil com a situação de cada conta.")
+			.Produces<PagedResult<RoleMemberDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 

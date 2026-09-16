@@ -1,4 +1,19 @@
+using Secco.SharedKernel.Pagination;
+
 namespace Secco.SecureGate.Application.Roles;
+
+/// <summary>Perfil localizado no tenant.</summary>
+/// <param name="Id">Identificador.</param>
+/// <param name="Name">Nome como gravado.</param>
+/// <param name="MemberCount">Quantidade de membros.</param>
+public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
+
+/// <summary>Membro de perfil com o lockout cru — a Application deriva a situação.</summary>
+/// <param name="UserId">Usuário.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="LockoutEnabled">Lockout habilitado.</param>
+/// <param name="LockoutEnd">Fim do bloqueio.</param>
+public sealed record RoleMemberData(Guid UserId, string Email, bool LockoutEnabled, DateTimeOffset? LockoutEnd);
 
 /// <summary>
 /// Persistência de roles e suas permissões (ADR-0021: padrão Identity — role por tenant,
@@ -48,4 +63,16 @@ public interface IRoleRepository
 		string name,
 		IReadOnlyCollection<string> permissions,
 		CancellationToken cancellationToken = default);
+
+	/// <summary>Localiza o perfil por (tenant, nome); <c>null</c> se não existe NESTE tenant.</summary>
+	/// <param name="tenantId">Tenant.</param>
+	/// <param name="name">Nome já validado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<RoleSummaryData?> FindRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default);
+
+	/// <summary>Página de membros de um perfil já localizado, por e-mail.</summary>
+	/// <param name="roleId">Perfil vindo de <see cref="FindRoleAsync"/> — nunca de input externo.</param>
+	/// <param name="page">Página.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<PagedResult<RoleMemberData>> ListMembersAsync(Guid roleId, PageRequest page, CancellationToken cancellationToken = default);
 }
