@@ -209,8 +209,11 @@ mensagem. Sem teste de componente (o repositório não usa bUnit).
 ## Próximas entregas (decomposição acordada)
 
 1. **Esta** — perfis.
-2. **Gestão de conta:** editar e-mail e desvincular login Entra (só conta local), admin redefine senha com
-   troca obrigatória, encerrar sessões.
+2. **Gestão de conta:** admin redefine senha com troca obrigatória e encerrar sessões; **editar e-mail**, com
+   restrição para conta ainda **sem** vínculo Entra num tenant federado (o e-mail decide quem casa no
+   primeiro login federado); **desvincular login Entra**, para conta **com** vínculo cujo `oid` mudou ou foi
+   vinculado errado — o próximo login pelo Entra volta a casar por e-mail e grava o vínculo novo. O login
+   federado da ADR-0026 segue inalterado em ambos.
 3. **Senha self-service:** trocar a própria senha e "esqueci minha senha" por e-mail — primeira dependência
    SecureGate → NotificationHub (ADR).
 4. **Segundo fator (2FA) no login local** (ADR).
