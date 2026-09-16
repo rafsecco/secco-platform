@@ -15,6 +15,19 @@ public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
 public sealed record RoleMemberData(Guid UserId, string Email, bool LockoutEnabled, DateTimeOffset? LockoutEnd);
 
+/// <summary>Resultado da exclusão de perfil.</summary>
+public enum DeleteRoleOutcome
+{
+	/// <summary>Perfil e permissões excluídos.</summary>
+	Deleted,
+
+	/// <summary>Perfil não existe neste tenant.</summary>
+	NotFound,
+
+	/// <summary>Perfil tem membros; nada foi alterado.</summary>
+	HasMembers,
+}
+
 /// <summary>
 /// Persistência de roles e suas permissões (ADR-0021: padrão Identity — role por tenant,
 /// permissões como claims de ação). A camada de aplicação trabalha com DTOs: as entidades
@@ -75,4 +88,13 @@ public interface IRoleRepository
 	/// <param name="page">Página.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<PagedResult<RoleMemberData>> ListMembersAsync(Guid roleId, PageRequest page, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Exclui o perfil e suas permissões se não tiver membros. A checagem de membros é refeita aqui, junto
+	/// da exclusão, para encurtar a janela entre verificar e excluir.
+	/// </summary>
+	/// <param name="tenantId">Tenant.</param>
+	/// <param name="name">Nome já validado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<DeleteRoleOutcome> DeleteRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default);
 }

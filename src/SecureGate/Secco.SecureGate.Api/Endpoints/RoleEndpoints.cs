@@ -93,6 +93,20 @@ public static class RoleEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapDelete("/{role}", async (
+				Guid tenantId,
+				string role,
+				DeleteRoleHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, role, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("DeleteRole")
+			.WithSummary("Exclui um perfil sem membros. Perfis reservados da plataforma não são excluíveis.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
 		return endpoints;
 	}
 }

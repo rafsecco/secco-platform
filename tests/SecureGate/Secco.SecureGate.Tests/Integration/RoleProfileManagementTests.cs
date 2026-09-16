@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Infrastructure.Contexts;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -101,5 +104,62 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		var response = await IdentitySeed.AdminClient(factory).GetAsync($"/api/v1/tenants/{_tenantId}/roles/alheio/members");
 
 		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task DeleteRole_SemMembros_ExcluiPerfilEPermissoes()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "temporario", "relatorios:read");
+		var admin = IdentitySeed.AdminClient(factory);
+
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/temporario")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		(await admin.GetAsync($"/api/v1/tenants/{_tenantId}/roles/temporario")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+		using var scope = factory.Services.CreateScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+		(await context.RoleClaims.CountAsync(c => c.ClaimValue == "relatorios:read"
+			&& !context.Roles.Any(r => r.Id == c.RoleId))).Should().Be(0, "permissões órfãs não podem sobrar");
+	}
+
+	[Fact]
+	public async Task DeleteRole_ComMembros_Retorna409EMantem()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "ocupado");
+		await IdentitySeed.UserAsync(factory, _tenantId, Email(), "ocupado");
+		var admin = IdentitySeed.AdminClient(factory);
+
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/ocupado")).StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+		(await admin.GetAsync($"/api/v1/tenants/{_tenantId}/roles/ocupado")).StatusCode.Should().Be(HttpStatusCode.OK);
+	}
+
+	[Fact]
+	public async Task DeleteRole_OperadorDaInstalacao_Retorna409()
+	{
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{SecureGatePlatform.TenantId}/roles/{SecureGatePlatform.OperatorRole}");
+
+		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+	}
+
+	[Fact]
+	public async Task DeleteRole_Inexistente_Retorna404()
+	{
+		var response = await IdentitySeed.AdminClient(factory).DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/nao-existe");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task DeleteRole_DeOutroTenant_Retorna404ENaoExclui()
+	{
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		await IdentitySeed.RoleAsync(factory, otherTenant, "do-vizinho");
+		var admin = IdentitySeed.AdminClient(factory);
+
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/do-vizinho")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+		(await admin.GetAsync($"/api/v1/tenants/{otherTenant}/roles/do-vizinho")).StatusCode.Should().Be(HttpStatusCode.OK);
 	}
 }

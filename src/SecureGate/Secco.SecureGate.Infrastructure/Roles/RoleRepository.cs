@@ -155,5 +155,34 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 		return PagedResult.Create<RoleMemberData>(items, page, total);
 	}
 
+	public async Task<DeleteRoleOutcome> DeleteRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default)
+	{
+		var normalized = Normalize(name);
+
+		var role = await context.Roles
+			.FirstOrDefaultAsync(r => r.TenantId == tenantId && r.NormalizedName == normalized, cancellationToken)
+			.ConfigureAwait(false);
+
+		if (role is null)
+		{
+			return DeleteRoleOutcome.NotFound;
+		}
+
+		if (await context.UserRoles.AnyAsync(ur => ur.RoleId == role.Id, cancellationToken).ConfigureAwait(false))
+		{
+			return DeleteRoleOutcome.HasMembers;
+		}
+
+		// Permissões removidas explicitamente — não depende do comportamento de cascata da FK
+		context.RoleClaims.RemoveRange(await context.RoleClaims
+			.Where(c => c.RoleId == role.Id)
+			.ToListAsync(cancellationToken).ConfigureAwait(false));
+		context.Roles.Remove(role);
+
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+		return DeleteRoleOutcome.Deleted;
+	}
+
 	private static string Normalize(string name) => name.ToUpperInvariant();
 }

@@ -38,6 +38,7 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<GetRolePermissionsHandler>();
 		services.AddScoped<GetRoleHandler>();
 		services.AddScoped<ListRoleMembersHandler>();
+		services.AddScoped<DeleteRoleHandler>();
 
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
