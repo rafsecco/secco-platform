@@ -77,6 +77,18 @@ public static class UserEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapGet("/{userId:guid}", async (
+				Guid tenantId,
+				Guid userId,
+				GetUserHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, cancellationToken))
+				.ToHttpResult(dto => Results.Ok(dto)))
+			.WithName("GetUser")
+			.WithSummary("Detalha o usuário: situação, perfis, permissões efetivas e logins externos (sem identificadores).")
+			.Produces<UserDetailDto>(StatusCodes.Status200OK)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		return endpoints;
 	}
 }

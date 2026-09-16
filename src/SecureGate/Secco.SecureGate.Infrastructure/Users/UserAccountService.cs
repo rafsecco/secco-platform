@@ -55,7 +55,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-		return new UserDto(user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)]);
+		return new UserDto(user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)], UserStatuses.Active);
 	}
 
 	public async Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default)
@@ -126,14 +126,49 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			select new { userRole.UserId, role.Name })
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
+		var now = DateTimeOffset.UtcNow;
+
 		return
 		[
 			.. users.Select(user => new UserDto(
 				user.Id,
 				user.Email!,
 				user.TenantId,
-				[.. roleAssignments.Where(a => a.UserId == user.Id).Select(a => a.Name!)]))
+				[.. roleAssignments.Where(a => a.UserId == user.Id).Select(a => a.Name!)],
+				UserStatuses.From(user.LockoutEnabled, user.LockoutEnd, now)))
 		];
+	}
+
+	public async Task<UserAccountData?> GetAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var user = await context.Users
+			.AsNoTracking()
+			.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken)
+			.ConfigureAwait(false);
+
+		if (user is null)
+		{
+			return null;
+		}
+
+		var roles = await (
+			from userRole in context.UserRoles.AsNoTracking()
+			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+			where userRole.UserId == userId && role.TenantId == tenantId
+			orderby role.Name
+			select role.Name!)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		// Só o provedor: a chave (tid:oid do Entra) identifica a pessoa no diretório do cliente
+		var logins = await context.UserLogins
+			.AsNoTracking()
+			.Where(login => login.UserId == userId)
+			.Select(login => login.LoginProvider)
+			.Distinct()
+			.OrderBy(provider => provider)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		return new UserAccountData(user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins);
 	}
 
 	/// <summary>Traduz o <see cref="IdentityResult"/> em <see cref="Error"/> sem vazar enumeração de e-mail.</summary>

@@ -9,6 +9,23 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="Roles">Roles a atribuir no tenant (ADR-0021); devem existir.</param>
 public sealed record CreateUserData(Guid TenantId, string Email, string Password, IReadOnlyList<string> Roles);
 
+/// <summary>Conta com lockout cru e vínculos — a Application deriva situação e permissões.</summary>
+/// <param name="Id">Identificador.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="TenantId">Tenant.</param>
+/// <param name="LockoutEnabled">Lockout habilitado.</param>
+/// <param name="LockoutEnd">Fim do bloqueio.</param>
+/// <param name="Roles">Perfis, por nome.</param>
+/// <param name="ExternalLogins">Nomes dos provedores externos vinculados.</param>
+public sealed record UserAccountData(
+	Guid Id,
+	string Email,
+	Guid TenantId,
+	bool LockoutEnabled,
+	DateTimeOffset? LockoutEnd,
+	IReadOnlyList<string> Roles,
+	IReadOnlyList<string> ExternalLogins);
+
 /// <summary>
 /// Porta de provisionamento de usuários (ADR-0002): o hash de senha, a política e a
 /// atribuição de roles são responsabilidade do ASP.NET Identity, que vive na Infrastructure.
@@ -46,4 +63,10 @@ public interface IUserDirectory
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
 	Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default);
+
+	/// <summary>Conta do tenant; <c>null</c> se não existe ou é de outro tenant.</summary>
+	/// <param name="tenantId">Tenant esperado.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<UserAccountData?> GetAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 }

@@ -1191,6 +1191,57 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/users/{userId}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Detalha o usuário: situação, perfis, permissões efetivas e logins externos (sem identificadores).",
+        "operationId": "GetUser",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/users/{userId}/elevation": {
       "put": {
         "tags": [
@@ -1894,12 +1945,67 @@
           }
         }
       },
+      "UserDetailDto": {
+        "required": [
+          "id",
+          "email",
+          "tenantId",
+          "status",
+          "lockoutEnd",
+          "roles",
+          "effectivePermissions",
+          "externalLogins"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "lockoutEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "effectivePermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "externalLogins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "UserDto": {
         "required": [
           "id",
           "email",
           "tenantId",
-          "roles"
+          "roles",
+          "status"
         ],
         "type": "object",
         "properties": {
@@ -1919,6 +2025,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "status": {
+            "type": "string"
           }
         }
       }
