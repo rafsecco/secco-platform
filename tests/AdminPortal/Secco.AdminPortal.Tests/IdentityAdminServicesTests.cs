@@ -124,4 +124,139 @@ public class IdentityAdminServicesTests
 		detail.IsActive.Should().BeTrue();
 		detail.Products.Should().ContainSingle().Which.Should().Be("logstream");
 	}
+
+	[Fact]
+	public async Task ListUsers_ProjetaSituacao()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		client.ListUsersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(new List<UserDto>
+		{
+			new() { Id = Guid.NewGuid(), Email = "ana@acme.test", TenantId = tenantId, Roles = [], Status = "Deactivated" },
+		});
+
+		var users = await new SecureGateUserAdminService(factory).ListUsersAsync(tenantId);
+
+		users[0].Status.Should().Be("Deactivated");
+	}
+
+	[Fact]
+	public async Task GetUser_ProjetaDetalhe()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		client.GetUserAsync(tenantId, userId, Arg.Any<CancellationToken>()).Returns(new UserDetailDto
+		{
+			Id = userId,
+			Email = "ana@acme.test",
+			TenantId = tenantId,
+			Status = "Active",
+			Roles = ["leitor"],
+			EffectivePermissions = ["documentos:read"],
+			ExternalLogins = ["EntraId"],
+		});
+
+		var user = await new SecureGateUserAdminService(factory).GetUserAsync(tenantId, userId);
+
+		user.Email.Should().Be("ana@acme.test");
+		user.Roles.Should().Equal("leitor");
+		user.EffectivePermissions.Should().Equal("documentos:read");
+		user.ExternalLogins.Should().Equal("EntraId");
+	}
+
+	[Fact]
+	public async Task AddERemoveRole_ChamamOClient()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		var service = new SecureGateUserAdminService(factory);
+
+		await service.AddRoleAsync(tenantId, userId, "leitor");
+		await service.RemoveRoleAsync(tenantId, userId, "leitor");
+
+		await client.Received(1).AddUserRoleAsync(tenantId, userId, "leitor", Arg.Any<CancellationToken>());
+		await client.Received(1).RemoveUserRoleAsync(tenantId, userId, "leitor", Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task SetActive_EscolheAOperacao()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		var service = new SecureGateUserAdminService(factory);
+
+		await service.SetActiveAsync(tenantId, userId, active: false);
+		await service.SetActiveAsync(tenantId, userId, active: true);
+
+		await client.Received(1).DeactivateUserAsync(tenantId, userId, Arg.Any<CancellationToken>());
+		await client.Received(1).ActivateUserAsync(tenantId, userId, Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task GetRole_ProjetaDetalhe()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		client.GetRoleAsync(tenantId, "leitor", Arg.Any<CancellationToken>()).Returns(new RoleDetailDto
+		{
+			Name = "leitor",
+			Permissions = ["documentos:read"],
+			IsReserved = false,
+			MemberCount = 3,
+		});
+
+		var role = await new SecureGateRoleAdminService(factory).GetRoleAsync(tenantId, "leitor");
+
+		role.Should().BeEquivalentTo(new RoleDetail("leitor", ["documentos:read"], false, 3));
+	}
+
+	[Fact]
+	public async Task ListMembers_PedeAPaginaComTamanhoFixo()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var memberId = Guid.NewGuid();
+		client.ListRoleMembersAsync(tenantId, "leitor", 2, IRoleAdminService.MembersPageSize, Arg.Any<CancellationToken>())
+			.Returns(new PagedResultOfRoleMemberDto
+			{
+				Items = [new RoleMemberDto { UserId = memberId, Email = "ana@acme.test", Status = "Active" }],
+				Page = 2,
+				Size = IRoleAdminService.MembersPageSize,
+				TotalCount = 21,
+				TotalPages = 2,
+			});
+
+		var page = await new SecureGateRoleAdminService(factory).ListMembersAsync(tenantId, "leitor", 2);
+
+		page.Page.Should().Be(2);
+		page.TotalPages.Should().Be(2);
+		page.Items.Should().ContainSingle(m => m.UserId == memberId && m.Status == "Active");
+	}
+
+	[Fact]
+	public async Task DeleteRole_ChamaOClient()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+
+		await new SecureGateRoleAdminService(factory).DeleteRoleAsync(tenantId, "leitor");
+
+		await client.Received(1).DeleteRoleAsync(tenantId, "leitor", Arg.Any<CancellationToken>());
+	}
+
+	[Theory]
+	[InlineData("Active", "Ativo")]
+	[InlineData("Deactivated", "Desativado")]
+	[InlineData("LockedOut", "Bloqueado")]
+	[InlineData("Outro", "Outro")]
+	public void UserStatusText_Traduz(string status, string expected) =>
+		UserStatusText.Describe(status).Should().Be(expected);
+
+	[Fact]
+	public void ApiErrorFormatter_Conflito_MostraODetalheDoServidor() =>
+		ApiErrorFormatter.Describe(409, """{"title":"Conflict","detail":"A operação deixaria a instalação sem nenhum operador ativo."}""")
+			.Should().Be("A operação deixaria a instalação sem nenhum operador ativo.");
 }

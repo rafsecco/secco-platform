@@ -15,13 +15,65 @@ public sealed record TenantDetail(
 	DateTimeOffset CreatedAt,
 	IReadOnlyList<string> Products);
 
-/// <summary>Usuário de um tenant (visão de gestão, sem segredos).</summary>
-/// <param name="Id">Identificador do usuário.</param>
-/// <param name="Email">E-mail (também o username).</param>
-/// <param name="Roles">Roles atribuídos no tenant.</param>
-public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Roles);
+/// <summary>Usuário na listagem do tenant.</summary>
+/// <param name="Id">Identificador.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="Roles">Perfis.</param>
+/// <param name="Status">Situação (Active, Deactivated, LockedOut).</param>
+public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Roles, string Status);
 
-/// <summary>Role de um tenant com suas permissões (ADR-0021).</summary>
-/// <param name="Name">Nome do role.</param>
-/// <param name="Permissions">Permissões <c>recurso:acao</c> concedidas.</param>
+/// <summary>Usuário detalhado.</summary>
+/// <param name="Id">Identificador.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="Status">Situação.</param>
+/// <param name="LockoutEnd">Fim do bloqueio por tentativas.</param>
+/// <param name="Roles">Perfis.</param>
+/// <param name="EffectivePermissions">Permissões efetivas.</param>
+/// <param name="ExternalLogins">Provedores externos vinculados.</param>
+public sealed record UserDetail(
+	Guid Id,
+	string Email,
+	string Status,
+	DateTimeOffset? LockoutEnd,
+	IReadOnlyList<string> Roles,
+	IReadOnlyList<string> EffectivePermissions,
+	IReadOnlyList<string> ExternalLogins);
+
+/// <summary>Perfil na listagem do tenant.</summary>
+/// <param name="Name">Nome.</param>
+/// <param name="Permissions">Permissões gravadas.</param>
 public sealed record RoleSummary(string Name, IReadOnlyList<string> Permissions);
+
+/// <summary>Perfil detalhado.</summary>
+/// <param name="Name">Nome.</param>
+/// <param name="Permissions">Permissões efetivas.</param>
+/// <param name="IsReserved">Reservado da plataforma.</param>
+/// <param name="MemberCount">Quantidade de membros.</param>
+public sealed record RoleDetail(string Name, IReadOnlyList<string> Permissions, bool IsReserved, int MemberCount);
+
+/// <summary>Membro de perfil.</summary>
+/// <param name="UserId">Usuário.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="Status">Situação.</param>
+public sealed record RoleMemberSummary(Guid UserId, string Email, string Status);
+
+/// <summary>Página de membros.</summary>
+/// <param name="Items">Membros.</param>
+/// <param name="Page">Página atual.</param>
+/// <param name="TotalPages">Total de páginas.</param>
+/// <param name="TotalCount">Total de membros.</param>
+public sealed record MemberPage(IReadOnlyList<RoleMemberSummary> Items, int Page, int TotalPages, long TotalCount);
+
+/// <summary>Texto da situação da conta para a tela.</summary>
+public static class UserStatusText
+{
+	/// <summary>Traduz a situação vinda do SecureGate; valor desconhecido aparece como veio.</summary>
+	/// <param name="status">Situação.</param>
+	public static string Describe(string status) => status switch
+	{
+		"Active" => "Ativo",
+		"Deactivated" => "Desativado",
+		"LockedOut" => "Bloqueado",
+		_ => status,
+	};
+}
