@@ -53,6 +53,9 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<GetElevationHandler>();
 		services.AddScoped<RevokeElevationHandler>();
 
+		// Versão de sessão consultada pelos produtos (ADR-0032)
+		services.AddScoped<Sessions.GetSessionVersionHandler>();
+
 		return services;
 	}
 }

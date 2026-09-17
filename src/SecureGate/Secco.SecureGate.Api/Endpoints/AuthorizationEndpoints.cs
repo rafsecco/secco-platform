@@ -1,6 +1,7 @@
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Authorization;
+using Secco.SecureGate.Application.Sessions;
 using Secco.SDK.AspNetCore.Extensions;
 
 namespace Secco.SecureGate.Api.Endpoints;
@@ -29,6 +30,19 @@ public static class AuthorizationEndpoints
 			.WithSummary("Resolve as permissões de um role no tenant (vazio para role desconhecido).")
 			.Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.RequireAuthorization(policy =>
+				policy.RequireAssertion(context =>
+					ScopeAuthorization.HasScope(context.User, SecureGateScopes.AuthorizationRead)));
+
+		endpoints.MapGet("/api/v1/authorization/users/{sub}/session-version", async (
+				string sub,
+				GetSessionVersionHandler handler,
+				CancellationToken cancellationToken) =>
+			Results.Ok(await handler.HandleAsync(sub, cancellationToken)))
+			.WithTags("Authorization")
+			.WithName("GetSessionVersion")
+			.WithSummary("Versão de sessão atual do usuário (ADR-0032); revogado para conta inexistente, desativada, bloqueada ou de tenant inativo.")
+			.Produces<SessionVersionDto>(StatusCodes.Status200OK)
 			.RequireAuthorization(policy =>
 				policy.RequireAssertion(context =>
 					ScopeAuthorization.HasScope(context.User, SecureGateScopes.AuthorizationRead)));

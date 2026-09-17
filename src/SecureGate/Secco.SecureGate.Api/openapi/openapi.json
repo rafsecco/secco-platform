@@ -63,6 +63,37 @@
         }
       }
     },
+    "/api/v1/authorization/users/{sub}/session-version": {
+      "get": {
+        "tags": [
+          "Authorization"
+        ],
+        "summary": "Versão de sessão atual do usuário (ADR-0032); revogado para conta inexistente, desativada, bloqueada ou de tenant inativo.",
+        "operationId": "GetSessionVersion",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionVersionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants": {
       "post": {
         "tags": [
@@ -1867,6 +1898,24 @@
           },
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "SessionVersionDto": {
+        "required": [
+          "sessionVersion",
+          "revoked"
+        ],
+        "type": "object",
+        "properties": {
+          "sessionVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "revoked": {
+            "type": "boolean"
           }
         }
       },

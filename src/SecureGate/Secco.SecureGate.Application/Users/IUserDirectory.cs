@@ -39,6 +39,13 @@ public enum RoleAssignmentOutcome
 	RoleNotFound,
 }
 
+/// <summary>Estado da conta relevante para a sessão.</summary>
+/// <param name="TenantId">Tenant.</param>
+/// <param name="SecurityStamp">SecurityStamp atual.</param>
+/// <param name="LockoutEnabled">Lockout habilitado.</param>
+/// <param name="LockoutEnd">Fim do bloqueio.</param>
+public sealed record UserSessionState(Guid TenantId, string? SecurityStamp, bool LockoutEnabled, DateTimeOffset? LockoutEnd);
+
 /// <summary>
 /// Porta de provisionamento de usuários (ADR-0002): o hash de senha, a política e a
 /// atribuição de roles são responsabilidade do ASP.NET Identity, que vive na Infrastructure.
@@ -110,4 +117,9 @@ public interface IUserDirectory
 	/// <param name="excludingUserId">Usuário alvo da operação, fora da contagem.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default);
+
+	/// <summary>Estado de sessão do usuário, em qualquer tenant; <c>null</c> se não existe.</summary>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<UserSessionState?> GetSessionStateAsync(Guid userId, CancellationToken cancellationToken = default);
 }

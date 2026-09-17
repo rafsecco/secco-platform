@@ -295,6 +295,13 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return new UserAccountData(user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins);
 	}
 
+	public Task<UserSessionState?> GetSessionStateAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		context.Users
+			.AsNoTracking()
+			.Where(user => user.Id == userId)
+			.Select(user => new UserSessionState(user.TenantId, user.SecurityStamp, user.LockoutEnabled, user.LockoutEnd))
+			.FirstOrDefaultAsync(cancellationToken);
+
 	/// <summary>Traduz o <see cref="IdentityResult"/> em <see cref="Error"/> sem vazar enumeração de e-mail.</summary>
 	private static Error MapIdentityError(IdentityResult result)
 	{
