@@ -79,19 +79,7 @@ internal sealed partial class OidcLoginDriver(
 
 	public async Task<HttpResponseMessage> SubmitLoginAsync(HttpClient browser, string email, string scope, string challenge)
 	{
-		var authorizeUrl = QueryHelpers.AddQueryString("/connect/authorize", new Dictionary<string, string?>
-		{
-			["response_type"] = "code",
-			["client_id"] = clientId,
-			["redirect_uri"] = redirectUri,
-			["scope"] = scope,
-			["code_challenge"] = challenge,
-			["code_challenge_method"] = "S256",
-			["state"] = Guid.NewGuid().ToString("N"),
-			["nonce"] = Guid.NewGuid().ToString("N"),
-		});
-
-		var loginUrl = (await browser.GetAsync(authorizeUrl)).Headers.Location!.ToString();
+		var loginUrl = (await browser.GetAsync(AuthorizeUrl(scope, challenge))).Headers.Location!.ToString();
 		var loginPage = await browser.GetAsync(loginUrl);
 		loginPage.EnsureSuccessStatusCode();
 		var antiforgery = AntiforgeryField().Match(await loginPage.Content.ReadAsStringAsync()).Groups[1].Value;
@@ -103,6 +91,23 @@ internal sealed partial class OidcLoginDriver(
 			["__RequestVerificationToken"] = antiforgery,
 		}));
 	}
+
+	/// <summary>Chama o authorize com o cookie que o navegador já tem, sem passar pelo formulário.</summary>
+	public Task<HttpResponseMessage> AuthorizeAsync(HttpClient browser, string scope) =>
+		browser.GetAsync(AuthorizeUrl(scope, CreatePkce().Challenge));
+
+	private string AuthorizeUrl(string scope, string challenge) =>
+		QueryHelpers.AddQueryString("/connect/authorize", new Dictionary<string, string?>
+		{
+			["response_type"] = "code",
+			["client_id"] = clientId,
+			["redirect_uri"] = redirectUri,
+			["scope"] = scope,
+			["code_challenge"] = challenge,
+			["code_challenge_method"] = "S256",
+			["state"] = Guid.NewGuid().ToString("N"),
+			["nonce"] = Guid.NewGuid().ToString("N"),
+		});
 
 	public Task<HttpResponseMessage> ExchangeCodeAsync(HttpClient browser, string code, string verifier) =>
 		browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>

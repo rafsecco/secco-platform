@@ -285,4 +285,24 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 
 		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
 	}
+
+	[Fact]
+	public async Task Cookie_DepoisDeEncerrarSessoes_NaoEmiteNovoCode()
+	{
+		using var browser = Driver.CreateBrowser();
+		await Driver.ObtainCodeAsync(browser, _userEmail, UserScope);
+
+		// Controle: com o cookie válido, o authorize emite code direto para o redirect_uri
+		var before = await Driver.AuthorizeAsync(browser, UserScope);
+		before.Headers.Location!.ToString().Should().StartWith(RedirectUri);
+
+		var admin = await OperatorClientAsync();
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/sessions/revoke", null))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		var after = await Driver.AuthorizeAsync(browser, UserScope);
+
+		after.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		after.Headers.Location!.ToString().Should().Contain("/login", "cookie de sessão revogada não pode gerar token novo");
+	}
 }

@@ -5,6 +5,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -42,6 +43,7 @@ public static class InteractiveEndpoints
 	private static async Task<IResult> AuthorizeAsync(
 		HttpContext context,
 		UserManager<User> userManager,
+		SignInManager<User> signInManager,
 		IOpenIddictScopeManager scopeManager)
 	{
 		var request = context.GetOpenIddictServerRequest()
@@ -61,11 +63,20 @@ public static class InteractiveEndpoints
 				[IdentityConstants.ApplicationScheme]);
 		}
 
-		var user = await userManager.GetUserAsync(authentication.Principal!);
+		// ADR-0032: o cookie só vale se o stamp ainda é o do login e a conta pode receber token. Sem isto, um
+		// cookie roubado geraria tokens novos — já com a versão nova — depois de qualquer revogação.
+		var user = await signInManager.ValidateSecurityStampAsync(authentication.Principal);
 
-		if (user is null)
+		if (user is null
+			|| !await AccountStateGuard.CanReceiveTokensAsync(
+				user,
+				userManager,
+				signInManager,
+				context.RequestServices.GetRequiredService<ITenantRepository>(),
+				context.RequestAborted))
 		{
-			// Cookie válido mas usuário sumiu (removido) — força novo login
+			await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+
 			return Results.Challenge(
 				new AuthenticationProperties
 				{
