@@ -1,3 +1,9 @@
+using Secco.SecureGate.Client.Catalog;
+using Secco.SecureGate.Client.Authorization;
+using Secco.SDK.AspNetCore.Extensions;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Cryptography;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -47,6 +53,19 @@ public static class AdminPortalAuthenticationExtensions
 					: CookieSecurePolicy.SameAsRequest;
 
 				options.SlidingExpiration = true;
+
+				// Sessão sem cofre (expirou ou o AdminPortal reiniciou) não vale: volta ao login
+				options.Events.OnValidatePrincipal = async context =>
+				{
+					var store = context.HttpContext.RequestServices.GetRequiredService<IOperatorSessionStore>();
+
+					if (context.Principal?.FindFirst(AdminPortalDefaults.SessionIdClaim)?.Value is not { Length: > 0 } sessionId
+						|| await store.GetAsync(sessionId, context.HttpContext.RequestAborted) is null)
+					{
+						context.RejectPrincipal();
+						await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+					}
+				};
 			})
 			.AddOpenIdConnect(options =>
 			{
@@ -78,16 +97,24 @@ public static class AdminPortalAuthenticationExtensions
 
 				options.Events = new OpenIdConnectEvents
 				{
-					OnTokenValidated = context =>
+					OnTokenValidated = async context =>
 					{
-						// Custódia server-side do access token do operador (ADR-0020/0023)
-						if (context.TokenEndpointResponse?.AccessToken is { Length: > 0 } accessToken
-							&& context.Principal?.Identity is ClaimsIdentity identity)
+						if (context.TokenEndpointResponse is not { AccessToken.Length: > 0, RefreshToken.Length: > 0 } tokens
+							|| context.Principal?.Identity is not ClaimsIdentity identity)
 						{
-							identity.AddClaim(new Claim(AdminPortalDefaults.AccessTokenClaim, accessToken));
+							context.Fail("O SecureGate não devolveu access e refresh token.");
+							return;
 						}
 
-						return Task.CompletedTask;
+						var sessionId = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
+						var expiresIn = int.TryParse(tokens.ExpiresIn, out var seconds) ? seconds : 300;
+
+						await context.HttpContext.RequestServices.GetRequiredService<IOperatorSessionStore>().SetAsync(
+							sessionId,
+							new OperatorSession(tokens.AccessToken, tokens.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn)),
+							context.HttpContext.RequestAborted);
+
+						identity.AddClaim(new Claim(AdminPortalDefaults.SessionIdClaim, sessionId));
 					},
 				};
 			});
@@ -95,6 +122,17 @@ public static class AdminPortalAuthenticationExtensions
 		services.AddAuthorization(options =>
 			options.AddPolicy(AdminPortalDefaults.OperatorPolicy, policy =>
 				policy.RequireRole(AdminPortalDefaults.OperatorRole)));
+
+		services.AddDistributedMemoryCache();
+		services.AddSingleton<IOperatorSessionStore, DistributedOperatorSessionStore>();
+		services.AddScoped<IOperatorTokenRefresher, OperatorTokenRefresher>();
+
+		// ADR-0032: revogar na plataforma derruba o cookie do operador. Credenciais PRÓPRIAS: o client
+		// secco-adminportal pode pedir securegate:admin e não pode ganhar client credentials.
+		services.AddSecureGateSessionVersionResolver(_ =>
+			configuration.GetSection(AdminPortalDefaults.SessionValidationSection).Get<SecureGateClientCredentialsOptions>()
+			?? new SecureGateClientCredentialsOptions());
+		services.AddSeccoCookieSessionValidation(CookieAuthenticationDefaults.AuthenticationScheme);
 
 		services.AddScoped<IOperatorTokenProvider, OperatorTokenProvider>();
 

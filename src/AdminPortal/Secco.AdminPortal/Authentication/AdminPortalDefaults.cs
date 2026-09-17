@@ -20,10 +20,13 @@ public static class AdminPortalDefaults
 	/// <summary>Nome do <c>HttpClient</c> tipado do LogStream (leitura de logs, Fase 7.3).</summary>
 	public const string LogStreamHttpClient = "LogStream";
 
-	/// <summary>Claim onde o access token do operador é custodiado no principal do cookie (ADR-0023).</summary>
-	public const string AccessTokenClaim = "access_token";
-
 	/// <summary>Scopes solicitados no login do operador (on-behalf-of das APIs de produto).</summary>
+	/// <summary>Claim do cookie com o id da sessão no cofre (ADR-0032) — o token nunca vai ao cookie.</summary>
+	public const string SessionIdClaim = "admin_session";
+
+	/// <summary>Seção das credenciais próprias da consulta de versão de sessão.</summary>
+	public const string SessionValidationSection = "Secco:SessionValidation";
+
 	public static readonly string[] Scopes =
 		["openid", "profile", "email", "roles", "offline_access", "securegate:admin", "logstream"];
 }

@@ -108,6 +108,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 
 		// Fase 7.1 (ADR-0023): client do AdminPortal + usuário operador de instalação
 		await SeedAdminPortalClientAsync(cancellationToken).ConfigureAwait(false);
+		await SeedAdminPortalSessionsClientAsync(cancellationToken).ConfigureAwait(false);
 		await SeedOperatorUserAsync(cancellationToken).ConfigureAwait(false);
 	}
 
@@ -146,6 +147,38 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		};
 
 		if (await applicationManager.FindByClientIdAsync(AdminPortalClientId, cancellationToken).ConfigureAwait(false) is { } existing)
+		{
+			await applicationManager.UpdateAsync(existing, descriptor, cancellationToken).ConfigureAwait(false);
+			return;
+		}
+
+		await applicationManager.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Client de máquina do AdminPortal só para consultar versão de sessão (ADR-0032).</summary>
+	public const string AdminPortalSessionsClientId = "secco-adminportal-sessions";
+
+	/// <summary>Secret do client de sessões do AdminPortal (conhecido — só existe em DEV).</summary>
+	public const string AdminPortalSessionsClientSecret = "secco-adminportal-sessions-secret-32-chars!";
+
+	private async Task SeedAdminPortalSessionsClientAsync(CancellationToken cancellationToken)
+	{
+		var descriptor = new OpenIddictApplicationDescriptor
+		{
+			ClientId = AdminPortalSessionsClientId,
+			ClientSecret = AdminPortalSessionsClientSecret,
+			ClientType = ClientTypes.Confidential,
+			DisplayName = "Secco AdminPortal — versão de sessão",
+			Permissions =
+			{
+				Permissions.Endpoints.Token,
+				Permissions.GrantTypes.ClientCredentials,
+				// Só leitura de autorização: este client nunca pode pedir securegate:admin
+				Permissions.Prefixes.Scope + Application.SecureGateScopes.AuthorizationRead,
+			},
+		};
+
+		if (await applicationManager.FindByClientIdAsync(AdminPortalSessionsClientId, cancellationToken).ConfigureAwait(false) is { } existing)
 		{
 			await applicationManager.UpdateAsync(existing, descriptor, cancellationToken).ConfigureAwait(false);
 			return;
