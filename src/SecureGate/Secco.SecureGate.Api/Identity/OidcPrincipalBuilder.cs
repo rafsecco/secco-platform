@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Sessions;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -52,6 +53,7 @@ internal static class OidcPrincipalBuilder
 		identity.SetClaim(Claims.Email, user.Email);
 		identity.SetClaim(Claims.Name, user.UserName);
 		identity.SetClaims(SeccoClaims.Role, [.. roleList]);
+		identity.SetClaim(SeccoClaims.SessionVersion, SessionVersion.From(user.SecurityStamp));
 
 		identity.SetScopes(scopes);
 		identity.SetResources(resources);
@@ -94,6 +96,9 @@ internal static class OidcPrincipalBuilder
 		identity.SetClaims(SeccoClaims.Role, [SecureGatePlatform.ElevatedLogReaderRole]);
 		identity.SetClaim(SecureGatePlatform.TokenExchangeClaim, SecureGatePlatform.ElevationCapability);
 
+		// Revogar a sessão de quem elevou derruba também o token elevado (ADR-0032)
+		identity.SetClaim(SeccoClaims.SessionVersion, SessionVersion.From(user.SecurityStamp));
+
 		identity.SetScopes([SecureGatePlatform.ElevatedScope]);
 		identity.SetResources(resources);
 		identity.SetAccessTokenLifetime(lifetime);
@@ -125,6 +130,12 @@ internal static class OidcPrincipalBuilder
 
 	private static IEnumerable<string> GetDestinations(Claim claim)
 	{
+		// sver nos dois: o access token para os produtos, o id_token para as aplicações de cookie (ADR-0032)
+		if (claim.Type == SeccoClaims.SessionVersion)
+		{
+			return [Destinations.AccessToken, Destinations.IdentityToken];
+		}
+
 		// sub e tenant_id: sempre nos dois tokens — o access token precisa do tenant (ADR-0005)
 		if (claim.Type is Claims.Subject || claim.Type == SeccoClaims.TenantId)
 		{

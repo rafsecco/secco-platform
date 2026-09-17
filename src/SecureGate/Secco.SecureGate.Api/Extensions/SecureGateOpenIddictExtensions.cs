@@ -31,7 +31,8 @@ public static class SecureGateOpenIddictExtensions
 		ArgumentNullException.ThrowIfNull(environment);
 		ArgumentNullException.ThrowIfNull(configuration);
 
-		var accessTokenLifetimeMinutes = configuration.GetValue("SecureGate:Tokens:AccessTokenLifetimeMinutes", 60);
+		// ADR-0032: 5 minutos por padrão — segunda barreira da revogação, depois da versão de sessão
+		var accessTokenLifetimeMinutes = configuration.GetValue("SecureGate:Tokens:AccessTokenLifetimeMinutes", 5);
 
 		services.AddOpenIddict()
 			.AddCore(core => core

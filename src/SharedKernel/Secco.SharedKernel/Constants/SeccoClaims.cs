@@ -16,4 +16,10 @@ public static class SeccoClaims
 
 	/// <summary>Escopos concedidos ao token.</summary>
 	public const string Scope = "scope";
+
+	/// <summary>
+	/// Versão da sessão em que o token foi emitido (ADR-0032). Divergir da versão atual do usuário
+	/// significa sessão revogada.
+	/// </summary>
+	public const string SessionVersion = "sver";
 }

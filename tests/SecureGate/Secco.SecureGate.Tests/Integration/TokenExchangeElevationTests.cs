@@ -147,6 +147,18 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 				record.UserId == _userId && record.TenantId == _tenantId);
 	}
 
+	[Fact]
+	public async Task Exchange_TokenElevadoLevaVersaoDeSessao()
+	{
+		var (accessToken, _) = await LoginAsync();
+		await GrantAsync();
+
+		var result = await ExchangeAsync(accessToken);
+
+		new JsonWebTokenHandler().ReadJsonWebToken(result.AccessToken).TryGetClaim("sver", out _)
+			.Should().BeTrue("revogar a sessão precisa derrubar também a elevação");
+	}
+
 	// ────────────────────────────────── autoridade ──────────────────────────────────
 
 	[Fact]
