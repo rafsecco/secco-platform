@@ -66,6 +66,10 @@ public static class SecureGatePermissionResolverExtensions
 			return new SecureGatePermissionResolver(serviceProvider.GetRequiredService<IHttpClientFactory>());
 		});
 
+		// ADR-0032: quem resolve permissões no SecureGate também confere a versão de sessão — nenhum produto
+		// fica sem a verificação por esquecer uma linha
+		services.AddSecureGateSessionVersionResolver();
+
 		return services;
 	}
 }
