@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -27,6 +28,26 @@ internal sealed class ConfigureSeccoJwtBearerOptions(
 
 		// ADR-0007: nunca remapear claims curtas para as URIs longas de ClaimTypes
 		options.MapInboundClaims = false;
+
+		// ADR-0032: token de sessão revogada é recusado mesmo com assinatura válida
+		options.Events ??= new JwtBearerEvents();
+		var previous = options.Events.OnTokenValidated;
+		options.Events.OnTokenValidated = async context =>
+		{
+			await previous(context).ConfigureAwait(false);
+
+			if (context.Result is not null || context.Principal is null)
+			{
+				return;
+			}
+
+			var checker = context.HttpContext.RequestServices.GetRequiredService<SessionVersionChecker>();
+
+			if (!await checker.IsCurrentAsync(context.Principal, context.HttpContext.RequestAborted).ConfigureAwait(false))
+			{
+				context.Fail("Sessão revogada.");
+			}
+		};
 
 		options.TokenValidationParameters.NameClaimType = SeccoClaims.Subject;
 		options.TokenValidationParameters.RoleClaimType = SeccoClaims.Role;

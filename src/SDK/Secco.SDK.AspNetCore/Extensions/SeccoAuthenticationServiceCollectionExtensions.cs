@@ -37,6 +37,8 @@ public static class SeccoAuthenticationServiceCollectionExtensions
 		services.TryAddSingleton<IValidateOptions<SeccoAuthenticationOptions>, SeccoAuthenticationOptionsValidator>();
 		services.TryAddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureSeccoJwtBearerOptions>();
 
+		services.AddSeccoSessionVersionChecking();
+
 		services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 			.AddJwtBearer();
 
@@ -44,6 +46,20 @@ public static class SeccoAuthenticationServiceCollectionExtensions
 			options.FallbackPolicy = new AuthorizationPolicyBuilder()
 				.RequireAuthenticatedUser()
 				.Build());
+
+		return services;
+	}
+
+	/// <summary>Registra a verificação de versão de sessão (ADR-0032) — compartilhada por token e cookie.</summary>
+	/// <param name="services">Coleção de serviços.</param>
+	internal static IServiceCollection AddSeccoSessionVersionChecking(this IServiceCollection services)
+	{
+		services.AddOptions<SeccoSessionVersionOptions>()
+			.BindConfiguration(SeccoAuthenticationOptions.SectionKey)
+			.Validate(options => options.SessionVersionCacheTtlSeconds > 0,
+				$"'{SeccoAuthenticationOptions.SectionKey}:SessionVersionCacheTtlSeconds' deve ser maior que zero.")
+			.ValidateOnStart();
+		services.TryAddSingleton<SessionVersionChecker>();
 
 		return services;
 	}
