@@ -37,8 +37,8 @@ operador cairia a cada 5 minutos.
 ### Claim `sver`
 
 - Valor: `Base64Url(SHA-256(SecurityStamp))[0..16]`. Função única `SessionVersion.From(string securityStamp)`.
-- Emitida em `OidcPrincipalBuilder.ForUser` e `ForElevation`, com destino **access token** (e id_token no login,
-  para o AdminPortal não precisar dela — só access token é obrigatório).
+- Emitida em `OidcPrincipalBuilder.ForUser` e `ForElevation`, com destino **só access token** — é o token que os
+  produtos validam; o id_token não precisa dela.
 - Nunca em `HandleClientCredentialsAsync`.
 
 ### Endpoint de versão
@@ -136,7 +136,7 @@ elevação; revogado para tenant inativo; revogação só em remoção efetiva d
 
 ## Publicação
 
-Cadeia `sharedkernel/v0.4.0` → `sdk/v0.8.0` → `sdk-credentials` (patch da cadeia) → `securegate-client/v0.8.0`,
+Cadeia `sharedkernel/v0.4.0` → `sdk/v0.8.0` → as dependências que `scripts/check-release-chain.py` apontar → `securegate-client/v0.8.0`,
 uma tag por vez, depois do CI verde. CHANGELOG com a mudança de comportamento do access token de 5 minutos e a
 instrução para clientes que não renovam token. Adoção pelo LogStream e NotificationHub no mesmo monorepo;
 `secco-intranet` avisado para atualizar os pacotes.
