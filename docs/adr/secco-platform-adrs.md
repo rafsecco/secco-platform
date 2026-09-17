@@ -963,11 +963,13 @@ Isso **não** dispensa verificação. A documentação desses handlers é `<inhe
 
 A plataforma emite dois tipos de credencial de usuário (ADR-0022): um **refresh token** deslizante (14 dias, renovado a cada uso) e um **access token JWT** que os produtos validam **localmente**, pela assinatura, sem consultar o SecureGate (ADR-0007). O access token dura 60 minutos por padrão.
 
-Até 2026-09-16 a plataforma aprendeu a **cortar a renovação**: bloqueio, desativação, tenant inativo e perda do perfil de operador passaram a ser rechecados a cada renovação. Mas "cortar a renovação" não encerra uma sessão comprometida, por três motivos verificados no código:
+Até 2026-09-16 a plataforma aprendeu a **cortar a renovação**: bloqueio, desativação, tenant inativo e perda do perfil de operador passaram a ser rechecados a cada renovação. Mas "cortar a renovação" não encerra uma sessão comprometida, por quatro motivos verificados no código:
 
 1. **O access token já emitido segue válido** até expirar. Quem roubou um token segue acessando os produtos por até 60 minutos depois de a conta ser desativada ou de a senha ser trocada — e nenhum produto tem como saber.
 2. **Nada revoga os tokens do OpenIddict.** Um refresh token roubado continua trocável até a próxima checagem de estado; e as mudanças que não alteram o *estado* da conta — trocar a senha, trocar o e-mail, suspeitar de comprometimento — não fazem a renovação falhar.
 3. **O cookie de login do SecureGate não revalida nada.** O `/connect/authorize` aceita o cookie (válido por 1 hora) e só verifica se o usuário existe: o SecureGate usa `AddIdentityCore` com cookie configurado à mão, sem o `SecurityStampValidator` que o `AddIdentity` liga. Quem tem o cookie obtém **tokens novos** sem digitar senha, mesmo depois de qualquer revogação.
+
+4. **A sessão local das aplicações clientes não é token.** A Intranet usa o id_token só para criar o próprio cookie e não guarda token nenhum; o AdminPortal mantém um cookie de sessão próprio. Revogar tokens na plataforma não encerra essas sessões — o usuário desativado segue dentro da aplicação até o cookie dela expirar.
 
 A gestão de credenciais que vem a seguir (convite, redefinição e troca de senha, troca de e-mail) só é segura se "encerrar as sessões" significar encerrá-las de fato — em todos os produtos, em segundos, inclusive para um access token já emitido.
 
@@ -982,7 +984,7 @@ Alternativas avaliadas:
 
 **Versão de sessão**
 
-- Todo token **de usuário** — login, renovação e o token de elevação da ADR-0031 — carrega a claim curta **`sver`**: um resumo (hash truncado) do `SecurityStamp` do ASP.NET Identity. Nunca o stamp cru: ele participa da geração dos tokens de recuperação de senha do Identity.
+- Todo token **de usuário** — access token e id_token de login e renovação, e o token de elevação da ADR-0031 — carrega a claim curta **`sver`**: um resumo (hash truncado) do `SecurityStamp` do ASP.NET Identity. Nunca o stamp cru: ele participa da geração dos tokens de recuperação de senha do Identity.
 - Token de máquina (client credentials) **não** carrega `sver`: não é sessão de pessoa. Revogar um client é rotacionar o secret dele.
 - O `SecurityStamp` já existe no Identity; nenhuma coluna nova.
 
@@ -993,6 +995,12 @@ Alternativas avaliadas:
 - Cache por `sub` com TTL curto e configurável (`Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60s). **Fail-closed**: SecureGate indisponível com cache vencido → 401.
 - Token **sem** `sver` passa: são os emitidos antes desta decisão, e a ausência não é forjável porque o token é assinado.
 - O resolvedor remoto é registrado pela mesma chamada que os produtos já fazem para permissões (`AddSecureGatePermissionResolver()`). Um produto com o SecureGate configurado não fica sem verificação por esquecer uma linha. Sem SecureGate configurado (DEV standalone), a verificação fica desligada, como o resolvedor de permissões por configuração.
+
+**Sessão local das aplicações clientes**
+
+- O SDK oferece a validação de sessão para aplicações que autenticam por cookie a partir do login OIDC (a Intranet, o AdminPortal): a cada requisição HTTP, a `sver` guardada no cookie (vinda do id_token) é conferida pelo **mesmo resolvedor com cache**; divergente ou revogada → o cookie é rejeitado e a pessoa volta ao login.
+- Ligar a validação sem resolvedor registrado **derruba o startup** — nunca fica silenciosamente desligada.
+- Em Blazor Server a conferência acontece nas requisições HTTP (carga e reconexão do circuito), não dentro de um circuito já aberto; ali quem corta é a recusa das chamadas às APIs e da renovação.
 
 **Revogação**
 
@@ -1009,7 +1017,7 @@ Alternativas avaliadas:
 
 - Revogar passa a valer em **todos os produtos em até um TTL de cache** (60s por padrão), inclusive contra access token já emitido e contra cookie de login roubado. O TTL de 5 minutos é a segunda barreira, para produto que ainda não atualizou o SDK.
 - O SecureGate ganha mais uma consulta de alta frequência (uma por usuário ativo por TTL) — mitigada pelo cache, e mesma exigência de disponibilidade já registrada nas ADRs 0007 e 0021. **SecureGate fora do ar derruba o acesso de usuários** assim que o cache vence; é a postura fail-closed escolhida.
-- **Todo produto precisa atualizar `Secco.SDK.AspNetCore` e `Secco.SecureGate.Client`** para ganhar a verificação; o `secco-intranet` inclusive.
+- **Todo produto precisa atualizar `Secco.SDK.AspNetCore` e `Secco.SecureGate.Client`** para ganhar a verificação; o `secco-intranet` inclusive, que além disso liga a validação de sessão do cookie — sem ela, a revogação não alcança quem já está logado na Intranet.
 - **Cliente que não renova token perde acesso a cada 5 minutos.** Mudança de comportamento registrada no CHANGELOG, com a configuração para voltar a 60.
 - O AdminPortal ganha armazenamento de sessão no servidor: reiniciá-lo encerra as sessões dos operadores, e **mais de uma instância exige cache distribuído** — registrado, fora desta decisão.
 - Mudança de papel, de permissão ou de dado cadastral que **não** passe pela operação de revogação continua valendo na próxima renovação ou no TTL de permissões da ADR-0021, como hoje.

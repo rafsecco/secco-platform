@@ -31,14 +31,16 @@ operador cairia a cada 5 minutos.
 3. **Revogação única**: troca do stamp, depois `RevokeBySubjectAsync` em autorizações e tokens.
 4. **Cookie validado** no `/connect/authorize`: stamp contra o banco + `AccountStateGuard`.
 5. **Access token padrão de 5 minutos** + **renovação no AdminPortal** com tokens fora do cookie.
+6. **Sessão local das aplicações de cookie** (Intranet, AdminPortal) validada pelo SDK contra a mesma versão de
+   sessão — revogar alcança quem já está logado nelas.
 
 ## SecureGate
 
 ### Claim `sver`
 
 - Valor: `Base64Url(SHA-256(SecurityStamp))[0..16]`. Função única `SessionVersion.From(string securityStamp)`.
-- Emitida em `OidcPrincipalBuilder.ForUser` e `ForElevation`, com destino **só access token** — é o token que os
-  produtos validam; o id_token não precisa dela.
+- Emitida em `OidcPrincipalBuilder.ForUser` (destinos **access token e id_token**) e `ForElevation` (access
+  token). O id_token leva a `sver` para as aplicações de cookie conferirem a própria sessão.
 - Nunca em `HandleClientCredentialsAsync`.
 
 ### Endpoint de versão
@@ -86,7 +88,8 @@ inalterado.
 | --- | --- | --- |
 | `Secco.SharedKernel` | `SeccoClaims.SessionVersion = "sver"` | 0.4.0 |
 | `Secco.SDK.AspNetCore` | `ISessionVersionResolver`; `CachedSessionVersionResolver` (cache por `sub`, TTL `Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60, fail-closed); verificação em `JwtBearerEvents.OnTokenValidated` dentro de `AddSeccoAuthentication()` | 0.8.0 |
-| `Secco.SecureGate.Client` | `SecureGateSessionVersionResolver` (remoto, client credentials com `authorization:read`), registrado dentro de `AddSecureGatePermissionResolver()` | 0.8.0 |
+| `Secco.SDK.AspNetCore` | `AddSeccoCookieSessionValidation(string cookieScheme)`: liga a conferência no `CookieAuthenticationEvents.OnValidatePrincipal`; falha no startup se não houver `ISessionVersionResolver` registrado | 0.8.0 |
+| `Secco.SecureGate.Client` | `SecureGateSessionVersionResolver` (remoto, client credentials com `authorization:read`), registrado dentro de `AddSecureGatePermissionResolver()` e também sozinho por `AddSecureGateSessionVersionResolver()` (para aplicação de cookie que não resolve permissões) | 0.8.0 |
 
 Regras da verificação:
 
@@ -95,6 +98,15 @@ Regras da verificação:
 - `sver` diferente, ou revogado → `context.Fail(...)` → 401.
 - Falha ao consultar e cache vencido → 401 (fail-closed), com log de aviso sem o token.
 - Cache guarda também o estado revogado, com o mesmo TTL.
+
+Regras da validação de cookie:
+
+- A cada requisição HTTP autenticada por cookie: lê `sver` do principal; ausente → passa (sessões anteriores).
+- Divergente ou revogada → `context.RejectPrincipal()` + `SignOutAsync(cookieScheme)` → a próxima requisição
+  exige login.
+- Falha ao consultar e cache vencido → rejeita (fail-closed).
+- Blazor Server: vale na carga e na reconexão do circuito; dentro de um circuito aberto, quem corta é a recusa
+  das APIs (401) e da renovação.
 
 ## AdminPortal
 
@@ -108,6 +120,15 @@ Regras da verificação:
   `ISecureGateClientFactory` lança uma exceção própria que as páginas convertem em navegação para o login
   (`forceLoad`).
 - Sessão ausente no store (reinício do AdminPortal) → mesmo caminho de reautenticação.
+- Liga `AddSeccoCookieSessionValidation` no cookie do operador.
+
+## secco-intranet (adotante)
+
+- Não guarda token de usuário e chama a plataforma por client credentials: o access token de 5 minutos **não o
+  afeta**, e ele **não precisa implementar renovação**.
+- Para a revogação alcançar a sessão da Intranet: atualizar os pacotes e chamar
+  `AddSecureGateSessionVersionResolver()` + `AddSeccoCookieSessionValidation(<esquema do cookie>)`. Registrado no
+  CHANGELOG como passo de adoção.
 
 ## Testes
 
@@ -127,6 +148,9 @@ cache vencido → 401; duas requisições no TTL → uma consulta.
 
 **Ponta a ponta entre produtos:** token real aceito pelo LogStream federado → revogar → com TTL de cache de 1 s
 no teste, a requisição seguinte ao LogStream responde 401.
+
+**Validação de cookie (SDK):** `sver` igual passa; divergente e revogada rejeitam o principal; ausente passa;
+resolvedor lança → rejeita; sem resolvedor registrado → startup falha.
 
 **AdminPortal:** renovação perto do vencimento; chamadas simultâneas geram uma renovação; `invalid_grant` leva a
 reautenticação; o cookie emitido não contém access token.
