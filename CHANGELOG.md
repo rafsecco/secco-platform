@@ -12,7 +12,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-17. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SharedKernel
+
+- **Adicionado** `SeccoClaims.SessionVersion` (`sver`) — versão de sessão do token (ADR-0032).
+
+### Secco.SDK.AspNetCore
+
+- **Adicionado** verificação de versão de sessão em `AddSeccoAuthentication()`: token com `sver` divergente ou revogada responde **401**, com cache por usuário (`Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60) e **fail-closed**. Token sem `sver` passa; sem `ISessionVersionResolver` habilitado (DEV standalone), não verifica.
+- **Adicionado** `AddSeccoCookieSessionValidation(cookieScheme)` para aplicações de cookie: revogar na plataforma derruba a sessão local. Exige `ISessionVersionResolver` registrado — sem ele, o startup falha.
+
+### Secco.SecureGate.Client
+
+- **Adicionado** `SecureGateSessionVersionResolver` e `AddSecureGateSessionVersionResolver()` (também com credenciais próprias); `AddSecureGatePermissionResolver()` passa a registrá-lo — produtos que já resolvem permissões ganham a verificação só atualizando o pacote.
+- **Adicionado (aditivo)** `GetSessionVersionAsync` e `RevokeUserSessionsAsync`.
+- **Mudança de comportamento do servidor que o adotante percebe:**
+  - access token padrão de **5 minutos** (era 60). Cliente que não renova token perde acesso a cada 5 minutos; `SecureGate:Tokens:AccessTokenLifetimeMinutes` volta ao valor antigo;
+  - desativar usuário e remover perfil **revogam** as sessões na hora (antes, só a próxima renovação era recusada);
+  - `/connect/authorize` passa a exigir cookie com security stamp atual: após qualquer revogação, o navegador volta ao login.
+- **Adoção no secco-intranet:** atualizar os pacotes e chamar `AddSecureGateSessionVersionResolver()` + `AddSeccoCookieSessionValidation(<esquema do cookie>)` — sem isso, um usuário revogado segue logado na Intranet até o cookie dela expirar. A Intranet não guarda token de usuário, então o access token de 5 minutos não a afeta.
 
 ---
 

@@ -8,6 +8,7 @@ using Secco.SecureGate.Application;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
+using Secco.SecureGate.Infrastructure.OpenIddict;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -304,5 +305,28 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 
 		after.StatusCode.Should().Be(HttpStatusCode.Redirect);
 		after.Headers.Location!.ToString().Should().Contain("/login", "cookie de sessão revogada não pode gerar token novo");
+	}
+
+	[Fact]
+	public async Task EncerrarSessoes_MarcaOsTokensDoUsuarioComoRevogados()
+	{
+		await Driver.LoginAsync(_userEmail, UserScope);
+		var admin = await OperatorClientAsync();
+
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/sessions/revoke", null))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		// Não basta a autorização cair: os registros de token do usuário também saem de "valid"
+		using var scope = secureGate.Services.CreateScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+		var subject = _userId.ToString();
+		var statuses = await context.Set<OidcToken>()
+			.AsNoTracking()
+			.Where(token => token.Subject == subject)
+			.Select(token => token.Status)
+			.ToListAsync();
+
+		statuses.Should().NotBeEmpty("o login gravou tokens para este usuário");
+		statuses.Should().OnlyContain(status => status != "valid");
 	}
 }
