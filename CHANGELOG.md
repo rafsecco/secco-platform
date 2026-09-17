@@ -12,13 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-- **Adicionado (aditivo)** gestão de perfis sobre o Identity (issue #26): `GetRoleAsync`, `DeleteRoleAsync`, `ListRoleMembersAsync` (paginado), `GetUserAsync` (situação, perfis, permissões efetivas e provedores de login externo — nunca o identificador do diretório), `AddUserRoleAsync` e `RemoveUserRoleAsync`, ambos idempotentes.
-- **Adicionado (aditivo)** `UserDto.Status` (`Active`, `Deactivated`, `LockedOut`).
-- **Novas recusas em operações existentes:** `CreateUserAsync` responde **400** (`SecureGate.User.RoleNotAssignable`) para perfis reservados que são identidades só de token; `DeactivateUserAsync` responde **409** quando deixaria a instalação sem operador ativo.
-- **Mudança de comportamento do servidor:** a renovação de token passou a reaplicar o filtro de operador aos scopes. Um operador retirado do perfil `installation-operator` perde `securegate:admin` e volta a ter `tenant_id` na renovação seguinte — antes, seguia renovando `securegate:admin` indefinidamente.
-- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-17. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -32,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.3.10 — 2026-09-17
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` desde a 0.3.9 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SDK.AspNetCore` 0.7.3 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.3.9 — 2026-09-14
 
@@ -67,6 +65,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.7.3 — 2026-09-17
+
+Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` desde a 0.7.2 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.7.0 o referencia.
 
 #### 0.7.2 — 2026-09-14
 
@@ -154,6 +156,14 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.7.0 — 2026-09-17
+
+- **Adicionado (aditivo)** gestão de perfis sobre o Identity (issue #26): `GetRoleAsync`, `DeleteRoleAsync`, `ListRoleMembersAsync` (paginado), `GetUserAsync` (situação, perfis, permissões efetivas e provedores de login externo — nunca o identificador do diretório), `AddUserRoleAsync` e `RemoveUserRoleAsync`, ambos idempotentes.
+- **Adicionado (aditivo)** `UserDto.Status` (`Active`, `Deactivated`, `LockedOut`).
+- **Novas recusas em operações existentes:** `CreateUserAsync` responde **400** (`SecureGate.User.RoleNotAssignable`) para perfis reservados que são identidades só de token; `DeactivateUserAsync` responde **409** quando deixaria a instalação sem operador ativo.
+- **Mudança de comportamento do servidor:** a renovação de token passou a reaplicar o filtro de operador aos scopes. Um operador retirado do perfil `installation-operator` perde `securegate:admin` e volta a ter `tenant_id` na renovação seguinte — antes, seguia renovando `securegate:admin` indefinidamente.
+- Nenhum método existente foi renomeado; o contrato não perdeu nenhuma operação.
+
 #### 0.6.0 — 2026-09-14
 
 - **Adicionado (aditivo)** `DeactivateUserAsync` e `ActivateUserAsync` — desativar um usuário impede novo login e **encerra a sessão já aberta** na próxima renovação de token; reativar devolve o acesso. Gated por `securegate:admin`; usuário de outro tenant na rota responde 404, como inexistente.
@@ -183,6 +193,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.3 — 2026-09-17
+
+Patch **sem mudança funcional**: o diff desde a 0.1.2 é vazio. Existe pela cadeia do MinVer — o `Secco.SecureGate.Client` 0.7.0 o referencia.
 
 #### 0.1.2 — 2026-09-14
 
