@@ -120,7 +120,11 @@ Regras da validação de cookie:
   `ISecureGateClientFactory` lança uma exceção própria que as páginas convertem em navegação para o login
   (`forceLoad`).
 - Sessão ausente no store (reinício do AdminPortal) → mesmo caminho de reautenticação.
-- Liga `AddSeccoCookieSessionValidation` no cookie do operador.
+- Liga `AddSeccoCookieSessionValidation` no cookie do operador, com o resolvedor usando **credenciais próprias**
+  (client `secco-adminportal-sessions`, só `authorization:read`, seção `Secco:SessionValidation`). O client
+  `secco-adminportal` **não** ganha client credentials: ele tem permissão para `securegate:admin`, e o filtro que só
+  concede esse scope a operadores roda no login, não no client credentials — o secret passaria a emitir token de
+  admin sem pessoa nenhuma.
 
 ## secco-intranet (adotante)
 
@@ -162,8 +166,9 @@ elevação; revogado para tenant inativo; revogação só em remoção efetiva d
 
 Cadeia `sharedkernel/v0.4.0` → `sdk/v0.8.0` → as dependências que `scripts/check-release-chain.py` apontar → `securegate-client/v0.8.0`,
 uma tag por vez, depois do CI verde. CHANGELOG com a mudança de comportamento do access token de 5 minutos e a
-instrução para clientes que não renovam token. Adoção pelo LogStream e NotificationHub no mesmo monorepo;
-`secco-intranet` avisado para atualizar os pacotes.
+instrução para clientes que não renovam token. Adoção pelo LogStream no mesmo monorepo (via
+`AddSecureGatePermissionResolver()`); o NotificationHub não usa o SecureGate hoje e ganha a verificação quando
+adotar o client; `secco-intranet` avisado para atualizar os pacotes e ligar a validação de cookie.
 
 ## Fora desta entrega
 
