@@ -1405,6 +1405,50 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/users/{userId}/sessions/revoke": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Encerra todas as sessões do usuário: produtos recusam os tokens atuais em até um TTL de cache (ADR-0032).",
+        "operationId": "RevokeUserSessions",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/users/{userId}/elevation": {
       "put": {
         "tags": [

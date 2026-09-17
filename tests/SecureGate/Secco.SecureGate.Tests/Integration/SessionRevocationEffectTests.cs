@@ -116,4 +116,67 @@ public class SessionRevocationEffectTests(SecureGateApiFactory factory) : IAsync
 	public async Task Versao_SemScopeAuthorizationRead_403() =>
 		(await IdentitySeed.AdminClient(factory).GetAsync($"/api/v1/authorization/users/{Guid.CreateVersion7()}/session-version"))
 			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+	private string RevokeUrl(Guid userId) => $"/api/v1/tenants/{_tenantId}/users/{userId}/sessions/revoke";
+
+	[Fact]
+	public async Task RevokeUserSessions_TrocaAVersao()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		var before = await StampVersionAsync(userId);
+
+		(await IdentitySeed.AdminClient(factory).PostAsync(RevokeUrl(userId), null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		(await StampVersionAsync(userId)).Should().NotBe(before);
+	}
+
+	[Fact]
+	public async Task RevokeUserSessions_UsuarioDeOutroTenant_404ENaoTroca()
+	{
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		var stranger = await IdentitySeed.UserAsync(factory, otherTenant, Email());
+		var before = await StampVersionAsync(stranger);
+
+		(await IdentitySeed.AdminClient(factory).PostAsync(RevokeUrl(stranger), null)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+		(await StampVersionAsync(stranger)).Should().Be(before);
+	}
+
+	[Fact]
+	public async Task RevokeUserSessions_SemToken_401_SemScope_403()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		(await factory.CreateClient().PostAsync(RevokeUrl(userId), null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+		(await ResolverClient().PostAsync(RevokeUrl(userId), null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+	}
+
+	[Fact]
+	public async Task Desativar_TrocaAVersao()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		var before = await StampVersionAsync(userId);
+
+		(await IdentitySeed.AdminClient(factory).PostAsync($"/api/v1/tenants/{_tenantId}/users/{userId}/deactivate", null))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		(await StampVersionAsync(userId)).Should().NotBe(before);
+	}
+
+	[Fact]
+	public async Task RemoverPerfil_Efetivo_TrocaAVersao_Repetido_NaoTroca()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email(), "leitor");
+		var admin = IdentitySeed.AdminClient(factory);
+		var url = $"/api/v1/tenants/{_tenantId}/users/{userId}/roles/leitor";
+		var before = await StampVersionAsync(userId);
+
+		(await admin.DeleteAsync(url)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+		var afterRemoval = await StampVersionAsync(userId);
+		(await admin.DeleteAsync(url)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		afterRemoval.Should().NotBe(before);
+		(await StampVersionAsync(userId)).Should().Be(afterRemoval, "remoção repetida não pode derrubar a sessão à toa");
+	}
 }

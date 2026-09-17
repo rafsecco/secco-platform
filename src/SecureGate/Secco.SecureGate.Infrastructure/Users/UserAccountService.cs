@@ -164,11 +164,13 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			.FirstOrDefaultAsync(userRole => userRole.UserId == userId && userRole.RoleId == roleId, cancellationToken)
 			.ConfigureAwait(false);
 
-		if (assignment is not null)
+		if (assignment is null)
 		{
-			context.UserRoles.Remove(assignment);
-			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+			return RoleAssignmentOutcome.NotAssigned;
 		}
+
+		context.UserRoles.Remove(assignment);
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
 		return RoleAssignmentOutcome.Done;
 	}

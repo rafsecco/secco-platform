@@ -37,6 +37,9 @@ public enum RoleAssignmentOutcome
 
 	/// <summary>Perfil não existe neste tenant.</summary>
 	RoleNotFound,
+
+	/// <summary>Remoção sem efeito: o usuário não era membro do perfil.</summary>
+	NotAssigned,
 }
 
 /// <summary>Estado da conta relevante para a sessão.</summary>

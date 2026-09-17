@@ -67,7 +67,7 @@ public class ProfileAssignmentTokenTests(SelfIssuedAuthSecureGateApiFactory secu
 	}
 
 	[Fact]
-	public async Task Remover_PerfilSomeDoTokenDaRenovacao()
+	public async Task Remover_EncerraASessaoENovoLoginVemSemOPerfil()
 	{
 		using var admin = await OperatorAsync();
 		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/roles/inventario-admin", null))
@@ -77,7 +77,11 @@ public class ProfileAssignmentTokenTests(SelfIssuedAuthSecureGateApiFactory secu
 		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/roles/inventario-admin"))
 			.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-		(await RolesAfterRefreshAsync(await Driver.RefreshAsync(session.RefreshToken))).Should().NotContain("inventario-admin");
+		// ADR-0032: perder um perfil revoga a sessão — a renovação é recusada, não apenas renovada sem o perfil
+		(await Driver.RefreshAsync(session.RefreshToken)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+		var relogin = await Driver.LoginAsync(_userEmail, UserScope);
+		(await RolesAfterRefreshAsync(await Driver.RefreshAsync(relogin.RefreshToken))).Should().NotContain("inventario-admin");
 	}
 
 	[Fact]

@@ -1,4 +1,5 @@
 using Secco.SecureGate.Application.Roles;
+using Secco.SecureGate.Application.Sessions;
 using Secco.SharedKernel.Results;
 
 namespace Secco.SecureGate.Application.Users;
@@ -14,7 +15,7 @@ public sealed record RemoveUserRoleCommand(Guid TenantId, Guid UserId, string? R
 /// Retira um usuário de um perfil (issue #26). Idempotente. No perfil de operador da instalação,
 /// ninguém se remove e o último operador ativo não sai.
 /// </summary>
-public sealed class RemoveUserRoleHandler(IUserDirectory userDirectory)
+public sealed class RemoveUserRoleHandler(IUserDirectory userDirectory, ISessionRevoker revoker)
 {
 	/// <summary>Executa o caso de uso.</summary>
 	/// <param name="command">Comando.</param>
@@ -45,8 +46,17 @@ public sealed class RemoveUserRoleHandler(IUserDirectory userDirectory)
 			}
 		}
 
-		return AddUserRoleHandler.ToResult(await userDirectory
+		var outcome = await userDirectory
 			.RemoveRoleAsync(command.TenantId, command.UserId, name, cancellationToken)
-			.ConfigureAwait(false));
+			.ConfigureAwait(false);
+
+		// Só uma remoção de fato encerra a sessão; a idempotente não derruba ninguém à toa
+		if (outcome == RoleAssignmentOutcome.Done)
+		{
+			await revoker.RevokeAllAsync(command.UserId, SessionRevocationReason.RoleRemoved, cancellationToken)
+				.ConfigureAwait(false);
+		}
+
+		return AddUserRoleHandler.ToResult(outcome);
 	}
 }

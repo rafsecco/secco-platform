@@ -260,4 +260,29 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 
 	private async Task<HttpClient> OperatorClientAsync() =>
 		Driver.BearerClient((await Driver.LoginAsync(_operatorEmail, OperatorScope)).AccessToken);
+
+	[Fact]
+	public async Task DesativarEReativar_RefreshAnteriorContinuaRecusado()
+	{
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
+		var admin = await OperatorClientAsync();
+
+		(await admin.PostAsync(DeactivateUserUrl(_tenantId, _userId), null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/activate", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		// Reativada, a conta volta a logar — mas o refresh emitido antes foi revogado, não só bloqueado
+		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
+	}
+
+	[Fact]
+	public async Task EncerrarSessoes_RefreshRecusadoNaHora()
+	{
+		var session = await Driver.LoginAsync(_userEmail, UserScope);
+		var admin = await OperatorClientAsync();
+
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantId}/users/{_userId}/sessions/revoke", null))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		await AssertRefusedAsync(await Driver.RefreshAsync(session.RefreshToken));
+	}
 }

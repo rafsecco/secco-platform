@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Sessions;
 using Secco.SecureGate.Application.Users;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SharedKernel.Constants;
@@ -120,6 +121,18 @@ public static class UserEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound)
 			.ProducesProblem(StatusCodes.Status409Conflict);
+
+		group.MapPost("/{userId:guid}/sessions/revoke", async (
+				Guid tenantId,
+				Guid userId,
+				RevokeUserSessionsHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("RevokeUserSessions")
+			.WithSummary("Encerra todas as sessões do usuário: produtos recusam os tokens atuais em até um TTL de cache (ADR-0032).")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound);
 
 		return endpoints;
 	}

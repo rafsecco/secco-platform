@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Sessions;
 using Secco.SharedKernel.Results;
 
 namespace Secco.SecureGate.Application.Users;
@@ -14,7 +15,7 @@ public sealed record SetUserActivationCommand(Guid TenantId, Guid UserId, bool A
 /// usuário comprometido: com a renovação de token re-checando o estado da conta, a sessão termina
 /// na próxima renovação — em até um TTL de access token.
 /// </summary>
-public sealed class SetUserActivationHandler(IUserDirectory userDirectory)
+public sealed class SetUserActivationHandler(IUserDirectory userDirectory, ISessionRevoker revoker)
 {
 	/// <summary>Executa o caso de uso.</summary>
 	/// <param name="command">Comando.</param>
@@ -43,6 +44,18 @@ public sealed class SetUserActivationHandler(IUserDirectory userDirectory)
 			.SetActiveAsync(tenantId: command.TenantId, userId: command.UserId, command.Active, cancellationToken)
 			.ConfigureAwait(false);
 
-		return found ? Result.Success() : Result.Failure(SecureGateErrors.Users.NotFound);
+		if (!found)
+		{
+			return Result.Failure(SecureGateErrors.Users.NotFound);
+		}
+
+		// Desativar revoga na hora, sem esperar a renovação encontrar o lockout (ADR-0032)
+		if (!command.Active)
+		{
+			await revoker.RevokeAllAsync(command.UserId, SessionRevocationReason.UserDeactivated, cancellationToken)
+				.ConfigureAwait(false);
+		}
+
+		return Result.Success();
 	}
 }

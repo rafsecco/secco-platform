@@ -55,6 +55,7 @@ public static class SecureGateApplicationExtensions
 
 		// Versão de sessão consultada pelos produtos (ADR-0032)
 		services.AddScoped<Sessions.GetSessionVersionHandler>();
+		services.AddScoped<Sessions.RevokeUserSessionsHandler>();
 
 		return services;
 	}
