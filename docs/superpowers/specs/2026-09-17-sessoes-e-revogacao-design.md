@@ -1,7 +1,7 @@
 # Sessões e revogação efetiva — design
 
 **Data:** 2026-09-17
-**Status:** aguardando revisão
+**Status:** aprovado para planejamento
 **Decisão arquitetural:** [ADR-0032](../../adr/secco-platform-adrs.md) — versão de sessão e revogação efetiva
 **Origem:** entrega A da decomposição da gestão de identidade (após a issue #26). As entregas B (credenciais por
 e-mail) e C (conta) dependem desta: toda troca de senha, redefinição e troca de e-mail revoga sessões pela

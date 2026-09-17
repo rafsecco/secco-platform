@@ -956,7 +956,7 @@ Isso **não** dispensa verificação. A documentação desses handlers é `<inhe
 
 ## ADR-0032: Versão de sessão e revogação efetiva
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-17
 
 ### Contexto
