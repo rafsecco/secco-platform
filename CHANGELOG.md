@@ -12,24 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SharedKernel
-
-- **Adicionado** `SeccoClaims.SessionVersion` (`sver`) — versão de sessão do token (ADR-0032).
-
-### Secco.SDK.AspNetCore
-
-- **Adicionado** verificação de versão de sessão em `AddSeccoAuthentication()`: token com `sver` divergente ou revogada responde **401**, com cache por usuário (`Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60) e **fail-closed**. Token sem `sver` passa; sem `ISessionVersionResolver` habilitado (DEV standalone), não verifica.
-- **Adicionado** `AddSeccoCookieSessionValidation(cookieScheme)` para aplicações de cookie: revogar na plataforma derruba a sessão local. Exige `ISessionVersionResolver` registrado — sem ele, o startup falha.
-
-### Secco.SecureGate.Client
-
-- **Adicionado** `SecureGateSessionVersionResolver` e `AddSecureGateSessionVersionResolver()` (também com credenciais próprias); `AddSecureGatePermissionResolver()` passa a registrá-lo — produtos que já resolvem permissões ganham a verificação só atualizando o pacote.
-- **Adicionado (aditivo)** `GetSessionVersionAsync` e `RevokeUserSessionsAsync`.
-- **Mudança de comportamento do servidor que o adotante percebe:**
-  - access token padrão de **5 minutos** (era 60). Cliente que não renova token perde acesso a cada 5 minutos; `SecureGate:Tokens:AccessTokenLifetimeMinutes` volta ao valor antigo;
-  - desativar usuário e remover perfil **revogam** as sessões na hora (antes, só a próxima renovação era recusada);
-  - `/connect/authorize` passa a exigir cookie com security stamp atual: após qualquer revogação, o navegador volta ao login.
-- **Adoção no secco-intranet:** atualizar os pacotes e chamar `AddSecureGateSessionVersionResolver()` + `AddSeccoCookieSessionValidation(<esquema do cookie>)` — sem isso, um usuário revogado segue logado na Intranet até o cookie dela expirar. A Intranet não guarda token de usuário, então o access token de 5 minutos não a afeta.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-17. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -43,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.0 — 2026-09-17
+
+- **Adicionado** `SeccoClaims.SessionVersion` (`sver`) — versão de sessão do token (ADR-0032).
 
 #### 0.3.10 — 2026-09-17
 
@@ -82,6 +69,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.0 — 2026-09-17
+
+- **Adicionado** verificação de versão de sessão em `AddSeccoAuthentication()`: token com `sver` divergente ou revogada responde **401**, com cache por usuário (`Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60) e **fail-closed**. Token sem `sver` passa; sem `ISessionVersionResolver` habilitado (DEV standalone), não verifica.
+- **Adicionado** `AddSeccoCookieSessionValidation(cookieScheme)` para aplicações de cookie: revogar na plataforma derruba a sessão local. Exige `ISessionVersionResolver` registrado — sem ele, o startup falha.
 
 #### 0.7.3 — 2026-09-17
 
@@ -173,6 +165,16 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.8.0 — 2026-09-17
+
+- **Adicionado** `SecureGateSessionVersionResolver` e `AddSecureGateSessionVersionResolver()` (também com credenciais próprias); `AddSecureGatePermissionResolver()` passa a registrá-lo — produtos que já resolvem permissões ganham a verificação só atualizando o pacote.
+- **Adicionado (aditivo)** `GetSessionVersionAsync` e `RevokeUserSessionsAsync`.
+- **Mudança de comportamento do servidor que o adotante percebe:**
+  - access token padrão de **5 minutos** (era 60). Cliente que não renova token perde acesso a cada 5 minutos; `SecureGate:Tokens:AccessTokenLifetimeMinutes` volta ao valor antigo;
+  - desativar usuário e remover perfil **revogam** as sessões na hora (antes, só a próxima renovação era recusada);
+  - `/connect/authorize` passa a exigir cookie com security stamp atual: após qualquer revogação, o navegador volta ao login.
+- **Adoção no secco-intranet:** atualizar os pacotes e chamar `AddSecureGateSessionVersionResolver()` + `AddSeccoCookieSessionValidation(<esquema do cookie>)` — sem isso, um usuário revogado segue logado na Intranet até o cookie dela expirar. A Intranet não guarda token de usuário, então o access token de 5 minutos não a afeta.
+
 #### 0.7.0 — 2026-09-17
 
 - **Adicionado (aditivo)** gestão de perfis sobre o Identity (issue #26): `GetRoleAsync`, `DeleteRoleAsync`, `ListRoleMembersAsync` (paginado), `GetUserAsync` (situação, perfis, permissões efetivas e provedores de login externo — nunca o identificador do diretório), `AddUserRoleAsync` e `RemoveUserRoleAsync`, ambos idempotentes.
@@ -210,6 +212,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.4 — 2026-09-17
+
+Patch **sem mudança funcional**: o diff desde a 0.1.3 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.8.0 o referencia por `ProjectReference`.
 
 #### 0.1.3 — 2026-09-17
 
