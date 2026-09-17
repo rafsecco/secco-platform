@@ -954,6 +954,69 @@ Isso **não** dispensa verificação. A documentação desses handlers é `<inhe
 
 ---
 
+## ADR-0032: Versão de sessão e revogação efetiva
+
+**Status:** Proposta
+**Data:** 2026-09-17
+
+### Contexto
+
+A plataforma emite dois tipos de credencial de usuário (ADR-0022): um **refresh token** deslizante (14 dias, renovado a cada uso) e um **access token JWT** que os produtos validam **localmente**, pela assinatura, sem consultar o SecureGate (ADR-0007). O access token dura 60 minutos por padrão.
+
+Até 2026-09-16 a plataforma aprendeu a **cortar a renovação**: bloqueio, desativação, tenant inativo e perda do perfil de operador passaram a ser rechecados a cada renovação. Mas "cortar a renovação" não encerra uma sessão comprometida, por três motivos verificados no código:
+
+1. **O access token já emitido segue válido** até expirar. Quem roubou um token segue acessando os produtos por até 60 minutos depois de a conta ser desativada ou de a senha ser trocada — e nenhum produto tem como saber.
+2. **Nada revoga os tokens do OpenIddict.** Um refresh token roubado continua trocável até a próxima checagem de estado; e as mudanças que não alteram o *estado* da conta — trocar a senha, trocar o e-mail, suspeitar de comprometimento — não fazem a renovação falhar.
+3. **O cookie de login do SecureGate não revalida nada.** O `/connect/authorize` aceita o cookie (válido por 1 hora) e só verifica se o usuário existe: o SecureGate usa `AddIdentityCore` com cookie configurado à mão, sem o `SecurityStampValidator` que o `AddIdentity` liga. Quem tem o cookie obtém **tokens novos** sem digitar senha, mesmo depois de qualquer revogação.
+
+A gestão de credenciais que vem a seguir (convite, redefinição e troca de senha, troca de e-mail) só é segura se "encerrar as sessões" significar encerrá-las de fato — em todos os produtos, em segundos, inclusive para um access token já emitido.
+
+Alternativas avaliadas:
+
+- **Introspecção a cada requisição** (o produto pergunta ao SecureGate se o token ainda vale). Correta e imediata, mas faz do SecureGate dependência síncrona de toda requisição de todo produto — gargalo e alvo natural de negação de serviço, exatamente o que a ADR-0021 recusou para as permissões ao exigir cache.
+- **Lista negra de tokens revogados** distribuída aos produtos. Cresce com cada revogação, precisa de propagação e expurgo, e revoga token a token quando o que se quer é revogar a pessoa.
+- **Só encurtar o access token.** Nenhuma mudança nos produtos, mas a janela continua sendo o TTL inteiro — e encurtar demais multiplica renovações.
+- **Versão de sessão por usuário, verificada com cache.** O token carrega a versão da sessão em que foi emitido; o produto compara com a versão atual, obtida do SecureGate com o mesmo desenho de cache e fail-closed da ADR-0021. **Escolhida, combinada com access token curto** como segunda barreira.
+
+### Decisão
+
+**Versão de sessão**
+
+- Todo token **de usuário** — login, renovação e o token de elevação da ADR-0031 — carrega a claim curta **`sver`**: um resumo (hash truncado) do `SecurityStamp` do ASP.NET Identity. Nunca o stamp cru: ele participa da geração dos tokens de recuperação de senha do Identity.
+- Token de máquina (client credentials) **não** carrega `sver`: não é sessão de pessoa. Revogar um client é rotacionar o secret dele.
+- O `SecurityStamp` já existe no Identity; nenhuma coluna nova.
+
+**Verificação nos produtos**
+
+- O SecureGate expõe `GET /api/v1/authorization/users/{sub}/session-version` (scope `authorization:read`, o mesmo da resolução de permissões): devolve a versão atual, ou **revogado** se a conta está desativada, bloqueada ou pertence a tenant inativo.
+- `AddSeccoAuthentication()` (SDK) confere, depois de validar a assinatura, todo token que tenha `sver`: versão divergente ou revogada → **401**.
+- Cache por `sub` com TTL curto e configurável (`Secco:Authentication:SessionVersionCacheTtlSeconds`, padrão 60s). **Fail-closed**: SecureGate indisponível com cache vencido → 401.
+- Token **sem** `sver` passa: são os emitidos antes desta decisão, e a ausência não é forjável porque o token é assinado.
+- O resolvedor remoto é registrado pela mesma chamada que os produtos já fazem para permissões (`AddSecureGatePermissionResolver()`). Um produto com o SecureGate configurado não fica sem verificação por esquecer uma linha. Sem SecureGate configurado (DEV standalone), a verificação fica desligada, como o resolvedor de permissões por configuração.
+
+**Revogação**
+
+- Operação única no SecureGate, nesta ordem: (1) **trocar o `SecurityStamp`**; (2) **revogar autorizações e tokens** do usuário no OpenIddict (`RevokeBySubjectAsync` nos dois gerenciadores). O stamp vem primeiro: se o segundo passo falhar, a sessão já está cortada nos produtos, e a falha sobe como erro — falhar a meio caminho deixa a conta mais fechada, nunca mais aberta.
+- O `/connect/authorize` passa a validar o **stamp do cookie contra o banco** e o **estado da conta** (a mesma guarda da renovação). Divergência apaga o cookie e exige novo login.
+- Gatilhos: "encerrar sessões" pelo admin (`POST /api/v1/tenants/{tenantId}/users/{userId}/sessions/revoke`), desativação de usuário, remoção efetiva de perfil e — nas entregas seguintes — troca de e-mail e todo evento de senha. Tenant desativado **não** revoga usuário a usuário: o endpoint de versão responde revogado para todos os usuários dele.
+
+**Access token curto**
+
+- O padrão de `SecureGate:Tokens:AccessTokenLifetimeMinutes` passa de 60 para **5**, configurável.
+- O AdminPortal deixa de guardar o access token no cookie: os tokens vão para um armazenamento no servidor, na chave de uma sessão aleatória, e o `OperatorTokenProvider` renova perto do vencimento — uma renovação por vez por sessão, porque o refresh token é rotativo.
+
+### Consequências
+
+- Revogar passa a valer em **todos os produtos em até um TTL de cache** (60s por padrão), inclusive contra access token já emitido e contra cookie de login roubado. O TTL de 5 minutos é a segunda barreira, para produto que ainda não atualizou o SDK.
+- O SecureGate ganha mais uma consulta de alta frequência (uma por usuário ativo por TTL) — mitigada pelo cache, e mesma exigência de disponibilidade já registrada nas ADRs 0007 e 0021. **SecureGate fora do ar derruba o acesso de usuários** assim que o cache vence; é a postura fail-closed escolhida.
+- **Todo produto precisa atualizar `Secco.SDK.AspNetCore` e `Secco.SecureGate.Client`** para ganhar a verificação; o `secco-intranet` inclusive.
+- **Cliente que não renova token perde acesso a cada 5 minutos.** Mudança de comportamento registrada no CHANGELOG, com a configuração para voltar a 60.
+- O AdminPortal ganha armazenamento de sessão no servidor: reiniciá-lo encerra as sessões dos operadores, e **mais de uma instância exige cache distribuído** — registrado, fora desta decisão.
+- Mudança de papel, de permissão ou de dado cadastral que **não** passe pela operação de revogação continua valendo na próxima renovação ou no TTL de permissões da ADR-0021, como hoje.
+- Complementa a ADR-0007 (nova claim curta) e a ADR-0021 (mesmo desenho de cache fail-closed, agora por usuário); não substitui nenhuma.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação
