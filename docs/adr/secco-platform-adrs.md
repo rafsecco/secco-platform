@@ -1025,6 +1025,84 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0033: Capacidade de e-mail da plataforma e ciclo de credencial do usuário
+
+**Status:** Proposta
+**Data:** 2026-09-17
+
+### Contexto
+
+Desde a ADR-0022 o usuário é **provisionado por admin**, e a senha inicial é digitada por quem cria a conta (`POST /api/v1/tenants/{id}/users`, campo `password`). Três consequências disso nunca foram resolvidas:
+
+1. **O admin conhece a senha da pessoa.** Não há um só momento em que a credencial pertença apenas ao dono, e a senha trafega pela tela de administração, pelo histórico do formulário e, quase sempre, por uma mensagem de WhatsApp ou e-mail escrita à mão.
+2. **Não existe recuperação de conta.** Sem "esqueci minha senha", perder a senha significa pedir a um admin que a redefina — de novo conhecendo a nova.
+3. **O usuário não troca a própria senha.** Não há tela para isso.
+
+A ADR-0032 deu à plataforma a revogação efetiva de sessões; ela é pré-requisito do que falta aqui: todo evento de senha precisa encerrar as sessões abertas, ou trocar a senha não expulsa quem entrou com a antiga.
+
+Resolver isso exige que o SecureGate **envie e-mail** — capacidade que ele não tem. O `Secco.NotificationHub` já envia, com `IEmailSender` e dois adaptadores (SMTP/MailKit e SendGrid) dentro da própria Infrastructure.
+
+Alternativas avaliadas para o envio:
+
+- **SecureGate chama o NotificationHub.** Reusa o que existe, mas torna o NotificationHub **obrigatório** para quem só quer identidade — contra a promessa de produtos adotáveis de forma independente (issue #4/ADR-0030) — e, pior, o **link de redefinição ficaria gravado** na tabela de notificações do tenant, legível por quem tem `notifications:read`. Um link de recuperação em repouso, visível a terceiros, anula a recuperação.
+- **Duplicar os adaptadores no SecureGate.** Zero acoplamento e zero refactor, ao custo de duas cópias que divergem em silêncio na primeira correção.
+- **Extrair para um pacote fino do SDK.** Mesmo caminho já percorrido pelo `SeccoClientCredentialsHandler`, promovido a `Secco.SDK.ClientCredentials` quando surgiu o segundo consumidor. **Escolhida.**
+
+Alternativas avaliadas para os links de convite e redefinição:
+
+- **Tabela própria de tokens** (hash, validade, marca de uso): explícita e auditável, ao custo de migration nos dois engines, código de expurgo — e sem resolver as chaves de Data Protection, das quais os **cookies** já dependem.
+- **Tokens do ASP.NET Identity com as chaves de Data Protection em arquivo:** sem pacote nem tabela, mas transfere para o deploy a obrigação de um volume persistente e compartilhado; sem ele, todo link morre a cada reinício e nada avisa.
+- **Tokens do Identity com as chaves no banco do SecureGate.** O token já embute o `SecurityStamp` — definir ou trocar a senha invalida os links pendentes sem estado adicional — e a persistência corrige de passagem os cookies. **Escolhida.**
+
+### Decisão
+
+**Capacidade de e-mail**
+
+- Nasce **`Secco.SDK.Email`**: porta `ISeccoEmailSender` e adaptadores **SMTP (MailKit)** e **SendGrid**, com options de provider selecionável. O `Secco.NotificationHub` adota o pacote e apaga suas cópias; o SecureGate passa a usá-lo.
+- Cada produto mantém **sua própria seção de configuração** (`NotificationHub:Email`, `SecureGate:Email`): o pacote entrega tipos e adaptadores, não a chave.
+- No SecureGate a seção é **obrigatória fora de Development** (fail-fast no startup): sem e-mail não há convite nem recuperação, e o admin não pode definir senha por decisão desta ADR.
+- O SecureGate **não** envia pelo NotificationHub, e **não** passa a depender dele.
+
+**Ciclo de credencial**
+
+- **O admin nunca define nem vê senha.** O campo `password` sai do `CreateUser` (quebra de contrato assumida, pacotes em 0.x). A conta nasce sem senha e a pessoa a define pelo **convite** (link de 72 h).
+- **Recuperação:** página pública "esqueci minha senha", com link de **30 minutos**, resposta **sempre idêntica** (exista a conta ou não, dentro ou fora do limite) e **limite por conta e por IP**.
+- **Troca da própria senha** exige a senha atual.
+- **Redefinição pelo admin** dispara o link para a pessoa e **revoga as sessões na hora**, porque o pedido costuma nascer de suspeita de comprometimento.
+- **Todo evento de senha revoga sessões** pela operação única da ADR-0032, registra na trilha e avisa o dono por e-mail. Na troca feita pelo próprio usuário, o cookie dele é renovado em seguida: as outras sessões caem, a dele continua.
+- **Uso único** sem tabela: o token embute o `SecurityStamp`, e definir ou trocar a senha muda o stamp — todos os links pendentes daquela conta morrem juntos.
+- As páginas (`/conta/esqueci`, `/conta/definir-senha`, `/conta/redefinir-senha`, `/conta/trocar-senha`) vivem **no SecureGate**, com antiforgery. Não há endpoint de API equivalente: um endpoint público que aceita token e senha é convite a automação.
+
+**Conta sem senha local**
+
+- `tb_users` ganha `fl_local_login_enabled` (padrão ligado). Desligado significa **"entra só pelo diretório"** (ADR-0026): sem senha, sem convite, sem recuperação — e a mesma resposta genérica em todos esses caminhos.
+- Desligar em conta que já tinha senha **apaga a senha e revoga as sessões**; senão a credencial antiga continuaria valendo numa conta que a empresa decidiu ser só corporativa.
+- O tenant federado pode ter os dois modos ao mesmo tempo: o funcionário entra pelo Entra, o terceirizado sem conta no diretório recebe convite.
+
+**Infraestrutura dos links**
+
+- Tokens do Identity em dois provedores com validades próprias (convite 72 h, redefinição 30 min).
+- **Chaves de Data Protection persistidas no banco do SecureGate.**
+- A URL do link vem de **`SecureGate:PublicBaseUrl`**, nunca do header `Host` — um `Host` forjado faria a plataforma enviar à vítima um link que aponta para o servidor do atacante.
+
+**Auditoria**
+
+- Quatro eventos vão para a trilha do LogStream pela identidade de auditoria que a ADR-0031 já criou: senha definida/trocada/redefinida, convite enviado ou reenviado, pedido de recuperação e falha de validação de link.
+- **Best-effort:** falha de auditoria não impede a operação — recuperar conta e revogar sessão não podem ficar reféns do LogStream. Só a elevação (ADR-0031) segue fail-closed, por ser privilégio entre tenants.
+- A configuração passa a ser lida de **`SecureGate:Audit`**, aceitando o nome antigo `SecureGate:ElevationAudit` com aviso no startup.
+
+### Consequências
+
+- **Quebra de contrato:** `CreateUser` sem `password`; `Secco.SecureGate.Client` vai a 0.9.0. No monorepo só o AdminPortal chama; o `secco-intranet` não usa.
+- **O SecureGate passa a exigir configuração de e-mail** fora de Development. Instalação sem SMTP nem SendGrid não sobe — consequência direta de o admin não poder mais definir senha.
+- **Duas dependências novas** no SecureGate (MailKit e SendGrid, via `Secco.SDK.Email`) e uma no pacote (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`). MailKit e SendGrid já eram usadas pelo NotificationHub; nenhuma é nova no monorepo.
+- **Uma coluna nova** (`fl_local_login_enabled`) e a **tabela de chaves** do Data Protection, com migrations nos dois engines.
+- Os **cookies de login param de quebrar** a cada reinício ou instância nova — efeito colateral desejado da persistência das chaves.
+- **As chaves ficam em claro no banco**, ao lado do hash das senhas que protegem o mesmo domínio. Cifrá-las em repouso exige ADR própria e fica registrado como fora de escopo.
+- O e-mail vira **dependência de disponibilidade da recuperação de conta**: provedor fora do ar significa ninguém recuperando senha naquele intervalo. O caminho de contorno continua sendo o admin, que dispara novo link — nunca uma senha.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Estratégia de cache distribuído (Redis) e invalidação
