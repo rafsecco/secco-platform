@@ -1036,7 +1036,7 @@ Desde a ADR-0022 o usuário é **provisionado por admin**, e a senha inicial é 
 
 1. **O admin conhece a senha da pessoa.** Não há um só momento em que a credencial pertença apenas ao dono, e a senha trafega pela tela de administração, pelo histórico do formulário e, quase sempre, por uma mensagem de WhatsApp ou e-mail escrita à mão.
 2. **Não existe recuperação de conta.** Sem "esqueci minha senha", perder a senha significa pedir a um admin que a redefina — de novo conhecendo a nova.
-3. **O usuário não troca a própria senha.** Não há tela para isso.
+3. **Hoje o usuário não troca a própria senha nem consegue pedir a troca.** Não existe tela para nenhum dos dois.
 
 A ADR-0032 deu à plataforma a revogação efetiva de sessões; ela é pré-requisito do que falta aqui: todo evento de senha precisa encerrar as sessões abertas, ou trocar a senha não expulsa quem entrou com a antiga.
 
@@ -1067,7 +1067,9 @@ Alternativas avaliadas para os links de convite e redefinição:
 
 - **O admin nunca define nem vê senha.** O campo `password` sai do `CreateUser` (quebra de contrato assumida, pacotes em 0.x). A conta nasce sem senha e a pessoa a define pelo **convite** (link de 72 h).
 - **Recuperação:** página pública "esqueci minha senha", com link de **30 minutos**, resposta **sempre idêntica** (exista a conta ou não, dentro ou fora do limite) e **limite por conta e por IP**.
-- **Troca da própria senha** exige a senha atual.
+- **O usuário troca a própria senha**, numa página do SecureGate, informando a senha atual — sem ela, uma sessão
+  sequestrada trocaria a senha e expulsaria o dono. E **qualquer pessoa pode pedir a troca** pelo "esqueci minha
+  senha", sem depender de admin.
 - **Redefinição pelo admin** dispara o link para a pessoa e **revoga as sessões na hora**, porque o pedido costuma nascer de suspeita de comprometimento.
 - **Todo evento de senha revoga sessões** pela operação única da ADR-0032, registra na trilha e avisa o dono por e-mail. Na troca feita pelo próprio usuário, o cookie dele é renovado em seguida: as outras sessões caem, a dele continua.
 - **Uso único** sem tabela: o token embute o `SecurityStamp`, e definir ou trocar a senha muda o stamp — todos os links pendentes daquela conta morrem juntos.
