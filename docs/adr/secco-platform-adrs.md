@@ -1105,10 +1105,93 @@ Alternativas avaliadas para os links de convite e redefinição:
 
 ---
 
+## ADR-0034: Idempotência em endpoints de escrita
+
+**Status:** Proposta
+**Data:** 2026-09-19
+
+### Contexto
+
+A plataforma nunca escreveu o que uma escrita repetida pode ou não causar, mas já depende disso em dois pontos:
+
+1. **O SDK repete requisições sozinho.** `AddSeccoResilience()` aplica retry automático a `GET`, `HEAD`, `OPTIONS`, `PUT` e `DELETE` — os métodos idempotentes da RFC 9110 — e nunca a `POST`. Um `PUT` ou `DELETE` que não seja idempotente de fato já é um defeito latente: basta um timeout para ele rodar duas vezes.
+2. **A entrega da ADR-0033 cria `POST`s cujo efeito sai da plataforma** — convite, redefinição de senha, "esqueci minha senha". Duplo clique ou reenvio do formulário vira e-mail duplicado, e e-mail não se desfaz.
+
+Na prática o código já segue um padrão implícito: criação com chave natural única responde `409` (e-mail do usuário, slug do tenant, nome do perfil), atribuições e desativações repetidas não mudam nada, e a remoção de perfil só revoga sessões quando de fato removeu (ADR-0032). Falta virar regra verificável.
+
+Alternativas avaliadas:
+
+- **Header `Idempotency-Key` em toda escrita**, com a resposta gravada por chave (padrão de gateway de pagamento). Repetição devolve a mesma resposta, inclusive depois de falha de rede. Exige armazenamento por chave — tabela ou cache distribuído (ADR-0035) —, middleware no SDK, limites de tamanho e expurgo, e disciplina de todo chamador; e protege um cenário que a plataforma ainda não tem: `POST` sem chave natural repetido automaticamente.
+- **`Idempotency-Key` só onde há efeito externo.** Menos superfície, mesmo armazenamento e mesmo middleware.
+- **Idempotência natural como regra escrita**, sem infraestrutura nova. **Escolhida.**
+
+### Decisão
+
+A idempotência é medida pelo **efeito**, não pela resposta: repetir pode devolver outro status (um `DELETE` repetido pode responder `404`), mas nunca pode deixar outro estado nem disparar de novo um efeito colateral.
+
+- **`PUT` e `DELETE` são idempotentes de fato.** O SDK os repete automaticamente; qualquer um que não seja é defeito, não escolha de design.
+- **`POST` de criação tem chave natural única** e responde `409` à duplicata — nunca cria um segundo recurso. Recurso sem chave natural candidata é sinal para repensar o endpoint (virar `PUT` na chave do chamador) antes de aceitar a duplicação.
+- **`POST` de comando sobre estado** (ativar, desativar, atribuir, remover, ligar e desligar login local) leva ao mesmo estado final quando repetido, e **os efeitos colaterais — revogar sessão, enviar e-mail, registrar auditoria — só disparam na transição real**. Repetir uma remoção já feita não revoga de novo.
+- **`POST` cujo propósito é o efeito externo** (reenviar convite, redefinir senha, "esqueci minha senha") não é idempotente por natureza e não finge ser. A proteção é outra: **limite de taxa** obrigatório em todo endpoint desse tipo que aceite chamada anônima, **nenhum estado divergente** entre uma chamada e duas (os links convivem e morrem juntos no uso, pelo `SecurityStamp`), e a tela **desabilita o envio enquanto a requisição está em curso**.
+- **Retry automático de `POST` segue proibido** no SDK. Um produto que precise dele sobrescreve o predicado conscientemente, e só para `POST` que cumpra a regra de comando ou de criação acima.
+- Todo `PUT`, `DELETE` e `POST` de comando novo acompanha **teste de repetição**: chamar duas vezes, conferir o estado e a ausência do segundo efeito colateral (ADR-0012).
+
+### Consequências
+
+- Nenhuma dependência, tabela ou middleware novo; a regra entra no checklist da skill `secco-platform-standards`.
+- **Conhecido e aceito:** o `POST /api/v1/notifications` do `Secco.NotificationHub` cria uma notificação por chamada, sem chave natural — reenvio do chamador vira e-mail duplicado. O produto ainda não tem consumidor real; quando tiver, a decisão entre chave fornecida pelo chamador e `Idempotency-Key` vira ADR própria.
+- **Falha de rede no meio de um `POST`** deixa o chamador sem saber se o efeito aconteceu. Para criação, reenviar é seguro (`409` indica que já existe); para efeito externo, o pior caso é um e-mail a mais, limitado pela taxa.
+- **Segurança (ADR-0020):** endpoints de efeito externo são vetor de spam e de negação de serviço contra a caixa de terceiros — por isso o limite de taxa é obrigatório, não opcional. Não guardar chaves de idempotência também elimina uma superfície: input do chamador persistido, com tamanho e expurgo a controlar.
+
+---
+
+## ADR-0035: Cache e estado compartilhado entre instâncias
+
+**Status:** Proposta
+**Data:** 2026-09-19
+
+### Contexto
+
+A plataforma nunca rodou com mais de uma instância de um mesmo produto, e nada impede que um adotante rode. Hoje convivem em memória de processo coisas de natureza muito diferente:
+
+- **Cache derivado com TTL:** permissões por `(tenant_id, role)` (ADR-0021), versão de sessão (ADR-0032), catálogo de tenants no `Secco.SecureGate.Client`. Perder ou divergir entre instâncias só custa uma consulta a mais, e o TTL curto limita a divergência.
+- **Estado que precisa ser visto por todas as instâncias:** o cofre de sessões do operador no AdminPortal (ADR-0032), já escrito sobre `IDistributedCache` com provider em memória. Com duas instâncias, o operador cai toda vez que o balanceador troca de instância — em silêncio.
+- **Estado durável:** tokens do OpenIddict, filas do Hangfire e, com a ADR-0033, as chaves de Data Protection do SecureGate — todos no banco do produto.
+- **Contadores de limite de taxa** do limitador nativo do ASP.NET, que vivem só no processo.
+
+Redis estava no backlog como "estratégia de cache distribuído", mas nenhum cenário atual exige cache distribuído: o problema real é **estado** mal classificado, não cache lento.
+
+Alternativas avaliadas:
+
+- **Adotar Redis agora** como dependência de todos os produtos. Resolve a multi-instância de uma vez, ao custo de uma dependência de infraestrutura para quem roda uma instância só — e, se a autorização passar a depender dele, de mais um ponto de falha no caminho de toda requisição.
+- **Invalidação ativa** (pub/sub avisando as instâncias quando permissão ou sessão muda). Encurta a janela de divergência abaixo do TTL, mas torna o Redis dependência de disponibilidade da autorização, e a ADR-0021/0032 já limitam a janela com TTL curto e fail-closed.
+- **Classificar o que existe e fixar onde cada classe mora**, com Redis como provider escolhido para quando a multi-instância for real. **Escolhida.**
+
+### Decisão
+
+Tudo que um produto guarda fora da requisição cai em uma de três classes:
+
+1. **Cache derivado** — reconstruível a partir da fonte, com TTL. Fica **em memória de processo**, por instância; o **TTL é o contrato de invalidação** e não há invalidação ativa. Cache que decide acesso segue as regras da ADR-0021/0032: TTL curto e fail-closed.
+2. **Estado efêmero compartilhado** — perde-se sem dano ao reiniciar, mas precisa ser o mesmo em todas as instâncias (cofre de sessões). Sempre atrás de **`IDistributedCache`**, com provider em memória por padrão. **Mais de uma instância exige provider distribuído**, e o README do produto diz isso explicitamente.
+3. **Estado durável** — precisa sobreviver a reinício (chaves de Data Protection, tokens, filas). Vai para **o banco do produto**, nunca para cache.
+
+Regras adicionais:
+
+- **Redis é o provider distribuído da plataforma**, via `Microsoft.Extensions.Caching.StackExchangeRedis`, e entra **opt-in por produto** quando houver multi-instância real — não nesta ADR.
+- Ao adotar Redis: conexão com **TLS e autenticação**, **prefixo de chave por produto**, e todo valor da classe 2 que contenha token ou segredo **cifrado com Data Protection antes de ir ao cache** — o cofre do AdminPortal guarda refresh tokens, e um dump do Redis não pode entregá-los.
+- **Limite de taxa é por instância**, de propósito: com N instâncias o limite efetivo vira N vezes o configurado. É mitigação, não garantia — a proteção contra enumeração do "esqueci minha senha" é a resposta idêntica (ADR-0033), não o limite.
+
+### Consequências
+
+- Nenhuma dependência nova agora; os caches de classe 1 do SDK e do `Secco.SecureGate.Client` ficam como estão.
+- **O AdminPortal é o único produto que não escala horizontalmente sem Redis**: além do cofre (classe 2), ele não tem banco para as chaves de Data Protection dos cookies (ADR-0023), então as duas coisas vão para o provider distribuído no mesmo movimento. Até lá, uma instância — e reiniciar derruba as sessões dos operadores, como já registrado na ADR-0032.
+- Uma instância nova de qualquer produto passa pelas mesmas perguntas: o que guardo, em que classe cai, onde mora. Estado sem classe é defeito de design.
+- **Segurança (ADR-0020):** não haver invalidação ativa mantém a autorização sem dependência de Redis — a queda dele nunca abre nem fecha acesso por si. O risco que resta é o do provider distribuído quando entrar: cache com token precisa de cifra e de rede protegida, e isso vira requisito da adoção, não detalhe dela.
+
+---
+
 ## Backlog de ADRs futuras
 
-- Estratégia de cache distribuído (Redis) e invalidação
-- Idempotência em endpoints de escrita
 - Política de retenção e conformidade LGPD por produto
 - Estratégia de deploy (contêiner: onde? Azure/AWS/on-prem do cliente?)
 - Roadmap público e política de suporte a versões

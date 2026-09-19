@@ -149,6 +149,8 @@ Nunca criar por cópia manual de outro produto. Usar `dotnet new secco-service` 
 - [ ] Queries respeitam isolamento de tenant.
 - [ ] Análise de segurança feita (ADR-0020): input externo validado, sem injeção/vazamento, tenant isolado, auth explícita, limites contra DoS.
 - [ ] Testes incluídos; nomenclatura e commits nas convenções.
+- [ ] Escrita nova respeita a ADR-0034: `PUT`/`DELETE` idempotentes de fato (o SDK os repete), criação com chave natural e `409`, efeito colateral só na transição real, limite de taxa em efeito externo anônimo — com teste de repetição.
+- [ ] Estado guardado fora da requisição tem classe da ADR-0035 (cache derivado em processo, efêmero compartilhado em `IDistributedCache`, durável no banco).
 - [ ] Se surgiu decisão arquitetural nova: ADR proposta ao usuário.
 - [ ] Produto novo é de operação/relying party (sem domínio/banco próprios)? Seguir a exceção da ADR-0023 — não inventar camadas fictícias.
 - [ ] Endpoint HTTP novo usa `AddSeccoOpenApi()` (nunca `AddOpenApi()` cru)?
