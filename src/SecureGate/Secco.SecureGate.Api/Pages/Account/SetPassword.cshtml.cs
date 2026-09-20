@@ -23,8 +23,9 @@ namespace Secco.SecureGate.Api.Pages.Account;
 /// </para>
 /// </remarks>
 /// <param name="handler">Caso de uso que consome o link.</param>
+/// <param name="tokens">Porta de credencial, para conferir o link na abertura da página.</param>
 [AllowAnonymous]
-public sealed class SetPasswordModel(ResetPasswordHandler handler) : PageModel
+public sealed class SetPasswordModel(ResetPasswordHandler handler, ICredentialTokens tokens) : PageModel
 {
 	/// <summary>Usuário do link.</summary>
 	[BindProperty(SupportsGet = true)]
@@ -62,13 +63,23 @@ public sealed class SetPasswordModel(ResetPasswordHandler handler) : PageModel
 		public string ConfirmPassword { get; set; } = string.Empty;
 	}
 
-	/// <summary>Renderiza o formulário, ou a tela de link recusado quando ele é malformado.</summary>
-	public void OnGet()
+	/// <summary>
+	/// Renderiza o formulário, ou a tela de link recusado — já na abertura, para ninguém digitar
+	/// uma senha num link morto. Conferir o token não o consome.
+	/// </summary>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task OnGetAsync(CancellationToken cancellationToken)
 	{
 		if (UserId == Guid.Empty || string.IsNullOrWhiteSpace(Token))
 		{
 			LinkRejected = true;
+
+			return;
 		}
+
+		LinkRejected = !await tokens
+			.IsLinkValidAsync(UserId, Token, invite: true, cancellationToken)
+			.ConfigureAwait(false);
 	}
 
 	/// <summary>Consome o link e define a senha.</summary>

@@ -44,6 +44,27 @@ internal sealed class IdentityCredentialTokens(
 		CreateTokenAsync(userId, providers.Reset, providers.ResetPurpose);
 
 	/// <inheritdoc />
+	public async Task<bool> IsLinkValidAsync(
+		Guid userId,
+		string token,
+		bool invite,
+		CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+
+		if (user is null || !await CanReceiveCredentialMailAsync(user, cancellationToken).ConfigureAwait(false))
+		{
+			return false;
+		}
+
+		return await userManager.VerifyUserTokenAsync(
+			user,
+			invite ? providers.Invite : providers.Reset,
+			invite ? providers.InvitePurpose : providers.ResetPurpose,
+			token).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
 	public async Task<CredentialTokenOutcome> SetPasswordAsync(
 		Guid userId,
 		string token,

@@ -68,7 +68,14 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 		using var browser = Browser();
 		var path = new Uri(link).PathAndQuery;
 		var form = await browser.GetAsync(path);
-		var token = OidcLoginDriver.ExtractAntiforgeryToken(await form.Content.ReadAsStringAsync());
+		var html = await form.Content.ReadAsStringAsync();
+
+		// Link já recusado na abertura não tem formulário: o antiforgery vem de outra página
+		// anônima da MESMA sessão, para o POST continuar sendo exercitado de verdade.
+		var token = html.Contains("__RequestVerificationToken", StringComparison.Ordinal)
+			? OidcLoginDriver.ExtractAntiforgeryToken(html)
+			: OidcLoginDriver.ExtractAntiforgeryToken(
+				await (await browser.GetAsync("/conta/esqueci")).Content.ReadAsStringAsync());
 
 		return await browser.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
 		{
@@ -202,6 +209,21 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 
 		again.StatusCode.Should().Be(HttpStatusCode.OK);
 		(await again.Content.ReadAsStringAsync()).Should().Contain("pedir outro");
+	}
+
+	[Fact]
+	public async Task Redefinir_LinkJaUsado_RecusaLogoNaAberturaDaPagina()
+	{
+		var (_, email) = await UserWithPasswordAsync();
+		await ForgotAsync(email);
+		var link = ResetLinkFor(email);
+		(await SubmitResetAsync(link, NewPassword)).StatusCode.Should().Be(HttpStatusCode.Redirect);
+
+		using var browser = Browser();
+		var html = await (await browser.GetAsync(new Uri(link).PathAndQuery)).Content.ReadAsStringAsync();
+
+		html.Should().Contain("pedir outro");
+		html.Should().NotContain("Input.Password");
 	}
 
 	[Fact]

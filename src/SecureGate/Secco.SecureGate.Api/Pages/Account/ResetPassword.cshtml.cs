@@ -16,8 +16,9 @@ namespace Secco.SecureGate.Api.Pages.Account;
 /// levam à mesma tela (ADR-0020). Como na tela de convite, não existe endpoint de API equivalente.
 /// </remarks>
 /// <param name="handler">Caso de uso de redefinição.</param>
+/// <param name="tokens">Porta de credencial, para conferir o link na abertura da página.</param>
 [AllowAnonymous]
-public sealed class ResetPasswordModel(ResetPasswordHandler handler) : PageModel
+public sealed class ResetPasswordModel(ResetPasswordHandler handler, ICredentialTokens tokens) : PageModel
 {
 	/// <summary>Usuário do link.</summary>
 	[BindProperty(SupportsGet = true)]
@@ -54,13 +55,23 @@ public sealed class ResetPasswordModel(ResetPasswordHandler handler) : PageModel
 		public string ConfirmPassword { get; set; } = string.Empty;
 	}
 
-	/// <summary>Renderiza o formulário, ou a tela de link recusado quando ele é malformado.</summary>
-	public void OnGet()
+	/// <summary>
+	/// Renderiza o formulário, ou a tela de link recusado — já na abertura, para ninguém digitar
+	/// uma senha num link morto. Conferir o token não o consome.
+	/// </summary>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task OnGetAsync(CancellationToken cancellationToken)
 	{
 		if (UserId == Guid.Empty || string.IsNullOrWhiteSpace(Token))
 		{
 			LinkRejected = true;
+
+			return;
 		}
+
+		LinkRejected = !await tokens
+			.IsLinkValidAsync(UserId, Token, invite: false, cancellationToken)
+			.ConfigureAwait(false);
 	}
 
 	/// <summary>Consome o link, troca a senha e encerra as sessões.</summary>

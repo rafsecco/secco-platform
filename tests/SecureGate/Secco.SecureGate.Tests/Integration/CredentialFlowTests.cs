@@ -105,9 +105,16 @@ public partial class CredentialFlowTests(SelfIssuedAuthSecureGateApiFactory fact
 		var form = await browser.GetAsync(path);
 		var html = await form.Content.ReadAsStringAsync();
 
+		// Link já recusado na abertura não tem formulário: o antiforgery vem de outra página
+		// anônima da MESMA sessão, para o POST continuar sendo exercitado de verdade.
+		var antiforgery = html.Contains("__RequestVerificationToken", StringComparison.Ordinal)
+			? OidcLoginDriver.ExtractAntiforgeryToken(html)
+			: OidcLoginDriver.ExtractAntiforgeryToken(
+				await (await browser.GetAsync("/conta/esqueci")).Content.ReadAsStringAsync());
+
 		return await browser.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
 		{
-			["__RequestVerificationToken"] = OidcLoginDriver.ExtractAntiforgeryToken(html),
+			["__RequestVerificationToken"] = antiforgery,
 			["Input.Password"] = password,
 			["Input.ConfirmPassword"] = password,
 		}));
@@ -138,6 +145,34 @@ public partial class CredentialFlowTests(SelfIssuedAuthSecureGateApiFactory fact
 
 		again.StatusCode.Should().Be(HttpStatusCode.OK);
 		(await again.Content.ReadAsStringAsync()).Should().Contain("pedir outro");
+	}
+
+	[Fact]
+	public async Task Convite_LinkJaUsado_RecusaLogoNaAberturaDaPagina()
+	{
+		var (_, email) = await CreateUserAsync();
+		var link = LinkFor(email);
+		(await SubmitSetPasswordAsync(link, NewPassword)).StatusCode.Should().Be(HttpStatusCode.Redirect);
+
+		using var browser = factory.CreateClient();
+		var pagina = await browser.GetAsync(new Uri(link).PathAndQuery);
+
+		// Recusar só no POST faria a pessoa digitar a senha duas vezes para descobrir que o link
+		// morreu. Conferir o token no GET não o consome — o que mata os links é a troca do stamp.
+		var html = await pagina.Content.ReadAsStringAsync();
+		html.Should().Contain("pedir outro");
+		html.Should().NotContain("Input.Password");
+	}
+
+	[Fact]
+	public async Task Convite_LinkValido_AbreOFormulario()
+	{
+		var (_, email) = await CreateUserAsync();
+
+		using var browser = factory.CreateClient();
+		var html = await (await browser.GetAsync(new Uri(LinkFor(email)).PathAndQuery)).Content.ReadAsStringAsync();
+
+		html.Should().Contain("Input.Password").And.NotContain("pedir outro");
 	}
 
 	[Fact]

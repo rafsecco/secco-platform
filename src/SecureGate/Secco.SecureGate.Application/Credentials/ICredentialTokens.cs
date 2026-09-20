@@ -64,6 +64,21 @@ public interface ICredentialTokens
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<string> CreateResetTokenAsync(Guid userId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Confere um link <b>sem consumi-lo</b>, para a tela recusar na abertura em vez de deixar a
+	/// pessoa digitar a senha e só então descobrir que o link morreu.
+	/// </summary>
+	/// <remarks>
+	/// Verificar não invalida: o que mata os links pendentes é a troca do <c>SecurityStamp</c> ao
+	/// definir a senha. Isso também torna inofensivo o GET de um antivírus de e-mail, que costuma
+	/// abrir links antes do destinatário.
+	/// </remarks>
+	/// <param name="userId">Usuário do link.</param>
+	/// <param name="token">Token do link.</param>
+	/// <param name="invite"><c>true</c> para convite; <c>false</c> para redefinição.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> IsLinkValidAsync(Guid userId, string token, bool invite, CancellationToken cancellationToken = default);
+
 	/// <summary>Consome um link e define a senha.</summary>
 	/// <param name="userId">Usuário do link.</param>
 	/// <param name="token">Token do link.</param>
