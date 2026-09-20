@@ -362,17 +362,13 @@ public sealed class SecureGateDbContext(DbContextOptions<SecureGateDbContext> op
 	public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 ```
 
-Em `OnModelCreating`, junto das outras tabelas de framework re-nomeadas:
+Em `OnModelCreating`, junto das outras tabelas de framework re-nomeadas — **só o `ToTable`**: conferido em `SeccoNamingConvention.BuildTypePrefix`, a convention já deriva `id_pk_data_protection_key` (PK simples), `ds_friendly_name` e `ds_xml` (strings) sozinha, e nome digitado à mão é justamente o que a ADR-0017 proíbe.
 
 ```csharp
-builder.Entity<DataProtectionKey>(key =>
-{
-	key.ToTable("tb_data_protection_keys");
-	key.Property(k => k.Id).HasColumnName("id_pk_data_protection_key");
-	key.Property(k => k.FriendlyName).HasColumnName("ds_friendly_name");
-	key.Property(k => k.Xml).HasColumnName("ds_xml");
-});
+builder.Entity<DataProtectionKey>().ToTable("tb_data_protection_keys");
 ```
+
+Se o teste do Passo 4 mostrar outro nome de coluna, o certo é ajustar a expectativa do teste, não escrever o nome no mapeamento.
 
 Na composição (`AddSecureGateIdentity`), antes do `AddIdentityCore`:
 
@@ -914,7 +910,15 @@ public async Task Redefinir_LogStreamForaDoAr_NaoImpedeARedefinicao()
 }
 ```
 
-Para o teste de validade, a factory injeta um `TimeProvider` controlável (`FakeTimeProvider` do `Microsoft.Extensions.TimeProvider.Testing`, já usado no monorepo — conferir com `grep -rn "FakeTimeProvider" tests | head`; se não existir, avançar o relógio **não** é opção e o teste passa a forçar expiração configurando `ResetLifetimeMinutes = 0` numa factory dedicada, conforme o teto mínimo permitido).
+**Expiração no teste** (conferido: não existe `TimeProvider` nem `FakeTimeProvider` no monorepo, e não vale introduzir um pacote só para isto). A validade é lida do `IOptions<ResetTokenProviderOptions>` **no momento da validação**, então a factory de teste encolhe a janela depois de o link ter sido gerado, em vez de adiantar o relógio:
+
+```csharp
+// numa factory dedicada, sobre SecureGateApiFactory
+protected override void ConfigureTestServices(IServiceCollection services) =>
+	services.Configure<ResetTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromMilliseconds(1));
+```
+
+O teste então pede o link, `await Task.Delay(50)` e submete — sem `Factory.AdvanceTime`, que não existe. Trocar `Factory.AdvanceTime(TimeSpan.FromMinutes(31));` por esse `Task.Delay`.
 
 - [ ] **Passo 2: rodar e ver falhar.**
 
