@@ -1621,3 +1621,21 @@ Três defeitos encontrados revisando código que já estava verde, registrados p
 3. **`Guid.CreateVersion7()` fatiado no início gera valores iguais** — v7 começa com timestamp, então slugs derivados dos 8 primeiros hex colidiam entre tenants criados no mesmo milissegundo. Onde se quer aleatoriedade, v4.
 
 Registrado também que a classificação de erro do SQL Server tratava 4060 ("banco inacessível para este login") como "servidor inacessível" — dois diagnósticos bem diferentes para quem opera.
+
+---
+
+## Credenciais por e-mail (ADR-0033, 2026-09-20)
+
+**Como o SecureGate envia e-mail?** Chamar o `Secco.NotificationHub` reusaria tudo, mas tornaria o NotificationHub obrigatório para quem só quer identidade — contra a promessa de produtos adotáveis de forma independente — e, pior, **gravaria o link de redefinição** na tabela de notificações do tenant, legível por quem tem `notifications:read`. Duplicar os adaptadores custaria duas cópias divergindo na primeira correção. Escolhido o pacote fino `Secco.SDK.Email`, mesmo caminho do `SeccoClientCredentialsHandler` quando surgiu o segundo consumidor.
+
+**Tabela própria de tokens?** Descartada: migration nos dois engines, código de expurgo, e mais um lugar onde um segredo fica em repouso — sem resolver as chaves de Data Protection, das quais os cookies já dependiam. O token do Identity embute o `SecurityStamp` e dá uso único de graça.
+
+**Por que a recuperação não usa o middleware de rate limiting?** Porque ele responde `429`, e uma resposta diferente ao exceder o limite conta ao atacante que aquele e-mail tem conta. O limitador nativo entrou dentro de um serviço: ele decide **se o e-mail sai**, nunca o que a página responde.
+
+**Piso de tempo na resposta.** Só o caso "a conta existe" envia e-mail, e envio leva tempo. Sem piso, o cronômetro desfaz a proteção da mensagem idêntica. Ficou configurável (`ResponseFloorMilliseconds`, padrão 300) e zerado em teste.
+
+**Expiração de link em teste.** A ideia original era encolher a janela em tempo de execução por uma segunda factory; cada factory levanta o próprio banco, então ela não enxergaria o usuário do teste. O que é código nosso — a ligação entre `SecureGate:Credentials` e cada provedor de token — virou teste de unidade; a expiração em si é do `DataProtectorTokenProvider` do Identity.
+
+**Convite não avisa "sua senha foi alterada".** Não havia senha antes; o aviso só confundiria. Redefinição e troca pelo dono avisam.
+
+**Achado da bateria de mutação:** o E2E do convite aceitava qualquer host no link — trocar a base pública pelo domínio de um atacante não quebrava teste nenhum. O `LinkFor` passou a exigir que o link comece pela base configurada.

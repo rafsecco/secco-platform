@@ -112,6 +112,30 @@ O painel de status **não usa credencial privilegiada**: sonda cada banco com a 
 | `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
 | `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
 | `SecureGate:Provisioning:Targets:<nome>` | Alvo de provisionamento: `Provider`, `Server` e — **opcional** — `AdminConnectionString`. Sem a credencial, a automação não existe e só o modo script funciona (ADR-0028). Alvo declarado pela metade falha no startup |
+| `SecureGate:Email` | **Obrigatória fora de Development** (ADR-0033): `Provider` (`Smtp` padrão / `SendGrid`), `Host`/`Port`/`UseStartTls`/`Username`/`Password` ou `ApiKey`, mais `FromAddress` e `FromName` |
+| `SecureGate:PublicBaseUrl` | **Obrigatória fora de Development**: base dos links de convite e redefinição. Nunca derivada do header `Host` (ADR-0020) |
+| `SecureGate:Credentials:*` | `InviteLifetimeHours` (72), `ResetLifetimeMinutes` (30), `ForgotPerAccountPerHour` (3), `ForgotPerIpPerHour` (10), `ResponseFloorMilliseconds` (300) — todos com teto no código |
+| `SecureGate:Audit` | Identidade de auditoria da instalação (elevação + eventos de credencial). Aceita o nome antigo `SecureGate:ElevationAudit`, com aviso no startup |
+
+> **Sem e-mail o serviço não sobe** fora de Development, e isso é consequência direta da ADR-0033:
+> o admin não define mais senha de ninguém, então convite e recuperação são o único caminho até
+> uma credencial. Em Development o `appsettings.Development.json` já aponta para o MailHog do
+> compose da raiz (`http://localhost:8025` mostra o que "saiu").
+
+### Ciclo de credencial (ADR-0033)
+
+A conta nasce **sem senha**. Quem a define é a própria pessoa, por um link:
+
+| Tela | Rota | O que faz |
+|---|---|---|
+| Definir senha | `/conta/definir-senha` | Consome o convite (72 h) e grava a primeira senha |
+| Esqueci minha senha | `/conta/esqueci` | Pública. Resposta **idêntica** em todos os casos, com piso de tempo — o formulário não diz quem tem conta |
+| Redefinir senha | `/conta/redefinir-senha` | Consome o link (30 min), troca a senha e **encerra as sessões** |
+| Trocar minha senha | `/conta/trocar-senha` | Autenticada, exige a senha atual; derruba as outras sessões e mantém a desta janela |
+
+Pela API (`securegate:admin`): `POST .../users/{id}/invite` reenvia o convite, `POST .../users/{id}/password-reset` manda o link **e revoga as sessões na hora**, e `POST .../users/{id}/local-login` liga ou desliga a senha local — desligar **apaga a senha** e encerra as sessões, deixando a conta só com o diretório corporativo (ADR-0026).
+
+**Uso único sem tabela de tokens:** o token do Identity embute o `SecurityStamp`, então definir ou trocar a senha mata todos os links pendentes daquela conta de uma vez.
 
 ## Rodando em desenvolvimento
 
