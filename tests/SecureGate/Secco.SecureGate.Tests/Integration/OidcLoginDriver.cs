@@ -24,6 +24,10 @@ internal sealed partial class OidcLoginDriver(
 	[GeneratedRegex("__RequestVerificationToken.*?value=\"([^\"]+)\"", RegexOptions.Singleline)]
 	private static partial Regex AntiforgeryField();
 
+	/// <summary>Token antiforgery de uma página renderizada — as telas de credencial também o exigem.</summary>
+	/// <param name="html">HTML da página.</param>
+	public static string ExtractAntiforgeryToken(string html) => AntiforgeryField().Match(html).Groups[1].Value;
+
 	public HttpClient CreateBrowser() => factory.CreateClient(new WebApplicationFactoryClientOptions
 	{
 		AllowAutoRedirect = false,

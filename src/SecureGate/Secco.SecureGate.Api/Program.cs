@@ -21,7 +21,14 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 // Telas de login/logout (Fase 6.5) — únicas páginas server-rendered do produto
-builder.Services.AddRazorPages(options => options.Conventions.AllowAnonymousToPage("/Login"));
+builder.Services.AddRazorPages(options =>
+{
+	options.Conventions.AllowAnonymousToPage("/Login");
+
+	// Telas de credencial (ADR-0033): quem chega nelas ainda não tem credencial, ou acabou de
+	// perdê-la. A exigência de sessão, onde existe, é da própria página (trocar a senha).
+	options.Conventions.AllowAnonymousToFolder("/Account");
+});
 
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
 builder.Services.AddSecureGateApplication();

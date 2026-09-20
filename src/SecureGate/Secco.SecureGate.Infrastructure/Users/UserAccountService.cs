@@ -39,9 +39,11 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			TenantId = data.TenantId,
 			UserName = data.Email,
 			Email = data.Email,
+			LocalLoginEnabled = data.LocalLogin,
 		};
 
-		var created = await userManager.CreateAsync(user, data.Password).ConfigureAwait(false);
+		// Sem senha, sempre (ADR-0033): quem define a credencial é o dono, pelo convite.
+		var created = await userManager.CreateAsync(user).ConfigureAwait(false);
 
 		if (!created.Succeeded)
 		{

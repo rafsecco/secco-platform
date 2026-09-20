@@ -21,6 +21,18 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// <summary>Base pública dos links de credencial nos testes (ADR-0033: nunca vem do header Host).</summary>
 	public const string PublicBaseUrl = "https://id.testes.local";
 
+	/// <summary>E-mails que a aplicação tentou enviar — nenhum sai de verdade em teste.</summary>
+	public FakeEmailSender Emails { get; } = new();
+
+	/// <inheritdoc />
+	protected override void ConfigureTestServices(IServiceCollection services)
+	{
+		ArgumentNullException.ThrowIfNull(services);
+
+		// Registrado DEPOIS do AddSeccoEmail da aplicação: a última inscrição vence na resolução.
+		services.AddScoped<Secco.SDK.Email.ISeccoEmailSender>(_ => Emails);
+	}
+
 	/// <summary>Aplica migrations + seed de referência (scopes) — a base garante a chamada única.</summary>
 	protected override async Task MigrateAsync(IServiceProvider services)
 	{

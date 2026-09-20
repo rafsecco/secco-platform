@@ -28,6 +28,14 @@ public static class SecureGateCredentialsExtensions
 		services.AddOptions<ResetTokenProviderOptions>().Configure<CredentialOptions>((options, credentials) =>
 			options.TokenLifespan = TimeSpan.FromMinutes(credentials.ResetLifetimeMinutes));
 
+		// Os nomes dos provedores descem para a Infrastructure como dado, não como constante dela:
+		// quem os registra no Identity é esta composição.
+		services.AddSingleton(new CredentialTokenProviderNames(
+			CredentialTokenProviders.Invite,
+			CredentialTokenProviders.InvitePurpose,
+			CredentialTokenProviders.Reset,
+			CredentialTokenProviders.ResetPurpose));
+
 		return services;
 	}
 }

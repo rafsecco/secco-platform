@@ -137,6 +137,11 @@ public static class SecureGateInfrastructureExtensions
 			.ValidateOnStart();
 		services.TryAddSingleton<IValidateOptions<Elevation.ElevationAuditOptions>, Elevation.ElevationAuditOptionsValidator>();
 
+		// Ciclo de credencial (ADR-0033): tokens do Identity e envio dos e-mails. Os NOMES dos
+		// provedores de token vêm da Api, que é quem os registra junto das validades.
+		services.AddScoped<Application.Credentials.ICredentialTokens, Credentials.IdentityCredentialTokens>();
+		services.AddScoped<Application.Credentials.ICredentialMailer, Credentials.SeccoEmailCredentialMailer>();
+
 		// Trilha dos eventos de credencial (ADR-0033): best-effort, e inexistente quando não há
 		// identidade de auditoria — diferente da elevação, o ciclo de credencial não para por isso.
 		services.AddScoped<Application.Credentials.ICredentialAuditor>(serviceProvider =>

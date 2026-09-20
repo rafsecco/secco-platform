@@ -1024,7 +1024,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Cria um usuário no tenant e atribui os roles informados (senha hasheada no servidor).",
+        "summary": "Cria um usuário no tenant e envia o convite para ele definir a própria senha (ADR-0033).",
         "operationId": "CreateUser",
         "parameters": [
           {
@@ -1117,6 +1117,60 @@
                   "items": {
                     "$ref": "#/components/schemas/UserDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/users/{userId}/invite": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reenvia o convite para o usuário definir a primeira senha (ADR-0033).",
+        "operationId": "ResendUserInvite",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -1661,7 +1715,7 @@
       "CreateUserRequest": {
         "required": [
           "email",
-          "password",
+          "localLogin",
           "roles"
         ],
         "type": "object",
@@ -1672,10 +1726,10 @@
               "string"
             ]
           },
-          "password": {
+          "localLogin": {
             "type": [
               "null",
-              "string"
+              "boolean"
             ]
           },
           "roles": {

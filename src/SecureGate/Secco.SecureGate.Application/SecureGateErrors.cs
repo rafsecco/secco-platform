@@ -271,4 +271,23 @@ public static class SecureGateErrors
 		public static readonly Error GrantedByRequired =
 			Error.Validation("SecureGate.Elevation.GrantedByRequired", "O chamador autenticado não carrega a claim 'sub'.");
 	}
+
+	/// <summary>Erros do ciclo de credencial (ADR-0033).</summary>
+	public static class Credentials
+	{
+		/// <summary>
+		/// Conta que entra só pelo diretório corporativo (ADR-0026): sem senha, sem convite e sem
+		/// recuperação. Ligar o login local é uma decisão do admin, não um efeito de pedir link.
+		/// </summary>
+		public static readonly Error LocalLoginDisabled =
+			Error.Conflict(
+				"SecureGate.Credential.LocalLoginDisabled",
+				"Esta conta entra pelo diretório corporativo e não usa senha local.");
+
+		/// <summary>Convite recusado porque a conta já tem senha — daqui em diante é redefinição.</summary>
+		public static readonly Error AlreadyHasPassword =
+			Error.Conflict(
+				"SecureGate.Credential.AlreadyHasPassword",
+				"Esta conta já tem senha definida. Use a redefinição de senha.");
+	}
 }

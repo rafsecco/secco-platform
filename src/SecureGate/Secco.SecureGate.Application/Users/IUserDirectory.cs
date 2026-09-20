@@ -5,9 +5,9 @@ namespace Secco.SecureGate.Application.Users;
 /// <summary>Dados de criação de um usuário provisionado por administrador (Fase 6.5).</summary>
 /// <param name="TenantId">Tenant ao qual o usuário pertence (ADR-0022: o registro carrega o tenant).</param>
 /// <param name="Email">E-mail — também o username (único global; o tenant vem do registro no login).</param>
-/// <param name="Password">Senha em claro; hasheada pelo Identity na Infrastructure. Nunca logar.</param>
+/// <param name="LocalLogin">Se a conta aceita senha local (ADR-0033); nasce sempre sem hash de senha.</param>
 /// <param name="Roles">Roles a atribuir no tenant (ADR-0021); devem existir.</param>
-public sealed record CreateUserData(Guid TenantId, string Email, string Password, IReadOnlyList<string> Roles);
+public sealed record CreateUserData(Guid TenantId, string Email, bool LocalLogin, IReadOnlyList<string> Roles);
 
 /// <summary>Conta com lockout cru e vínculos — a Application deriva situação e permissões.</summary>
 /// <param name="Id">Identificador.</param>

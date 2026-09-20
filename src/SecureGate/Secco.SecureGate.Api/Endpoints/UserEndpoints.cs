@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Credentials;
 using Secco.SecureGate.Application.Sessions;
 using Secco.SecureGate.Application.Users;
 using Secco.SDK.AspNetCore.Extensions;
@@ -31,10 +32,10 @@ public static class UserEndpoints
 				CreateUserHandler handler,
 				CancellationToken cancellationToken) =>
 			(await handler.HandleAsync(
-				new CreateUserCommand(tenantId, request.Email, request.Password, request.Roles), cancellationToken))
+				new CreateUserCommand(tenantId, request.Email, request.LocalLogin ?? true, request.Roles), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{tenantId}/users/{dto.Id}", dto)))
 			.WithName("CreateUser")
-			.WithSummary("Cria um usuário no tenant e atribui os roles informados (senha hasheada no servidor).")
+			.WithSummary("Cria um usuário no tenant e envia o convite para ele definir a própria senha (ADR-0033).")
 			.Produces<UserDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -46,6 +47,19 @@ public static class UserEndpoints
 			.WithName("ListUsers")
 			.WithSummary("Lista os usuários do tenant com seus roles (sem segredos).")
 			.Produces<IReadOnlyList<UserDto>>(StatusCodes.Status200OK);
+
+		group.MapPost("/{userId:guid}/invite", async (
+				Guid tenantId,
+				Guid userId,
+				InviteUserHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("ResendUserInvite")
+			.WithSummary("Reenvia o convite para o usuário definir a primeira senha (ADR-0033).")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
 
 		group.MapPost("/{userId:guid}/deactivate", async (
 				Guid tenantId,

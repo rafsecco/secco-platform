@@ -40,6 +40,9 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<ListRoleMembersHandler>();
 		services.AddScoped<DeleteRoleHandler>();
 
+		// Ciclo de credencial (ADR-0033): convite, recuperação e troca de senha
+		services.AddScoped<Credentials.InviteUserHandler>();
+
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
 		services.AddScoped<ListUsersHandler>();

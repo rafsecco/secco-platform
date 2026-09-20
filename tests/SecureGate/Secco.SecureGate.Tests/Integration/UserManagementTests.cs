@@ -128,18 +128,6 @@ public class UserManagementTests(SecureGateApiFactory factory) : IAsyncLifetime
 	}
 
 	[Fact]
-	public async Task CreateUser_WithWeakPassword_Returns400()
-	{
-		var admin = CreateClientWithScopes(SecureGateScopes.Admin);
-		var tenantId = await CreateTenantAsync(admin);
-
-		var response = await admin.PostAsJsonAsync($"/api/v1/tenants/{tenantId}/users",
-			new { email = UniqueEmail(), password = "weak" });
-
-		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-	}
-
-	[Fact]
 	public async Task CreateUser_ForUnknownTenant_Returns404()
 	{
 		var admin = CreateClientWithScopes(SecureGateScopes.Admin);
