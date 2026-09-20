@@ -64,6 +64,9 @@
          (ADR-0004); pacotes finos sem esse FrameworkReference (Secco.SDK.ClientCredentials) o
          referenciam direto. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
+    <!-- Secco.SDK.Email: AddOptions<T>().BindConfiguration(sectionKey) sem FrameworkReference
+         a Microsoft.AspNetCore.App (pacote fino, sem produto nem SharedKernel). -->
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.9" />
   </ItemGroup>
 
   <!-- Contratos HTTP (Fase 4, ADR-0006) -->

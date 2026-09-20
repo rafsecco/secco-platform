@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-email/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-email/v</MinVerTagPrefix>
+    <Description>Envio de e-mail da Secco Platform (ADR-0033): porta ISeccoEmailSender com adaptadores SMTP (MailKit) e SendGrid, selecionáveis por configuração.</Description>
+    <PackageTags>secco;sdk;email;smtp;sendgrid</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="SendGrid" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
