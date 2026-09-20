@@ -26,8 +26,11 @@ builder.Services.AddRazorPages(options =>
 	options.Conventions.AllowAnonymousToPage("/Login");
 
 	// Telas de credencial (ADR-0033): quem chega nelas ainda não tem credencial, ou acabou de
-	// perdê-la. A exigência de sessão, onde existe, é da própria página (trocar a senha).
-	options.Conventions.AllowAnonymousToFolder("/Account");
+	// perdê-la. Página a página, e não a pasta inteira: "/Account/ChangePassword" exige sessão,
+	// e AllowAnonymous na pasta venceria o [Authorize] dela.
+	options.Conventions.AllowAnonymousToPage("/Account/Forgot");
+	options.Conventions.AllowAnonymousToPage("/Account/SetPassword");
+	options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
 });
 
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
