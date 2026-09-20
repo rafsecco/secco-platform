@@ -1027,7 +1027,7 @@ Alternativas avaliadas:
 
 ## ADR-0033: Capacidade de e-mail da plataforma e ciclo de credencial do usuário
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-17
 
 ### Contexto
@@ -1107,7 +1107,7 @@ Alternativas avaliadas para os links de convite e redefinição:
 
 ## ADR-0034: Idempotência em endpoints de escrita
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-19
 
 ### Contexto
@@ -1147,7 +1147,7 @@ A idempotência é medida pelo **efeito**, não pela resposta: repetir pode devo
 
 ## ADR-0035: Cache e estado compartilhado entre instâncias
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-19
 
 ### Contexto
