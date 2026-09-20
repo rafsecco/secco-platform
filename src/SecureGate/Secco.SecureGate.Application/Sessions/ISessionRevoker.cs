@@ -11,6 +11,9 @@ public enum SessionRevocationReason
 
 	/// <summary>Usuário retirado de um perfil.</summary>
 	RoleRemoved,
+
+	/// <summary>Senha definida, trocada ou redefinida (ADR-0033).</summary>
+	PasswordChanged,
 }
 
 /// <summary>Encerra todas as sessões de um usuário (ADR-0032).</summary>

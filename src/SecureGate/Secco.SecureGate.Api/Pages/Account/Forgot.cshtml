@@ -1,0 +1,33 @@
+@page "/conta/esqueci"
+@model Secco.SecureGate.Api.Pages.Account.ForgotModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Esqueci minha senha";
+}
+
+<h1>Esqueci minha senha</h1>
+
+@if (Model.Submitted)
+{
+    @* Uma única resposta para todos os casos: existir, não existir, estar desativada,
+       ser conta só corporativa ou ter estourado o limite (ADR-0020). *@
+    <p class="sub">Se houver uma conta com esse e-mail, o link de redefinição já está a caminho.</p>
+    <div class="notice">
+        O link vale por pouco tempo e só pode ser usado uma vez. Confira também a caixa de spam.
+    </div>
+    <p style="margin-top:1rem"><a href="/login">Voltar para o login</a></p>
+}
+else
+{
+    <p class="sub">Informe seu e-mail e enviaremos um link para você escolher uma nova senha.</p>
+
+    <form method="post" novalidate>
+        <label asp-for="Input.Email">E-mail</label>
+        <input asp-for="Input.Email" type="email" autocomplete="username" autofocus />
+        <span class="field-error" asp-validation-for="Input.Email"></span>
+
+        <button type="submit">Enviar link</button>
+    </form>
+
+    <p style="margin-top:1rem"><a href="/login">Voltar para o login</a></p>
+}

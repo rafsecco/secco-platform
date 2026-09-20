@@ -142,6 +142,9 @@ public static class SecureGateInfrastructureExtensions
 		services.AddScoped<Application.Credentials.ICredentialTokens, Credentials.IdentityCredentialTokens>();
 		services.AddScoped<Application.Credentials.ICredentialMailer, Credentials.SeccoEmailCredentialMailer>();
 
+		// Limite do "esqueci minha senha": singleton, porque a janela é do processo (ADR-0035).
+		services.AddSingleton<Application.Credentials.IPasswordResetThrottle, Credentials.FixedWindowPasswordResetThrottle>();
+
 		// Trilha dos eventos de credencial (ADR-0033): best-effort, e inexistente quando não há
 		// identidade de auditoria — diferente da elevação, o ciclo de credencial não para por isso.
 		services.AddScoped<Application.Credentials.ICredentialAuditor>(serviceProvider =>
