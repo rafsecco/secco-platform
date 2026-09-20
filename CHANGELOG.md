@@ -12,17 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.Email
-
-**Pacote novo** (0.1.0): porta `ISeccoEmailSender` com adaptadores **SMTP (MailKit)** e **SendGrid**, selecionáveis por configuração, e `AddSeccoEmail("<Produto>:Email")`. É a promoção dos adaptadores que viviam dentro do `Secco.NotificationHub` — agora que o SecureGate também envia e-mail (ADR-0033), duas cópias divergiriam na primeira correção. Cada produto mantém **sua** seção de configuração: o pacote entrega tipos e adaptadores, não a chave.
-
-### Secco.SecureGate.Client
-
-- **Quebrado** `CreateUser` perdeu o campo `password` e ganhou `localLogin` (ADR-0033). **O admin não define mais senha de ninguém**: a conta nasce sem hash e a pessoa escolhe a credencial por um link de convite. Com `localLogin: false`, a conta entra só pelo diretório corporativo (ADR-0026) — sem senha, sem convite e sem recuperação. Quem chamava com `password` para de compilar; a correção é remover o campo.
-- **Adicionado** `UserDetailDto` ganhou `hasPassword` e `localLoginEnabled` — é por eles que uma tela decide entre "reenviar convite", "redefinir senha" ou nenhum dos dois.
-- **Adicionado** três operações de credencial, todas sob `securegate:admin`: `ResendUserInvite`, `ResetUserPassword` (manda o link **e revoga as sessões na hora**) e `SetUserLocalLogin` (desligar **apaga a senha** e encerra as sessões).
-
-> **Exigência nova de configuração:** o `Secco.SecureGate.Api` **não sobe fora de Development** sem `SecureGate:Email` e `SecureGate:PublicBaseUrl`. É consequência direta de o admin não poder mais definir senha — sem e-mail não há convite nem recuperação. A base pública nunca é derivada do header `Host` (ADR-0020).
+_Nada pendente._ A rodada mais recente saiu em 2026-09-20. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -36,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.1 — 2026-09-20
+
+Patch **sem mudança funcional**: o diff de `src/SharedKernel` desde a 0.4.0 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.9.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.0 — 2026-09-17
 
@@ -79,6 +73,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.1 — 2026-09-20
+
+Patch **sem mudança funcional**: o diff desde a 0.8.0 é só documentação — o comentário de `IdempotentHttpMethods` deixou de prometer idempotency keys "de uma ADR futura" e passou a apontar a **ADR-0034**, e o README trocou `IEmailSender` por `ISeccoEmailSender` no exemplo de job. Existe pela cadeia do MinVer (ADR-0011).
 
 #### 0.8.0 — 2026-09-17
 
@@ -124,6 +122,12 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 | 0.3.0 | 2026-07-14 |
 | 0.2.0 | 2026-07-12 |
 | 0.1.0 | 2026-07-11 |
+
+### Secco.SDK.Email
+
+#### 0.1.0 — 2026-09-20
+
+**Pacote novo** (0.1.0): porta `ISeccoEmailSender` com adaptadores **SMTP (MailKit)** e **SendGrid**, selecionáveis por configuração, e `AddSeccoEmail("<Produto>:Email")`. É a promoção dos adaptadores que viviam dentro do `Secco.NotificationHub` — agora que o SecureGate também envia e-mail (ADR-0033), duas cópias divergiriam na primeira correção. Cada produto mantém **sua** seção de configuração: o pacote entrega tipos e adaptadores, não a chave.
 
 ### Secco.SDK.EntityFrameworkCore
 
@@ -175,6 +179,14 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.9.0 — 2026-09-20
+
+- **Quebrado** `CreateUser` perdeu o campo `password` e ganhou `localLogin` (ADR-0033). **O admin não define mais senha de ninguém**: a conta nasce sem hash e a pessoa escolhe a credencial por um link de convite. Com `localLogin: false`, a conta entra só pelo diretório corporativo (ADR-0026) — sem senha, sem convite e sem recuperação. Quem chamava com `password` para de compilar; a correção é remover o campo.
+- **Adicionado** `UserDetailDto` ganhou `hasPassword` e `localLoginEnabled` — é por eles que uma tela decide entre "reenviar convite", "redefinir senha" ou nenhum dos dois.
+- **Adicionado** três operações de credencial, todas sob `securegate:admin`: `ResendUserInvite`, `ResetUserPassword` (manda o link **e revoga as sessões na hora**) e `SetUserLocalLogin` (desligar **apaga a senha** e encerra as sessões).
+
+> **Exigência nova de configuração:** o `Secco.SecureGate.Api` **não sobe fora de Development** sem `SecureGate:Email` e `SecureGate:PublicBaseUrl`. É consequência direta de o admin não poder mais definir senha — sem e-mail não há convite nem recuperação. A base pública nunca é derivada do header `Host` (ADR-0020).
+
 #### 0.8.0 — 2026-09-17
 
 - **Adicionado** `SecureGateSessionVersionResolver` e `AddSecureGateSessionVersionResolver()` (também com credenciais próprias); `AddSecureGatePermissionResolver()` passa a registrá-lo — produtos que já resolvem permissões ganham a verificação só atualizando o pacote.
@@ -222,6 +234,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.5 — 2026-09-20
+
+Patch **sem mudança funcional**: o diff desde a 0.1.4 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.9.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.4 — 2026-09-17
 
