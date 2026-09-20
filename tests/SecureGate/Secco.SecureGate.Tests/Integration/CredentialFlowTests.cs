@@ -83,7 +83,13 @@ public partial class CredentialFlowTests(SelfIssuedAuthSecureGateApiFactory fact
 		var mail = factory.Emails.For(email).Should().NotBeEmpty().And.Subject.Last();
 		mail.Body.Should().NotContain(NewPassword, "nenhuma senha viaja por e-mail (ADR-0033)");
 
-		return InviteLink().Match(mail.Body).Value;
+		var link = InviteLink().Match(mail.Body).Value;
+
+		// A base do link vem da configuração e NUNCA do header Host (ADR-0020): um Host forjado
+		// mandaria a vítima para o servidor do atacante com um e-mail legítimo.
+		link.Should().StartWith(SecureGateApiFactory.PublicBaseUrl);
+
+		return link;
 	}
 
 	/// <summary>Submete o formulário da página do link, com antiforgery, como um navegador faria.</summary>

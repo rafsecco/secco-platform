@@ -78,8 +78,15 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 		}));
 	}
 
-	private string ResetLinkFor(string email) =>
-		ResetLink().Match(factory.Emails.For(email).Last().Body).Value;
+	private string ResetLinkFor(string email)
+	{
+		var link = ResetLink().Match(factory.Emails.For(email).Last().Body).Value;
+
+		// A base do link vem da configuração e NUNCA do header Host (ADR-0020).
+		link.Should().StartWith(SecureGateApiFactory.PublicBaseUrl);
+
+		return link;
+	}
 
 	private async Task<(Guid UserId, string Email)> UserWithPasswordAsync()
 	{
