@@ -17,7 +17,15 @@ namespace Secco.SecureGate.Infrastructure.Elevation;
 public sealed class ElevationAuditOptions
 {
 	/// <summary>Chave da seção de configuração.</summary>
-	public const string SectionKey = "SecureGate:ElevationAudit";
+	/// <remarks>
+	/// Era <c>SecureGate:ElevationAudit</c> até a ADR-0033: a mesma identidade passou a registrar
+	/// também os eventos de credencial, então o nome deixou de descrever o escopo. O antigo segue
+	/// aceito (<see cref="LegacySectionKey"/>), com aviso no startup.
+	/// </remarks>
+	public const string SectionKey = "SecureGate:Audit";
+
+	/// <summary>Nome anterior da seção, aceito para não quebrar instalação existente.</summary>
+	public const string LegacySectionKey = "SecureGate:ElevationAudit";
 
 	/// <summary>URL base da API do LogStream, onde a auditoria é gravada.</summary>
 	public string? LogStreamBaseUrl { get; set; }
@@ -30,6 +38,12 @@ public sealed class ElevationAuditOptions
 
 	/// <summary>Segredo da identidade de auditoria. Nunca logado nem citado em mensagem de erro.</summary>
 	public string? ClientSecret { get; set; }
+
+	/// <summary>
+	/// Verdadeiro quando os valores vieram do nome antigo da seção. Só orienta o aviso de startup;
+	/// não muda comportamento nenhum.
+	/// </summary>
+	public bool UsedLegacySection { get; set; }
 
 	/// <summary>Indica se alguma chave da seção foi declarada — intenção de ligar a elevação.</summary>
 	public bool IsConfigured =>

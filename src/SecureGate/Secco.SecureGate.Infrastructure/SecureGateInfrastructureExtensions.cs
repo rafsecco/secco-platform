@@ -120,12 +120,29 @@ public static class SecureGateInfrastructureExtensions
 		services.TryAddSingleton(serviceProvider =>
 			serviceProvider.GetRequiredService<IOptions<Application.Elevation.ElevationOptions>>().Value);
 
-		// Identidade de auditoria das trocas (ADR-0031, emenda de 2026-09-13). Seção ausente = elevação
-		// DESLIGADA (fail-closed); seção pela metade = startup falha.
+		// Identidade de auditoria (ADR-0031, emenda de 2026-09-13; ampliada pela ADR-0033 para os
+		// eventos de credencial). Seção ausente = elevação DESLIGADA (fail-closed); seção pela
+		// metade = startup falha. O nome antigo 'SecureGate:ElevationAudit' segue aceito.
 		services.AddOptions<Elevation.ElevationAuditOptions>()
-			.BindConfiguration(Elevation.ElevationAuditOptions.SectionKey)
+			.Configure<IConfiguration>((options, configuration) =>
+			{
+				var bound = Elevation.AuditOptionsBinder.Bind(configuration);
+
+				options.LogStreamBaseUrl = bound.Options.LogStreamBaseUrl;
+				options.AuthorityUrl = bound.Options.AuthorityUrl;
+				options.ClientId = bound.Options.ClientId;
+				options.ClientSecret = bound.Options.ClientSecret;
+				options.UsedLegacySection = bound.UsedLegacySection;
+			})
 			.ValidateOnStart();
 		services.TryAddSingleton<IValidateOptions<Elevation.ElevationAuditOptions>, Elevation.ElevationAuditOptionsValidator>();
+
+		// Trilha dos eventos de credencial (ADR-0033): best-effort, e inexistente quando não há
+		// identidade de auditoria — diferente da elevação, o ciclo de credencial não para por isso.
+		services.AddScoped<Application.Credentials.ICredentialAuditor>(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value.IsConfigured
+				? ActivatorUtilities.CreateInstance<Credentials.LogStreamCredentialAuditor>(serviceProvider)
+				: new Credentials.NoopCredentialAuditor());
 
 		// Store fora do pipeline do IHttpClientFactory: o token sobrevive à reciclagem dos handlers
 		var auditTokenStore = new Secco.SDK.ClientCredentials.SeccoAccessTokenStore();
