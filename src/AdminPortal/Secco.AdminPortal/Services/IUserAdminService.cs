@@ -53,6 +53,34 @@ public interface IUserAdminService
 	/// <param name="active">Situação desejada: <see langword="true"/> ativa, <see langword="false"/> desativa.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Reenvia o convite para a pessoa definir a primeira senha (ADR-0033). Só cabe quando a conta
+	/// ainda não tem senha e o login local está ligado — o SecureGate responde 409 fora disso.
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task ResendInviteAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Redefine a senha de um usuário pelo admin: manda o link de redefinição e encerra as sessões
+	/// abertas na hora (ADR-0033).
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task ResetPasswordAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Liga ou desliga a senha local da conta. Desligar apaga a senha e encerra as sessões abertas;
+	/// ligar dispara um convite (ADR-0033).
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do usuário.</param>
+	/// <param name="enabled">Situação desejada do login local.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SetLocalLoginAsync(Guid tenantId, Guid userId, bool enabled, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -92,7 +120,9 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 			user.LockoutEnd,
 			[.. user.Roles],
 			[.. user.EffectivePermissions],
-			[.. user.ExternalLogins]);
+			[.. user.ExternalLogins],
+			user.HasPassword,
+			user.LocalLoginEnabled);
 	}
 
 	public async Task AddRoleAsync(Guid tenantId, Guid userId, string role, CancellationToken cancellationToken = default)
@@ -121,5 +151,28 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		{
 			await client.DeactivateUserAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
 		}
+	}
+
+	public async Task ResendInviteAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.ResendUserInviteAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task ResetPasswordAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.ResetUserPasswordAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task SetLocalLoginAsync(
+		Guid tenantId, Guid userId, bool enabled, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.SetUserLocalLoginAsync(
+			tenantId, userId, new SetLocalLoginRequest { Enabled = enabled }, cancellationToken).ConfigureAwait(false);
 	}
 }

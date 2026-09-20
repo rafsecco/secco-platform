@@ -105,6 +105,29 @@ else
     </section>
 
     <section>
+        <h2>Credencial</h2>
+        <p class="muted">@CredentialStatusText</p>
+
+        @* O operador nunca escolhe nem vê a senha de ninguém (ADR-0033): daqui só saem links. *@
+        @if (_user.LocalLoginEnabled && !_user.HasPassword)
+        {
+            <button @onclick="ResendInviteAsync" disabled="@_busy">Reenviar convite</button>
+        }
+        @if (_user.LocalLoginEnabled && _user.HasPassword)
+        {
+            <button @onclick="AskResetPassword" disabled="@_busy">Redefinir senha</button>
+        }
+        @if (_user.LocalLoginEnabled)
+        {
+            <button @onclick="AskDisableLocalLogin" disabled="@_busy">Desligar senha local</button>
+        }
+        else
+        {
+            <button @onclick="EnableLocalLoginAsync" disabled="@_busy">Ligar senha local</button>
+        }
+    </section>
+
+    <section>
         <h2>Conta</h2>
         @if (_user.Status == "Active")
         {
@@ -198,6 +221,47 @@ else
             await ReloadAsync();
             _message = "Conta desativada.";
         });
+
+    private string CredentialStatusText => _user switch
+    {
+        { LocalLoginEnabled: false } => "Somente diretório corporativo — esta conta não usa senha.",
+        { HasPassword: false } => "Aguardando convite — a pessoa ainda não definiu a senha.",
+        _ => "Senha local definida pela própria pessoa.",
+    };
+
+    private Task ResendInviteAsync() => RunAsync(async () =>
+    {
+        await UserAdminService.ResendInviteAsync(TenantId, UserId);
+        await ReloadAsync();
+        _message = $"Convite reenviado para {_user!.Email}. O link anterior deixa de valer no primeiro uso do novo.";
+    });
+
+    private void AskResetPassword() =>
+        _pending = new PendingAction(
+            "Enviar link de redefinição? As sessões abertas desta conta são encerradas na hora.",
+            async () =>
+            {
+                await UserAdminService.ResetPasswordAsync(TenantId, UserId);
+                await ReloadAsync();
+                _message = $"Link de redefinição enviado para {_user!.Email}. As sessões foram encerradas.";
+            });
+
+    private void AskDisableLocalLogin() =>
+        _pending = new PendingAction(
+            "Desligar a senha local? A senha atual é apagada, as sessões são encerradas e a conta passa a entrar só pelo diretório corporativo.",
+            async () =>
+            {
+                await UserAdminService.SetLocalLoginAsync(TenantId, UserId, enabled: false);
+                await ReloadAsync();
+                _message = "Senha local desligada. A conta entra só pelo diretório corporativo.";
+            });
+
+    private Task EnableLocalLoginAsync() => RunAsync(async () =>
+    {
+        await UserAdminService.SetLocalLoginAsync(TenantId, UserId, enabled: true);
+        await ReloadAsync();
+        _message = $"Senha local ligada. Convite enviado para {_user!.Email}.";
+    });
 
     private Task ActivateAsync() => RunAsync(async () =>
     {

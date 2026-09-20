@@ -30,6 +30,8 @@ public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Ro
 /// <param name="Roles">Perfis.</param>
 /// <param name="EffectivePermissions">Permissões efetivas.</param>
 /// <param name="ExternalLogins">Provedores externos vinculados.</param>
+/// <param name="HasPassword">Conta já tem senha definida (ADR-0033).</param>
+/// <param name="LocalLoginEnabled">Conta aceita login por senha local (ADR-0033).</param>
 public sealed record UserDetail(
 	Guid Id,
 	string Email,
@@ -37,7 +39,9 @@ public sealed record UserDetail(
 	DateTimeOffset? LockoutEnd,
 	IReadOnlyList<string> Roles,
 	IReadOnlyList<string> EffectivePermissions,
-	IReadOnlyList<string> ExternalLogins);
+	IReadOnlyList<string> ExternalLogins,
+	bool HasPassword,
+	bool LocalLoginEnabled);
 
 /// <summary>Perfil na listagem do tenant.</summary>
 /// <param name="Name">Nome.</param>

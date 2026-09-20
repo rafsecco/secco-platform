@@ -172,6 +172,8 @@ public class IdentityAdminServicesTests
 			Roles = ["leitor"],
 			EffectivePermissions = ["documentos:read"],
 			ExternalLogins = ["EntraId"],
+			HasPassword = true,
+			LocalLoginEnabled = true,
 		});
 
 		var user = await new SecureGateUserAdminService(factory).GetUserAsync(tenantId, userId);
@@ -180,6 +182,78 @@ public class IdentityAdminServicesTests
 		user.Roles.Should().Equal("leitor");
 		user.EffectivePermissions.Should().Equal("documentos:read");
 		user.ExternalLogins.Should().Equal("EntraId");
+
+		// É por estes dois campos que a tela decide entre "reenviar convite", "redefinir senha"
+		// e nenhum dos dois (ADR-0033).
+		user.HasPassword.Should().BeTrue();
+		user.LocalLoginEnabled.Should().BeTrue();
+	}
+
+	[Fact]
+	public async Task GetUser_ContaSoCorporativa_ProjetaOsDoisCamposDesligados()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		client.GetUserAsync(tenantId, userId, Arg.Any<CancellationToken>()).Returns(new UserDetailDto
+		{
+			Id = userId,
+			Email = "terceiro@acme.test",
+			TenantId = tenantId,
+			Status = "Active",
+			Roles = [],
+			EffectivePermissions = [],
+			ExternalLogins = ["EntraId"],
+			HasPassword = false,
+			LocalLoginEnabled = false,
+		});
+
+		var user = await new SecureGateUserAdminService(factory).GetUserAsync(tenantId, userId);
+
+		user.HasPassword.Should().BeFalse();
+		user.LocalLoginEnabled.Should().BeFalse();
+	}
+
+	[Fact]
+	public async Task ReenviarConvite_ChamaOClient()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory).ResendInviteAsync(tenantId, userId);
+
+		await client.Received(1).ResendUserInviteAsync(tenantId, userId, Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task RedefinirSenha_ChamaOClientSemNenhumaSenha()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory).ResetPasswordAsync(tenantId, userId);
+
+		// A operação manda um LINK; nenhuma senha passa pelo portal (ADR-0033).
+		await client.Received(1).ResetUserPasswordAsync(tenantId, userId, Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task LigarEDesligarLoginLocal_EnviamOEstadoPedido()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		var service = new SecureGateUserAdminService(factory);
+
+		await service.SetLocalLoginAsync(tenantId, userId, enabled: false);
+		await service.SetLocalLoginAsync(tenantId, userId, enabled: true);
+
+		await client.Received(1).SetUserLocalLoginAsync(
+			tenantId, userId, Arg.Is<SetLocalLoginRequest>(r => !r.Enabled), Arg.Any<CancellationToken>());
+		await client.Received(1).SetUserLocalLoginAsync(
+			tenantId, userId, Arg.Is<SetLocalLoginRequest>(r => r.Enabled), Arg.Any<CancellationToken>());
 	}
 
 	[Fact]
