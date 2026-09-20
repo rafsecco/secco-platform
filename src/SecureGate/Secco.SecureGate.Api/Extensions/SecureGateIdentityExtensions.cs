@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -20,6 +22,12 @@ public static class SecureGateIdentityExtensions
 	{
 		ArgumentNullException.ThrowIfNull(services);
 		ArgumentNullException.ThrowIfNull(environment);
+
+		// ADR-0033: chaves compartilhadas por todas as instâncias e sobreviventes a reinício.
+		// A aplicação (nome) entra no nome do propósito, então não compartilhe com outro produto.
+		services.AddDataProtection()
+			.SetApplicationName("secco-securegate")
+			.PersistKeysToDbContext<SecureGateDbContext>();
 
 		services.AddIdentityCore<User>(options =>
 			{

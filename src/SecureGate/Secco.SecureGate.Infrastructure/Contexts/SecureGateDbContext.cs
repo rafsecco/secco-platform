@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
@@ -27,7 +28,8 @@ namespace Secco.SecureGate.Infrastructure.Contexts;
 public sealed class SecureGateDbContext(
 	DbContextOptions<SecureGateDbContext> options,
 	ISeccoSecretCipher? connectionStringCipher = null)
-	: IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options)
+	: IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options),
+		IDataProtectionKeyContext
 {
 	/// <summary>
 	/// Teto da COLUNA <c>ds_connection_string</c> (ADR-0025): o texto cifrado é maior que o
@@ -48,6 +50,13 @@ public sealed class SecureGateDbContext(
 
 	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
 	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
+
+	/// <summary>
+	/// Chaves de Data Protection (ADR-0033). Ficam no banco porque os tokens de convite e de
+	/// redefinição — e os cookies de login — são protegidos por elas: no armazenamento padrão
+	/// elas vivem na máquina e somem a cada reinício, levando junto todo link pendente.
+	/// </summary>
+	public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
 	/// <inheritdoc />
 	protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -162,5 +171,9 @@ public sealed class SecureGateDbContext(
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
 		});
+
+		// ADR-0017: só o ToTable — a SeccoNamingConvention já deriva id_pk_data_protection_key
+		// (PK simples), ds_friendly_name e ds_xml (strings) sozinha.
+		builder.Entity<DataProtectionKey>().ToTable("tb_data_protection_keys");
 	}
 }

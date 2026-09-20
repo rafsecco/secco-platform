@@ -9,6 +9,8 @@
     <!-- Identidade e OIDC (ADR-0022): OpenIddict só é referenciado pelo SecureGate -->
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
+    <!-- Chaves de Data Protection persistidas no banco de plataforma (ADR-0033) -->
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
   </ItemGroup>
 
   <ItemGroup>

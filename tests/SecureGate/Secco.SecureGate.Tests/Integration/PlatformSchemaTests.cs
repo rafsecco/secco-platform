@@ -104,6 +104,20 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 	}
 
 	[Fact]
+	public async Task DataProtectionKeys_Always_LiveInTheDatabaseWithAdr0017Naming()
+	{
+		await using var context = CreateContext();
+
+		var tables = await context.Database
+			.SqlQueryRaw<string>("SELECT TABLE_NAME AS Value FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'")
+			.ToListAsync();
+
+		// Sem persistência, as chaves ficam na máquina e todo link de convite/redefinição
+		// morre a cada reinício ou instância nova (ADR-0033).
+		tables.Should().Contain("tb_data_protection_keys");
+	}
+
+	[Fact]
 	public async Task HealthEndpoints_Always_RespondAnonymously()
 	{
 		var client = factory.CreateClient();

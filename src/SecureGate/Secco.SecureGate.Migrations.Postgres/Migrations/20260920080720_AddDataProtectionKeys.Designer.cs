@@ -2,41 +2,44 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Secco.SecureGate.Infrastructure.Contexts;
 
 #nullable disable
 
-namespace Secco.SecureGate.Migrations.SqlServer.Migrations
+namespace Secco.SecureGate.Migrations.Postgres.Migrations
 {
     [DbContext(typeof(SecureGateDbContext))]
-    partial class SecureGateDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920080720_AddDataProtectionKeys")]
+    partial class AddDataProtectionKeys
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.9")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id_pk_data_protection_key");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FriendlyName")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_friendly_name");
 
                     b.Property<string>("Xml")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_xml");
 
                     b.HasKey("Id")
@@ -49,29 +52,29 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_elevation_grant");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
 
                     b.Property<DateTimeOffset?>("ExpiresAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_expires_at");
 
                     b.Property<string>("GrantedBy")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("ds_granted_by");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_tenant");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_user");
 
                     b.HasKey("Id")
@@ -91,25 +94,25 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_tenant");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_active");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_name");
 
                     b.Property<string>("Slug")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_slug");
 
                     b.HasKey("Id")
@@ -126,31 +129,31 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_tenant_database");
 
                     b.Property<string>("ConnectionString")
                         .IsRequired()
                         .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)")
+                        .HasColumnType("character varying(4000)")
                         .HasColumnName("ds_connection_string");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
 
                     b.Property<string>("Product")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_product");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_tenant");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_updated_at");
 
                     b.HasKey("Id")
@@ -167,33 +170,33 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_tenant_federation");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
 
                     b.Property<Guid>("DirectoryId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("directory_id");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_enabled");
 
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
+                        .HasColumnType("character varying(30)")
                         .HasColumnName("ds_provider");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_tenant");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_updated_at");
 
                     b.HasKey("Id")
@@ -210,26 +213,26 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_role");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_concurrency_stamp");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_name");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_normalized_name");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_tenant");
 
                     b.HasKey("Id")
@@ -237,8 +240,7 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name")
-                        .HasFilter("[ds_normalized_name] IS NOT NULL");
+                        .HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
 
                     b.ToTable("tb_roles", (string)null);
                 });
@@ -247,21 +249,21 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id_pk_role_claim");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_claim_type");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_claim_value");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_role");
 
                     b.HasKey("Id")
@@ -277,72 +279,72 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_user");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("nr_access_failed_count");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_concurrency_stamp");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_email");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_email_confirmed");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_lockout_enabled");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_lockout_end");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_normalized_email");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_normalized_user_name");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_password_hash");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_phone_number");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_phone_number_confirmed");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_security_stamp");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_tenant");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit")
+                        .HasColumnType("boolean")
                         .HasColumnName("fl_two_factor_enabled");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
+                        .HasColumnType("character varying(256)")
                         .HasColumnName("ds_user_name");
 
                     b.HasKey("Id")
@@ -353,8 +355,7 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("uk_users_ds_normalized_user_name")
-                        .HasFilter("[ds_normalized_user_name] IS NOT NULL");
+                        .HasDatabaseName("uk_users_ds_normalized_user_name");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("idx_users_id_fk_tenant");
@@ -366,21 +367,21 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
+                        .HasColumnType("integer")
                         .HasColumnName("id_pk_user_claim");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_claim_type");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_claim_value");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_user");
 
                     b.HasKey("Id")
@@ -395,19 +396,19 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.UserLogin", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("id_pk_login_provider");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("id_pk_provider_key");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_provider_display_name");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_user");
 
                     b.HasKey("LoginProvider", "ProviderKey")
@@ -422,11 +423,11 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.UserRole", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pfk_user");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pfk_role");
 
                     b.HasKey("UserId", "RoleId")
@@ -441,19 +442,19 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.UserToken", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pfk_user");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("id_pk_login_provider");
 
                     b.Property<string>("Name")
-                        .HasColumnType("nvarchar(450)")
+                        .HasColumnType("text")
                         .HasColumnName("id_pk_name");
 
                     b.Property<string>("Value")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_value");
 
                     b.HasKey("UserId", "LoginProvider", "Name")
@@ -466,78 +467,78 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_oidc_application");
 
                     b.Property<string>("ApplicationType")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_application_type");
 
                     b.Property<string>("ClientId")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("ds_client_id");
 
                     b.Property<string>("ClientSecret")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_client_secret");
 
                     b.Property<string>("ClientType")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_client_type");
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_concurrency_token");
 
                     b.Property<string>("ConsentType")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_consent_type");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_display_name");
 
                     b.Property<string>("DisplayNames")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_display_names");
 
                     b.Property<string>("JsonWebKeySet")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_json_web_key_set");
 
                     b.Property<string>("Permissions")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_permissions");
 
                     b.Property<string>("PostLogoutRedirectUris")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_post_logout_redirect_uris");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_properties");
 
                     b.Property<string>("RedirectUris")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_redirect_uris");
 
                     b.Property<string>("Requirements")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_requirements");
 
                     b.Property<string>("Roles")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
+                        .HasColumnType("character varying(500)")
                         .HasColumnName("ds_roles");
 
                     b.Property<string>("Settings")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_settings");
 
                     b.HasKey("Id")
@@ -545,8 +546,7 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasIndex("ClientId")
                         .IsUnique()
-                        .HasDatabaseName("uk_oidc_applications_ds_client_id")
-                        .HasFilter("[ds_client_id] IS NOT NULL");
+                        .HasDatabaseName("uk_oidc_applications_ds_client_id");
 
                     b.ToTable("tb_oidc_applications", (string)null);
                 });
@@ -555,44 +555,44 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_oidc_authorization");
 
                     b.Property<Guid?>("ApplicationId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_application");
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_concurrency_token");
 
                     b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_creation_date");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_properties");
 
                     b.Property<string>("Scopes")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_scopes");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_status");
 
                     b.Property<string>("Subject")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)")
+                        .HasColumnType("character varying(400)")
                         .HasColumnName("ds_subject");
 
                     b.Property<string>("Type")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_type");
 
                     b.HasKey("Id")
@@ -608,42 +608,42 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_oidc_scope");
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_concurrency_token");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_description");
 
                     b.Property<string>("Descriptions")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_descriptions");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_display_name");
 
                     b.Property<string>("DisplayNames")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_display_names");
 
                     b.Property<string>("Name")
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("ds_name");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_properties");
 
                     b.Property<string>("Resources")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_resources");
 
                     b.HasKey("Id")
@@ -651,8 +651,7 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasIndex("Name")
                         .IsUnique()
-                        .HasDatabaseName("uk_oidc_scopes_ds_name")
-                        .HasFilter("[ds_name] IS NOT NULL");
+                        .HasDatabaseName("uk_oidc_scopes_ds_name");
 
                     b.ToTable("tb_oidc_scopes", (string)null);
                 });
@@ -661,61 +660,61 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_pk_oidc_token");
 
                     b.Property<Guid?>("ApplicationId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_application");
 
                     b.Property<Guid?>("AuthorizationId")
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("uuid")
                         .HasColumnName("id_fk_authorization");
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_concurrency_token");
 
                     b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_creation_date");
 
                     b.Property<DateTime?>("ExpirationDate")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_expiration_date");
 
                     b.Property<string>("Payload")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_payload");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("text")
                         .HasColumnName("ds_properties");
 
                     b.Property<DateTime?>("RedemptionDate")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_redemption_date");
 
                     b.Property<string>("ReferenceId")
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("ds_reference_id");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("ds_status");
 
                     b.Property<string>("Subject")
                         .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)")
+                        .HasColumnType("character varying(400)")
                         .HasColumnName("ds_subject");
 
                     b.Property<string>("Type")
                         .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)")
+                        .HasColumnType("character varying(150)")
                         .HasColumnName("ds_type");
 
                     b.HasKey("Id")
@@ -726,8 +725,7 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasIndex("ReferenceId")
                         .IsUnique()
-                        .HasDatabaseName("uk_oidc_tokens_ds_reference_id")
-                        .HasFilter("[ds_reference_id] IS NOT NULL");
+                        .HasDatabaseName("uk_oidc_tokens_ds_reference_id");
 
                     b.HasIndex("ApplicationId", "Status", "Subject", "Type")
                         .HasDatabaseName("idx_oidc_tokens_id_fk_application_ds_status_ds_subject_ds_type");
