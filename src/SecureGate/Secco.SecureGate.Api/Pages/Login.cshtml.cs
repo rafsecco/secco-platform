@@ -107,8 +107,10 @@ public sealed class LoginModel(
 
 		if (result.Succeeded)
 		{
-			// LocalRedirect: recusa URLs absolutas — sem open redirect (ADR-0020)
-			return LocalRedirect(returnUrl ?? "/");
+			// LocalRedirect: recusa URLs absolutas — sem open redirect (ADR-0020).
+			// Sem destino, a conta: o login direto é o caminho normal desde o ciclo de
+			// credencial (ADR-0033), e a raiz do servidor de identidade não serve nada.
+			return LocalRedirect(returnUrl ?? "/conta");
 		}
 
 		// Mensagem genérica: não revela se o e-mail existe (ADR-0020)

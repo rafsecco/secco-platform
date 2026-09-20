@@ -121,11 +121,13 @@ public class ChangeOwnPasswordTests(SelfIssuedAuthSecureGateApiFactory factory) 
 		using var browser = await SignedInBrowserAsync(email, IdentitySeed.Password);
 		var response = await SubmitAsync(browser, current: IdentitySeed.Password, next: NewPassword);
 
-		response.StatusCode.Should().Be(HttpStatusCode.OK);
-		(await response.Content.ReadAsStringAsync()).Should().Contain("Senha alterada");
+		response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		response.Headers.Location!.ToString().Should().StartWith("/conta");
 
 		// A sessão desta janela segue viva: o cookie foi renovado contra o novo stamp.
-		(await browser.GetAsync(Page)).StatusCode.Should().Be(HttpStatusCode.OK);
+		var conta = await browser.GetAsync("/conta");
+		conta.StatusCode.Should().Be(HttpStatusCode.OK);
+		(await conta.Content.ReadAsStringAsync()).Should().Contain(email);
 
 		// A outra sessão caiu (ADR-0032).
 		(await driver.RefreshAsync(refreshDaOutraSessao)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -147,6 +149,93 @@ public class ChangeOwnPasswordTests(SelfIssuedAuthSecureGateApiFactory factory) 
 		var aviso = factory.Emails.For(email).Should().ContainSingle().Subject;
 		aviso.Subject.Should().Contain("alterada");
 		aviso.Body.Should().NotContain(NewPassword).And.NotContain(IdentitySeed.Password);
+	}
+
+	[Fact]
+	public async Task Login_SemDestino_LevaAPaginaDaConta()
+	{
+		var email = Email();
+		await IdentitySeed.UserAsync(factory, _tenantId, email);
+
+		// Antes da ADR-0033 a tela de login só era alcançada pelo /connect/authorize, que sempre
+		// traz um destino. Com o convite e a recuperação, o login direto virou caminho normal —
+		// e sem isto ele terminava na raiz do servidor de identidade, que não serve nada.
+		using var browser = await SignedInBrowserAsync(email, IdentitySeed.Password);
+		using var recemLogado = factory.CreateClient(new WebApplicationFactoryClientOptions
+		{
+			AllowAutoRedirect = false,
+			HandleCookies = true,
+		});
+
+		var loginPage = await recemLogado.GetAsync("/login");
+		var token = OidcLoginDriver.ExtractAntiforgeryToken(await loginPage.Content.ReadAsStringAsync());
+		var login = await recemLogado.PostAsync("/login", new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["__RequestVerificationToken"] = token,
+			["Input.Email"] = email,
+			["Input.Password"] = IdentitySeed.Password,
+		}));
+
+		login.Headers.Location!.ToString().Should().Be("/conta");
+	}
+
+	[Fact]
+	public async Task Raiz_RedirecionaParaAConta()
+	{
+		using var anonimo = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+		var response = await anonimo.GetAsync("/");
+
+		response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		response.Headers.Location!.ToString().Should().Be("/conta");
+	}
+
+	[Fact]
+	public async Task Conta_SemSessao_RedirecionaParaOLogin()
+	{
+		using var anonimo = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+		var response = await anonimo.GetAsync("/conta");
+
+		response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		response.Headers.Location!.ToString().Should().Contain("/login");
+	}
+
+	[Fact]
+	public async Task Conta_ContaSoCorporativa_NaoOferceTrocaDeSenha()
+	{
+		var email = Email();
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email, IdentitySeed.Password);
+
+		using (var scope = factory.Services.CreateScope())
+		{
+			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+			var user = await context.Users.FindAsync(userId);
+			user!.LocalLoginEnabled = false;
+			await context.SaveChangesAsync();
+		}
+
+		var html = await (await browser.GetAsync("/conta")).Content.ReadAsStringAsync();
+
+		html.Should().Contain("diretório corporativo").And.NotContain("/conta/trocar-senha");
+	}
+
+	[Fact]
+	public async Task Conta_Sair_EncerraOCookie()
+	{
+		var email = Email();
+		await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email, IdentitySeed.Password);
+
+		var conta = await browser.GetAsync("/conta");
+		var token = OidcLoginDriver.ExtractAntiforgeryToken(await conta.Content.ReadAsStringAsync());
+
+		var logout = await browser.PostAsync("/conta?handler=Logout", new FormUrlEncodedContent(
+			new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
+
+		logout.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		(await browser.GetAsync("/conta")).Headers.Location!.ToString().Should().Contain("/login");
 	}
 
 	[Fact]

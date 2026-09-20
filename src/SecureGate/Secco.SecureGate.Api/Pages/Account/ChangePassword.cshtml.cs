@@ -37,9 +37,6 @@ public sealed class ChangePasswordModel(
 	[BindProperty]
 	public InputModel Input { get; set; } = new();
 
-	/// <summary>Verdadeiro depois da troca bem-sucedida.</summary>
-	public bool Changed { get; private set; }
-
 	/// <summary>Mensagem de erro do formulário.</summary>
 	public string? ErrorMessage { get; private set; }
 
@@ -97,9 +94,8 @@ public sealed class ChangePasswordModel(
 				// Depois da revogação: o cookie antigo carrega o stamp antigo e seria recusado
 				// pelo /connect/authorize na próxima navegação.
 				await signInManager.RefreshSignInAsync(user).ConfigureAwait(false);
-				Changed = true;
 
-				return Page();
+				return RedirectToPage("/Account/Index", new { senhaAlterada = true });
 
 			case CredentialTokenOutcome.WeakPassword:
 				ErrorMessage = "A senha não atende à política: use ao menos 8 caracteres, com maiúscula, minúscula, número e símbolo.";

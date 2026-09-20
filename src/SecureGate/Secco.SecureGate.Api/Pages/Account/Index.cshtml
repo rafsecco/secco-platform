@@ -1,0 +1,27 @@
+@page "/conta"
+@model Secco.SecureGate.Api.Pages.Account.IndexModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Minha conta";
+}
+
+<h1>Minha conta</h1>
+<p class="sub">@Model.Email</p>
+
+@if (Model.PasswordChanged)
+{
+    <div class="notice" role="status">Senha alterada. As outras sessões desta conta foram encerradas.</div>
+}
+
+@if (Model.UsesLocalPassword)
+{
+    <p style="margin-top:1rem"><a href="/conta/trocar-senha">Trocar minha senha</a></p>
+}
+else
+{
+    <p class="sub" style="margin-top:1rem">Esta conta entra pelo diretório corporativo e não usa senha local.</p>
+}
+
+<form method="post" asp-page-handler="Logout">
+    <button type="submit" class="secondary">Sair</button>
+</form>

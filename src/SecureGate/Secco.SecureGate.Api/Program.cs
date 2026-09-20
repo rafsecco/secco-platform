@@ -54,6 +54,10 @@ var app = builder.Build();
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();
 app.MapRazorPages();
+
+// A raiz do servidor de identidade não serve nada por si: manda para a conta, que por sua vez
+// exige sessão e cai no login. Sem isto, quem entra pelo login direto fica numa página vazia.
+app.MapGet("/", () => Results.Redirect("/conta")).AllowAnonymous().ExcludeFromDescription();
 app.MapTokenEndpoints();
 app.MapInteractiveEndpoints();
 app.MapFederatedLoginEndpoints();
