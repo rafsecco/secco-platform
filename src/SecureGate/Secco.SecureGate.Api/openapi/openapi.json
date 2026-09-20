@@ -2179,7 +2179,9 @@
           "lockoutEnd",
           "roles",
           "effectivePermissions",
-          "externalLogins"
+          "externalLogins",
+          "hasPassword",
+          "localLoginEnabled"
         ],
         "type": "object",
         "properties": {
@@ -2221,6 +2223,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "hasPassword": {
+            "type": "boolean"
+          },
+          "localLoginEnabled": {
+            "type": "boolean"
           }
         }
       },
