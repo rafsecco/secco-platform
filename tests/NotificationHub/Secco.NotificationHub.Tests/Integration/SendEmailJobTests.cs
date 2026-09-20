@@ -2,6 +2,7 @@ using FluentAssertions;
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Domain.Notifications;
 using Secco.NotificationHub.Infrastructure.Email;
+using Secco.SDK.Email;
 using Secco.SharedKernel.Pagination;
 using Xunit;
 
@@ -54,9 +55,9 @@ public class SendEmailJobTests
 			throw new NotSupportedException("Não exercitado pelos testes do job de envio.");
 	}
 
-	private sealed class FakeSender(Exception? failWith = null) : IEmailSender
+	private sealed class FakeSender(Exception? failWith = null) : ISeccoEmailSender
 	{
-		public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken) =>
+		public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken = default) =>
 			failWith is null ? Task.CompletedTask : throw failWith;
 	}
 

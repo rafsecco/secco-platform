@@ -1,4 +1,4 @@
-using Secco.NotificationHub.Infrastructure.Email;
+using Secco.SDK.Email;
 
 namespace Secco.NotificationHub.Tests.Integration;
 
@@ -7,12 +7,12 @@ namespace Secco.NotificationHub.Tests.Integration;
 /// o destinatário decide o comportamento — permite exercitar o job de envio real
 /// (Hangfire + Testcontainers) sem depender de infraestrutura de e-mail externa.
 /// </summary>
-internal sealed class FakeEmailSender : IEmailSender
+internal sealed class FakeEmailSender : ISeccoEmailSender
 {
 	/// <summary>Destinatário que sempre falha no envio — para testar o caminho de erro.</summary>
 	public const string AlwaysFailingRecipient = "fail-always@notificationhub.test";
 
-	public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken) =>
+	public Task SendAsync(string recipient, string subject, string body, CancellationToken cancellationToken = default) =>
 		recipient == AlwaysFailingRecipient
 			? throw new InvalidOperationException("Falha de envio simulada pelo teste.")
 			: Task.CompletedTask;

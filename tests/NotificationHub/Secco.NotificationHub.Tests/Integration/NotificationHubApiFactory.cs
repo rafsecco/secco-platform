@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Secco.NotificationHub.Infrastructure;
-using Secco.NotificationHub.Infrastructure.Email;
+using Secco.SDK.Email;
 using Secco.SDK.Testing;
 
 namespace Secco.NotificationHub.Tests.Integration;
@@ -43,7 +43,7 @@ public sealed class NotificationHubApiFactory : SeccoApiFactory<Program>
 			"in-app-notifications:write");
 
 		// A configuração de e-mail é validada no startup desde a issue #14 (fail-fast, ADR-0020).
-		// O envio em si nunca acontece — o IEmailSender é substituído por um fake logo abaixo —,
+		// O envio em si nunca acontece — o ISeccoEmailSender é substituído por um fake logo abaixo —,
 		// mas o host precisa subir, e um deployment real sempre configura isto.
 		settings["NotificationHub:Email:FromAddress"] = "no-reply@secco.test";
 		settings["NotificationHub:Email:Host"] = "localhost";
@@ -57,7 +57,7 @@ public sealed class NotificationHubApiFactory : SeccoApiFactory<Program>
 	protected override void ConfigureTestServices(IServiceCollection services)
 	{
 		// Sem SMTP real em teste: substitui o sender real pelo fake (ADR-0012)
-		services.AddScoped<IEmailSender, FakeEmailSender>();
+		services.AddScoped<ISeccoEmailSender, FakeEmailSender>();
 	}
 
 	/// <summary>

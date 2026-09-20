@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Application.InAppNotifications;
@@ -10,7 +9,7 @@ using Secco.NotificationHub.Infrastructure.Email;
 using Secco.NotificationHub.Infrastructure.Repositories;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.AspNetCore.Tenancy;
-using SendGrid;
+using Secco.SDK.Email;
 
 namespace Secco.NotificationHub.Infrastructure;
 
@@ -32,18 +31,16 @@ public static class NotificationHubInfrastructureExtensions
 		// helper caseiro (ADR-0027).
 		services.AddOptions<NotificationHubDatabaseOptions>().BindConfiguration("NotificationHub:Database");
 		services.AddOptions<NotificationHubOptions>().BindConfiguration("NotificationHub:Limits");
-		services.AddOptions<NotificationHubEmailOptions>()
-			.BindConfiguration("NotificationHub:Email")
-			.ValidateOnStart();
-		services.TryAddSingleton<IValidateOptions<NotificationHubEmailOptions>, NotificationHubEmailOptionsValidator>();
 
 		// A camada Application recebe o POCO, nunca IOptions<T>: a csproj dela declara
 		// "única dependência externa: abstrações de DI" (ADR-0002/ADR-0003). O adaptador vive
 		// aqui, na composição, e preserva o bind lazy do framework.
 		services.AddSingleton(serviceProvider =>
 			serviceProvider.GetRequiredService<IOptions<NotificationHubOptions>>().Value);
-		services.AddSingleton(serviceProvider =>
-			serviceProvider.GetRequiredService<IOptions<NotificationHubEmailOptions>>().Value);
+
+		// Envio de e-mail (ADR-0033): porta e adaptadores promovidos ao Secco.SDK.Email — a
+		// seção de configuração continua sendo NotificationHub:Email, sem quebra.
+		services.AddSeccoEmail("NotificationHub:Email");
 
 		services.AddDbContext<NotificationHubDbContext>((serviceProvider, options) =>
 		{
@@ -58,24 +55,6 @@ public static class NotificationHubInfrastructureExtensions
 
 		services.AddScoped<INotificationRepository, NotificationRepository>();
 		services.AddScoped<IInAppNotificationRepository, InAppNotificationRepository>();
-		// Seleção do provider de e-mail (issue #14). O que troca é só a implementação da porta;
-		// o job, o retry e o status seguem idênticos entre um provider e outro.
-		services.AddScoped<IEmailSender>(serviceProvider =>
-		{
-			var emailOptions = serviceProvider.GetRequiredService<NotificationHubEmailOptions>();
-
-			return emailOptions.Provider switch
-			{
-				NotificationHubEmailProvider.SendGrid => new SendGridEmailSender(
-					serviceProvider.GetRequiredService<ISendGridClient>(), emailOptions),
-				_ => new MailKitEmailSender(emailOptions),
-			};
-		});
-
-		// O client do SendGrid é singleton por envolver HttpClient; só é construído se o
-		// provider selecionado for esse — a chave de API não precisa existir no caso SMTP.
-		services.AddSingleton<ISendGridClient>(serviceProvider =>
-			new SendGridClient(serviceProvider.GetRequiredService<NotificationHubEmailOptions>().ApiKey));
 
 		// Canais externos (ADR-0029). Um provider por ferramenta, cada um com HttpClient nomeado
 		// que herda a resiliência do SDK. Não há provider genérico por baixo, de propósito.

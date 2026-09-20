@@ -1,6 +1,7 @@
 using Secco.NotificationHub.Application.Notifications;
 using Secco.NotificationHub.Domain.Notifications;
 using Secco.SDK.AspNetCore.BackgroundJobs;
+using Secco.SDK.Email;
 
 namespace Secco.NotificationHub.Infrastructure.Email;
 
@@ -12,7 +13,7 @@ namespace Secco.NotificationHub.Infrastructure.Email;
 /// pendente, o status pode aparecer como <c>Failed</c> transitoriamente — simplificação
 /// consciente do v1 (documentada no README do produto).
 /// </summary>
-internal sealed class SendEmailJob(INotificationRepository repository, IEmailSender emailSender)
+internal sealed class SendEmailJob(INotificationRepository repository, ISeccoEmailSender emailSender)
 	: IBackgroundJob<SendEmailPayload>
 {
 	/// <summary>Tamanho máximo do motivo de falha persistido (ADR-0020: mensagens de exceção não têm teto natural).</summary>

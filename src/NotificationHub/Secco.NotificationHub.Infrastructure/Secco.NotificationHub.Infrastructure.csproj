@@ -6,10 +6,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <!-- Envio de e-mail (Fase 8): MailKit em vez do System.Net.Mail.SmtpClient obsoleto -->
-    <PackageReference Include="MailKit" />
-    <!-- Segundo provider de e-mail (issue #14): SDK oficial da Twilio -->
-    <PackageReference Include="SendGrid" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +13,8 @@
     <ProjectReference Include="..\..\SDK\Secco.SDK.EntityFrameworkCore\Secco.SDK.EntityFrameworkCore.csproj" />
     <!-- Tenancy (ITenantConnectionFactory/ITenantCatalog) vive no SDK.AspNetCore (ADR-0004/0005) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <!-- Envio de e-mail (ADR-0033): porta e adaptadores promovidos ao pacote fino Secco.SDK.Email -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.Email\Secco.SDK.Email.csproj" />
   </ItemGroup>
 
 </Project>

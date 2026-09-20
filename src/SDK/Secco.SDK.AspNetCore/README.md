@@ -143,7 +143,7 @@ builder.Services.AddSeccoBackgroundJobs(serviceProvider =>
 ```
 
 ```csharp
-public sealed class SendEmailJob(INotificationRepository repository, IEmailSender sender) : IBackgroundJob<SendEmailPayload>
+public sealed class SendEmailJob(INotificationRepository repository, ISeccoEmailSender sender) : IBackgroundJob<SendEmailPayload>
 {
     public async Task ExecuteAsync(SendEmailPayload payload, CancellationToken cancellationToken)
     {
