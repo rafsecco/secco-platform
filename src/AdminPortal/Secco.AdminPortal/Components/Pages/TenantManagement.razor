@@ -62,7 +62,14 @@ else
         <div class="form-card">
             <h3>Novo usuário</h3>
             <label>E-mail<input type="email" @bind="_newUserEmail" autocomplete="off" /></label>
-            <label>Senha inicial<input type="password" @bind="_newUserPassword" autocomplete="new-password" /></label>
+            @* ADR-0033: o operador não escolhe senha de ninguém — ou a pessoa recebe convite,
+               ou a conta entra só pelo diretório corporativo. *@
+            <label>Acesso
+                <select @bind="_newUserLocalLogin">
+                    <option value="true">Com senha local (envia convite por e-mail)</option>
+                    <option value="false">Só login corporativo (Entra ID)</option>
+                </select>
+            </label>
             @if (_roles is { Count: > 0 })
             {
                 <fieldset>
@@ -160,7 +167,7 @@ else
     private bool _busy;
 
     private string _newUserEmail = string.Empty;
-    private string _newUserPassword = string.Empty;
+    private bool _newUserLocalLogin = true;
     private readonly HashSet<string> _newUserRoles = new(StringComparer.Ordinal);
     private string _newRoleName = string.Empty;
     private string _newDbProduct = string.Empty;
@@ -199,19 +206,24 @@ else
 
     private async Task CreateUserAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newUserEmail) || string.IsNullOrWhiteSpace(_newUserPassword))
+        if (string.IsNullOrWhiteSpace(_newUserEmail))
         {
-            SetError("Informe e-mail e senha.");
+            SetError("Informe o e-mail.");
             return;
         }
 
         await RunAsync(async () =>
         {
-            await UserAdminService.CreateUserAsync(TenantId, _newUserEmail.Trim(), _newUserPassword, [.. _newUserRoles]);
-            _newUserEmail = _newUserPassword = string.Empty;
+            var email = _newUserEmail.Trim();
+            await UserAdminService.CreateUserAsync(TenantId, email, _newUserLocalLogin, [.. _newUserRoles]);
+            _newUserEmail = string.Empty;
             _newUserRoles.Clear();
+            var localLogin = _newUserLocalLogin;
+            _newUserLocalLogin = true;
             await ReloadUsersAsync();
-            _message = "Usuário criado.";
+            _message = localLogin
+                ? $"Usuário criado. Convite enviado para {email}."
+                : "Usuário criado. O acesso é pelo diretório corporativo.";
         });
     }
 

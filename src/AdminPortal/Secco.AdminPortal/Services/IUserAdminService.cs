@@ -10,14 +10,21 @@ public interface IUserAdminService
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<IReadOnlyList<UserSummary>> ListUsersAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
-	/// <summary>Cria um usuário no tenant (senha hasheada no servidor pelo SecureGate).</summary>
+	/// <summary>
+	/// Cria um usuário no tenant. O operador não define senha (ADR-0033): com
+	/// <paramref name="localLogin"/> ligado, o SecureGate envia o convite para a própria pessoa
+	/// escolher a credencial.
+	/// </summary>
 	/// <param name="tenantId">Identificador do tenant.</param>
 	/// <param name="email">E-mail (também o username).</param>
-	/// <param name="password">Senha inicial.</param>
+	/// <param name="localLogin">
+	/// <see langword="true"/> envia convite por e-mail; <see langword="false"/> cria conta que entra
+	/// só pelo diretório corporativo.
+	/// </param>
 	/// <param name="roles">Roles a atribuir.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task CreateUserAsync(
-		Guid tenantId, string email, string password, IReadOnlyList<string> roles,
+		Guid tenantId, string email, bool localLogin, IReadOnlyList<string> roles,
 		CancellationToken cancellationToken = default);
 
 	/// <summary>Obtém o detalhe de um usuário, com permissões efetivas e logins externos.</summary>
@@ -60,7 +67,7 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 	}
 
 	public async Task CreateUserAsync(
-		Guid tenantId, string email, string password, IReadOnlyList<string> roles,
+		Guid tenantId, string email, bool localLogin, IReadOnlyList<string> roles,
 		CancellationToken cancellationToken = default)
 	{
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
@@ -68,7 +75,7 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		await client.CreateUserAsync(tenantId, new CreateUserRequest
 		{
 			Email = email,
-			Password = password,
+			LocalLogin = localLogin,
 			Roles = [.. roles],
 		}, cancellationToken).ConfigureAwait(false);
 	}

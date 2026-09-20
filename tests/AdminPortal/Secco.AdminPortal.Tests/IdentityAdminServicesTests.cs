@@ -40,17 +40,34 @@ public class IdentityAdminServicesTests
 	}
 
 	[Fact]
-	public async Task CreateUser_SendsEmailPasswordAndRoles()
+	public async Task CreateUser_SendsEmailLocalLoginAndRoles()
 	{
 		var (factory, client) = BuildFactory();
 		var tenantId = Guid.NewGuid();
 
 		await new SecureGateUserAdminService(factory)
-			.CreateUserAsync(tenantId, "novo@acme.test", "S3nha@Forte!", ["leitor"]);
+			.CreateUserAsync(tenantId, "novo@acme.test", localLogin: true, ["leitor"]);
+
+		// Nenhuma senha sai do portal (ADR-0033): o operador escolhe o MODO de acesso, e quem
+		// define a credencial é a própria pessoa, pelo convite.
+		await client.Received(1).CreateUserAsync(
+			tenantId,
+			Arg.Is<CreateUserRequest>(r => r.Email == "novo@acme.test" && r.LocalLogin == true && r.Roles.Contains("leitor")),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task CreateUser_SoLoginCorporativo_NaoPedeConvite()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory)
+			.CreateUserAsync(tenantId, "terceiro@acme.test", localLogin: false, []);
 
 		await client.Received(1).CreateUserAsync(
 			tenantId,
-			Arg.Is<CreateUserRequest>(r => r.Email == "novo@acme.test" && r.Password == "S3nha@Forte!" && r.Roles.Contains("leitor")),
+			Arg.Is<CreateUserRequest>(r => r.LocalLogin == false),
 			Arg.Any<CancellationToken>());
 	}
 
