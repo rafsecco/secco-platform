@@ -18,6 +18,9 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// <summary>Connection string do banco de PLATAFORMA (ADR-0022 — identidade não é dado de tenant).</summary>
 	public string GetPlatformConnectionString() => GetConnectionStringFor("secco_securegate");
 
+	/// <summary>Base pública dos links de credencial nos testes (ADR-0033: nunca vem do header Host).</summary>
+	public const string PublicBaseUrl = "https://id.testes.local";
+
 	/// <summary>Aplica migrations + seed de referência (scopes) — a base garante a chamada única.</summary>
 	protected override async Task MigrateAsync(IServiceProvider services)
 	{
@@ -121,5 +124,16 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
 	{
 		settings["SecureGate:Database:ConnectionString"] = GetPlatformConnectionString();
+
+		// Credenciais (ADR-0033): a seção de e-mail e a base pública são validadas no startup,
+		// então sem estas chaves nenhuma suíte sobe. O envio em si é trocado por um dublê nos
+		// testes que o exercitam; aqui só se satisfaz o fail-fast.
+		settings["SecureGate:PublicBaseUrl"] = PublicBaseUrl;
+		settings["SecureGate:Email:Host"] = "smtp.testes.local";
+		settings["SecureGate:Email:FromAddress"] = "no-reply@testes.local";
+
+		// Piso de tempo da resposta do "esqueci minha senha" zerado: em teste ele só deixaria a
+		// suíte lenta — a resposta idêntica, que é a proteção de verdade, continua valendo.
+		settings["SecureGate:Credentials:ResponseFloorMilliseconds"] = "0";
 	}
 }

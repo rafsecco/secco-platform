@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
 
@@ -49,7 +50,11 @@ public static class SecureGateIdentityExtensions
 			.AddRoles<Role>()
 			.AddEntityFrameworkStores<SecureGateDbContext>()
 			.AddSignInManager()
-			.AddDefaultTokenProviders();
+			.AddDefaultTokenProviders()
+			// Convite e redefinição têm janelas próprias (ADR-0033); as validades vêm de
+			// SecureGate:Credentials pela composição de AddSecureGateCredentials.
+			.AddTokenProvider<InviteTokenProvider>(CredentialTokenProviders.Invite)
+			.AddTokenProvider<ResetTokenProvider>(CredentialTokenProviders.Reset);
 
 		// Cookies do Identity como esquemas NÃO-DEFAULT (o default segue JwtBearer, ADR-0007).
 		// O endpoint de autorização faz Challenge explícito no ApplicationScheme → tela de login.

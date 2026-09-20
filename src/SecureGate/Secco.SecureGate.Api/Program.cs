@@ -30,6 +30,9 @@ builder.Services.AddSecureGateInfrastructure();
 // ASP.NET Identity para o login interativo (cookie não-default; o padrão segue JwtBearer)
 builder.Services.AddSecureGateIdentity(builder.Environment);
 
+// Ciclo de credencial (ADR-0033): e-mail, base pública dos links e validade dos tokens
+builder.Services.AddSecureGateCredentials();
+
 // Servidor OIDC (ADR-0022): client credentials (máquinas) + authorization code/PKCE (usuários)
 builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configuration);
 

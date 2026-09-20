@@ -83,9 +83,18 @@ services:
         condition: service_healthy
       sqlserver-init:
         condition: service_completed_successfully
+      mailhog:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_HTTP_PORTS: "8080"
+      # Convite e recuperação (ADR-0033): SMTP do MailHog, e a base pública dos links, que
+      # nunca vem do header Host — aqui é a porta publicada pelo compose.
+      SecureGate__Email__Host: "mailhog"
+      SecureGate__Email__Port: "1025"
+      SecureGate__Email__UseStartTls: "false"
+      SecureGate__Email__FromAddress: "no-reply@secco.local"
+      SecureGate__PublicBaseUrl: "http://localhost:4101"
       # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
       # de container), aqui precisa apontar para o serviço sqlserver do compose.
       SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=secco_securegate_app;Password=Secco@Dev123;TrustServerCertificate=true"

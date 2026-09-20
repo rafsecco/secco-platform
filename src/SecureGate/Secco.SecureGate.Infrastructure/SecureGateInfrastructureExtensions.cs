@@ -8,6 +8,7 @@ using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Application.Provisioning;
+using Secco.SecureGate.Infrastructure.Credentials;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Provisioning;
 using Secco.SecureGate.Infrastructure.Seeding;
@@ -40,6 +41,17 @@ public static class SecureGateInfrastructureExtensions
 
 			return options;
 		});
+
+		// Ciclo de credencial (ADR-0033): validade dos links, limites da recuperação e a base
+		// pública de onde os links são montados — esta última mora um nível acima da seção, por
+		// não ser só de credencial, e NUNCA é derivada do header Host (ADR-0020).
+		services.AddOptions<CredentialOptions>()
+			.BindConfiguration(CredentialOptions.SectionKey)
+			.Configure<IConfiguration>((options, configuration) =>
+				options.PublicBaseUrl = configuration[CredentialOptions.PublicBaseUrlKey])
+			.ValidateOnStart();
+		services.TryAddSingleton<IValidateOptions<CredentialOptions>, CredentialOptionsValidator>();
+		services.TryAddSingleton(serviceProvider => serviceProvider.GetRequiredService<IOptions<CredentialOptions>>().Value);
 
 		// Cifragem em repouso da connection string do catálogo (ADR-0025): options validadas
 		// no startup (fail-fast) + cipher AES-256-GCM injetado no contexto (value converter).
