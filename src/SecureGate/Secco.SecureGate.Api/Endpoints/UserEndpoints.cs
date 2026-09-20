@@ -61,6 +61,33 @@ public static class UserEndpoints
 			.ProducesProblem(StatusCodes.Status404NotFound)
 			.ProducesProblem(StatusCodes.Status409Conflict);
 
+		group.MapPost("/{userId:guid}/password-reset", async (
+				Guid tenantId,
+				Guid userId,
+				AdminResetPasswordHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("ResetUserPassword")
+			.WithSummary("Envia o link de redefinição para o usuário e encerra as sessões dele na hora (ADR-0033).")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
+		group.MapPost("/{userId:guid}/local-login", async (
+				Guid tenantId,
+				Guid userId,
+				SetLocalLoginRequest request,
+				SetLocalLoginHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, request.Enabled, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("SetUserLocalLogin")
+			.WithSummary("Liga ou desliga a senha local da conta; desligar apaga a senha e encerra as sessões (ADR-0033).")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		group.MapPost("/{userId:guid}/deactivate", async (
 				Guid tenantId,
 				Guid userId,
