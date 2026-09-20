@@ -44,6 +44,8 @@ public sealed class GetUserHandler(IUserDirectory userDirectory, GetRolePermissi
 			status == UserStatuses.LockedOut ? account.LockoutEnd : null,
 			account.Roles,
 			[.. effective],
-			account.ExternalLogins);
+			account.ExternalLogins,
+			account.HasPassword,
+			account.LocalLoginEnabled);
 	}
 }

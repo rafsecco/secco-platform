@@ -294,7 +294,9 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			.OrderBy(provider => provider)
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
-		return new UserAccountData(user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins);
+		return new UserAccountData(
+			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
+			user.PasswordHash is not null, user.LocalLoginEnabled);
 	}
 
 	public Task<UserSessionState?> GetSessionStateAsync(Guid userId, CancellationToken cancellationToken = default) =>

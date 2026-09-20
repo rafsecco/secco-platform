@@ -11,6 +11,12 @@ public sealed class User : IdentityUser<Guid>
 {
 	/// <summary>Tenant do usuário (ADR-0022: o registro carrega o tenant — sem descoberta ambígua no login).</summary>
 	public Guid TenantId { get; set; }
+
+	/// <summary>
+	/// Se a conta aceita login local (usuário/senha, ADR-0033). Contas só-federadas (ADR-0026)
+	/// desligam este login sem apagar a senha eventualmente existente. Nasce <c>true</c>.
+	/// </summary>
+	public bool LocalLoginEnabled { get; set; } = true;
 }
 
 /// <summary>Role (perfil) por tenant — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -48,6 +49,40 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		user.GetProperty("lockoutEnd").ValueKind.Should().Be(JsonValueKind.Null);
 		Strings(user, "roles").Should().BeEquivalentTo("editor", "leitor");
 		Strings(user, "effectivePermissions").Should().Equal("documentos:read", "documentos:write");
+	}
+
+	[Fact]
+	public async Task GetUser_ContaComSenha_TemSenhaEPermiteLoginLocal()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+
+		var user = await GetUserAsync(userId);
+
+		user.GetProperty("hasPassword").GetBoolean().Should().BeTrue();
+		user.GetProperty("localLoginEnabled").GetBoolean().Should().BeTrue("a conta nasce com login local habilitado (ADR-0033)");
+	}
+
+	[Fact]
+	public async Task GetUser_ContaAindaSemSenha_HasPasswordFalso()
+	{
+		// Simula o estado transitório entre o provisionamento e o convite aceito (ADR-0033,
+		// Tarefa 7): o Identity permite criar o usuário sem senha via CreateAsync(user).
+		using var scope = factory.Services.CreateScope();
+		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+		var user = new User
+		{
+			Id = Guid.CreateVersion7(),
+			TenantId = _tenantId,
+			UserName = Email(),
+			Email = Email(),
+			EmailConfirmed = true,
+		};
+		(await userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
+		var detail = await GetUserAsync(user.Id);
+
+		detail.GetProperty("hasPassword").GetBoolean().Should().BeFalse("ninguém definiu senha ainda");
+		detail.GetProperty("localLoginEnabled").GetBoolean().Should().BeTrue();
 	}
 
 	[Fact]

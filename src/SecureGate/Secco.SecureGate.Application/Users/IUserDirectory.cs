@@ -17,6 +17,8 @@ public sealed record CreateUserData(Guid TenantId, string Email, string Password
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
 /// <param name="Roles">Perfis, por nome.</param>
 /// <param name="ExternalLogins">Nomes dos provedores externos vinculados.</param>
+/// <param name="HasPassword">Se a conta já tem hash de senha definido (ADR-0033).</param>
+/// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -24,7 +26,9 @@ public sealed record UserAccountData(
 	bool LockoutEnabled,
 	DateTimeOffset? LockoutEnd,
 	IReadOnlyList<string> Roles,
-	IReadOnlyList<string> ExternalLogins);
+	IReadOnlyList<string> ExternalLogins,
+	bool HasPassword,
+	bool LocalLoginEnabled);
 
 /// <summary>Resultado de atribuir ou remover perfil.</summary>
 public enum RoleAssignmentOutcome

@@ -298,6 +298,10 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .HasColumnType("bit")
                         .HasColumnName("fl_email_confirmed");
 
+                    b.Property<bool>("LocalLoginEnabled")
+                        .HasColumnType("bit")
+                        .HasColumnName("fl_local_login_enabled");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit")
                         .HasColumnName("fl_lockout_enabled");

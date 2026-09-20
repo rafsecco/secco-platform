@@ -9,6 +9,12 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="Roles">Perfis.</param>
 /// <param name="EffectivePermissions">União das permissões dos perfis, pela resolução dos produtos.</param>
 /// <param name="ExternalLogins">Provedores externos vinculados — só o nome, nunca o identificador.</param>
+/// <param name="HasPassword">Se a conta já tem senha definida (ADR-0033: nasce sem, até o convite ser aceito).</param>
+/// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
+/// <remarks>
+/// <paramref name="HasPassword"/> e <paramref name="LocalLoginEnabled"/> entram NO FIM: o record é
+/// posicional e consumido pelo client NSwag — inserir no meio renumeraria os campos existentes.
+/// </remarks>
 public sealed record UserDetailDto(
 	Guid Id,
 	string Email,
@@ -17,4 +23,6 @@ public sealed record UserDetailDto(
 	DateTimeOffset? LockoutEnd,
 	IReadOnlyList<string> Roles,
 	IReadOnlyList<string> EffectivePermissions,
-	IReadOnlyList<string> ExternalLogins);
+	IReadOnlyList<string> ExternalLogins,
+	bool HasPassword,
+	bool LocalLoginEnabled);
