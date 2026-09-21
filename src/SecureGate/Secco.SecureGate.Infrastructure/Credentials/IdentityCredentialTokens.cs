@@ -146,6 +146,59 @@ internal sealed class IdentityCredentialTokens(
 	}
 
 	/// <inheritdoc />
+	public async Task<bool> IsEmailAvailableAsync(string email, CancellationToken cancellationToken = default) =>
+		await userManager.FindByEmailAsync(email).ConfigureAwait(false) is null;
+
+	/// <inheritdoc />
+	public async Task<string> CreateEmailChangeTokenAsync(
+		Guid userId,
+		string newEmail,
+		CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false)
+			?? throw new InvalidOperationException("Usuário inexistente ao gerar token de troca de e-mail.");
+
+		// O Identity monta o propósito como "ChangeEmail:{novo}", prendendo o token ao destino.
+		return await userManager.GenerateChangeEmailTokenAsync(user, newEmail).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
+	public async Task<CredentialTokenOutcome> ChangeEmailAsync(
+		Guid userId,
+		string newEmail,
+		string token,
+		CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+
+		if (user is null)
+		{
+			return CredentialTokenOutcome.InvalidToken;
+		}
+
+		// Alguém pode ter tomado o endereço entre o pedido e a confirmação.
+		if (await userManager.FindByEmailAsync(newEmail).ConfigureAwait(false) is not null)
+		{
+			return CredentialTokenOutcome.NotAllowed;
+		}
+
+		if (!(await userManager.ChangeEmailAsync(user, newEmail, token).ConfigureAwait(false)).Succeeded)
+		{
+			return CredentialTokenOutcome.InvalidToken;
+		}
+
+		// O ChangeEmailAsync só mexe no e-mail; na plataforma o username é o mesmo dado.
+		return (await userManager.SetUserNameAsync(user, newEmail).ConfigureAwait(false)).Succeeded
+			? CredentialTokenOutcome.Done
+			: CredentialTokenOutcome.NotAllowed;
+	}
+
+	/// <inheritdoc />
+	public async Task<bool> CheckPasswordAsync(Guid userId, string password, CancellationToken cancellationToken = default) =>
+		await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false) is { } user
+			&& await userManager.CheckPasswordAsync(user, password).ConfigureAwait(false);
+
+	/// <inheritdoc />
 	public async Task RemovePasswordAsync(Guid userId, CancellationToken cancellationToken = default)
 	{
 		if (await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false) is { } user

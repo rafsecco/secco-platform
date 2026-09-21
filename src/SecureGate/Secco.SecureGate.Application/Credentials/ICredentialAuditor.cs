@@ -23,6 +23,15 @@ public enum CredentialAuditEvent
 
 	/// <summary>Login local religado — segue um convite.</summary>
 	LocalLoginEnabled,
+
+	/// <summary>Troca de e-mail pedida pelo dono da conta.</summary>
+	EmailChangeRequested,
+
+	/// <summary>Troca de e-mail confirmada pelo link.</summary>
+	EmailChanged,
+
+	/// <summary>Vínculo com provedor externo removido pelo admin.</summary>
+	ExternalLoginRemoved,
 }
 
 /// <summary>

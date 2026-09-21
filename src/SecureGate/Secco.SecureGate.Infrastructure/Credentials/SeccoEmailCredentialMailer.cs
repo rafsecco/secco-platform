@@ -23,6 +23,9 @@ internal sealed class SeccoEmailCredentialMailer(ISeccoEmailSender sender, Crede
 	/// <summary>Caminho da página de redefinição.</summary>
 	public const string ResetPasswordPath = "/conta/redefinir-senha";
 
+	/// <summary>Caminho da página que confirma a troca de e-mail.</summary>
+	public const string ConfirmEmailPath = "/conta/confirmar-email";
+
 	/// <inheritdoc />
 	public Task SendInviteAsync(string recipient, Guid userId, string token, CancellationToken cancellationToken = default)
 	{
@@ -61,6 +64,59 @@ internal sealed class SeccoEmailCredentialMailer(ISeccoEmailSender sender, Crede
 			Se não foi você, ignore este e-mail — a senha atual continua valendo.
 			""",
 			cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public Task SendEmailChangeConfirmationAsync(
+		string newRecipient,
+		Guid userId,
+		string newEmail,
+		string token,
+		CancellationToken cancellationToken = default)
+	{
+		var link = options.BuildLink(
+			ConfirmEmailPath,
+			$"userId={userId}&email={Uri.EscapeDataString(newEmail)}&token={Uri.EscapeDataString(token)}");
+		var minutos = options.ResetLifetimeMinutes.ToString(CultureInfo.InvariantCulture);
+
+		return sender.SendAsync(
+			newRecipient,
+			"Confirme seu novo e-mail",
+			$"""
+			Pediram para que este endereço passe a ser o acesso de uma conta da plataforma.
+
+			Confirme aqui: {link}
+
+			O link vale por {minutos} minutos e só serve para este endereço.
+			Se não foi você, ignore este e-mail: sem a confirmação, nada muda.
+			""",
+			cancellationToken);
+	}
+
+	/// <inheritdoc />
+	public Task SendEmailChangeNoticeAsync(
+		string currentRecipient,
+		string newEmail,
+		CancellationToken cancellationToken = default) =>
+		sender.SendAsync(
+			currentRecipient,
+			"Pediram a troca do e-mail da sua conta",
+			$"""
+			Pediram para trocar o e-mail desta conta para {Mask(newEmail)}.
+
+			Se foi você, confirme pelo link enviado ao endereço novo. Se não foi, troque sua senha
+			agora e fale com o administrador do seu tenant: quem pediu tem acesso à sua sessão.
+			""",
+			cancellationToken);
+
+	/// <summary>Mascara o destino: quem não tem a caixa nova não descobre qual é.</summary>
+	private static string Mask(string email)
+	{
+		var at = email.IndexOf('@', StringComparison.Ordinal);
+
+		return at <= 1
+			? "***"
+			: string.Concat(email.AsSpan(0, 1), "***", email.AsSpan(at));
 	}
 
 	/// <inheritdoc />

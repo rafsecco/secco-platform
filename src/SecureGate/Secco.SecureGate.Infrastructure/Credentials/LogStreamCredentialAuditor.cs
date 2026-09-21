@@ -76,6 +76,9 @@ internal sealed partial class LogStreamCredentialAuditor(
 		CredentialAuditEvent.LinkRejected => "link-recusado",
 		CredentialAuditEvent.LocalLoginDisabled => "login-local-desligado",
 		CredentialAuditEvent.LocalLoginEnabled => "login-local-religado",
+		CredentialAuditEvent.EmailChangeRequested => "email-troca-solicitada",
+		CredentialAuditEvent.EmailChanged => "email-trocado",
+		CredentialAuditEvent.ExternalLoginRemoved => "vinculo-externo-removido",
 		_ => "desconhecido",
 	};
 

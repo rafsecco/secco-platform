@@ -103,6 +103,40 @@ public interface ICredentialTokens
 		string newPassword,
 		CancellationToken cancellationToken = default);
 
+	/// <summary>Indica se o endereço ainda não pertence a nenhuma conta (o e-mail é único global).</summary>
+	/// <param name="email">E-mail a conferir.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> IsEmailAvailableAsync(string email, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gera o token da troca de e-mail. O endereço novo entra no <b>propósito</b> do token, então
+	/// o link só serve para aquele destino — interceptá-lo não redireciona a conta.
+	/// </summary>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="newEmail">Endereço pretendido.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<string> CreateEmailChangeTokenAsync(Guid userId, string newEmail, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Efetiva a troca de e-mail <b>e do username</b>, que na plataforma são a mesma coisa
+	/// (ADR-0022).
+	/// </summary>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="newEmail">Endereço novo, o mesmo que gerou o token.</param>
+	/// <param name="token">Token do link.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<CredentialTokenOutcome> ChangeEmailAsync(
+		Guid userId,
+		string newEmail,
+		string token,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>Confere a senha atual da conta, sem efeito colateral de lockout.</summary>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="password">Senha informada.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> CheckPasswordAsync(Guid userId, string password, CancellationToken cancellationToken = default);
+
 	/// <summary>Apaga a senha da conta (desligar o login local).</summary>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
