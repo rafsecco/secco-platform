@@ -3,6 +3,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
 using Xunit;
@@ -152,6 +153,38 @@ public class ExternalLoginUnlinkTests(SelfIssuedAuthSecureGateApiFactory factory
 		var response = await semEscopo.DeleteAsync(Route(userId));
 
 		response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+		(await LinksAsync(userId)).Should().ContainSingle();
+	}
+
+	[Fact]
+	public async Task Desvincular_ContaSoCorporativaDeOutroTenant_Responde404ENao409()
+	{
+		var userId = await UserWithLinkAsync(localLogin: false);
+		var outroTenant = await IdentitySeed.TenantAsync(factory);
+		using var admin = await AdminAsync();
+
+		var response = await admin.DeleteAsync(Route(userId, outroTenant));
+
+		// 409 aqui contaria que existe, em OUTRO tenant, uma conta com aquele id que entra só
+		// pelo diretório. A resposta de tenant errado é sempre a de inexistente (ADR-0020).
+		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Adaptador_DeOutroTenant_NaoRemoveNada()
+	{
+		var userId = await UserWithLinkAsync();
+		var outroTenant = await IdentitySeed.TenantAsync(factory);
+
+		using var scope = factory.Services.CreateScope();
+		var directory = scope.ServiceProvider.GetRequiredService<Application.Users.IUserDirectory>();
+
+		// A guarda de tenant existe em DUAS camadas: o caso de uso recusa antes de chamar, e o
+		// adaptador recusa de novo. Sem este teste, remover a segunda passaria despercebido — e
+		// ela é a que protege qualquer chamador futuro que não passe pelo caso de uso.
+		var removed = await directory.RemoveExternalLoginAsync(outroTenant, userId, Provider);
+
+		removed.Should().BeFalse();
 		(await LinksAsync(userId)).Should().ContainSingle();
 	}
 }
