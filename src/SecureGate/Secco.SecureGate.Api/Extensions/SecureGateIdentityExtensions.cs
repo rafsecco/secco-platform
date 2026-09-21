@@ -46,6 +46,10 @@ public static class SecureGateIdentityExtensions
 
 				// Login por e-mail: username = e-mail, único global (o registro carrega o tenant)
 				options.User.RequireUniqueEmail = true;
+
+				// O ChangeEmailAsync do Identity usa ESTE provedor; apontá-lo para o nosso é o
+				// que dá ao link de troca de e-mail a validade curta (ADR-0033).
+				options.Tokens.ChangeEmailTokenProvider = CredentialTokenProviders.EmailChange;
 			})
 			.AddRoles<Role>()
 			.AddEntityFrameworkStores<SecureGateDbContext>()
@@ -54,7 +58,8 @@ public static class SecureGateIdentityExtensions
 			// Convite e redefinição têm janelas próprias (ADR-0033); as validades vêm de
 			// SecureGate:Credentials pela composição de AddSecureGateCredentials.
 			.AddTokenProvider<InviteTokenProvider>(CredentialTokenProviders.Invite)
-			.AddTokenProvider<ResetTokenProvider>(CredentialTokenProviders.Reset);
+			.AddTokenProvider<ResetTokenProvider>(CredentialTokenProviders.Reset)
+			.AddTokenProvider<EmailChangeTokenProvider>(CredentialTokenProviders.EmailChange);
 
 		// Cookies do Identity como esquemas NÃO-DEFAULT (o default segue JwtBearer, ADR-0007).
 		// O endpoint de autorização faz Challenge explícito no ApplicationScheme → tela de login.

@@ -60,6 +60,18 @@ public class CredentialTokenLifetimeTests
 	}
 
 	[Fact]
+	public void Provedor_DeTrocaDeEmail_UsaAJanelaCurtaDaRedefinicao()
+	{
+		using var provider = Build(inviteHours: 72, resetMinutes: 30);
+
+		// Link de troca de e-mail é da mesma natureza do de redefinição — curto, uso único,
+		// enviado por e-mail —, então compartilha a janela em vez de ganhar mais uma chave de
+		// configuração para decidir a mesma coisa.
+		provider.GetRequiredService<IOptions<EmailChangeTokenProviderOptions>>().Value.TokenLifespan
+			.Should().Be(TimeSpan.FromMinutes(30));
+	}
+
+	[Fact]
 	public void Provedores_TemNomesDistintos()
 	{
 		using var provider = Build(inviteHours: 72, resetMinutes: 30);

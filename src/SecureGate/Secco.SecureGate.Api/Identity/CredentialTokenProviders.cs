@@ -19,6 +19,12 @@ public static class CredentialTokenProviders
 
 	/// <summary>Propósito do token de redefinição, dentro do provedor.</summary>
 	public const string ResetPurpose = "secco-reset";
+
+	/// <summary>
+	/// Troca de e-mail. O propósito não é nosso: quem o monta é o próprio Identity, como
+	/// <c>ChangeEmail:{novo}</c> — e é isso que prende o token ao endereço de destino.
+	/// </summary>
+	public const string EmailChange = "SeccoEmailChange";
 }
 
 /// <summary>
@@ -41,6 +47,9 @@ public sealed class InviteTokenProvider(
 	ILogger<DataProtectorTokenProvider<User>> logger)
 	: DataProtectorTokenProvider<User>(dataProtectionProvider, options, logger);
 
+/// <summary>Validade do token de troca de e-mail (ver <see cref="InviteTokenProviderOptions"/>).</summary>
+public sealed class EmailChangeTokenProviderOptions : DataProtectionTokenProviderOptions;
+
 /// <summary>Provedor da redefinição — idem.</summary>
 /// <param name="dataProtectionProvider">Provedor de Data Protection.</param>
 /// <param name="options">Validade da redefinição.</param>
@@ -48,5 +57,15 @@ public sealed class InviteTokenProvider(
 public sealed class ResetTokenProvider(
 	IDataProtectionProvider dataProtectionProvider,
 	IOptions<ResetTokenProviderOptions> options,
+	ILogger<DataProtectorTokenProvider<User>> logger)
+	: DataProtectorTokenProvider<User>(dataProtectionProvider, options, logger);
+
+/// <summary>Provedor da troca de e-mail — idem.</summary>
+/// <param name="dataProtectionProvider">Provedor de Data Protection.</param>
+/// <param name="options">Validade da troca de e-mail.</param>
+/// <param name="logger">Log do provedor base.</param>
+public sealed class EmailChangeTokenProvider(
+	IDataProtectionProvider dataProtectionProvider,
+	IOptions<EmailChangeTokenProviderOptions> options,
 	ILogger<DataProtectorTokenProvider<User>> logger)
 	: DataProtectorTokenProvider<User>(dataProtectionProvider, options, logger);

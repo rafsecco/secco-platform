@@ -27,6 +27,8 @@ public static class SecureGateCredentialsExtensions
 			options.TokenLifespan = TimeSpan.FromHours(credentials.InviteLifetimeHours));
 		services.AddOptions<ResetTokenProviderOptions>().Configure<CredentialOptions>((options, credentials) =>
 			options.TokenLifespan = TimeSpan.FromMinutes(credentials.ResetLifetimeMinutes));
+		services.AddOptions<EmailChangeTokenProviderOptions>().Configure<CredentialOptions>((options, credentials) =>
+			options.TokenLifespan = TimeSpan.FromMinutes(credentials.ResetLifetimeMinutes));
 
 		// Os nomes dos provedores descem para a Infrastructure como dado, não como constante dela:
 		// quem os registra no Identity é esta composição.
