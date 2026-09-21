@@ -116,4 +116,90 @@ public class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory) : IAsy
 		(await tokens.CheckPasswordAsync(userId, IdentitySeed.Password)).Should().BeTrue();
 		(await tokens.CheckPasswordAsync(userId, "Errada@Senha1")).Should().BeFalse();
 	}
+
+	[Fact]
+	public async Task Pedido_ComSenhaErrada_NaoEnviaNada()
+	{
+		var (userId, atual) = await UserAsync();
+		var destino = Email();
+
+		using var scope = factory.Services.CreateScope();
+		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
+
+		(await handler.HandleAsync(userId, destino, "Errada@Senha1", remoteAddress: null)).Should().BeFalse();
+		factory.Emails.For(destino).Should().BeEmpty();
+		factory.Emails.For(atual).Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task Pedido_Valido_MandaLinkAoNovoEAvisoAoAntigo()
+	{
+		var (userId, atual) = await UserAsync();
+		var destino = Email();
+
+		using var scope = factory.Services.CreateScope();
+		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
+
+		(await handler.HandleAsync(userId, destino, IdentitySeed.Password, remoteAddress: null)).Should().BeTrue();
+
+		factory.Emails.For(destino).Should().ContainSingle()
+			.Which.Body.Should().Contain("/conta/confirmar-email?");
+
+		var aviso = factory.Emails.For(atual).Should().ContainSingle().Subject;
+		aviso.Body.Should().NotContain("http", "aviso com link seria um segundo alvo de phishing");
+		aviso.Body.Should().NotContain(destino, "o endereço novo aparece mascarado");
+	}
+
+	[Fact]
+	public async Task Pedido_ParaEmailEmUso_RespondeIgualENaoEnvia()
+	{
+		var (userId, _) = await UserAsync();
+		var (_, ocupado) = await UserAsync();
+
+		using var scope = factory.Services.CreateScope();
+		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
+
+		// true significa "a senha conferiu", nunca "o endereço estava livre": quem chama não
+		// consegue distinguir os dois casos (ADR-0020).
+		(await handler.HandleAsync(userId, ocupado, IdentitySeed.Password, remoteAddress: null)).Should().BeTrue();
+		factory.Emails.For(ocupado).Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task Confirmacao_TrocaOEmailEEncerraAsSessoes()
+	{
+		var (userId, atual) = await UserAsync();
+		var destino = Email();
+		var driver = new OidcLoginDriver(factory, ClientId, RedirectUri, IdentitySeed.Password);
+		var (_, refreshToken) = await driver.LoginAsync(atual, "openid offline_access logstream");
+
+		using var scope = factory.Services.CreateScope();
+		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
+		var confirm = scope.ServiceProvider.GetRequiredService<ConfirmEmailChangeHandler>();
+		var token = await tokens.CreateEmailChangeTokenAsync(userId, destino);
+
+		(await confirm.HandleAsync(userId, destino, token)).Should().Be(CredentialTokenOutcome.Done);
+
+		(await driver.RefreshAsync(refreshToken)).StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+		(await new OidcLoginDriver(factory, ClientId, RedirectUri, IdentitySeed.Password)
+			.LoginAsync(destino, "openid offline_access logstream")).AccessToken.Should().NotBeNullOrEmpty();
+	}
+
+	[Fact]
+	public async Task Confirmacao_MataOConvitePendenteDaConta()
+	{
+		var (userId, _) = await UserAsync();
+		var destino = Email();
+
+		using var scope = factory.Services.CreateScope();
+		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
+		var confirm = scope.ServiceProvider.GetRequiredService<ConfirmEmailChangeHandler>();
+
+		var conviteAntigo = await tokens.CreateInviteTokenAsync(userId);
+		var token = await tokens.CreateEmailChangeTokenAsync(userId, destino);
+		await confirm.HandleAsync(userId, destino, token);
+
+		// A troca move o SecurityStamp, então todo link pendente morre junto.
+		(await tokens.IsLinkValidAsync(userId, conviteAntigo, invite: true)).Should().BeFalse();
+	}
 }

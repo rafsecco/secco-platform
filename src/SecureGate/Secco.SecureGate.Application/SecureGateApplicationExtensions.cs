@@ -47,6 +47,8 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<Credentials.ChangeOwnPasswordHandler>();
 		services.AddScoped<Credentials.AdminResetPasswordHandler>();
 		services.AddScoped<Credentials.SetLocalLoginHandler>();
+		services.AddScoped<Credentials.RequestEmailChangeHandler>();
+		services.AddScoped<Credentials.ConfirmEmailChangeHandler>();
 
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
