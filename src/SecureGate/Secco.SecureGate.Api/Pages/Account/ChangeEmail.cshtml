@@ -1,0 +1,43 @@
+@page "/conta/trocar-email"
+@model Secco.SecureGate.Api.Pages.Account.ChangeEmailModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Trocar e-mail";
+}
+
+<h1>Trocar meu e-mail</h1>
+
+@if (Model.Submitted)
+{
+    @* Mesma mensagem para endereço livre e em uso: a diferença contaria quais endereços
+       existem na instalação (ADR-0020). *@
+    <p class="sub">Se o endereço estiver disponível, enviamos um link de confirmação para ele.</p>
+    <div class="notice">O e-mail atual continua valendo até você confirmar pelo link.</div>
+    <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
+}
+else
+{
+    <p class="sub">Atual: @Model.CurrentEmail</p>
+
+    <form method="post" novalidate>
+        <label asp-for="Input.NewEmail">Novo e-mail</label>
+        <input asp-for="Input.NewEmail" type="email" autocomplete="email" autofocus />
+        <span class="field-error" asp-validation-for="Input.NewEmail"></span>
+
+        @if (Model.RequiresPassword)
+        {
+            <label asp-for="Input.CurrentPassword">Senha atual</label>
+            <input asp-for="Input.CurrentPassword" type="password" autocomplete="current-password" />
+            <span class="field-error" asp-validation-for="Input.CurrentPassword"></span>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="error" role="alert">@Model.ErrorMessage</div>
+        }
+
+        <button type="submit">Enviar confirmação</button>
+    </form>
+
+    <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
+}

@@ -1,0 +1,24 @@
+@page "/conta/confirmar-email"
+@model Secco.SecureGate.Api.Pages.Account.ConfirmEmailModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Confirmar e-mail";
+}
+
+@if (Model.Confirmed)
+{
+    <h1>E-mail confirmado</h1>
+    <p class="sub">Seu acesso agora é @Model.NewEmail.</p>
+    <div class="notice">
+        As sessões abertas desta conta foram encerradas. Entre novamente com o endereço novo.
+    </div>
+    <p style="margin-top:1rem"><a href="/login">Ir para o login</a></p>
+}
+else
+{
+    <h1>Não foi possível confirmar</h1>
+    <p class="sub">Este link não vale mais: ele expirou, já foi usado ou o endereço não está mais disponível.</p>
+    <div class="notice" role="alert">
+        Você pode <a href="/conta/trocar-email">pedir outro</a> depois de entrar na sua conta.
+    </div>
+}

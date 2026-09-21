@@ -22,6 +22,10 @@ else
     <p class="sub" style="margin-top:1rem">Esta conta entra pelo diretório corporativo e não usa senha local.</p>
 }
 
+@* Fora do ramo acima de propósito: conta de diretório também troca o e-mail — nela não há
+   senha a exigir, e o login já é governado pelo vínculo com o diretório (ADR-0026). *@
+<p><a href="/conta/trocar-email">Trocar meu e-mail</a></p>
+
 <form method="post" asp-page-handler="Logout">
     <button type="submit" class="secondary">Sair</button>
 </form>

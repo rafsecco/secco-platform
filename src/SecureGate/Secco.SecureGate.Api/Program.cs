@@ -31,6 +31,9 @@ builder.Services.AddRazorPages(options =>
 	options.Conventions.AllowAnonymousToPage("/Account/Forgot");
 	options.Conventions.AllowAnonymousToPage("/Account/SetPassword");
 	options.Conventions.AllowAnonymousToPage("/Account/ResetPassword");
+	// A confirmação de e-mail é aberta na caixa NOVA, que pode estar em outro navegador:
+	// quem autoriza é o token, não a sessão.
+	options.Conventions.AllowAnonymousToPage("/Account/ConfirmEmail");
 });
 
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
