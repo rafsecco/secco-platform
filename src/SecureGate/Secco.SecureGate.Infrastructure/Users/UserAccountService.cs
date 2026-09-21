@@ -301,6 +301,36 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			user.PasswordHash is not null, user.LocalLoginEnabled);
 	}
 
+	public async Task<bool> RemoveExternalLoginAsync(
+		Guid tenantId,
+		Guid userId,
+		string provider,
+		CancellationToken cancellationToken = default)
+	{
+		var user = await context.Users
+			.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken).ConfigureAwait(false);
+
+		// Usuário de outro tenant responde como inexistente: a rota é por tenant.
+		if (user is null || user.TenantId != tenantId)
+		{
+			return false;
+		}
+
+		var links = await context.UserLogins
+			.Where(login => login.UserId == userId && login.LoginProvider == provider)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		if (links.Count == 0)
+		{
+			return true;
+		}
+
+		context.UserLogins.RemoveRange(links);
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+		return true;
+	}
+
 	public Task<UserSessionState?> GetSessionStateAsync(Guid userId, CancellationToken cancellationToken = default) =>
 		context.Users
 			.AsNoTracking()

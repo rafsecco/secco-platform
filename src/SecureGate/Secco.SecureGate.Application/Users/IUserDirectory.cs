@@ -125,6 +125,17 @@ public interface IUserDirectory
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Remove o vínculo com um provedor externo. Idempotente: sem vínculo, nada acontece e o
+	/// resultado é o mesmo (ADR-0034).
+	/// </summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="provider">Provedor (ex.: <c>EntraId</c>).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
+	Task<bool> RemoveExternalLoginAsync(Guid tenantId, Guid userId, string provider, CancellationToken cancellationToken = default);
+
 	/// <summary>Estado de sessão do usuário, em qualquer tenant; <c>null</c> se não existe.</summary>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>

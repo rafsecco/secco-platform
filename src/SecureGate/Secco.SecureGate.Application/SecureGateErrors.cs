@@ -284,6 +284,15 @@ public static class SecureGateErrors
 				"SecureGate.Credential.LocalLoginDisabled",
 				"Esta conta entra pelo diretório corporativo e não usa senha local.");
 
+		/// <summary>
+		/// Desvincular deixaria a conta sem caminho de entrada: ela só entra pelo diretório, e o
+		/// vínculo é o único acesso. Ligar a senha local antes dispara convite e resolve.
+		/// </summary>
+		public static readonly Error LastSignInPath =
+			Error.Conflict(
+				"SecureGate.Credential.LastSignInPath",
+				"Esta conta entra apenas pelo diretório corporativo. Ligue a senha local antes de desvincular.");
+
 		/// <summary>Convite recusado porque a conta já tem senha — daqui em diante é redefinição.</summary>
 		public static readonly Error AlreadyHasPassword =
 			Error.Conflict(

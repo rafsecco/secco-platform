@@ -88,6 +88,20 @@ public static class UserEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapDelete("/{userId:guid}/external-logins/{provider}", async (
+				Guid tenantId,
+				Guid userId,
+				string provider,
+				RemoveExternalLoginHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, provider, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("RemoveUserExternalLogin")
+			.WithSummary("Remove o vínculo com um provedor externo (idempotente). Não bloqueia acesso: a federação revincula no próximo login.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
 		group.MapPost("/{userId:guid}/deactivate", async (
 				Guid tenantId,
 				Guid userId,

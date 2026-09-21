@@ -1296,6 +1296,68 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Remove o vínculo com um provedor externo (idempotente). Não bloqueia acesso: a federação revincula no próximo login.",
+        "operationId": "RemoveUserExternalLogin",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/users/{userId}/deactivate": {
       "post": {
         "tags": [

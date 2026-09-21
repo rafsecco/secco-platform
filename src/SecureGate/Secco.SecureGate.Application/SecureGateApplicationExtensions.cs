@@ -52,6 +52,7 @@ public static class SecureGateApplicationExtensions
 
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();
+		services.AddScoped<RemoveExternalLoginHandler>();
 		services.AddScoped<ListUsersHandler>();
 		services.AddScoped<SetUserActivationHandler>();
 		services.AddScoped<GetUserHandler>();
