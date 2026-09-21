@@ -81,6 +81,16 @@ public interface IUserAdminService
 	/// <param name="enabled">Situação desejada do login local.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task SetLocalLoginAsync(Guid tenantId, Guid userId, bool enabled, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Remove o vínculo da conta com um provedor externo. Não bloqueia acesso: enquanto a pessoa
+	/// seguir no diretório, o próximo login federado vincula de novo (ADR-0026).
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do usuário.</param>
+	/// <param name="provider">Nome do provedor (ex.: <c>EntraId</c>).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task RemoveExternalLoginAsync(Guid tenantId, Guid userId, string provider, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -174,5 +184,13 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 
 		await client.SetUserLocalLoginAsync(
 			tenantId, userId, new SetLocalLoginRequest { Enabled = enabled }, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task RemoveExternalLoginAsync(
+		Guid tenantId, Guid userId, string provider, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.RemoveUserExternalLoginAsync(tenantId, userId, provider, cancellationToken).ConfigureAwait(false);
 	}
 }

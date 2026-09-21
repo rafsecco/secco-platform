@@ -257,6 +257,18 @@ public class IdentityAdminServicesTests
 	}
 
 	[Fact]
+	public async Task DesvincularLoginExterno_ChamaOClient()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory).RemoveExternalLoginAsync(tenantId, userId, "EntraId");
+
+		await client.Received(1).RemoveUserExternalLoginAsync(tenantId, userId, "EntraId", Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
 	public async Task AddERemoveRole_ChamamOClient()
 	{
 		var (factory, client) = BuildFactory();

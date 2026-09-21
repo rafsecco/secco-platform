@@ -26,10 +26,6 @@ else
         {
             <text> até @until.ToLocalTime().ToString("g")</text>
         }
-        @if (_user.ExternalLogins.Count > 0)
-        {
-            <text> · login externo: @string.Join(", ", _user.ExternalLogins)</text>
-        }
     </p>
 
     @if (_message is not null)
@@ -128,6 +124,45 @@ else
     </section>
 
     <section>
+        <h2>Login corporativo</h2>
+        @if (_user.ExternalLogins.Count == 0)
+        {
+            <p>Nenhum vínculo com diretório externo.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <tbody>
+                    @foreach (var provider in _user.ExternalLogins)
+                    {
+                        <tr>
+                            <td>@provider</td>
+                            <td>
+                                <button @onclick="() => AskUnlink(provider)"
+                                        disabled="@(_busy || !_user.LocalLoginEnabled)">Desvincular</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (!_user.LocalLoginEnabled)
+            {
+                <p class="muted">
+                    Esta conta entra apenas pelo diretório: o vínculo é o único acesso. Ligue a senha
+                    local antes de desvincular.
+                </p>
+            }
+            else
+            {
+                <p class="muted">
+                    Desvincular não bloqueia o acesso — enquanto a pessoa seguir no diretório, o próximo
+                    login vincula de novo. Para barrar acesso, desative a conta.
+                </p>
+            }
+        }
+    </section>
+
+    <section>
         <h2>Conta</h2>
         @if (_user.Status == "Active")
         {
@@ -220,6 +255,14 @@ else
             await UserAdminService.SetActiveAsync(TenantId, UserId, active: false);
             await ReloadAsync();
             _message = "Conta desativada.";
+        });
+
+    private void AskUnlink(string provider) =>
+        _pending = new PendingAction($"Remover o vínculo com {provider}?", async () =>
+        {
+            await UserAdminService.RemoveExternalLoginAsync(TenantId, UserId, provider);
+            await ReloadAsync();
+            _message = $"Vínculo com {provider} removido.";
         });
 
     private string CredentialStatusText => _user switch
