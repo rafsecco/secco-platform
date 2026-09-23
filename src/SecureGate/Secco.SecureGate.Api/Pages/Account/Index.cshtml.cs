@@ -27,6 +27,7 @@ namespace Secco.SecureGate.Api.Pages.Account;
 [Authorize(AuthenticationSchemes = "Identity.Application")]
 public sealed class IndexModel(
 	ICredentialTokens tokens,
+	ITwoFactorSetup twoFactorSetup,
 	UserManager<User> userManager,
 	SignInManager<User> signInManager) : PageModel
 {
@@ -35,6 +36,9 @@ public sealed class IndexModel(
 
 	/// <summary>Conta usa senha local (ADR-0026: desligado significa só diretório).</summary>
 	public bool UsesLocalPassword { get; private set; }
+
+	/// <summary>Segundo fator ativado (entrega D).</summary>
+	public bool TwoFactorEnabled { get; private set; }
 
 	/// <summary>Vem da troca de senha, para a confirmação aparecer aqui.</summary>
 	[BindProperty(SupportsGet = true, Name = "senhaAlterada")]
@@ -56,6 +60,8 @@ public sealed class IndexModel(
 
 		Email = account.Email;
 		UsesLocalPassword = account is { LocalLoginEnabled: true, HasPassword: true };
+		TwoFactorEnabled =
+			(await twoFactorSetup.GetStateAsync(userId, cancellationToken).ConfigureAwait(false))?.Enabled ?? false;
 
 		return Page();
 	}

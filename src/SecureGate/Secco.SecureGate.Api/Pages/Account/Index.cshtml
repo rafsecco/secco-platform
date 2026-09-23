@@ -26,6 +26,13 @@ else
    senha a exigir, e o login já é governado pelo vínculo com o diretório (ADR-0026). *@
 <p><a href="/conta/trocar-email">Trocar meu e-mail</a></p>
 
+@if (Model.UsesLocalPassword)
+{
+    @* Segundo fator protege a SENHA: conta de diretório não tem o que proteger aqui, porque o
+       MFA é do próprio diretório (ADR-0026). *@
+    <p><a href="/conta/dois-fatores">Segundo fator (@(Model.TwoFactorEnabled ? "ativado" : "desativado"))</a></p>
+}
+
 <form method="post" asp-page-handler="Logout">
     <button type="submit" class="secondary">Sair</button>
 </form>

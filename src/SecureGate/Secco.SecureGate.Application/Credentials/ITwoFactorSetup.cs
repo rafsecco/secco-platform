@@ -32,7 +32,8 @@ public interface ITwoFactorSetup
 	/// Gera uma chave nova e o QR correspondente; <c>null</c> se a conta não existe.
 	/// </summary>
 	/// <remarks>
-	/// Recomeçar o cadastro invalida o QR anterior: a chave é sempre reescrita, nunca reaproveitada.
+	/// A chave em andamento é <b>reaproveitada</b>: recarregar a tela de cadastro não pode invalidar
+	/// o QR que a pessoa acabou de ler no aplicativo. Chave nova só quando não há nenhuma.
 	/// </remarks>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>

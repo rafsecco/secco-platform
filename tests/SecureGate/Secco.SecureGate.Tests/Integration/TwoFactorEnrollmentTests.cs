@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application.Credentials;
+using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
 using Xunit;
 
@@ -167,5 +168,131 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		state.HasAuthenticator.Should().BeFalse();
 		factory.Emails.For(email).Should().HaveCount(2);
 		factory.Emails.For(email).Last().Subject.Should().Contain("desativado");
+	}
+
+	private async Task<HttpClient> SignedInBrowserAsync(string email)
+	{
+		var browser = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+		{
+			AllowAutoRedirect = false,
+			HandleCookies = true,
+		});
+
+		var loginPage = await browser.GetAsync("/login");
+		var token = OidcLoginDriver.ExtractAntiforgeryToken(await loginPage.Content.ReadAsStringAsync());
+		var login = await browser.PostAsync("/login", new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["__RequestVerificationToken"] = token,
+			["Input.Email"] = email,
+			["Input.Password"] = IdentitySeed.Password,
+		}));
+
+		login.StatusCode.Should().Be(System.Net.HttpStatusCode.Redirect);
+
+		return browser;
+	}
+
+	private static async Task<HttpResponseMessage> SubmitConfirmAsync(HttpClient browser, string code)
+	{
+		var page = await browser.GetAsync("/conta/dois-fatores");
+		var token = OidcLoginDriver.ExtractAntiforgeryToken(await page.Content.ReadAsStringAsync());
+
+		return await browser.PostAsync("/conta/dois-fatores?handler=Confirm", new FormUrlEncodedContent(
+			new Dictionary<string, string>
+			{
+				["__RequestVerificationToken"] = token,
+				["Input.Code"] = code,
+			}));
+	}
+
+	private async Task<string> CurrentKeyAsync(Guid userId)
+	{
+		using var scope = factory.Services.CreateScope();
+		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+		var user = await userManager.FindByIdAsync(userId.ToString());
+
+		return (await userManager.GetAuthenticatorKeyAsync(user!))!;
+	}
+
+	[Fact]
+	public async Task Tela_SemSessao_RedirecionaParaOLogin()
+	{
+		using var anonimo = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+		{
+			AllowAutoRedirect = false,
+		});
+
+		var resposta = await anonimo.GetAsync("/conta/dois-fatores");
+
+		resposta.StatusCode.Should().Be(System.Net.HttpStatusCode.Redirect);
+		resposta.Headers.Location!.ToString().Should().ContainEquivalentOf("/login");
+	}
+
+	[Fact]
+	public async Task Tela_ContaSemSenhaLocal_Responde404()
+	{
+		var email = Email();
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email);
+
+		using (var scope = factory.Services.CreateScope())
+		{
+			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+			var user = await context.Users.FindAsync(userId);
+			user!.LocalLoginEnabled = false;
+			await context.SaveChangesAsync();
+		}
+
+		// Conta de diretório não tem senha a proteger com segundo fator: o MFA é do Entra (ADR-0026).
+		(await browser.GetAsync("/conta/dois-fatores")).StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task Tela_MostraOQrEmbutidoENaoUmaUrlExterna()
+	{
+		var email = Email();
+		await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email);
+
+		var html = await (await browser.GetAsync("/conta/dois-fatores")).Content.ReadAsStringAsync();
+
+		html.Should().Contain("src=\"data:image/png;base64,");
+		html.Should().NotContain("chart.googleapis.com").And.NotContain("qrserver.com");
+	}
+
+	[Fact]
+	public async Task Tela_CadastroCompleto_MostraOsCodigosUmaVezSo()
+	{
+		var email = Email();
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email);
+
+		await browser.GetAsync("/conta/dois-fatores");
+		// A chave é lida DEPOIS da tela abrir: é ela que inicia o cadastro.
+		var confirmacao = await SubmitConfirmAsync(browser, TotpCalculator.Compute(await CurrentKeyAsync(userId)));
+
+		var html = await confirmacao.Content.ReadAsStringAsync();
+		html.Should().Contain("uma única vez");
+
+		// Recarregar não traz os códigos de volta: eles vivem só na resposta que os gerou.
+		var recarga = await (await browser.GetAsync("/conta/dois-fatores")).Content.ReadAsStringAsync();
+		recarga.Should().NotContain("uma única vez");
+		recarga.Should().Contain("Ativado");
+	}
+
+	[Fact]
+	public async Task Tela_CodigoErrado_NaoAtivaEOfereceTentarDeNovo()
+	{
+		var email = Email();
+		await IdentitySeed.UserAsync(factory, _tenantId, email);
+		using var browser = await SignedInBrowserAsync(email);
+
+		await browser.GetAsync("/conta/dois-fatores");
+		var resposta = await SubmitConfirmAsync(browser, "000000");
+
+		var html = await resposta.Content.ReadAsStringAsync();
+		// Sem acento na asserção: o Razor codifica "Código inválido" como entidades HTML.
+		html.Should().Contain("class=\"error\"").And.Contain("Confira o");
+		html.Should().Contain("data:image/png;base64,", "a tela continua oferecendo o cadastro");
 	}
 }

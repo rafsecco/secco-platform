@@ -1,0 +1,58 @@
+@page "/conta/dois-fatores"
+@model Secco.SecureGate.Api.Pages.Account.TwoFactorModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Segundo fator";
+}
+
+<h1>Segundo fator</h1>
+
+@if (Model.RecoveryCodes.Count > 0)
+{
+    <p class="sub">Pronto: o segundo fator está ativado.</p>
+    <div class="notice" role="status">
+        <strong>Guarde estes códigos de recuperação.</strong> Eles aparecem <em>uma única vez</em> e
+        são a sua saída se você perder o aplicativo autenticador. Cada um serve uma vez só.
+    </div>
+    <ul>
+        @foreach (var code in Model.RecoveryCodes)
+        {
+            <li><code>@code</code></li>
+        }
+    </ul>
+    <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
+}
+else if (Model.Enabled)
+{
+    <p class="sub">Ativado. Restam @Model.RecoveryCodesLeft códigos de recuperação.</p>
+
+    <form method="post" asp-page-handler="Disable">
+        <button type="submit" class="secondary">Desativar segundo fator</button>
+    </form>
+    <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
+}
+else
+{
+    <p class="sub">Leia o QR no seu aplicativo autenticador e confirme com o código que ele mostrar.</p>
+
+    @if (Model.QrCodeDataUri is not null)
+    {
+        @* Imagem embutida: o segredo não passa por serviço de terceiro (ADR-0020). *@
+        <img src="@Model.QrCodeDataUri" alt="QR code do segundo fator" width="180" height="180" />
+        <p class="sub">Ou digite a chave: <code>@Model.FormattedKey</code></p>
+    }
+
+    <form method="post" asp-page-handler="Confirm" novalidate>
+        <label asp-for="Input.Code">Código do aplicativo</label>
+        <input asp-for="Input.Code" autocomplete="one-time-code" inputmode="numeric" autofocus />
+        <span class="field-error" asp-validation-for="Input.Code"></span>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="error" role="alert">@Model.ErrorMessage</div>
+        }
+
+        <button type="submit">Ativar segundo fator</button>
+    </form>
+    <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
+}

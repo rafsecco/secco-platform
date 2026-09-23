@@ -44,9 +44,16 @@ internal sealed class IdentityTwoFactorSetup(UserManager<User> userManager, Cred
 			return null;
 		}
 
-		// Chave nova a cada início: recomeçar o cadastro invalida o QR anterior.
-		await userManager.ResetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+		// A chave em andamento é REAPROVEITADA: sem isso, recarregar a página de cadastro geraria
+		// outra, e o QR que a pessoa acabou de ler no aplicativo pararia de valer sem aviso.
+		// Chave nova só quando não existe nenhuma — desligar o 2FA apaga a anterior.
 		var key = await userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+
+		if (string.IsNullOrEmpty(key))
+		{
+			await userManager.ResetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+			key = await userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+		}
 
 		return new TwoFactorEnrollment(FormatKey(key!), BuildQrCode(user.Email!, key!));
 	}
