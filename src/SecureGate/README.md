@@ -132,10 +132,18 @@ A conta nasce **sem senha**. Quem a define é a própria pessoa, por um link:
 | Esqueci minha senha | `/conta/esqueci` | Pública. Resposta **idêntica** em todos os casos, com piso de tempo — o formulário não diz quem tem conta |
 | Redefinir senha | `/conta/redefinir-senha` | Consome o link (30 min), troca a senha e **encerra as sessões** |
 | Trocar minha senha | `/conta/trocar-senha` | Autenticada, exige a senha atual; derruba as outras sessões e mantém a desta janela |
+| Trocar meu e-mail | `/conta/trocar-email` | Autenticada, exige a senha atual de quem tem senha local. Resposta **idêntica** para endereço livre e em uso |
+| Confirmar e-mail | `/conta/confirmar-email` | Anônima (o link é aberto na caixa nova): troca `Email` e `UserName` juntos e **encerra as sessões** |
 
 Pela API (`securegate:admin`): `POST .../users/{id}/invite` reenvia o convite, `POST .../users/{id}/password-reset` manda o link **e revoga as sessões na hora**, e `POST .../users/{id}/local-login` liga ou desliga a senha local — desligar **apaga a senha** e encerra as sessões, deixando a conta só com o diretório corporativo (ADR-0026).
 
-**Uso único sem tabela de tokens:** o token do Identity embute o `SecurityStamp`, então definir ou trocar a senha mata todos os links pendentes daquela conta de uma vez.
+**Uso único sem tabela de tokens:** o token do Identity embute o `SecurityStamp`, então definir ou trocar a senha mata todos os links pendentes daquela conta de uma vez. O link de troca de e-mail carrega o endereço novo **no próprio propósito**, e por isso não serve para apontar a conta a outro destino.
+
+### Vínculo com diretório externo (ADR-0026)
+
+`DELETE /api/v1/tenants/{id}/users/{userId}/external-logins/{provider}` (escopo `securegate:admin`) remove o vínculo — idempotente, `204` mesmo sem vínculo. Responde **409** quando a conta tem o login local desligado: ali o vínculo é o único caminho de entrada, e o caminho certo é ligar a senha local antes, o que dispara convite.
+
+> **Desvincular não bloqueia ninguém.** Enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. A operação existe para vínculo morto — conta recriada no diretório com outro `oid`, ou pessoa que saiu de lá. Para barrar acesso, **desative a conta** ou desligue a federação do tenant.
 
 ## Rodando em desenvolvimento
 

@@ -1639,3 +1639,21 @@ Registrado também que a classificação de erro do SQL Server tratava 4060 ("ba
 **Convite não avisa "sua senha foi alterada".** Não havia senha antes; o aviso só confundiria. Redefinição e troca pelo dono avisam.
 
 **Achado da bateria de mutação:** o E2E do convite aceitava qualquer host no link — trocar a base pública pelo domínio de um atacante não quebrava teste nenhum. O `LinkFor` passou a exigir que o link comece pela base configurada.
+
+---
+
+## Conta do usuário: e-mail e vínculo externo (entrega C, 2026-09-23)
+
+**Quem troca o e-mail?** Só o dono. O e-mail é o username: um admin trocando o e-mail de alguém apontaria a conta daquela pessoa para uma caixa que ele controla, e a partir daí a recuperação de senha também seria dele. Descartado "dono e admin", que resolveria mais casos de suporte pelo mesmo preço.
+
+**Por que exigir a senha atual no pedido?** Porque sem ela a cadeia é trivial: cookie roubado → troca o e-mail → "esqueci minha senha" na caixa nova → conta perdida. Conta só corporativa não tem senha a exigir, e nela o e-mail já não governa o login — quem governa é o vínculo `oid`.
+
+**Por que a resposta é genérica para endereço em uso?** Porque a diferença contaria a um usuário autenticado quais endereços têm conta na instalação. O custo assumido é que quem digita errado descobre pela ausência do e-mail, não pela tela.
+
+**Por que o aviso ao endereço antigo não leva link?** Um aviso com link é um segundo alvo de phishing, e o antigo é justamente a caixa de quem pode estar sendo atacado. O destino aparece mascarado: quem não tem a caixa nova não precisa saber qual é.
+
+**Por que a guarda do desvínculo olha `LocalLoginEnabled` e não "tem senha"?** Porque conta sem senha, mas com login local ligado, tem caminho até a senha — convite e "esqueci minha senha" (ADR-0033). O que não pode é a conta ficar sem nenhum caminho: essa é a conta órfã.
+
+**Descartado prometer bloqueio no desvínculo.** Enquanto a pessoa seguir no diretório e a federação estiver ligada, o próximo login vincula de novo. Em vez de inventar uma trava que a ADR-0026 não tem, a tela e o endpoint dizem isso, e apontam o que de fato barra acesso: desativar a conta ou desligar a federação.
+
+**Achado da bateria de mutação:** a guarda de tenant existia em duas camadas e nenhuma das duas era exercitada isoladamente. Removendo a do caso de uso, uma conta só corporativa de outro tenant passava a responder `409` em vez de `404` — confirmando a existência daquele usuário. Dois testes novos fecharam as duas camadas.

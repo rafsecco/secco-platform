@@ -12,7 +12,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-20. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+- **Adicionado** `RemoveUserExternalLogin` — `DELETE /api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}`, escopo `securegate:admin`. Remove o vínculo da conta com um provedor externo (hoje, o Entra ID da ADR-0026). Idempotente de fato (ADR-0034): sem vínculo, responde `204` do mesmo jeito.
+- **`409` quando a conta tem o login local desligado:** ali o vínculo é o único caminho de entrada, e removê-lo criaria uma conta órfã — existe, tem perfis, e ninguém entra nela. O caminho é ligar a senha local antes, o que dispara convite.
+- **A operação não bloqueia acesso**, e a mensagem do endpoint diz isso: enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. Para barrar acesso, o que existe é desativar a conta ou desligar a federação do tenant.
+
+> **Sem quebra nesta rodada.** A troca do próprio e-mail, que entrou junto (entrega C), vive apenas nas telas do SecureGate — `/conta/trocar-email` e `/conta/confirmar-email` — e não tem endpoint de API, pela mesma razão da ADR-0033: um endpoint público que aceita token e senha é convite a automação.
 
 ---
 
