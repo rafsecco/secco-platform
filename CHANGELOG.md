@@ -12,12 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-- **Adicionado** `ResetUserTwoFactor` — `POST /api/v1/tenants/{tenantId}/users/{userId}/two-factor/reset`, escopo `securegate:admin`. Zera o cadastro do segundo fator de um usuário: apaga a chave do autenticador e os códigos de recuperação. **Não isenta ninguém** — a conta volta a "sem 2FA cadastrado" e, sendo de operador de instalação, o próximo login cai direto no cadastro. Idempotente (ADR-0034): conta sem 2FA responde `204` igual. Audita e avisa o dono por e-mail, porque é exatamente a operação que um administrador comprometido usaria para contornar o segundo fator de outra pessoa.
-- **Adicionado** `twoFactorEnabled` no `UserDetailDto`, para a tela mostrar o estado e decidir se oferece o reset.
-
-> **Exigência nova para o operador de instalação.** Contas com o papel `installation-operator` passam a precisar de segundo fator: sem cadastro, o `/connect/authorize` **não emite código de autorização** e leva a pessoa ao cadastro. Como o bloqueio acontece antes de o código sair, nenhum relying party muda — o AdminPortal inclusive. Para todo o resto, o 2FA é voluntário.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-23. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -31,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.3 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.4.2 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.11.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.2 — 2026-09-23
 
@@ -82,6 +81,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.3 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.8.2 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.11.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.8.2 — 2026-09-23
 
@@ -192,6 +195,13 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.11.0 — 2026-09-23
+
+- **Adicionado** `ResetUserTwoFactor` — `POST /api/v1/tenants/{tenantId}/users/{userId}/two-factor/reset`, escopo `securegate:admin`. Zera o cadastro do segundo fator de um usuário: apaga a chave do autenticador e os códigos de recuperação. **Não isenta ninguém** — a conta volta a "sem 2FA cadastrado" e, sendo de operador de instalação, o próximo login cai direto no cadastro. Idempotente (ADR-0034): conta sem 2FA responde `204` igual. Audita e avisa o dono por e-mail, porque é exatamente a operação que um administrador comprometido usaria para contornar o segundo fator de outra pessoa.
+- **Adicionado** `twoFactorEnabled` no `UserDetailDto`, para a tela mostrar o estado e decidir se oferece o reset.
+
+> **Exigência nova para o operador de instalação.** Contas com o papel `installation-operator` passam a precisar de segundo fator: sem cadastro, o `/connect/authorize` **não emite código de autorização** e leva a pessoa ao cadastro. Como o bloqueio acontece antes de o código sair, nenhum relying party muda — o AdminPortal inclusive. Para todo o resto, o 2FA é voluntário.
+
 #### 0.10.0 — 2026-09-23
 
 - **Adicionado** `RemoveUserExternalLogin` — `DELETE /api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}`, escopo `securegate:admin`. Remove o vínculo da conta com um provedor externo (hoje, o Entra ID da ADR-0026). Idempotente de fato (ADR-0034): sem vínculo, responde `204` do mesmo jeito.
@@ -255,6 +265,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.7 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.1.6 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.11.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.6 — 2026-09-23
 
