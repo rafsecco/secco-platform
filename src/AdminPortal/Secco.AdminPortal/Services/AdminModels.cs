@@ -32,6 +32,7 @@ public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Ro
 /// <param name="ExternalLogins">Provedores externos vinculados.</param>
 /// <param name="HasPassword">Conta já tem senha definida (ADR-0033).</param>
 /// <param name="LocalLoginEnabled">Conta aceita login por senha local (ADR-0033).</param>
+/// <param name="TwoFactorEnabled">Segundo fator ativado (entrega D).</param>
 public sealed record UserDetail(
 	Guid Id,
 	string Email,
@@ -41,7 +42,8 @@ public sealed record UserDetail(
 	IReadOnlyList<string> EffectivePermissions,
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
-	bool LocalLoginEnabled);
+	bool LocalLoginEnabled,
+	bool TwoFactorEnabled);
 
 /// <summary>Perfil na listagem do tenant.</summary>
 /// <param name="Name">Nome.</param>

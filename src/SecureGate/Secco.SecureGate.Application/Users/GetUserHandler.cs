@@ -46,6 +46,7 @@ public sealed class GetUserHandler(IUserDirectory userDirectory, GetRolePermissi
 			[.. effective],
 			account.ExternalLogins,
 			account.HasPassword,
-			account.LocalLoginEnabled);
+			account.LocalLoginEnabled,
+			account.TwoFactorEnabled);
 	}
 }

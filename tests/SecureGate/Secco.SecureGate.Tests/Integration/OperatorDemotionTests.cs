@@ -56,6 +56,9 @@ public class OperatorDemotionTests(SelfIssuedAuthSecureGateApiFactory secureGate
 		await context.SaveChangesAsync();
 
 		_operatorId = user.Id;
+
+		// A instalação exige 2FA do operador (entrega D); sem isso o login pararia no cadastro.
+		await IdentitySeed.EnableTwoFactorAsync(secureGate, _operatorId);
 	}
 
 	public Task DisposeAsync() => Task.CompletedTask;

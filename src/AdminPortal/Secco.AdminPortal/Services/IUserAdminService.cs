@@ -91,6 +91,15 @@ public interface IUserAdminService
 	/// <param name="provider">Nome do provedor (ex.: <c>EntraId</c>).</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task RemoveExternalLoginAsync(Guid tenantId, Guid userId, string provider, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Zera o cadastro do segundo fator do usuário. Não isenta: a conta volta a "sem 2FA
+	/// cadastrado", e sendo de operador o próximo login cai no cadastro (ADR-0030).
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task ResetTwoFactorAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -132,7 +141,8 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 			[.. user.EffectivePermissions],
 			[.. user.ExternalLogins],
 			user.HasPassword,
-			user.LocalLoginEnabled);
+			user.LocalLoginEnabled,
+			user.TwoFactorEnabled);
 	}
 
 	public async Task AddRoleAsync(Guid tenantId, Guid userId, string role, CancellationToken cancellationToken = default)
@@ -192,5 +202,12 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 
 		await client.RemoveUserExternalLoginAsync(tenantId, userId, provider, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task ResetTwoFactorAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.ResetUserTwoFactorAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
 	}
 }

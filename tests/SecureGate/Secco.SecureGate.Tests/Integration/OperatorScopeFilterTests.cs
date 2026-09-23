@@ -67,6 +67,10 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 		(await userManager.CreateAsync(operatorUser, Password)).Succeeded.Should().BeTrue();
 		context.UserRoles.Add(new UserRole { UserId = operatorUser.Id, RoleId = operatorRole.Id });
 
+		// A instalação exige 2FA do operador (entrega D); sem isso o login pararia no cadastro.
+		await userManager.ResetAuthenticatorKeyAsync(operatorUser);
+		(await userManager.SetTwoFactorEnabledAsync(operatorUser, true)).Succeeded.Should().BeTrue();
+
 		// Usuário comum: num tenant qualquer, sem o role de operador
 		var tenant = new Tenant("Tenant comum", $"t-{Guid.NewGuid():N}");
 		context.Tenants.Add(tenant);
@@ -206,7 +210,12 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 			["__RequestVerificationToken"] = antiforgery,
 		}));
 
-		var codeResponse = await browser.GetAsync(loginPost.Headers.Location!.ToString());
+		// Conta com segundo fator (o operador, por exigência da entrega D) passa por mais um passo;
+		// conta sem 2FA atravessa sem mudar nada.
+		var autenticado = await new OidcLoginDriver(secureGate, ClientId, RedirectUri, Password)
+			.CompleteTwoFactorIfNeededAsync(browser, loginPost, email);
+
+		var codeResponse = await browser.GetAsync(autenticado.Headers.Location!.ToString());
 		var code = QueryHelpers.ParseQuery(codeResponse.Headers.Location!.Query)["code"].ToString();
 
 		var tokenResponse = await browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>

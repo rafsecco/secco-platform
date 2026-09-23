@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -88,11 +89,48 @@ internal sealed partial class OidcLoginDriver(
 		loginPage.EnsureSuccessStatusCode();
 		var antiforgery = AntiforgeryField().Match(await loginPage.Content.ReadAsStringAsync()).Groups[1].Value;
 
-		return await browser.PostAsync(loginUrl, new FormUrlEncodedContent(new Dictionary<string, string>
+		var senha = await browser.PostAsync(loginUrl, new FormUrlEncodedContent(new Dictionary<string, string>
 		{
 			["Input.Email"] = email,
 			["Input.Password"] = password,
 			["__RequestVerificationToken"] = antiforgery,
+		}));
+
+		return await CompleteTwoFactorIfNeededAsync(browser, senha, email);
+	}
+
+	/// <summary>
+	/// Faz o segundo passo quando a conta tem 2FA (entrega D), como um navegador real faria: o
+	/// código sai do cálculo TOTP sobre a chave cadastrada, que é o que o aplicativo da pessoa
+	/// mostraria. Contas sem segundo fator passam direto.
+	/// </summary>
+	public async Task<HttpResponseMessage> CompleteTwoFactorIfNeededAsync(
+		HttpClient browser,
+		HttpResponseMessage passwordResponse,
+		string email)
+	{
+		if (passwordResponse.Headers.Location is not { } destino
+			|| !destino.ToString().StartsWith("/login/dois-fatores", StringComparison.OrdinalIgnoreCase))
+		{
+			return passwordResponse;
+		}
+
+		using var scope = factory.Services.CreateScope();
+		var userManager = scope.ServiceProvider
+			.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Secco.SecureGate.Infrastructure.Identity.User>>();
+		var user = await userManager.FindByEmailAsync(email);
+		var key = await userManager.GetAuthenticatorKeyAsync(user!);
+
+		// O destino CARREGA o returnUrl: sem ele, o segundo passo terminaria em /conta e a
+		// requisição de autorização original se perderia.
+		var segundoPasso = destino.ToString();
+		var page = await browser.GetAsync(segundoPasso);
+		var antiforgery = AntiforgeryField().Match(await page.Content.ReadAsStringAsync()).Groups[1].Value;
+
+		return await browser.PostAsync(segundoPasso, new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["__RequestVerificationToken"] = antiforgery,
+			["Input.Code"] = TotpCalculator.Compute(key!),
 		}));
 	}
 

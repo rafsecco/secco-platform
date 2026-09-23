@@ -174,6 +174,7 @@ public class IdentityAdminServicesTests
 			ExternalLogins = ["EntraId"],
 			HasPassword = true,
 			LocalLoginEnabled = true,
+			TwoFactorEnabled = true,
 		});
 
 		var user = await new SecureGateUserAdminService(factory).GetUserAsync(tenantId, userId);
@@ -254,6 +255,19 @@ public class IdentityAdminServicesTests
 			tenantId, userId, Arg.Is<SetLocalLoginRequest>(r => !r.Enabled), Arg.Any<CancellationToken>());
 		await client.Received(1).SetUserLocalLoginAsync(
 			tenantId, userId, Arg.Is<SetLocalLoginRequest>(r => r.Enabled), Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task ResetarSegundoFator_ChamaOClient()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory).ResetTwoFactorAsync(tenantId, userId);
+
+		// Zerar o cadastro é operação do admin; quem cadastra de novo é a própria pessoa (ADR-0030).
+		await client.Received(1).ResetUserTwoFactorAsync(tenantId, userId, Arg.Any<CancellationToken>());
 	}
 
 	[Fact]

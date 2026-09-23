@@ -1296,6 +1296,50 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/users/{userId}/two-factor/reset": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Zera o cadastro do segundo fator do usuário. Não isenta: o próximo login cadastra de novo.",
+        "operationId": "ResetUserTwoFactor",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}": {
       "delete": {
         "tags": [
@@ -2426,7 +2470,8 @@
           "effectivePermissions",
           "externalLogins",
           "hasPassword",
-          "localLoginEnabled"
+          "localLoginEnabled",
+          "twoFactorEnabled"
         ],
         "type": "object",
         "properties": {
@@ -2473,6 +2518,9 @@
             "type": "boolean"
           },
           "localLoginEnabled": {
+            "type": "boolean"
+          },
+          "twoFactorEnabled": {
             "type": "boolean"
           }
         }

@@ -28,7 +28,8 @@ public sealed record UserAccountData(
 	IReadOnlyList<string> Roles,
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
-	bool LocalLoginEnabled);
+	bool LocalLoginEnabled,
+	bool TwoFactorEnabled);
 
 /// <summary>Resultado de atribuir ou remover perfil.</summary>
 public enum RoleAssignmentOutcome

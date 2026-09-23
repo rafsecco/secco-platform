@@ -49,7 +49,7 @@ public class TwoFactorOperatorTests(SelfIssuedAuthSecureGateApiFactory factory) 
 	private async Task<(Guid UserId, string Email)> OperatorAsync()
 	{
 		var email = Email();
-		var userId = await IdentitySeed.PlatformOperatorAsync(factory, email);
+		var userId = await IdentitySeed.PlatformOperatorWithoutTwoFactorAsync(factory, email);
 
 		return (userId, email);
 	}

@@ -71,6 +71,9 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 		(await userManager.SetLockoutEnabledAsync(user, false)).Succeeded.Should().BeTrue();
 
 		_operatorId = operatorUser.Id;
+
+		// A instalação exige 2FA do operador (entrega D); sem isso o login pararia no cadastro.
+		await IdentitySeed.EnableTwoFactorAsync(secureGate, _operatorId);
 		_userId = user.Id;
 		_tenantId = tenant.Id;
 		_otherTenantId = otherTenant.Id;

@@ -88,6 +88,18 @@ public static class UserEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapPost("/{userId:guid}/two-factor/reset", async (
+				Guid tenantId,
+				Guid userId,
+				ResetTwoFactorHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, userId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("ResetUserTwoFactor")
+			.WithSummary("Zera o cadastro do segundo fator do usuário. Não isenta: o próximo login cadastra de novo.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		group.MapDelete("/{userId:guid}/external-logins/{provider}", async (
 				Guid tenantId,
 				Guid userId,

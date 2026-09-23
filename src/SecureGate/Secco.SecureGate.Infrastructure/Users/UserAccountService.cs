@@ -298,7 +298,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
-			user.PasswordHash is not null, user.LocalLoginEnabled);
+			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled);
 	}
 
 	public async Task<bool> RemoveExternalLoginAsync(

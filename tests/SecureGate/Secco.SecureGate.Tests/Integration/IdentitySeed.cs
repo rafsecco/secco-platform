@@ -87,7 +87,47 @@ internal static class IdentitySeed
 		return user.Id;
 	}
 
-	public static Task<Guid> PlatformOperatorAsync(SecureGateApiFactory factory, string email) =>
+	/// <summary>
+	/// Operador de instalação já com segundo fator cadastrado — é o estado que a instalação exige
+	/// dele (entrega D, ADR-0030). Sem isso o login pararia no cadastro, e não é isso que a maior
+	/// parte dos testes está exercitando.
+	/// </summary>
+	/// <param name="factory">Factory da suíte.</param>
+	/// <param name="email">E-mail do operador.</param>
+	public static async Task<Guid> PlatformOperatorAsync(SecureGateApiFactory factory, string email)
+	{
+		var userId = await UserAsync(factory, SecureGatePlatform.TenantId, email, SecureGatePlatform.OperatorRole);
+
+		using var scope = factory.Services.CreateScope();
+		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+		var user = await userManager.FindByIdAsync(userId.ToString());
+
+		await userManager.ResetAuthenticatorKeyAsync(user!);
+		(await userManager.SetTwoFactorEnabledAsync(user!, true)).Succeeded.Should().BeTrue();
+
+		return userId;
+	}
+
+	/// <summary>
+	/// Liga o segundo fator de uma conta já criada. Existe porque a instalação EXIGE 2FA do
+	/// operador (entrega D): sem isso, todo login de operador pararia no cadastro.
+	/// </summary>
+	/// <param name="factory">Factory da suíte.</param>
+	/// <param name="userId">Usuário.</param>
+	public static async Task EnableTwoFactorAsync(SecureGateApiFactory factory, Guid userId)
+	{
+		using var scope = factory.Services.CreateScope();
+		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+		var user = await userManager.FindByIdAsync(userId.ToString());
+
+		await userManager.ResetAuthenticatorKeyAsync(user!);
+		(await userManager.SetTwoFactorEnabledAsync(user!, true)).Succeeded.Should().BeTrue();
+	}
+
+	/// <summary>Operador SEM segundo fator — para os testes que exercitam justamente a exigência.</summary>
+	/// <param name="factory">Factory da suíte.</param>
+	/// <param name="email">E-mail do operador.</param>
+	public static Task<Guid> PlatformOperatorWithoutTwoFactorAsync(SecureGateApiFactory factory, string email) =>
 		UserAsync(factory, SecureGatePlatform.TenantId, email, SecureGatePlatform.OperatorRole);
 
 	public static Task DeactivateAsync(SecureGateApiFactory factory, Guid userId) =>

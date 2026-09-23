@@ -9,6 +9,7 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="Roles">Perfis.</param>
 /// <param name="EffectivePermissions">União das permissões dos perfis, pela resolução dos produtos.</param>
 /// <param name="ExternalLogins">Provedores externos vinculados — só o nome, nunca o identificador.</param>
+/// <param name="TwoFactorEnabled">Segundo fator ativado (entrega D).</param>
 /// <param name="HasPassword">Se a conta já tem senha definida (ADR-0033: nasce sem, até o convite ser aceito).</param>
 /// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
 /// <remarks>
@@ -25,4 +26,5 @@ public sealed record UserDetailDto(
 	IReadOnlyList<string> EffectivePermissions,
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
-	bool LocalLoginEnabled);
+	bool LocalLoginEnabled,
+	bool TwoFactorEnabled);

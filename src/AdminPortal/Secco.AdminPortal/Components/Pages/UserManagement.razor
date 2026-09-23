@@ -103,6 +103,7 @@ else
     <section>
         <h2>Credencial</h2>
         <p class="muted">@CredentialStatusText</p>
+        <p class="muted">Segundo fator: @(_user.TwoFactorEnabled ? "ativado" : "desativado")</p>
 
         @* O operador nunca escolhe nem vê a senha de ninguém (ADR-0033): daqui só saem links. *@
         @if (_user.LocalLoginEnabled && !_user.HasPassword)
@@ -116,6 +117,10 @@ else
         @if (_user.LocalLoginEnabled)
         {
             <button @onclick="AskDisableLocalLogin" disabled="@_busy">Desligar senha local</button>
+        }
+        @if (_user.TwoFactorEnabled)
+        {
+            <button @onclick="AskResetTwoFactor" disabled="@_busy">Resetar segundo fator</button>
         }
         else
         {
@@ -278,6 +283,16 @@ else
         await ReloadAsync();
         _message = $"Convite reenviado para {_user!.Email}. O link anterior deixa de valer no primeiro uso do novo.";
     });
+
+    private void AskResetTwoFactor() =>
+        _pending = new PendingAction(
+            "Zerar o cadastro do segundo fator? A pessoa precisará cadastrar de novo — isso não isenta ninguém da exigência.",
+            async () =>
+            {
+                await UserAdminService.ResetTwoFactorAsync(TenantId, UserId);
+                await ReloadAsync();
+                _message = "Cadastro do segundo fator zerado. O dono foi avisado por e-mail.";
+            });
 
     private void AskResetPassword() =>
         _pending = new PendingAction(
