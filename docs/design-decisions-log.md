@@ -1657,3 +1657,25 @@ Registrado também que a classificação de erro do SQL Server tratava 4060 ("ba
 **Descartado prometer bloqueio no desvínculo.** Enquanto a pessoa seguir no diretório e a federação estiver ligada, o próximo login vincula de novo. Em vez de inventar uma trava que a ADR-0026 não tem, a tela e o endpoint dizem isso, e apontam o que de fato barra acesso: desativar a conta ou desligar a federação.
 
 **Achado da bateria de mutação:** a guarda de tenant existia em duas camadas e nenhuma das duas era exercitada isoladamente. Removendo a do caso de uso, uma conta só corporativa de outro tenant passava a responder `409` em vez de `404` — confirmando a existência daquele usuário. Dois testes novos fecharam as duas camadas.
+
+---
+
+## Segundo fator (entrega D, 2026-09-23)
+
+**Por que só TOTP?** SMS cai para SIM swap e depende de operadora; e-mail como segundo fator é circular, porque o e-mail já recupera a senha. TOTP é offline, sem custo por mensagem e sem terceiro no caminho.
+
+**Por que obrigatório só para o operador?** Porque é a conta que lê log de todos os tenants por elevação (ADR-0031) e gere a identidade da instalação. Obrigar o tenant inteiro puxaria política por tenant, período de adoção, bloqueio progressivo e o risco de trancar uma empresa inteira para fora — decisão adiada, não descartada.
+
+**Por que o operador não desliga o próprio?** Mesma lógica de ninguém desativar a própria conta nem se remover do papel de operador (issue #26): uma exigência que o exigido pode remover não é exigência.
+
+**Por que reset zera em vez de isentar?** Porque isenção seria permanente e invisível. Zerando, a conta volta ao estado inicial e, sendo de operador, o próximo login cai no cadastro. O reset audita e avisa o dono justamente por ser o caminho que um admin comprometido usaria.
+
+**Por que não existe "lembrar deste dispositivo"?** O cookie de dispositivo confiável é o que um invasor com acesso à máquina rouba para pular o segundo fator por semanas, e contornaria a revogação de sessão que a ADR-0032 acabou de construir. Se virar dor real, entra com desenho próprio.
+
+**Por que o QR sai do servidor?** Qualquer gerador externo receberia o segredo TOTP do usuário — o segundo fator estaria comprometido antes de existir. Custou uma dependência (QRCoder, MIT); a alternativa era mostrar só a chave para digitação manual.
+
+**Achado 1: o Identity não gera código TOTP.** `GenerateTwoFactorTokenAsync` devolve string vazia para o provedor "Authenticator" — ele existe para validar, porque o dígito nasce no aplicativo da pessoa. O plano dizia o contrário, e o teste só passou depois de calcular o TOTP do lado do teste (RFC 6238, o mesmo algoritmo que a validação usa).
+
+**Achado 2: a chave era regerada a cada abertura da tela.** Quem lesse o QR e recarregasse a página ficaria com um autenticador inútil, sem aviso. A chave em andamento passou a ser reaproveitada.
+
+**Consequência assumida:** a exigência do operador quebrou 21 testes de login existentes. A correção foi ensinar o driver de teste a fazer o segundo passo, como um navegador real — afrouxar a regra para os testes passarem teria invertido a relação entre teste e verdade.

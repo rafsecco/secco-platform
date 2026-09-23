@@ -134,10 +134,22 @@ A conta nasce **sem senha**. Quem a define é a própria pessoa, por um link:
 | Trocar minha senha | `/conta/trocar-senha` | Autenticada, exige a senha atual; derruba as outras sessões e mantém a desta janela |
 | Trocar meu e-mail | `/conta/trocar-email` | Autenticada, exige a senha atual de quem tem senha local. Resposta **idêntica** para endereço livre e em uso |
 | Confirmar e-mail | `/conta/confirmar-email` | Anônima (o link é aberto na caixa nova): troca `Email` e `UserName` juntos e **encerra as sessões** |
+| Segundo fator | `/conta/dois-fatores` | Cadastro TOTP: QR gerado **no servidor**, confirmação por código e 10 códigos de recuperação exibidos **uma única vez** |
+| Segundo passo do login | `/login/dois-fatores` | Dígito do autenticador ou código de recuperação; tentativa errada alimenta o lockout |
 
 Pela API (`securegate:admin`): `POST .../users/{id}/invite` reenvia o convite, `POST .../users/{id}/password-reset` manda o link **e revoga as sessões na hora**, e `POST .../users/{id}/local-login` liga ou desliga a senha local — desligar **apaga a senha** e encerra as sessões, deixando a conta só com o diretório corporativo (ADR-0026).
 
 **Uso único sem tabela de tokens:** o token do Identity embute o `SecurityStamp`, então definir ou trocar a senha mata todos os links pendentes daquela conta de uma vez. O link de troca de e-mail carrega o endereço novo **no próprio propósito**, e por isso não serve para apontar a conta a outro destino.
+
+### Segundo fator (entrega D)
+
+**TOTP, voluntário para qualquer conta com senha local** — e **obrigatório para quem tem o papel `installation-operator`**: sem cadastro, o `/connect/authorize` não emite código de autorização e leva a pessoa ao cadastro. Como o bloqueio acontece antes de o código sair, nenhum relying party precisa saber (o AdminPortal inclusive). O operador **não desliga o próprio** segundo fator.
+
+`POST /api/v1/tenants/{id}/users/{userId}/two-factor/reset` (escopo `securegate:admin`) **zera o cadastro** — chave e códigos apagados — e avisa o dono por e-mail. Zerar **não isenta**: sendo conta de operador, o próximo login cai no cadastro.
+
+> **Login federado não pede dígito.** O MFA é do diretório (ADR-0026), e exigir um segundo fator nosso em cima seria pedir duas vezes a mesma garantia — uma delas fora do controle de quem administra o diretório.
+
+> **Não existe "lembrar deste dispositivo".** O cookie de dispositivo confiável é o que um invasor com acesso à máquina rouba para pular o segundo fator, e contornaria a revogação de sessão da ADR-0032.
 
 ### Vínculo com diretório externo (ADR-0026)
 

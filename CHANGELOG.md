@@ -12,7 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-23. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+- **Adicionado** `ResetUserTwoFactor` — `POST /api/v1/tenants/{tenantId}/users/{userId}/two-factor/reset`, escopo `securegate:admin`. Zera o cadastro do segundo fator de um usuário: apaga a chave do autenticador e os códigos de recuperação. **Não isenta ninguém** — a conta volta a "sem 2FA cadastrado" e, sendo de operador de instalação, o próximo login cai direto no cadastro. Idempotente (ADR-0034): conta sem 2FA responde `204` igual. Audita e avisa o dono por e-mail, porque é exatamente a operação que um administrador comprometido usaria para contornar o segundo fator de outra pessoa.
+- **Adicionado** `twoFactorEnabled` no `UserDetailDto`, para a tela mostrar o estado e decidir se oferece o reset.
+
+> **Exigência nova para o operador de instalação.** Contas com o papel `installation-operator` passam a precisar de segundo fator: sem cadastro, o `/connect/authorize` **não emite código de autorização** e leva a pessoa ao cadastro. Como o bloqueio acontece antes de o código sair, nenhum relying party muda — o AdminPortal inclusive. Para todo o resto, o 2FA é voluntário.
 
 ---
 
