@@ -105,6 +105,13 @@ public sealed class LoginModel(
 		var result = await signInManager.PasswordSignInAsync(
 			Input.Email, Input.Password, isPersistent: false, lockoutOnFailure: true);
 
+		if (result.RequiresTwoFactor)
+		{
+			// O SignInManager já gravou o cookie de duas etapas; ele não autentica nada sozinho,
+			// só carrega "esta pessoa passou pela senha" até o segundo passo (entrega D).
+			return RedirectToPage("/TwoFactorLogin", new { returnUrl });
+		}
+
 		if (result.Succeeded)
 		{
 			// LocalRedirect: recusa URLs absolutas — sem open redirect (ADR-0020).

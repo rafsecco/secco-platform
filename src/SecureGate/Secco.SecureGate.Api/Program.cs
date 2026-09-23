@@ -34,6 +34,9 @@ builder.Services.AddRazorPages(options =>
 	// A confirmação de e-mail é aberta na caixa NOVA, que pode estar em outro navegador:
 	// quem autoriza é o token, não a sessão.
 	options.Conventions.AllowAnonymousToPage("/Account/ConfirmEmail");
+	// Segundo passo do login: quem chega aqui ainda não tem sessão — quem o identifica é o
+	// cookie de duas etapas do Identity (entrega D).
+	options.Conventions.AllowAnonymousToPage("/TwoFactorLogin");
 });
 
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration

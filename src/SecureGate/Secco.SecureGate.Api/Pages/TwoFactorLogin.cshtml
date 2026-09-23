@@ -1,0 +1,29 @@
+@page "/login/dois-fatores"
+@model TwoFactorLoginModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Segundo fator";
+}
+
+<h1>Confirme quem é você</h1>
+<p class="sub">Informe o código de seis dígitos do seu aplicativo autenticador.</p>
+
+<form method="post" asp-route-returnUrl="@Model.ReturnUrl" novalidate>
+    <label asp-for="Input.Code">Código</label>
+    <input asp-for="Input.Code" autocomplete="one-time-code" inputmode="numeric" autofocus />
+    <span class="field-error" asp-validation-for="Input.Code"></span>
+
+    <label style="font-weight:400">
+        <input asp-for="Input.IsRecoveryCode" type="checkbox" />
+        Estou usando um código de recuperação
+    </label>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="error" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <button type="submit">Entrar</button>
+</form>
+
+<p style="margin-top:1rem"><a href="/login">Voltar</a></p>
