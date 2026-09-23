@@ -85,7 +85,19 @@ public static class SecureGateIdentityExtensions
 			})
 			// Referenciado pelo SignInManager mesmo sem login externo configurado
 			.AddCookie(IdentityConstants.ExternalScheme, options =>
-				options.Cookie.Name = "secco.securegate.external");
+				options.Cookie.Name = "secco.securegate.external")
+			// Estado ENTRE os dois passos do login (ADR-0022 + entrega D). Não autentica nada
+			// sozinho: só diz "esta pessoa passou pela senha e falta o segundo fator".
+			.AddCookie(IdentityConstants.TwoFactorUserIdScheme, options =>
+			{
+				options.Cookie.Name = "secco.securegate.2fa";
+				options.Cookie.SameSite = SameSiteMode.Lax;
+				options.Cookie.HttpOnly = true;
+				options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+				options.Cookie.SecurePolicy = environment.IsProduction()
+					? CookieSecurePolicy.Always
+					: CookieSecurePolicy.SameAsRequest;
+			});
 
 		return services;
 	}

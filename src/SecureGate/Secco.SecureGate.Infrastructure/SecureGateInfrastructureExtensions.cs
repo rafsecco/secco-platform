@@ -142,6 +142,9 @@ public static class SecureGateInfrastructureExtensions
 		services.AddScoped<Application.Credentials.ICredentialTokens, Credentials.IdentityCredentialTokens>();
 		services.AddScoped<Application.Credentials.ICredentialMailer, Credentials.SeccoEmailCredentialMailer>();
 
+		// Cadastro do segundo fator TOTP (ADR-0020, entrega D) — QR gerado no próprio servidor.
+		services.AddScoped<Application.Credentials.ITwoFactorSetup, Credentials.IdentityTwoFactorSetup>();
+
 		// Limite do "esqueci minha senha": singleton, porque a janela é do processo (ADR-0035).
 		services.AddSingleton<Application.Credentials.IPasswordResetThrottle, Credentials.FixedWindowPasswordResetThrottle>();
 

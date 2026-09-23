@@ -50,6 +50,9 @@
     <!-- Chaves de Data Protection no banco de plataforma (ADR-0033): sem isso elas vivem na
          máquina e somem a cada reinício, levando junto todo link de convite/redefinição pendente. -->
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.9" />
+    <!-- QR do cadastro de 2FA gerado NO SERVIDOR: um gerador externo receberia o segredo
+         TOTP do usuário (ADR-0020). QRCoder é MIT, sem dependência nativa. -->
+    <PackageVersion Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <!-- Resiliência e observabilidade (Fase 3) -->

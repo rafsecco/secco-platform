@@ -52,6 +52,12 @@ public sealed class CredentialOptions
 	public int ForgotPerIpPerHour { get; set; } = 10;
 
 	/// <summary>
+	/// Nome que aparece no aplicativo autenticador da pessoa. Padrão "Secco SecureGate"; uma
+	/// instalação com marca própria troca aqui.
+	/// </summary>
+	public string TwoFactorIssuer { get; set; } = "Secco SecureGate";
+
+	/// <summary>
 	/// Piso de tempo da resposta do "esqueci minha senha", em milissegundos (padrão 300). Sem ele,
 	/// o tempo denuncia a existência da conta: só no caso "existe" há e-mail a enviar.
 	/// </summary>

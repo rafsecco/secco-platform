@@ -11,6 +11,8 @@
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
     <!-- Chaves de Data Protection persistidas no banco de plataforma (ADR-0033) -->
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
+    <!-- QR do cadastro de 2FA gerado NO SERVIDOR (ADR-0020, entrega D) -->
+    <PackageReference Include="QRCoder" />
   </ItemGroup>
 
   <ItemGroup>
