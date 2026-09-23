@@ -87,6 +87,17 @@ public static class InteractiveEndpoints
 
 		var roles = await userManager.GetRolesAsync(user);
 
+		// Operador de instalação sem segundo fator não recebe código de autorização (entrega D):
+		// é a conta que lê log de todos os tenants por elevação (ADR-0031). O desvio leva ao
+		// cadastro e volta a esta mesma requisição depois — nenhum relying party precisa saber.
+		if (OperatorTwoFactorPolicy.RequiresEnrollment(user, roles, user.TwoFactorEnabled))
+		{
+			var destino = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
+
+			return Results.Redirect(
+				OperatorTwoFactorPolicy.EnrollmentPath + "?returnUrl=" + Uri.EscapeDataString(destino));
+		}
+
 		// ADR-0023: o scope admin só é emitido a operadores de instalação — login de usuário
 		// comum pelo client do AdminPortal NÃO escala para admin, mesmo com o scope permitido.
 		// O nome do role é único só por tenant: exigir também o tenant de plataforma impede

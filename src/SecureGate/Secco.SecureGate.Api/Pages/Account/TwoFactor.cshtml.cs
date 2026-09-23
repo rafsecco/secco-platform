@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Application.Credentials;
 using Secco.SecureGate.Infrastructure.Identity;
 
@@ -45,6 +46,9 @@ public sealed class TwoFactorModel(
 
 	/// <summary>Segundo fator já ativado nesta conta.</summary>
 	public bool Enabled { get; private set; }
+
+	/// <summary>Conta pode desligar o próprio segundo fator (operador não pode, ADR-0030).</summary>
+	public bool CanDisable { get; private set; } = true;
 
 	/// <summary>Códigos de recuperação restantes, quando o 2FA está ligado.</summary>
 	public int RecoveryCodesLeft { get; private set; }
@@ -138,6 +142,17 @@ public sealed class TwoFactorModel(
 			return NotFound();
 		}
 
+		var owner = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+		var roles = owner is null ? [] : await userManager.GetRolesAsync(owner).ConfigureAwait(false);
+
+		// O botão some para operador, mas a guarda é esta: esconder controle não é proteger.
+		if (owner is not null && !OperatorTwoFactorPolicy.CanDisable(owner, roles))
+		{
+			ErrorMessage = "O segundo fator é obrigatório para operadores da instalação e não pode ser desativado.";
+
+			return Page();
+		}
+
 		await disableHandler.HandleAsync(userId, cancellationToken).ConfigureAwait(false);
 
 		if (await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false) is { } user)
@@ -164,6 +179,11 @@ public sealed class TwoFactorModel(
 		{
 			Enabled = state.Enabled;
 			RecoveryCodesLeft = state.RecoveryCodesLeft;
+		}
+
+		if (await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false) is { } owner)
+		{
+			CanDisable = OperatorTwoFactorPolicy.CanDisable(owner, await userManager.GetRolesAsync(owner).ConfigureAwait(false));
 		}
 
 		return userId;

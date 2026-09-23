@@ -26,9 +26,21 @@ else if (Model.Enabled)
 {
     <p class="sub">Ativado. Restam @Model.RecoveryCodesLeft códigos de recuperação.</p>
 
-    <form method="post" asp-page-handler="Disable">
-        <button type="submit" class="secondary">Desativar segundo fator</button>
-    </form>
+    @if (Model.CanDisable)
+    {
+        <form method="post" asp-page-handler="Disable">
+            <button type="submit" class="secondary">Desativar segundo fator</button>
+        </form>
+    }
+    else
+    {
+        <p class="sub">O segundo fator é obrigatório para operadores da instalação (ADR-0030).</p>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="error" role="alert">@Model.ErrorMessage</div>
+    }
     <p style="margin-top:1rem"><a href="/conta">Voltar</a></p>
 }
 else
