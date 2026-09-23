@@ -45,6 +45,15 @@ public interface ICredentialMailer
 	Task SendEmailChangeNoticeAsync(string currentRecipient, string newEmail, CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Aviso de que o segundo fator foi ligado ou desligado. Sem link e sem código: o e-mail
+	/// existe para o dono perceber uma mudança que não foi ele.
+	/// </summary>
+	/// <param name="recipient">E-mail do dono da conta.</param>
+	/// <param name="enabled"><c>true</c> quando o segundo fator passou a valer.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SendTwoFactorChangedNoticeAsync(string recipient, bool enabled, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Aviso de que a senha mudou. Não leva link nem token: serve para o dono perceber uma troca
 	/// que não foi ele, e um link aqui seria mais uma chance de phishing.
 	/// </summary>

@@ -79,6 +79,10 @@ internal sealed partial class LogStreamCredentialAuditor(
 		CredentialAuditEvent.EmailChangeRequested => "email-troca-solicitada",
 		CredentialAuditEvent.EmailChanged => "email-trocado",
 		CredentialAuditEvent.ExternalLoginRemoved => "vinculo-externo-removido",
+		CredentialAuditEvent.TwoFactorEnabled => "2fa-ligado",
+		CredentialAuditEvent.TwoFactorDisabled => "2fa-desligado",
+		CredentialAuditEvent.TwoFactorReset => "2fa-resetado",
+		CredentialAuditEvent.TwoFactorRecoveryCodeUsed => "2fa-codigo-recuperacao-usado",
 		_ => "desconhecido",
 	};
 

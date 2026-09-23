@@ -32,6 +32,18 @@ public enum CredentialAuditEvent
 
 	/// <summary>Vínculo com provedor externo removido pelo admin.</summary>
 	ExternalLoginRemoved,
+
+	/// <summary>Segundo fator ativado pelo dono da conta.</summary>
+	TwoFactorEnabled,
+
+	/// <summary>Segundo fator desativado pelo dono da conta.</summary>
+	TwoFactorDisabled,
+
+	/// <summary>Cadastro do segundo fator zerado por um administrador.</summary>
+	TwoFactorReset,
+
+	/// <summary>Código de recuperação usado no lugar do dígito.</summary>
+	TwoFactorRecoveryCodeUsed,
 }
 
 /// <summary>

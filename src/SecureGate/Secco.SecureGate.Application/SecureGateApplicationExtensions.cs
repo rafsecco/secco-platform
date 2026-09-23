@@ -49,6 +49,8 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<Credentials.SetLocalLoginHandler>();
 		services.AddScoped<Credentials.RequestEmailChangeHandler>();
 		services.AddScoped<Credentials.ConfirmEmailChangeHandler>();
+		services.AddScoped<Credentials.EnableTwoFactorHandler>();
+		services.AddScoped<Credentials.DisableTwoFactorHandler>();
 
 		// Provisionamento de usuários (Fase 6.5)
 		services.AddScoped<CreateUserHandler>();

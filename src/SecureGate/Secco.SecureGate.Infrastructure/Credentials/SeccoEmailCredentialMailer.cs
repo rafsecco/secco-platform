@@ -120,6 +120,28 @@ internal sealed class SeccoEmailCredentialMailer(ISeccoEmailSender sender, Crede
 	}
 
 	/// <inheritdoc />
+	public Task SendTwoFactorChangedNoticeAsync(
+		string recipient,
+		bool enabled,
+		CancellationToken cancellationToken = default) =>
+		sender.SendAsync(
+			recipient,
+			enabled ? "Segundo fator ativado" : "Segundo fator desativado",
+			enabled
+				? """
+				O segundo fator desta conta foi ativado, e as sessões abertas foram encerradas.
+
+				Guarde os códigos de recuperação exibidos na tela: sem eles e sem o aplicativo
+				autenticador, só um administrador consegue devolver o acesso.
+				"""
+				: """
+				O segundo fator desta conta foi desativado, e as sessões abertas foram encerradas.
+
+				Se não foi você, troque sua senha agora e fale com o administrador do seu tenant.
+				""",
+			cancellationToken);
+
+	/// <inheritdoc />
 	public Task SendPasswordChangedNoticeAsync(string recipient, CancellationToken cancellationToken = default) =>
 		sender.SendAsync(
 			recipient,

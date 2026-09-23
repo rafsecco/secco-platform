@@ -13,6 +13,15 @@ internal sealed class IdentityTwoFactorSetup(UserManager<User> userManager, Cred
 {
 	private const int RecoveryCodeCount = 10;
 
+	/// <summary>Provedor do autenticador, como o Identity o nomeia internamente.</summary>
+	private const string AuthenticatorProvider = "[AspNetUserStore]";
+
+	/// <summary>Nome do token da chave — constante interna do Identity, replicada aqui.</summary>
+	private const string AuthenticatorKeyTokenName = "AuthenticatorKey";
+
+	/// <summary>Nome do token dos códigos de recuperação — idem.</summary>
+	private const string RecoveryCodeTokenName = "RecoveryCodes";
+
 	/// <inheritdoc />
 	public async Task<TwoFactorState?> GetStateAsync(Guid userId, CancellationToken cancellationToken = default)
 	{
@@ -85,8 +94,15 @@ internal sealed class IdentityTwoFactorSetup(UserManager<User> userManager, Cred
 		}
 
 		await userManager.SetTwoFactorEnabledAsync(user, false).ConfigureAwait(false);
-		// Apagar a chave é o que faz o reset ZERAR o cadastro em vez de isentar (spec da entrega D).
-		await userManager.ResetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+
+		// APAGAR, não regerar: o ResetAuthenticatorKeyAsync do Identity grava uma chave NOVA, e a
+		// conta continuaria "com autenticador cadastrado" — só que com um segredo que ninguém
+		// conhece. A spec da entrega D exige voltar ao estado "sem 2FA cadastrado", e é isso que
+		// faz o reset do admin zerar em vez de isentar.
+		await userManager.RemoveAuthenticationTokenAsync(user, AuthenticatorProvider, AuthenticatorKeyTokenName)
+			.ConfigureAwait(false);
+		await userManager.RemoveAuthenticationTokenAsync(user, AuthenticatorProvider, RecoveryCodeTokenName)
+			.ConfigureAwait(false);
 	}
 
 	/// <summary>Chave em blocos de 4, minúscula — o formato que se digita sem errar.</summary>
