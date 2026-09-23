@@ -12,13 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-- **Adicionado** `RemoveUserExternalLogin` — `DELETE /api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}`, escopo `securegate:admin`. Remove o vínculo da conta com um provedor externo (hoje, o Entra ID da ADR-0026). Idempotente de fato (ADR-0034): sem vínculo, responde `204` do mesmo jeito.
-- **`409` quando a conta tem o login local desligado:** ali o vínculo é o único caminho de entrada, e removê-lo criaria uma conta órfã — existe, tem perfis, e ninguém entra nela. O caminho é ligar a senha local antes, o que dispara convite.
-- **A operação não bloqueia acesso**, e a mensagem do endpoint diz isso: enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. Para barrar acesso, o que existe é desativar a conta ou desligar a federação do tenant.
-
-> **Sem quebra nesta rodada.** A troca do próprio e-mail, que entrou junto (entrega C), vive apenas nas telas do SecureGate — `/conta/trocar-email` e `/conta/confirmar-email` — e não tem endpoint de API, pela mesma razão da ADR-0033: um endpoint público que aceita token e senha é convite a automação.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-23. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -32,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.2 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.4.1 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.10.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.1 — 2026-09-20
 
@@ -79,6 +77,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.2 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.8.1 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.10.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.8.1 — 2026-09-20
 
@@ -185,6 +187,14 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.10.0 — 2026-09-23
+
+- **Adicionado** `RemoveUserExternalLogin` — `DELETE /api/v1/tenants/{tenantId}/users/{userId}/external-logins/{provider}`, escopo `securegate:admin`. Remove o vínculo da conta com um provedor externo (hoje, o Entra ID da ADR-0026). Idempotente de fato (ADR-0034): sem vínculo, responde `204` do mesmo jeito.
+- **`409` quando a conta tem o login local desligado:** ali o vínculo é o único caminho de entrada, e removê-lo criaria uma conta órfã — existe, tem perfis, e ninguém entra nela. O caminho é ligar a senha local antes, o que dispara convite.
+- **A operação não bloqueia acesso**, e a mensagem do endpoint diz isso: enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. Para barrar acesso, o que existe é desativar a conta ou desligar a federação do tenant.
+
+> **Sem quebra nesta rodada.** A troca do próprio e-mail, que entrou junto (entrega C), vive apenas nas telas do SecureGate — `/conta/trocar-email` e `/conta/confirmar-email` — e não tem endpoint de API, pela mesma razão da ADR-0033: um endpoint público que aceita token e senha é convite a automação.
+
 #### 0.9.0 — 2026-09-20
 
 - **Quebrado** `CreateUser` perdeu o campo `password` e ganhou `localLogin` (ADR-0033). **O admin não define mais senha de ninguém**: a conta nasce sem hash e a pessoa escolhe a credencial por um link de convite. Com `localLogin: false`, a conta entra só pelo diretório corporativo (ADR-0026) — sem senha, sem convite e sem recuperação. Quem chamava com `password` para de compilar; a correção é remover o campo.
@@ -240,6 +250,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.6 — 2026-09-23
+
+Patch **sem mudança funcional**: o diff desde a 0.1.5 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.10.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.5 — 2026-09-20
 
