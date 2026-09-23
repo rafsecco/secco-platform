@@ -76,7 +76,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
 		var key = await userManager.GetAuthenticatorKeyAsync(user!);
-		var codigo = ComputeTotpCode(key!);
+		var codigo = TotpCalculator.Compute(key!);
 
 		(await setup.ConfirmAsync(userId, codigo)).Should().BeTrue();
 		(await setup.GetStateAsync(userId))!.Enabled.Should().BeTrue();
@@ -96,58 +96,4 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		(await setup.GetStateAsync(userId))!.RecoveryCodesLeft.Should().Be(10);
 	}
 
-	/// <summary>
-	/// Calcula o dígito TOTP a partir da chave base32, exatamente como o aplicativo autenticador
-	/// da pessoa faria (RFC 6238, o mesmo algoritmo que o <c>AuthenticatorTokenProvider</c> do
-	/// Identity usa para VALIDAR). O provider do Identity não serve para gerar: por design,
-	/// <c>GenerateTwoFactorTokenAsync</c> devolve string vazia para o provedor "Authenticator" —
-	/// o código nasce no aplicativo da pessoa, nunca no servidor.
-	/// </summary>
-	private static string ComputeTotpCode(string base32Key)
-	{
-		var keyBytes = Base32Decode(base32Key);
-		var timestep = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
-
-		var timestepBytes = BitConverter.GetBytes(timestep);
-		if (BitConverter.IsLittleEndian)
-		{
-			Array.Reverse(timestepBytes);
-		}
-
-		using var hmac = new HMACSHA1(keyBytes);
-		var hash = hmac.ComputeHash(timestepBytes);
-
-		var offset = hash[^1] & 0xf;
-		var binaryCode = ((hash[offset] & 0x7f) << 24)
-			| ((hash[offset + 1] & 0xff) << 16)
-			| ((hash[offset + 2] & 0xff) << 8)
-			| (hash[offset + 3] & 0xff);
-
-		return (binaryCode % 1_000_000).ToString("D6", CultureInfo.InvariantCulture);
-	}
-
-	/// <summary>Decodifica base32 (RFC 4648) sem padding — o formato da chave do autenticador.</summary>
-	private static byte[] Base32Decode(string input)
-	{
-		const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-		var normalized = input.TrimEnd('=').ToUpperInvariant();
-
-		var bits = 0;
-		var value = 0;
-		var output = new List<byte>();
-
-		foreach (var c in normalized)
-		{
-			value = (value << 5) | alphabet.IndexOf(c);
-			bits += 5;
-
-			if (bits >= 8)
-			{
-				output.Add((byte)((value >> (bits - 8)) & 0xff));
-				bits -= 8;
-			}
-		}
-
-		return [.. output];
-	}
 }

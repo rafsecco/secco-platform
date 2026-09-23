@@ -136,7 +136,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
-		var codigo = await userManager.GenerateTwoFactorTokenAsync(user!, TokenOptions.DefaultAuthenticatorProvider);
+		var codigo = TotpCalculator.Compute(await userManager.GetAuthenticatorKeyAsync(user!));
 
 		(await setup.ConfirmAsync(userId, codigo)).Should().BeTrue();
 		(await setup.GetStateAsync(userId))!.Enabled.Should().BeTrue();
@@ -373,7 +373,7 @@ public async Task Ligar_ComCodigoValido_DevolveCodigosEEncerraAsOutrasSessoes()
 
 	var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 	var user = await userManager.FindByIdAsync(userId.ToString());
-	var codigo = await userManager.GenerateTwoFactorTokenAsync(user!, TokenOptions.DefaultAuthenticatorProvider);
+	var codigo = TotpCalculator.Compute(await userManager.GetAuthenticatorKeyAsync(user!));
 
 	var codigos = await handler.HandleAsync(userId, codigo);
 
@@ -413,7 +413,7 @@ public async Task Desligar_ZeraOCadastroEAvisa()
 
 	var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 	var user = await userManager.FindByIdAsync(userId.ToString());
-	await enable.HandleAsync(userId, await userManager.GenerateTwoFactorTokenAsync(user!, TokenOptions.DefaultAuthenticatorProvider));
+	await enable.HandleAsync(userId, TotpCalculator.Compute(await userManager.GetAuthenticatorKeyAsync(user!)));
 
 	(await disable.HandleAsync(userId)).IsSuccess.Should().BeTrue();
 
@@ -605,7 +605,14 @@ public async Task SegundoPasso_SemTerPassadoPelaSenha_NaoAbre()
 }
 ```
 
-O helper `Totp(chave)` calcula o código a partir da chave base32 usando o próprio Identity: recarrega o usuário e chama `userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider)` — não reimplemente RFC 6238 no teste.
+O helper é `TotpCalculator.Compute(chaveBase32)`, em `tests/SecureGate/Secco.SecureGate.Tests/Integration/TotpCalculator.cs`, criado na Tarefa 1.
+
+> **Correção do plano, achada na Tarefa 1:** a versão original mandava obter o código com
+> `userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider)`. Isso
+> **não funciona**: por design, o `AuthenticatorTokenProvider` do Identity devolve string vazia ao
+> gerar — ele existe só para validar, porque o dígito nasce no aplicativo da pessoa. O cálculo no
+> teste (RFC 6238, o mesmo que a validação do Identity usa) é o único jeito de simular o
+> autenticador.
 
 - [ ] **Passo 2: rodar e ver falhar.**
 
