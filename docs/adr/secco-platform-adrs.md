@@ -1190,6 +1190,56 @@ Regras adicionais:
 
 ---
 
+## ADR-0036: Leitura e sincronização de grupos do diretório federado
+
+**Status:** Proposta
+**Data:** 2026-09-27
+
+### Contexto
+
+A ADR-0026 federa **só a autenticação**: o Entra ID prova identidade no login, mas o SecureGate nunca lê o diretório do cliente. As issues [#27](https://github.com/rafsecco/secco-platform/issues/27) e [#28](https://github.com/rafsecco/secco-platform/issues/28) pedem o próximo passo — listar os grupos do diretório federado de um tenant, e depois mapear grupo → perfil, reconciliado no login — para que empresas que já organizam setores como grupos do Entra ID não precisem recriar cada um como perfil à mão.
+
+Isso é uma ampliação de confiança, não uma extensão trivial: a app registration multi-tenant da ADR-0026 tem hoje consentimento **delegado** (`openid profile email`, concedido pelo próprio usuário no login) para provar identidade. Ler o diretório de outra empresa exige permissão de **aplicação** (`GroupMember.Read.All`), concedida pelo **admin do diretório do cliente** — o app passa a poder ler dado do diretório inteiro, não só autenticar quem já está logando. As duas issues pedem que isso fique **opt-in**, e a #28 acrescenta uma exceção explícita à regra "o AD nunca decide quem tem acesso" da ADR-0026, que esta ADR precisa reconciliar sem revogar aquela.
+
+Alternativas avaliadas para o cliente HTTP:
+
+- **SDK `Microsoft.Graph`** — cobre toda a API, mas é uma superfície grande (dezenas de pacotes transitivos) para duas operações (listar grupos, listar membros de um grupo). Descartado: mais dependência para auditar por menos uso.
+- **MSAL (`Microsoft.Identity.Client`)** para obter o token de aplicação — resolve cache de token e retry, mas o fluxo client-credentials contra um endpoint de token é o mesmo padrão que `Secco.SDK.ClientCredentials` já implementa à mão para os próprios clients OIDC da plataforma. Descartado: dependência nova para reimplementar o que já existe.
+- **Cliente HTTP mínimo, sem SDK** — `HttpClient` direto contra `/{directoryId}/oauth2/v2.0/token` (client-credentials, escopo `https://graph.microsoft.com/.default`) e contra `https://graph.microsoft.com/v1.0/...`, com paginação por `@odata.nextLink`. **Escolhida.**
+
+### Decisão
+
+**Mesma app registration, consentimento novo e opt-in.** Nenhuma app nova: a app multi-tenant da ADR-0026 ganha o pedido de permissão de aplicação `GroupMember.Read.All`, mas cada empresa cliente só concede quando o próprio admin fizer o *admin consent* daquele escopo — a plataforma nunca sabe de antemão se um tenant concedeu. Sem consentimento, a chamada ao Graph falha com `Authorization_RequestDenied`, e a API traduz isso para um erro claro ("federação sem leitura de diretório — peça ao admin do cliente para conceder consentimento"), nunca um 500 genérico. Federação desabilitada ou tenant sem `TenantFederation` responde 404 antes de tentar qualquer chamada.
+
+**Cliente Graph próprio, sem SDK novo.** Um `IEntraGroupDirectory` na Application, implementado na Infrastructure com `HttpClient` puro:
+
+- Token de aplicação por `client_credentials` contra `/{directoryId}/oauth2/v2.0/token`, usando o `ClientId`/`ClientSecret` já configurados em `SecureGate:EntraId` (ADR-0026) — cache em memória por `directoryId` até pouco antes do `expires_in` (classe 1 da ADR-0035, TTL curto).
+- Listagem por `GET /v1.0/groups?$filter=...&$top=...`, paginação pelo `@odata.nextLink` da própria resposta, exposta ao chamador como um **token opaco de página** — não o número de página que o resto da plataforma usa (`PageRequest`/`PagedResult<T>`), porque a paginação do Graph é por cursor, não por offset. Divergência assumida: esta é a primeira leitura cross-produto que não cabe na paginação padrão.
+- **Filtro de busca por nome sanitizado antes de entrar no `$filter` OData**: aspa simples duplicada e caractere de controle removido — é o equivalente a injeção de SQL para OData, e a única barreira é validar antes de concatenar (ADR-0020, mesmo princípio da allowlist de identificador na ADR-0028).
+
+**Casamento por id do grupo, nunca pelo claim `groups` do token.** O Entra omite o claim `groups` do id_token acima de um limite de grupos por usuário, e não resolve grupo aninhado — qualquer leitura de "a que grupos a pessoa pertence" é sempre uma chamada à Graph (`GET /users/{oid}/transitiveMemberOf`, filtrada a grupos de segurança), nunca o token. Mapeamento grupo→perfil casa pelo **id do grupo** (imutável), nunca pelo nome (renomeável).
+
+**Mapeamento explícito, por tenant, gerido pelo admin.** Nova entidade `TenantGroupRoleMapping` (`tb_tenant_group_role_mappings`): `TenantId`, `EntraGroupId`, `EntraGroupDisplayName` (snapshot legível, não é chave), `RoleId`. Gestão via API sob `securegate:admin`, no mesmo padrão das demais entidades de tenant. Perfil reservado (ADR-0023/0024/0031) nunca é mapeável — mesma allowlist de `RoleInputRules.IsAssignableToUsers`.
+
+**Origem da atribuição, sobre o vínculo já existente.** Em vez de uma tabela lateral, `UserRole` (hoje `sealed class UserRole : IdentityUserRole<Guid>` sem colunas extras) ganha `Origin` (`Manual` | `Directory`) e `SourceGroupId` (nullable). Continua sendo o vínculo nativo do Identity — "perfil = Role nativo" (issue #26) não muda —, só ganha metadado de como a atribuição chegou lá. `GetUser` e `RoleMemberDto` expõem a origem, pedido explícito do comentário da #28. **`RemoveUserRole` sobre atribuição de origem `Directory` recusa com erro explícito** ("esta atribuição vem da sincronização de grupo; ajuste o mapeamento ou aguarde a mudança no diretório"), em vez de remover e deixar o próximo ciclo reconciliar de volta — recusar é o que torna a origem útil, como o próprio comentário da issue nota.
+
+**Reconciliação: no login E por job periódico, nunca só no login.** No login federado (`EntraSignInProcessor`), depois de autenticar, resolve os grupos do usuário e reconcilia os perfis mapeados daquele tenant. Sozinho isso deixaria quem sai do grupo com o perfil até o próximo login — inaceitável com refresh token de longa duração (ADR-0022/0032). Um **job diário via `IBackgroundJobScheduler`** (Hangfire, ADR-0015 Camada 2, já existente no SDK) itera os tenants com mapeamento configurado, um `GET /groups/{id}/members` por grupo mapeado (mais barato que um `GET .../memberOf` por usuário), e reconcilia contra os usuários pré-provisionados.
+
+**Fail-closed, sem exceção.** Falha ao ler o Graph (indisponível, consentimento revogado, rate limit) **não concede nem remove nenhum perfil** — mantém o estado anterior e registra o motivo na auditoria. É a mesma postura fail-closed da ADR-0021 para o cache de permissão.
+
+**Guarda do último membro ativo, generalizada.** A reconciliação **nunca retira** um perfil de um usuário se isso deixasse o perfil sem nenhum membro ativo — mesmo princípio do "último operador ativo" da ADR-0030 (`OperatorGuard`), mas aplicado a qualquer perfil, não só o de instalação: o secco-intranet exige isto para `intranet-admin`, e generalizar custa pouco e evita reinventar a regra por adotante. O pior efeito possível é alguém manter acesso por mais tempo do que deveria — nunca a instalação travar.
+
+### Consequências
+
+- **Sem migration de dado** além das colunas/tabela novas: `tb_tenant_group_role_mappings` (nova) e `Origin`/`SourceGroupId` em `tb_user_roles` (nullable/default `Manual`, retrocompatível com toda atribuição existente).
+- **Nenhum pacote novo no monorepo** — sem `Microsoft.Graph`, sem `Microsoft.Identity.Client`. O custo é reimplementar paginação e obtenção de token à mão; o ganho é zero superfície de dependência nova para auditar.
+- **A app registration multi-tenant ganha um segundo tipo de consentimento** (aplicação, além de delegado) — precisa entrar na documentação de deploy do adotante (ADR-0026 já pede a criação da app; esta ADR acrescenta o pedido do escopo `GroupMember.Read.All`).
+- **SecureGate ganha uma dependência de runtime nova de fato**: chamadas de saída à Microsoft Graph, sujeitas a indisponibilidade e rate limit do lado do Microsoft 365 do cliente — tratadas como qualquer dependência externa (timeout, sem retry automático que amplifique rate limit, erro traduzido nunca vazando detalhe de terceiro ao chamador, ADR-0020).
+- **#27 entra primeiro** (só leitura, menor risco); **#28 depende desta ADR ratificada** antes de qualquer código, dado o tamanho da superfície (dono de grupo no Entra passa a poder conceder perfil na plataforma — risco registrado, não uma folga).
+- Validação real de consentimento e paginação do Graph exige um tenant Entra de teste — não coberta por unit/integration test contra um Graph falso, que valida o formato da chamada, não o comportamento real do serviço.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
