@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Infrastructure.Federation;
 using Secco.SecureGate.Infrastructure.Identity;
 
 namespace Secco.SecureGate.Api.Pages;

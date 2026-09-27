@@ -10,6 +10,7 @@ using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Infrastructure.Credentials;
 using Secco.SecureGate.Infrastructure.Cryptography;
+using Secco.SecureGate.Infrastructure.Federation;
 using Secco.SecureGate.Infrastructure.Provisioning;
 using Secco.SecureGate.Infrastructure.Seeding;
 
@@ -192,6 +193,19 @@ public static class SecureGateInfrastructureExtensions
 		// Convergência da cifragem do catálogo (ADR-0025): re-cifra legado/chave aposentada
 		// para a chave ativa após as migrations — idempotente, roda em todos os ambientes.
 		services.AddScoped<IReferenceDataSeeder, TenantDatabaseReEncryptionSeeder>();
+
+		// App registration do Entra ID (ADR-0026): a Api ainda lê a seção direto para decidir se
+		// registra o esquema OIDC no startup (síncrono, antes do container existir), mas a
+		// injeção de IOptions<> — usada pelo cliente Graph da ADR-0036 — é registrada aqui, onde
+		// o tipo vive.
+		services.AddOptions<SecureGateEntraIdOptions>().BindConfiguration(SecureGateEntraIdOptions.SectionName);
+
+		// Leitura de grupos do diretório federado (issue #27, ADR-0036): HttpClient puro, sem
+		// Microsoft.Graph nem Microsoft.Identity.Client — a resiliência padrão (AddSeccoResilience)
+		// já cobre todo HttpClient nomeado.
+		services.AddSingleton<GraphAppTokenCache>();
+		services.AddHttpClient(GraphGroupDirectory.HttpClientName);
+		services.AddScoped<Application.Federation.IEntraGroupDirectory, GraphGroupDirectory>();
 
 		return services;
 	}

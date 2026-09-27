@@ -1,4 +1,4 @@
-namespace Secco.SecureGate.Api.Identity;
+namespace Secco.SecureGate.Infrastructure.Federation;
 
 /// <summary>
 /// Configuração da app registration multi-tenant da plataforma no Entra ID (ADR-0026,
@@ -7,6 +7,12 @@ namespace Secco.SecureGate.Api.Identity;
 /// seu directory id via <c>PUT /api/v1/tenants/{id}/federation</c>. Sem <see cref="ClientId"/>
 /// e <see cref="ClientSecret"/>, o login federado fica desligado (botão não aparece).
 /// </summary>
+/// <remarks>
+/// Vive na Infrastructure (não na Api, onde nasceu na ADR-0026) porque o cliente Graph da
+/// ADR-0036 também precisa dela — o mesmo <c>ClientId</c>/<c>ClientSecret</c>, agora pedindo
+/// um token de aplicação em vez do fluxo de login. A Api continua consumindo por injeção,
+/// já que depende da Infrastructure (ADR-0002).
+/// </remarks>
 public sealed class SecureGateEntraIdOptions
 {
 	/// <summary>Nome da seção de configuração.</summary>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Infrastructure.Federation;
 
 namespace Secco.SecureGate.Api.Extensions;
 
@@ -27,7 +28,8 @@ public static class SecureGateEntraFederationExtensions
 		ArgumentNullException.ThrowIfNull(configuration);
 		ArgumentNullException.ThrowIfNull(environment);
 
-		services.Configure<SecureGateEntraIdOptions>(configuration.GetSection(SecureGateEntraIdOptions.SectionName));
+		// A ligação de IOptions<SecureGateEntraIdOptions> mora em AddSecureGateInfrastructure()
+		// (ADR-0036) — o cliente Graph também precisa dela, e ela vive na Infrastructure agora.
 
 		// O processador é registrado sempre: a decisão fail-closed é testável sem o esquema
 		services.AddScoped<EntraSignInProcessor>();

@@ -178,6 +178,42 @@ public static class SecureGateErrors
 		public static readonly Error SignInRejected =
 			Error.Failure("SecureGate.Federation.SignInRejected",
 				"Não foi possível autenticar com a conta corporativa.");
+
+		/// <summary>Tenant sem federação cadastrada, ou federação desabilitada (ADR-0036) — nunca lista vazia.</summary>
+		public static readonly Error NotEnabled =
+			Error.Conflict(
+				"SecureGate.Federation.NotEnabled",
+				"Este tenant não tem federação com diretório habilitada.");
+
+		/// <summary>
+		/// O Graph recusou por falta de consentimento de APLICAÇÃO (distinto do consentimento
+		/// delegado do login) — o admin do diretório do cliente precisa concedê-lo (ADR-0036).
+		/// </summary>
+		public static readonly Error ConsentRequired =
+			Error.Forbidden(
+				"SecureGate.Federation.ConsentRequired",
+				"O diretório do cliente ainda não concedeu consentimento de leitura de grupos. Peça ao admin do diretório para conceder o consentimento de aplicação.");
+
+		/// <summary>Microsoft Graph indisponível ou não respondeu a tempo — condição transitória (ADR-0036).</summary>
+		public static readonly Error DirectoryUnavailable =
+			Error.Unavailable(
+				"SecureGate.Federation.DirectoryUnavailable",
+				"O diretório do cliente não respondeu. Tente novamente em instantes.");
+
+		/// <summary>Termo de busca inválido (acima do limite ou com caractere de controle, ADR-0036).</summary>
+		public static readonly Error SearchTermInvalid =
+			Error.Validation(
+				"SecureGate.Federation.SearchTermInvalid",
+				"Termo de busca inválido.");
+
+		/// <summary>
+		/// Token de página fora do domínio esperado do Graph — nunca uma URL arbitrária vinda do
+		/// chamador (defesa contra SSRF, ADR-0020/0036).
+		/// </summary>
+		public static readonly Error InvalidPageToken =
+			Error.Validation(
+				"SecureGate.Federation.InvalidPageToken",
+				"Token de página inválido.");
 	}
 
 	/// <summary>Erros de provisionamento de usuários (Fase 6.5).</summary>

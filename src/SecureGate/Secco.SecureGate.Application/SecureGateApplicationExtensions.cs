@@ -72,6 +72,9 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<Sessions.GetSessionVersionHandler>();
 		services.AddScoped<Sessions.RevokeUserSessionsHandler>();
 
+		// Leitura do diretório federado (issue #27, ADR-0036)
+		services.AddScoped<Federation.ListEntraGroupsHandler>();
+
 		return services;
 	}
 }
