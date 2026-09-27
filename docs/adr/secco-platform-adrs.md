@@ -1192,7 +1192,7 @@ Regras adicionais:
 
 ## ADR-0036: Leitura e sincronização de grupos do diretório federado
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-09-27
 
 ### Contexto
@@ -1235,7 +1235,8 @@ Alternativas avaliadas para o cliente HTTP:
 - **Nenhum pacote novo no monorepo** — sem `Microsoft.Graph`, sem `Microsoft.Identity.Client`. O custo é reimplementar paginação e obtenção de token à mão; o ganho é zero superfície de dependência nova para auditar.
 - **A app registration multi-tenant ganha um segundo tipo de consentimento** (aplicação, além de delegado) — precisa entrar na documentação de deploy do adotante (ADR-0026 já pede a criação da app; esta ADR acrescenta o pedido do escopo `GroupMember.Read.All`).
 - **SecureGate ganha uma dependência de runtime nova de fato**: chamadas de saída à Microsoft Graph, sujeitas a indisponibilidade e rate limit do lado do Microsoft 365 do cliente — tratadas como qualquer dependência externa (timeout, sem retry automático que amplifique rate limit, erro traduzido nunca vazando detalhe de terceiro ao chamador, ADR-0020).
-- **#27 entra primeiro** (só leitura, menor risco); **#28 depende desta ADR ratificada** antes de qualquer código, dado o tamanho da superfície (dono de grupo no Entra passa a poder conceder perfil na plataforma — risco registrado, não uma folga).
+- **#27 entra primeiro** (só leitura, menor risco); **#28 depende desta ADR ratificada** antes de qualquer código, dado o tamanho da superfície.
+- **O SecureGate continua o único dono do modelo de perfil** (Role/Permission) — o Entra nunca define permissão, só informa quem está em qual grupo. O que muda é *quem entra e sai* de um perfil específico, e só depois de um ato explícito do admin do SecureGate: criar o mapeamento grupo→perfil. A partir desse mapeamento, quem administra a lista de membros daquele grupo **no diretório do cliente** — o TI da empresa, ou um dono de grupo delegado que talvez nem seja admin — passa a decidir indiretamente quem ganha aquele perfil, sem tocar no SecureGate e sem saber que o perfil existe. Não é falha de desenho: é o que a #28 pede. O controle que sobra do lado da plataforma é o admin escolher **quais perfis aceitam essa delegação** (criando ou não o mapeamento) e poder desfazê-la a qualquer momento removendo-o.
 - Validação real de consentimento e paginação do Graph exige um tenant Entra de teste — não coberta por unit/integration test contra um Graph falso, que valida o formato da chamada, não o comportamento real do serviço.
 
 ---
