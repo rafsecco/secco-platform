@@ -288,6 +288,11 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_concurrency_stamp");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("ds_display_name");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")

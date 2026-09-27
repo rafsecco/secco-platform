@@ -7,7 +7,9 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="Email">E-mail — também o username (único global; o tenant vem do registro no login).</param>
 /// <param name="LocalLogin">Se a conta aceita senha local (ADR-0033); nasce sempre sem hash de senha.</param>
 /// <param name="Roles">Roles a atribuir no tenant (ADR-0021); devem existir.</param>
-public sealed record CreateUserData(Guid TenantId, string Email, bool LocalLogin, IReadOnlyList<string> Roles);
+/// <param name="DisplayName">Nome de exibição, já normalizado e validado (#30). Opcional.</param>
+public sealed record CreateUserData(
+	Guid TenantId, string Email, bool LocalLogin, IReadOnlyList<string> Roles, string? DisplayName = null);
 
 /// <summary>Conta com lockout cru e vínculos — a Application deriva situação e permissões.</summary>
 /// <param name="Id">Identificador.</param>
@@ -19,6 +21,8 @@ public sealed record CreateUserData(Guid TenantId, string Email, bool LocalLogin
 /// <param name="ExternalLogins">Nomes dos provedores externos vinculados.</param>
 /// <param name="HasPassword">Se a conta já tem hash de senha definido (ADR-0033).</param>
 /// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
+/// <param name="TwoFactorEnabled">Segundo fator ativado.</param>
+/// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -29,7 +33,8 @@ public sealed record UserAccountData(
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
 	bool LocalLoginEnabled,
-	bool TwoFactorEnabled);
+	bool TwoFactorEnabled,
+	string? DisplayName = null);
 
 /// <summary>Resultado de atribuir ou remover perfil.</summary>
 public enum RoleAssignmentOutcome
@@ -141,4 +146,17 @@ public interface IUserDirectory
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<UserSessionState?> GetSessionStateAsync(Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Define o nome de exibição do usuário do tenant informado (#30). Já validado pelo chamador;
+	/// esta porta só persiste. Não revoga sessão nem entra na trilha aqui — não é evento de
+	/// credencial, e o handler decide isso.
+	/// </summary>
+	/// <param name="tenantId">Tenant esperado.</param>
+	/// <param name="userId">Usuário.</param>
+	/// <param name="displayName">Nome já normalizado (ou <c>null</c> para limpar).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
+	Task<bool> SetDisplayNameAsync(
+		Guid tenantId, Guid userId, string? displayName, CancellationToken cancellationToken = default);
 }

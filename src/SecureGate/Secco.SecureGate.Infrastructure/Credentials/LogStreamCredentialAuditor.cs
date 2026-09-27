@@ -83,6 +83,7 @@ internal sealed partial class LogStreamCredentialAuditor(
 		CredentialAuditEvent.TwoFactorDisabled => "2fa-desligado",
 		CredentialAuditEvent.TwoFactorReset => "2fa-resetado",
 		CredentialAuditEvent.TwoFactorRecoveryCodeUsed => "2fa-codigo-recuperacao-usado",
+		CredentialAuditEvent.DisplayNameChanged => "nome-exibicao-alterado",
 		_ => "desconhecido",
 	};
 

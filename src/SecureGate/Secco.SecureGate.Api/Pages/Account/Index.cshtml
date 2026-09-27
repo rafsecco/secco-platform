@@ -6,12 +6,19 @@
 }
 
 <h1>Minha conta</h1>
-<p class="sub">@Model.Email</p>
+<p class="sub">@(string.IsNullOrEmpty(Model.DisplayName) ? Model.Email : Model.DisplayName)</p>
 
 @if (Model.PasswordChanged)
 {
     <div class="notice" role="status">Senha alterada. As outras sessões desta conta foram encerradas.</div>
 }
+
+@if (Model.DisplayNameChanged)
+{
+    <div class="notice" role="status">Nome de exibição atualizado.</div>
+}
+
+<p><a href="/conta/nome">@(string.IsNullOrEmpty(Model.DisplayName) ? "Definir meu nome de exibição" : "Trocar meu nome de exibição")</a></p>
 
 @if (Model.UsesLocalPassword)
 {

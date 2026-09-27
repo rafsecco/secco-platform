@@ -12,9 +12,11 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="TwoFactorEnabled">Segundo fator ativado (entrega D).</param>
 /// <param name="HasPassword">Se a conta já tem senha definida (ADR-0033: nasce sem, até o convite ser aceito).</param>
 /// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
+/// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
 /// <remarks>
-/// <paramref name="HasPassword"/> e <paramref name="LocalLoginEnabled"/> entram NO FIM: o record é
-/// posicional e consumido pelo client NSwag — inserir no meio renumeraria os campos existentes.
+/// <paramref name="HasPassword"/>, <paramref name="LocalLoginEnabled"/> e <paramref name="DisplayName"/>
+/// entram NO FIM: o record é posicional e consumido pelo client NSwag — inserir no meio
+/// renumeraria os campos existentes.
 /// </remarks>
 public sealed record UserDetailDto(
 	Guid Id,
@@ -27,4 +29,5 @@ public sealed record UserDetailDto(
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
 	bool LocalLoginEnabled,
-	bool TwoFactorEnabled);
+	bool TwoFactorEnabled,
+	string? DisplayName = null);

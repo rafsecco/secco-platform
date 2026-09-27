@@ -51,7 +51,12 @@ internal static class OidcPrincipalBuilder
 		}
 
 		identity.SetClaim(Claims.Email, user.Email);
-		identity.SetClaim(Claims.Name, user.UserName);
+
+		// #30: nome de exibição na claim padrão OIDC, com o e-mail como fallback quando a pessoa não
+		// definiu um — mesmo valor de sempre para quem não usa o recurso, sem claim nova. Repor um
+		// valor fixo aqui quebraria quem já lê "name" hoje (ex.: o rótulo de ator na auditoria do
+		// secco-intranet, que cai no id quando o claim falta).
+		identity.SetClaim(Claims.Name, string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName);
 		identity.SetClaims(SeccoClaims.Role, [.. roleList]);
 		identity.SetClaim(SeccoClaims.SessionVersion, SessionVersion.From(user.SecurityStamp));
 

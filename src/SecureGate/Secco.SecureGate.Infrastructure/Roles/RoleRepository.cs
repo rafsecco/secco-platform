@@ -149,7 +149,7 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			.ThenBy(user => user.Id)
 			.Skip(page.Skip)
 			.Take(page.Size)
-			.Select(user => new RoleMemberData(user.Id, user.Email!, user.LockoutEnabled, user.LockoutEnd))
+			.Select(user => new RoleMemberData(user.Id, user.Email!, user.LockoutEnabled, user.LockoutEnd, user.DisplayName))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		return PagedResult.Create<RoleMemberData>(items, page, total);

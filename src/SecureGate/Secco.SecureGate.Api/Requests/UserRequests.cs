@@ -7,7 +7,9 @@ namespace Secco.SecureGate.Api.Requests;
 /// conta que entra só pelo diretório corporativo. O admin nunca define senha (ADR-0033).
 /// </param>
 /// <param name="Roles">Roles a atribuir no tenant (opcional).</param>
-public sealed record CreateUserRequest(string? Email, bool? LocalLogin, IReadOnlyList<string>? Roles);
+/// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+public sealed record CreateUserRequest(
+	string? Email, bool? LocalLogin, IReadOnlyList<string>? Roles, string? DisplayName = null);
 
 /// <summary>Payload do liga/desliga do login local (ADR-0033).</summary>
 /// <param name="Enabled">
@@ -15,3 +17,7 @@ public sealed record CreateUserRequest(string? Email, bool? LocalLogin, IReadOnl
 /// sessões e deixa a conta só com o diretório corporativo.
 /// </param>
 public sealed record SetLocalLoginRequest(bool Enabled);
+
+/// <summary>Payload da alteração de nome de exibição por um administrador (#30).</summary>
+/// <param name="DisplayName">Novo valor; vazio ou nulo limpa o nome.</param>
+public sealed record SetDisplayNameRequest(string? DisplayName);

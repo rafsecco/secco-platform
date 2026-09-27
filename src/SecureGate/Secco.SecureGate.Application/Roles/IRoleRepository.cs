@@ -13,7 +13,9 @@ public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
 /// <param name="Email">E-mail.</param>
 /// <param name="LockoutEnabled">Lockout habilitado.</param>
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
-public sealed record RoleMemberData(Guid UserId, string Email, bool LockoutEnabled, DateTimeOffset? LockoutEnd);
+/// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+public sealed record RoleMemberData(
+	Guid UserId, string Email, bool LockoutEnabled, DateTimeOffset? LockoutEnd, string? DisplayName = null);
 
 /// <summary>Resultado da exclusão de perfil.</summary>
 public enum DeleteRoleOutcome

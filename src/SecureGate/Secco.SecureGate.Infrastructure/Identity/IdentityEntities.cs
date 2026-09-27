@@ -17,6 +17,14 @@ public sealed class User : IdentityUser<Guid>
 	/// desligam este login sem apagar a senha eventualmente existente. Nasce <c>true</c>.
 	/// </summary>
 	public bool LocalLoginEnabled { get; set; } = true;
+
+	/// <summary>
+	/// Nome de exibição, opcional (#30). Identidade, não dado de produto: quem provisiona pode
+	/// informar, e o dono edita a qualquer momento. Sem valor, todo consumidor cai no e-mail —
+	/// nada quebra para quem não usa. Aparado e sem caractere de controle antes de chegar aqui
+	/// (<c>DisplayNameRules</c>, ADR-0020: log forging por texto livre indo à trilha e ao token).
+	/// </summary>
+	public string? DisplayName { get; set; }
 }
 
 /// <summary>Role (perfil) por tenant — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>

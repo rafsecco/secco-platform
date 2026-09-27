@@ -40,6 +40,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			UserName = data.Email,
 			Email = data.Email,
 			LocalLoginEnabled = data.LocalLogin,
+			DisplayName = data.DisplayName,
 		};
 
 		// Sem senha, sempre (ADR-0033): quem define a credencial é o dono, pelo convite.
@@ -57,7 +58,9 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-		return new UserDto(user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)], UserStatuses.Active);
+		return new UserDto(
+			user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)], UserStatuses.Active,
+			user.DisplayName);
 	}
 
 	public async Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default)
@@ -263,7 +266,8 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 				user.Email!,
 				user.TenantId,
 				[.. roleAssignments.Where(a => a.UserId == user.Id).Select(a => a.Name!)],
-				UserStatuses.From(user.LockoutEnabled, user.LockoutEnd, now)))
+				UserStatuses.From(user.LockoutEnabled, user.LockoutEnd, now),
+				user.DisplayName))
 		];
 	}
 
@@ -298,7 +302,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
-			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled);
+			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName);
 	}
 
 	public async Task<bool> RemoveExternalLoginAsync(
@@ -327,6 +331,24 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		context.UserLogins.RemoveRange(links);
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+		return true;
+	}
+
+	public async Task<bool> SetDisplayNameAsync(
+		Guid tenantId, Guid userId, string? displayName, CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+
+		// Usuário de outro tenant responde como inexistente: a rota é por tenant.
+		if (user is null || user.TenantId != tenantId)
+		{
+			return false;
+		}
+
+		user.DisplayName = displayName;
+
+		EnsureSucceeded(await userManager.UpdateAsync(user).ConfigureAwait(false));
 
 		return true;
 	}

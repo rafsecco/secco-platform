@@ -12,7 +12,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-23. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+#### 0.12.0
+
+- **Adicionado (aditivo)** `displayName` em `UserDto`, `UserDetailDto` e `RoleMemberDto`, e `displayName` opcional em `CreateUserRequest`. Nome de exibição da pessoa — identidade, não dado de produto (issue #30). Sem valor, vem nulo: nada muda para quem não usa.
+- **Adicionado** `SetUserDisplayName` — `PUT /api/v1/tenants/{tenantId}/users/{userId}/display-name`, escopo `securegate:admin`. Define ou limpa (corpo vazio/nulo) o nome de exibição de um usuário do tenant.
+- **Adicionado** tela `/conta/nome` no SecureGate: o dono edita o próprio nome, sem senha atual e sem encerrar sessões — ao contrário de e-mail e senha, nome de exibição não abre nem fecha acesso, é rótulo. Entra na auditoria mesmo assim (best-effort), porque é a operação que um admin usaria para trocar o nome de outra pessoa sem deixar rastro.
+- **A claim `name` do token e do `/connect/userinfo` passa a usar o nome de exibição, com o e-mail como fallback quando a pessoa não definiu um.** É o mesmo valor de sempre para quem não usa o recurso — mudança de VALOR, não de forma: nenhum relying party que já lê `name` hoje perde o claim (o rótulo de ator na auditoria do secco-intranet, por exemplo, continua recebendo algo).
+- Validação do nome: aparado, até 160 caracteres, sem caractere de controle (o valor viaja para o token e para a trilha — CR/LF forjaria uma segunda linha de log ou um segundo header).
 
 ---
 

@@ -32,7 +32,8 @@ public static class UserEndpoints
 				CreateUserHandler handler,
 				CancellationToken cancellationToken) =>
 			(await handler.HandleAsync(
-				new CreateUserCommand(tenantId, request.Email, request.LocalLogin ?? true, request.Roles), cancellationToken))
+				new CreateUserCommand(tenantId, request.Email, request.LocalLogin ?? true, request.Roles, request.DisplayName),
+					cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{tenantId}/users/{dto.Id}", dto)))
 			.WithName("CreateUser")
 			.WithSummary("Cria um usuário no tenant e envia o convite para ele definir a própria senha (ADR-0033).")
@@ -84,6 +85,20 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetUserLocalLogin")
 			.WithSummary("Liga ou desliga a senha local da conta; desligar apaga a senha e encerra as sessões (ADR-0033).")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		group.MapPut("/{userId:guid}/display-name", async (
+				Guid tenantId,
+				Guid userId,
+				SetDisplayNameRequest request,
+				SetDisplayNameHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(new SetDisplayNameCommand(tenantId, userId, request.DisplayName), cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("SetUserDisplayName")
+			.WithSummary("Define o nome de exibição do usuário (#30). Vazio ou nulo limpa o nome.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);

@@ -1,0 +1,25 @@
+@page "/conta/nome"
+@model Secco.SecureGate.Api.Pages.Account.DisplayNameModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Nome de exibição";
+}
+
+<h1>Meu nome de exibição</h1>
+
+<p class="sub">Como você aparece para outras pessoas. Deixe em branco para usar seu e-mail.</p>
+
+<form method="post" novalidate>
+    <label asp-for="Input.DisplayName">Nome</label>
+    <input asp-for="Input.DisplayName" type="text" autocomplete="name" autofocus maxlength="160" />
+    <span class="field-error" asp-validation-for="Input.DisplayName"></span>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="error" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <button type="submit">Salvar</button>
+</form>
+
+<p style="margin-top:1rem"><a href="/conta">Voltar</a></p>

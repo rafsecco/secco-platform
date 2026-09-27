@@ -34,6 +34,9 @@ public sealed class IndexModel(
 	/// <summary>E-mail da conta autenticada.</summary>
 	public string Email { get; private set; } = string.Empty;
 
+	/// <summary>Nome de exibição, se definido (#30).</summary>
+	public string? DisplayName { get; private set; }
+
 	/// <summary>Conta usa senha local (ADR-0026: desligado significa só diretório).</summary>
 	public bool UsesLocalPassword { get; private set; }
 
@@ -43,6 +46,10 @@ public sealed class IndexModel(
 	/// <summary>Vem da troca de senha, para a confirmação aparecer aqui.</summary>
 	[BindProperty(SupportsGet = true, Name = "senhaAlterada")]
 	public bool PasswordChanged { get; set; }
+
+	/// <summary>Vem da troca de nome, para a confirmação aparecer aqui (#30).</summary>
+	[BindProperty(SupportsGet = true, Name = "nomeAlterado")]
+	public bool DisplayNameChanged { get; set; }
 
 	/// <summary>Carrega os dados da conta.</summary>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
@@ -59,6 +66,7 @@ public sealed class IndexModel(
 		}
 
 		Email = account.Email;
+		DisplayName = (await userManager.FindByIdAsync(id).ConfigureAwait(false))?.DisplayName;
 		UsesLocalPassword = account is { LocalLoginEnabled: true, HasPassword: true };
 		TwoFactorEnabled =
 			(await twoFactorSetup.GetStateAsync(userId, cancellationToken).ConfigureAwait(false))?.Enabled ?? false;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Conventions;
+using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
@@ -81,6 +82,7 @@ public sealed class SecureGateDbContext(
 			user.HasIndex(u => u.NormalizedEmail).HasDatabaseName("idx_users_ds_normalized_email");
 			user.HasIndex(u => u.TenantId).HasDatabaseName("idx_users_id_fk_tenant");
 			user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId).OnDelete(DeleteBehavior.Restrict);
+			user.Property(u => u.DisplayName).HasMaxLength(DisplayNameRules.MaxLength);
 		});
 
 		builder.Entity<Role>(role =>

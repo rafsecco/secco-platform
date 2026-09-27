@@ -11,4 +11,8 @@ public sealed record RoleDetailDto(string Name, IReadOnlyList<string> Permission
 /// <param name="UserId">Usuário.</param>
 /// <param name="Email">E-mail.</param>
 /// <param name="Status">Situação (<see cref="Users.UserStatuses"/>).</param>
-public sealed record RoleMemberDto(Guid UserId, string Email, string Status);
+/// <param name="DisplayName">
+/// Nome de exibição, opcional (#30). Entra NO FIM: o record é posicional e consumido pelo client
+/// NSwag — inserir no meio renumeraria os campos existentes.
+/// </param>
+public sealed record RoleMemberDto(Guid UserId, string Email, string Status, string? DisplayName = null);

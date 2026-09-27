@@ -234,6 +234,13 @@ public static class SecureGateErrors
 			Error.Conflict("SecureGate.User.LastActiveOperator",
 				"A operação deixaria a instalação sem nenhum operador ativo.");
 
+		/// <summary>
+		/// Nome de exibição acima do limite, ou com caractere de controle (ADR-0020: o valor viaja
+		/// para a claim <c>name</c> do token e para a trilha de auditoria).
+		/// </summary>
+		public static readonly Error DisplayNameInvalid =
+			Error.Validation("SecureGate.User.DisplayNameInvalid", "Nome de exibição inválido.");
+
 		/// <summary>Já existe usuário com este e-mail.</summary>
 		public static readonly Error AlreadyExists =
 			Error.Conflict("SecureGate.User.AlreadyExists", "Já existe um usuário com este e-mail.");

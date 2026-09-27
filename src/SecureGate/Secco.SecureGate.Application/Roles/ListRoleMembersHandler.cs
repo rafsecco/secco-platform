@@ -43,7 +43,8 @@ public sealed class ListRoleMembersHandler(IRoleRepository repository)
 			[.. members.Items.Select(member => new RoleMemberDto(
 				member.UserId,
 				member.Email,
-				UserStatuses.From(member.LockoutEnabled, member.LockoutEnd, now)))],
+				UserStatuses.From(member.LockoutEnabled, member.LockoutEnd, now),
+				member.DisplayName))],
 			page,
 			members.TotalCount);
 	}

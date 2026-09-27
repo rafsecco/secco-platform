@@ -1679,3 +1679,17 @@ Registrado também que a classificação de erro do SQL Server tratava 4060 ("ba
 **Achado 2: a chave era regerada a cada abertura da tela.** Quem lesse o QR e recarregasse a página ficaria com um autenticador inútil, sem aviso. A chave em andamento passou a ser reaproveitada.
 
 **Consequência assumida:** a exigência do operador quebrou 21 testes de login existentes. A correção foi ensinar o driver de teste a fazer o segundo passo, como um navegador real — afrouxar a regra para os testes passarem teria invertido a relação entre teste e verdade.
+
+---
+
+## Nome de exibição (issue #30, 2026-09-27)
+
+**A claim `name` do token: reaproveitar ou criar uma nova?** A issue pedia "a claim `name`", mas ela já existia e carregava `user.UserName` (o e-mail) — o `OidcPrincipalBuilder` monta a `ClaimsIdentity` do login com `nameType = Claims.Name`, e o secco-intranet já usa `Identity.Name` como rótulo legível do ator na trilha de auditoria (`AtorDoHttpContext`), caindo no `sub` (GUID) só quando o claim falta.
+
+Repor um valor fixo aí — sempre o nome de exibição, sem fallback — quebraria todo consumidor que já lê `name` hoje: a maioria das contas não tem nome de exibição definido no dia em que o recurso sai, então o claim sumiria e o rótulo de auditoria do secco-intranet cairia de "mostra o e-mail" para "mostra um GUID", uma regressão silenciosa sem nenhuma mudança no lado deles.
+
+**Decisão:** trocar só o VALOR do claim — `displayName ?? UserName` —, mantendo o tipo de claim, o destino (access token sempre, id_token com o scope `profile`) e o nome-type da `ClaimsIdentity`. Quem não usa o recurso recebe exatamente o que recebia antes; quem define o nome ganha um rótulo melhor sem mexer em nada do próprio lado. Descartada a alternativa de criar um claim novo (ex.: `nickname`) só para não tocar em código existente — o custo seria permanente (dois claims fazendo o mesmo papel) para evitar um risco que o fallback já resolve de graça.
+
+**Por que o admin não redefine sessão nem exige senha ao trocar o nome de alguém?** Nome de exibição não é credencial: não abre nem fecha acesso, ao contrário de e-mail, senha e segundo fator. A única defesa que faz sentido aqui é auditoria — best-effort, como o resto do ciclo de credencial —, porque é a operação que um admin usaria para trocar o nome de outra pessoa sem deixar rastro.
+
+**Por que a validação só proíbe caractere de controle, e não restringe a um alfabeto (como o nome de role)?** Nome de pessoa carrega acento, espaço, hífen e apóstrofo — qualquer allowlist de caracteres rejeitaria nomes reais. O risco concreto não é HTML (Razor já codifica a saída) nem o alfabeto; é o valor viajar cru para o token e para a trilha de auditoria, onde CR/LF forjaria uma segunda linha de log ou um segundo header (ADR-0020).

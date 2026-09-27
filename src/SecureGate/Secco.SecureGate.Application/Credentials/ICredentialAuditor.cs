@@ -44,6 +44,9 @@ public enum CredentialAuditEvent
 
 	/// <summary>Código de recuperação usado no lugar do dígito.</summary>
 	TwoFactorRecoveryCodeUsed,
+
+	/// <summary>Nome de exibição alterado (pelo dono ou por um administrador, #30).</summary>
+	DisplayNameChanged,
 }
 
 /// <summary>

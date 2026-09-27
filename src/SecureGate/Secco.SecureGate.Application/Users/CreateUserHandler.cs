@@ -12,7 +12,9 @@ namespace Secco.SecureGate.Application.Users;
 /// só pelo diretório corporativo (ADR-0026) — sem senha, sem convite e sem recuperação.
 /// </param>
 /// <param name="Roles">Roles a atribuir no tenant (opcional).</param>
-public sealed record CreateUserCommand(Guid TenantId, string? Email, bool LocalLogin, IReadOnlyList<string>? Roles);
+/// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+public sealed record CreateUserCommand(
+	Guid TenantId, string? Email, bool LocalLogin, IReadOnlyList<string>? Roles, string? DisplayName = null);
 
 /// <summary>
 /// Cria um usuário no tenant. Valida e-mail e a existência do tenant e dos roles ANTES de acionar
@@ -46,6 +48,13 @@ public sealed class CreateUserHandler(
 			return Result.Failure<UserDto>(SecureGateErrors.Users.EmailInvalid);
 		}
 
+		var displayName = DisplayNameRules.Normalize(command.DisplayName);
+
+		if (displayName is not null && !DisplayNameRules.IsValid(displayName))
+		{
+			return Result.Failure<UserDto>(SecureGateErrors.Users.DisplayNameInvalid);
+		}
+
 		if (!await roleRepository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
 		{
 			return Result.Failure<UserDto>(SecureGateErrors.Tenants.NotFound);
@@ -67,7 +76,8 @@ public sealed class CreateUserHandler(
 		}
 
 		var created = await userDirectory
-			.CreateAsync(new CreateUserData(command.TenantId, email, command.LocalLogin, roles), cancellationToken)
+			.CreateAsync(
+				new CreateUserData(command.TenantId, email, command.LocalLogin, roles, displayName), cancellationToken)
 			.ConfigureAwait(false);
 
 		if (created.IsFailure || !command.LocalLogin)

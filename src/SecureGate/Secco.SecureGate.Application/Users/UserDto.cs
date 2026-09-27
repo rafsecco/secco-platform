@@ -6,4 +6,9 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="TenantId">Tenant do usuário.</param>
 /// <param name="Roles">Perfis do usuário no tenant.</param>
 /// <param name="Status">Situação da conta (<see cref="UserStatuses"/>).</param>
-public sealed record UserDto(Guid Id, string Email, Guid TenantId, IReadOnlyList<string> Roles, string Status);
+/// <param name="DisplayName">
+/// Nome de exibição, opcional (#30). Entra NO FIM: o record é posicional e consumido pelo client
+/// NSwag — inserir no meio renumeraria os campos existentes.
+/// </param>
+public sealed record UserDto(
+	Guid Id, string Email, Guid TenantId, IReadOnlyList<string> Roles, string Status, string? DisplayName = null);
