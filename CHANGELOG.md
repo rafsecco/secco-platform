@@ -12,16 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-#### 0.13.0
-
-- **Adicionado** `ListEntraGroups` — `GET /api/v1/tenants/{tenantId}/entra/groups`, escopo `securegate:admin`. Lista os grupos do diretório federado (Microsoft Entra ID) de um tenant, para o admin escolher quais viram perfil (issue #27, ADR-0036). Só leitura — o mapeamento grupo→perfil é a #28, ainda não implementada.
-- Paginação por **cursor** (`pageToken`), não por número de página: o Graph pagina por `@odata.nextLink`, e forçar isso em `PageRequest`/`PagedResult<T>` (offset-based) inventaria uma paginação que o Graph não tem. `pageToken` é opaco — só se devolve o valor recebido, nunca se interpreta.
-- **Sem dependência nova**: nada de `Microsoft.Graph` nem `Microsoft.Identity.Client` — cliente HTTP próprio (token de aplicação via `client_credentials` + chamada REST), reaproveitando o `ClientId`/`ClientSecret` da app registration já configurada para o login federado (ADR-0026, seção `SecureGate:EntraId`).
-- **Erros distintos e acionáveis**: tenant sem federação ou federação desabilitada → `409` ("nunca lista vazia"); Graph sem consentimento de aplicação (`Authorization_RequestDenied`) → `403`, com a orientação de pedir o consentimento ao admin do diretório do cliente; Graph indisponível → `503`. Termo de busca com caractere de controle ou `pageToken` fora do domínio do Graph (defesa contra SSRF) → `400`.
-
-> **A app registration multi-tenant do adotante precisa de um pedido de permissão novo** (`GroupMember.Read.All`, de aplicação — distinto do consentimento delegado do login) para esta issue funcionar. Sem o consentimento, o endpoint responde `403` de forma clara, nunca lista vazia nem erro genérico.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-27. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -35,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.5 — 2026-09-27
+
+Patch **sem mudança funcional**: o diff desde a 0.4.4 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.13.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.4 — 2026-09-27
 
@@ -94,6 +89,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.5 — 2026-09-27
+
+Patch **sem mudança funcional**: o diff desde a 0.8.4 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.13.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.8.4 — 2026-09-27
 
@@ -212,6 +211,15 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.13.0 — 2026-09-27
+
+- **Adicionado** `ListEntraGroups` — `GET /api/v1/tenants/{tenantId}/entra/groups`, escopo `securegate:admin`. Lista os grupos do diretório federado (Microsoft Entra ID) de um tenant, para o admin escolher quais viram perfil (issue #27, ADR-0036). Só leitura — o mapeamento grupo→perfil é a #28, ainda não implementada.
+- Paginação por **cursor** (`pageToken`), não por número de página: o Graph pagina por `@odata.nextLink`, e forçar isso em `PageRequest`/`PagedResult<T>` (offset-based) inventaria uma paginação que o Graph não tem. `pageToken` é opaco — só se devolve o valor recebido, nunca se interpreta.
+- **Sem dependência nova**: nada de `Microsoft.Graph` nem `Microsoft.Identity.Client` — cliente HTTP próprio (token de aplicação via `client_credentials` + chamada REST), reaproveitando o `ClientId`/`ClientSecret` da app registration já configurada para o login federado (ADR-0026, seção `SecureGate:EntraId`).
+- **Erros distintos e acionáveis**: tenant sem federação ou federação desabilitada → `409` ("nunca lista vazia"); Graph sem consentimento de aplicação (`Authorization_RequestDenied`) → `403`, com a orientação de pedir o consentimento ao admin do diretório do cliente; Graph indisponível → `503`. Termo de busca com caractere de controle ou `pageToken` fora do domínio do Graph (defesa contra SSRF) → `400`.
+
+> **A app registration multi-tenant do adotante precisa de um pedido de permissão novo** (`GroupMember.Read.All`, de aplicação — distinto do consentimento delegado do login) para esta issue funcionar. Sem o consentimento, o endpoint responde `403` de forma clara, nunca lista vazia nem erro genérico.
+
 #### 0.12.0 — 2026-09-27
 
 - **Adicionado (aditivo)** `displayName` em `UserDto`, `UserDetailDto` e `RoleMemberDto`, e `displayName` opcional em `CreateUserRequest`. Nome de exibição da pessoa — identidade, não dado de produto (issue #30). Sem valor, vem nulo: nada muda para quem não usa.
@@ -290,6 +298,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.9 — 2026-09-27
+
+Patch **sem mudança funcional**: o diff desde a 0.1.8 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.13.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.8 — 2026-09-27
 
