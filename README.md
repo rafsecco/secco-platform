@@ -28,7 +28,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.SDK.Logging](src/SDK/Secco.SDK.Logging/README.md) | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) | `Secco.SDK.Logging` **0.2.0** |
 | [Secco.SDK.Testing](src/SDK/Secco.SDK.Testing/README.md) | Base das factories de teste de integração (SQL Server real, tokens, tenancy/permissões) | `Secco.SDK.Testing` **0.1.0** |
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.4.0** |
-| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.13.0** |
+| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.14.0** |
 | [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Disponível (aplicação, não pacote) |
 | [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail + inbox in-app) | Disponível · client `Secco.NotificationHub.Client` **0.6.0** |
 | [Secco.Templates](templates/README.md) | `dotnet new secco-service` | `Secco.Templates` **0.2.0** |

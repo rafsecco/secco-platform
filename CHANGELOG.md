@@ -12,14 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client
-
-#### 0.14.0
-
-- **Adicionado** `CreateGroupRoleMapping`, `ListGroupRoleMappings` e `DeleteGroupRoleMapping` — `/api/v1/tenants/{tenantId}/entra/group-role-mappings`, escopo `securegate:admin`. Mapeia um grupo do diretório federado para um perfil do tenant (issue #28, ADR-0036); um grupo mapeia para exatamente um perfil. Exige federação habilitada; grupo já mapeado é `409`; perfil reservado (exceto o de operador) não é mapeável.
-- **Primeira rodada da #28** — só o CRUD do mapeamento e o rastreio de origem (abaixo). A reconciliação automática (login federado + job periódico) fica para uma entrega seguinte.
-- **Adicionado (aditivo)** `roleAssignments` em `UserDetailDto` e `origin`/`sourceGroupId` em `RoleMemberDto` — a origem de cada atribuição de perfil (`Manual` ou `Directory`). Hoje toda atribuição é `Manual`; o campo existe para quando a sincronização de grupo passar a criar atribuições `Directory`.
-- **`RemoveUserRole` passa a poder responder `409`** quando a atribuição tiver origem `Directory` — recusa em vez de remover e deixar a sincronização desfazer em silêncio. Não afeta nenhuma atribuição hoje (nada cria `Directory` ainda), mas o contrato já reflete o comportamento futuro.
+_Nada pendente._ A rodada mais recente saiu em 2026-09-29. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -33,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.6 — 2026-09-29
+
+Patch **sem mudança funcional**: o diff desde a 0.4.5 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.14.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.5 — 2026-09-27
 
@@ -96,6 +93,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.6 — 2026-09-29
+
+Patch **sem mudança funcional**: o diff desde a 0.8.5 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.14.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.8.5 — 2026-09-27
 
@@ -218,6 +219,13 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.14.0 — 2026-09-29
+
+- **Adicionado** `CreateGroupRoleMapping`, `ListGroupRoleMappings` e `DeleteGroupRoleMapping` — `/api/v1/tenants/{tenantId}/entra/group-role-mappings`, escopo `securegate:admin`. Mapeia um grupo do diretório federado para um perfil do tenant (issue #28, ADR-0036); um grupo mapeia para exatamente um perfil. Exige federação habilitada; grupo já mapeado é `409`; perfil reservado (exceto o de operador) não é mapeável.
+- **Primeira rodada da #28** — só o CRUD do mapeamento e o rastreio de origem (abaixo). A reconciliação automática (login federado + job periódico) fica para uma entrega seguinte.
+- **Adicionado (aditivo)** `roleAssignments` em `UserDetailDto` e `origin`/`sourceGroupId` em `RoleMemberDto` — a origem de cada atribuição de perfil (`Manual` ou `Directory`). Hoje toda atribuição é `Manual`; o campo existe para quando a sincronização de grupo passar a criar atribuições `Directory`.
+- **`RemoveUserRole` passa a poder responder `409`** quando a atribuição tiver origem `Directory` — recusa em vez de remover e deixar a sincronização desfazer em silêncio. Não afeta nenhuma atribuição hoje (nada cria `Directory` ainda), mas o contrato já reflete o comportamento futuro.
+
 #### 0.13.0 — 2026-09-27
 
 - **Adicionado** `ListEntraGroups` — `GET /api/v1/tenants/{tenantId}/entra/groups`, escopo `securegate:admin`. Lista os grupos do diretório federado (Microsoft Entra ID) de um tenant, para o admin escolher quais viram perfil (issue #27, ADR-0036). Só leitura — o mapeamento grupo→perfil é a #28, ainda não implementada.
@@ -305,6 +313,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.10 — 2026-09-29
+
+Patch **sem mudança funcional**: o diff desde a 0.1.9 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.14.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.9 — 2026-09-27
 
