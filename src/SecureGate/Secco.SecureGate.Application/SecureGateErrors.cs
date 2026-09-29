@@ -214,6 +214,40 @@ public static class SecureGateErrors
 			Error.Validation(
 				"SecureGate.Federation.InvalidPageToken",
 				"Token de página inválido.");
+
+		/// <summary>Id do grupo no Entra ID ausente no cadastro do mapeamento (issue #28).</summary>
+		public static readonly Error EntraGroupIdRequired =
+			Error.Validation(
+				"SecureGate.Federation.EntraGroupIdRequired",
+				"O id do grupo no Entra ID é obrigatório.");
+
+		/// <summary>Nome de exibição do grupo ausente ou acima do limite (issue #28).</summary>
+		public static readonly Error EntraGroupDisplayNameInvalid =
+			Error.Validation(
+				"SecureGate.Federation.EntraGroupDisplayNameInvalid",
+				$"O nome de exibição do grupo é obrigatório e deve ter até {TenantGroupRoleMapping.DisplayNameMaxLength} caracteres.");
+
+		/// <summary>Este grupo já está mapeado para um perfil neste tenant (issue #28).</summary>
+		public static readonly Error GroupAlreadyMapped =
+			Error.Conflict(
+				"SecureGate.Federation.GroupAlreadyMapped",
+				"Este grupo já está mapeado para um perfil neste tenant.");
+
+		/// <summary>Mapeamento inexistente, ou de outro tenant — a resposta é a mesma de propósito.</summary>
+		public static readonly Error MappingNotFound =
+			Error.NotFound(
+				"SecureGate.Federation.MappingNotFound",
+				"Mapeamento não encontrado.");
+
+		/// <summary>
+		/// A atribuição veio da sincronização de grupo — removê-la manualmente não teria efeito
+		/// duradouro (o próximo ciclo devolveria), então a API recusa em vez de fingir sucesso.
+		/// Ajustar o mapeamento ou a associação no diretório do cliente é o caminho real (ADR-0036).
+		/// </summary>
+		public static readonly Error RoleAssignedByDirectory =
+			Error.Conflict(
+				"SecureGate.Federation.RoleAssignedByDirectory",
+				"Este perfil foi atribuído pela sincronização de grupo. Ajuste o mapeamento ou a associação no diretório do cliente.");
 	}
 
 	/// <summary>Erros de provisionamento de usuários (Fase 6.5).</summary>

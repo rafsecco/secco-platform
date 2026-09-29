@@ -28,7 +28,9 @@ public sealed class AddUserRoleHandler(IUserDirectory userDirectory)
 			return Result.Failure(SecureGateErrors.Users.RoleNotAssignable);
 		}
 
-		return ToResult(await userDirectory.AddRoleAsync(tenantId, userId, name, cancellationToken).ConfigureAwait(false));
+		return ToResult(await userDirectory
+			.AddRoleAsync(tenantId, userId, name, cancellationToken: cancellationToken)
+			.ConfigureAwait(false));
 	}
 
 	/// <summary>Traduz o resultado da persistência — compartilhado com a remoção.</summary>
@@ -38,6 +40,7 @@ public sealed class AddUserRoleHandler(IUserDirectory userDirectory)
 		RoleAssignmentOutcome.Done => Result.Success(),
 		RoleAssignmentOutcome.UserNotFound => Result.Failure(SecureGateErrors.Users.NotFound),
 		RoleAssignmentOutcome.NotAssigned => Result.Success(),
+		RoleAssignmentOutcome.BlockedByDirectoryOrigin => Result.Failure(SecureGateErrors.Federation.RoleAssignedByDirectory),
 		_ => Result.Failure(SecureGateErrors.Roles.NotFound),
 	};
 }

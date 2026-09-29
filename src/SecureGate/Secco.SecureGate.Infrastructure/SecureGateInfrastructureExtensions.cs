@@ -207,6 +207,9 @@ public static class SecureGateInfrastructureExtensions
 		services.AddHttpClient(GraphGroupDirectory.HttpClientName);
 		services.AddScoped<Application.Federation.IEntraGroupDirectory, GraphGroupDirectory>();
 
+		// Mapeamento grupo→perfil (issue #28, ADR-0036)
+		services.AddScoped<Application.Federation.IGroupRoleMappingRepository, GroupRoleMappingRepository>();
+
 		return services;
 	}
 

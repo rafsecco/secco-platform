@@ -13,10 +13,15 @@ namespace Secco.SecureGate.Application.Users;
 /// <param name="HasPassword">Se a conta já tem senha definida (ADR-0033: nasce sem, até o convite ser aceito).</param>
 /// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
 /// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+/// <param name="RoleAssignments">
+/// Os mesmos nomes de <paramref name="Roles"/>, com a origem de cada atribuição (issue #28) — a
+/// tela de gestão usa isto para não deixar o admin tentar remover à mão o que a sincronização de
+/// grupo devolveria.
+/// </param>
 /// <remarks>
-/// <paramref name="HasPassword"/>, <paramref name="LocalLoginEnabled"/> e <paramref name="DisplayName"/>
-/// entram NO FIM: o record é posicional e consumido pelo client NSwag — inserir no meio
-/// renumeraria os campos existentes.
+/// <paramref name="HasPassword"/>, <paramref name="LocalLoginEnabled"/>, <paramref name="DisplayName"/>
+/// e <paramref name="RoleAssignments"/> entram NO FIM: o record é posicional e consumido pelo
+/// client NSwag — inserir no meio renumeraria os campos existentes.
 /// </remarks>
 public sealed record UserDetailDto(
 	Guid Id,
@@ -30,4 +35,11 @@ public sealed record UserDetailDto(
 	bool HasPassword,
 	bool LocalLoginEnabled,
 	bool TwoFactorEnabled,
-	string? DisplayName = null);
+	string? DisplayName = null,
+	IReadOnlyList<RoleAssignmentDto>? RoleAssignments = null);
+
+/// <summary>Um perfil do usuário com a origem da atribuição, para exibição (issue #28, ADR-0036).</summary>
+/// <param name="Name">Nome do perfil.</param>
+/// <param name="Origin">Origem da atribuição (<c>Manual</c> ou <c>Directory</c>).</param>
+/// <param name="SourceGroupId">Id do grupo do Entra ID que originou, quando <see cref="Origin"/> é <c>Directory</c>.</param>
+public sealed record RoleAssignmentDto(string Name, RoleAssignmentOrigin Origin, Guid? SourceGroupId);

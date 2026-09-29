@@ -23,6 +23,11 @@ public sealed record CreateUserData(
 /// <param name="LocalLoginEnabled">Se a conta aceita login local (usuário/senha, ADR-0033).</param>
 /// <param name="TwoFactorEnabled">Segundo fator ativado.</param>
 /// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+/// <param name="RoleAssignments">
+/// Os mesmos perfis de <paramref name="Roles"/>, com a origem de cada atribuição (issue #28).
+/// Entra NO FIM: o record é posicional e consumido pelo client NSwag — inserir no meio
+/// renumeraria os campos existentes.
+/// </param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -34,7 +39,14 @@ public sealed record UserAccountData(
 	bool HasPassword,
 	bool LocalLoginEnabled,
 	bool TwoFactorEnabled,
-	string? DisplayName = null);
+	string? DisplayName = null,
+	IReadOnlyList<RoleAssignmentData>? RoleAssignments = null);
+
+/// <summary>Um perfil do usuário com a origem da atribuição (issue #28, ADR-0036).</summary>
+/// <param name="Name">Nome do perfil.</param>
+/// <param name="Origin">Origem da atribuição.</param>
+/// <param name="SourceGroupId">Id do grupo do Entra ID que originou, quando <see cref="Origin"/> é <c>Directory</c>.</param>
+public sealed record RoleAssignmentData(string Name, RoleAssignmentOrigin Origin, Guid? SourceGroupId);
 
 /// <summary>Resultado de atribuir ou remover perfil.</summary>
 public enum RoleAssignmentOutcome
@@ -50,6 +62,12 @@ public enum RoleAssignmentOutcome
 
 	/// <summary>Remoção sem efeito: o usuário não era membro do perfil.</summary>
 	NotAssigned,
+
+	/// <summary>
+	/// A atribuição veio da sincronização de grupo (issue #28, ADR-0036) — remoção manual recusada,
+	/// porque o próximo ciclo de sincronização a devolveria em silêncio.
+	/// </summary>
+	BlockedByDirectoryOrigin,
 }
 
 /// <summary>Estado da conta relevante para a sessão.</summary>
@@ -107,10 +125,26 @@ public interface IUserDirectory
 	/// <param name="tenantId">Tenant da rota.</param>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="roleName">Nome do perfil já validado.</param>
+	/// <param name="origin">
+	/// Origem da atribuição (issue #28) — <c>Manual</c> por padrão; a sincronização de grupo
+	/// (fora desta entrega) é quem passaria <c>Directory</c>.
+	/// </param>
+	/// <param name="sourceGroupId">Grupo do Entra ID que originou, quando <paramref name="origin"/> é <c>Directory</c>.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
-	Task<RoleAssignmentOutcome> AddRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
+	Task<RoleAssignmentOutcome> AddRoleAsync(
+		Guid tenantId,
+		Guid userId,
+		string roleName,
+		RoleAssignmentOrigin origin = RoleAssignmentOrigin.Manual,
+		Guid? sourceGroupId = null,
+		CancellationToken cancellationToken = default);
 
-	/// <summary>Retira o usuário do perfil, ambos no tenant. Idempotente.</summary>
+	/// <summary>
+	/// Retira o usuário do perfil, ambos no tenant. Idempotente. Recusa com
+	/// <see cref="RoleAssignmentOutcome.BlockedByDirectoryOrigin"/> quando a atribuição veio da
+	/// sincronização de grupo (issue #28) — a única forma de contornar é ajustar o mapeamento ou o
+	/// diretório, nunca remover à mão.
+	/// </summary>
 	/// <param name="tenantId">Tenant da rota.</param>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="roleName">Nome do perfil já validado.</param>

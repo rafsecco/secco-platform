@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Users;
 using Secco.SharedKernel.Pagination;
 
 namespace Secco.SecureGate.Application.Roles;
@@ -14,8 +15,16 @@ public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
 /// <param name="LockoutEnabled">Lockout habilitado.</param>
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
 /// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
+/// <param name="Origin">Origem da atribuição a este perfil (issue #28).</param>
+/// <param name="SourceGroupId">Grupo do Entra ID que originou, quando <paramref name="Origin"/> é <c>Directory</c>.</param>
 public sealed record RoleMemberData(
-	Guid UserId, string Email, bool LockoutEnabled, DateTimeOffset? LockoutEnd, string? DisplayName = null);
+	Guid UserId,
+	string Email,
+	bool LockoutEnabled,
+	DateTimeOffset? LockoutEnd,
+	string? DisplayName = null,
+	RoleAssignmentOrigin Origin = RoleAssignmentOrigin.Manual,
+	Guid? SourceGroupId = null);
 
 /// <summary>Resultado da exclusão de perfil.</summary>
 public enum DeleteRoleOutcome

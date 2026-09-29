@@ -71,8 +71,9 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 			.SqlQueryRaw<string>("SELECT COLUMN_NAME AS Value FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tb_user_roles'")
 			.ToListAsync();
 
-		columns.Should().BeEquivalentTo(["id_pfk_user", "id_pfk_role"],
-			"PK composta cujos membros são FKs usa id_pfk_ (ADR-0017)");
+		columns.Should().BeEquivalentTo(
+			["id_pfk_user", "id_pfk_role", "ie_origin", "source_group_id"],
+			"PK composta cujos membros são FKs usa id_pfk_ (ADR-0017); origem e grupo de origem entraram na issue #28");
 	}
 
 	[Fact]

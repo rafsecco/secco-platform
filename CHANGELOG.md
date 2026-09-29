@@ -12,7 +12,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-27. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client
+
+#### 0.14.0
+
+- **Adicionado** `CreateGroupRoleMapping`, `ListGroupRoleMappings` e `DeleteGroupRoleMapping` — `/api/v1/tenants/{tenantId}/entra/group-role-mappings`, escopo `securegate:admin`. Mapeia um grupo do diretório federado para um perfil do tenant (issue #28, ADR-0036); um grupo mapeia para exatamente um perfil. Exige federação habilitada; grupo já mapeado é `409`; perfil reservado (exceto o de operador) não é mapeável.
+- **Primeira rodada da #28** — só o CRUD do mapeamento e o rastreio de origem (abaixo). A reconciliação automática (login federado + job periódico) fica para uma entrega seguinte.
+- **Adicionado (aditivo)** `roleAssignments` em `UserDetailDto` e `origin`/`sourceGroupId` em `RoleMemberDto` — a origem de cada atribuição de perfil (`Manual` ou `Directory`). Hoje toda atribuição é `Manual`; o campo existe para quando a sincronização de grupo passar a criar atribuições `Directory`.
+- **`RemoveUserRole` passa a poder responder `409`** quando a atribuição tiver origem `Directory` — recusa em vez de remover e deixar a sincronização desfazer em silêncio. Não afeta nenhuma atribuição hoje (nada cria `Directory` ainda), mas o contrato já reflete o comportamento futuro.
 
 ---
 

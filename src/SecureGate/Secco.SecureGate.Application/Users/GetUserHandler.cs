@@ -48,6 +48,9 @@ public sealed class GetUserHandler(IUserDirectory userDirectory, GetRolePermissi
 			account.HasPassword,
 			account.LocalLoginEnabled,
 			account.TwoFactorEnabled,
-			account.DisplayName);
+			account.DisplayName,
+			account.RoleAssignments?
+				.Select(assignment => new RoleAssignmentDto(assignment.Name, assignment.Origin, assignment.SourceGroupId))
+				.ToList());
 	}
 }

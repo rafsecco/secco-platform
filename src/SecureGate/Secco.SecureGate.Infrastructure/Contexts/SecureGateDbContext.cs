@@ -49,6 +49,9 @@ public sealed class SecureGateDbContext(
 	/// <summary>Federações de autenticação por tenant (tabela <c>tb_tenant_federations</c>, ADR-0026).</summary>
 	public DbSet<TenantFederation> TenantFederations => Set<TenantFederation>();
 
+	/// <summary>Mapeamentos grupo→perfil do diretório federado (tabela <c>tb_tenant_group_role_mappings</c>, ADR-0036).</summary>
+	public DbSet<TenantGroupRoleMapping> TenantGroupRoleMappings => Set<TenantGroupRoleMapping>();
+
 	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
 	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
 
@@ -157,6 +160,23 @@ public sealed class SecureGateDbContext(
 
 			// Cascade: a federação é dado intrínseco do tenant (como TenantDatabase)
 			federation.HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+		});
+
+		builder.Entity<TenantGroupRoleMapping>(mapping =>
+		{
+			mapping.Property(m => m.EntraGroupDisplayName).HasMaxLength(TenantGroupRoleMapping.DisplayNameMaxLength);
+
+			// Um grupo mapeia para um único perfil por tenant (issue #28, ADR-0036).
+			mapping.HasIndex(m => new { m.TenantId, m.EntraGroupId }).IsUnique()
+				.HasDatabaseName("uk_tenant_group_role_mappings_id_fk_tenant_entra_group_id");
+
+			// Cascade: o mapeamento é dado intrínseco do tenant (como TenantFederation)
+			mapping.HasOne<Tenant>().WithMany().HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Cascade);
+
+			// Restrict: excluir o perfil com mapeamento ativo deixaria o vínculo órfão em silêncio —
+			// a exclusão de perfil precisa passar por decisão explícita primeiro (mesma cautela da
+			// FK de Role em UserRole/RoleClaim, que o Identity já trata como Restrict).
+			mapping.HasOne<Role>().WithMany().HasForeignKey(m => m.RoleId).OnDelete(DeleteBehavior.Restrict);
 		});
 
 		builder.Entity<ElevationGrant>(grant =>

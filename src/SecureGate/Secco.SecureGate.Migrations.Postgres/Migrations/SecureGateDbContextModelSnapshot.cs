@@ -206,6 +206,48 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.ToTable("tb_tenant_federations");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantGroupRoleMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pk_tenant_group_role_mapping");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("EntraGroupDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("ds_entra_group_display_name");
+
+                    b.Property<Guid>("EntraGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entra_group_id");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_fk_role");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenant_group_role_mappings");
+
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("idx_tenant_group_role_mappings_id_fk_role");
+
+                    b.HasIndex("TenantId", "EntraGroupId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_tenant_group_role_mappings_id_fk_tenant_entra_group_id");
+
+                    b.ToTable("tb_tenant_group_role_mappings");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -435,6 +477,14 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("id_pfk_role");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_origin");
+
+                    b.Property<Guid?>("SourceGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_group_id");
 
                     b.HasKey("UserId", "RoleId")
                         .HasName("pk_user_roles");
@@ -774,6 +824,23 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_tenant_federations_tenant");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantGroupRoleMapping", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Infrastructure.Identity.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_group_role_mappings_role");
+
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_group_role_mappings_tenant");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>

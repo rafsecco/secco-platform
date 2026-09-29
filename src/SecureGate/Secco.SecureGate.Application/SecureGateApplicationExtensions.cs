@@ -75,6 +75,11 @@ public static class SecureGateApplicationExtensions
 		// Leitura do diretório federado (issue #27, ADR-0036)
 		services.AddScoped<Federation.ListEntraGroupsHandler>();
 
+		// Mapeamento grupo→perfil do diretório federado (issue #28, ADR-0036)
+		services.AddScoped<Federation.CreateGroupRoleMappingHandler>();
+		services.AddScoped<Federation.ListGroupRoleMappingsHandler>();
+		services.AddScoped<Federation.DeleteGroupRoleMappingHandler>();
+
 		return services;
 	}
 }

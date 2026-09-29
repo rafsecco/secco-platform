@@ -110,7 +110,12 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 	}
 
 	public async Task<RoleAssignmentOutcome> AddRoleAsync(
-		Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
+		Guid tenantId,
+		Guid userId,
+		string roleName,
+		RoleAssignmentOrigin origin = RoleAssignmentOrigin.Manual,
+		Guid? sourceGroupId = null,
+		CancellationToken cancellationToken = default)
 	{
 		if (!await BelongsToTenantAsync(tenantId, userId, cancellationToken).ConfigureAwait(false))
 		{
@@ -129,7 +134,13 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			return RoleAssignmentOutcome.Done;
 		}
 
-		context.UserRoles.Add(new UserRole { UserId = userId, RoleId = roleId.Value });
+		context.UserRoles.Add(new UserRole
+		{
+			UserId = userId,
+			RoleId = roleId.Value,
+			Origin = origin,
+			SourceGroupId = sourceGroupId,
+		});
 
 		try
 		{
@@ -172,6 +183,11 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		if (assignment is null)
 		{
 			return RoleAssignmentOutcome.NotAssigned;
+		}
+
+		if (assignment.Origin == RoleAssignmentOrigin.Directory)
+		{
+			return RoleAssignmentOutcome.BlockedByDirectoryOrigin;
 		}
 
 		context.UserRoles.Remove(assignment);
@@ -283,13 +299,15 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			return null;
 		}
 
-		var roles = await (
+		var roleAssignments = await (
 			from userRole in context.UserRoles.AsNoTracking()
 			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
 			where userRole.UserId == userId && role.TenantId == tenantId
 			orderby role.Name
-			select role.Name!)
+			select new RoleAssignmentData(role.Name!, userRole.Origin, userRole.SourceGroupId))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		var roles = roleAssignments.Select(assignment => assignment.Name).ToList();
 
 		// Só o provedor: a chave (tid:oid do Entra) identifica a pessoa no diretório do cliente
 		var logins = await context.UserLogins
@@ -302,7 +320,8 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
-			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName);
+			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName,
+			roleAssignments);
 	}
 
 	public async Task<bool> RemoveExternalLoginAsync(

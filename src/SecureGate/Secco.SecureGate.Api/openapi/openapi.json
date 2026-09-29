@@ -2043,6 +2043,155 @@
           }
         }
       }
+    },
+    "/api/v1/tenants/{tenantId}/entra/group-role-mappings": {
+      "post": {
+        "tags": [
+          "Federation"
+        ],
+        "summary": "Mapeia um grupo do diretório federado para um perfil do tenant (issue #28). Exige federação habilitada.",
+        "operationId": "CreateGroupRoleMapping",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRoleMappingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupRoleMappingRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Federation"
+        ],
+        "summary": "Lista os mapeamentos grupo→perfil do tenant.",
+        "operationId": "ListGroupRoleMappings",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupRoleMappingRecord"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/entra/group-role-mappings/{mappingId}": {
+      "delete": {
+        "tags": [
+          "Federation"
+        ],
+        "summary": "Remove um mapeamento grupo→perfil. Não retira o perfil de quem já o tem por causa dele.",
+        "operationId": "DeleteGroupRoleMapping",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mappingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2060,6 +2209,35 @@
           },
           "connectionString": {
             "type": "string"
+          }
+        }
+      },
+      "CreateGroupRoleMappingRequest": {
+        "required": [
+          "entraGroupId",
+          "entraGroupDisplayName",
+          "roleName"
+        ],
+        "type": "object",
+        "properties": {
+          "entraGroupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "entraGroupDisplayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2234,6 +2412,41 @@
           }
         }
       },
+      "GroupRoleMappingRecord": {
+        "required": [
+          "id",
+          "entraGroupId",
+          "entraGroupDisplayName",
+          "roleId",
+          "roleName",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entraGroupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entraGroupDisplayName": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "PagedResultOfRoleMemberDto": {
         "required": [
           "items",
@@ -2368,6 +2581,37 @@
           }
         }
       },
+      "RoleAssignmentDto": {
+        "required": [
+          "name",
+          "origin",
+          "sourceGroupId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RoleAssignmentOrigin"
+          },
+          "sourceGroupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RoleAssignmentOrigin": {
+        "enum": [
+          "Manual",
+          "Directory"
+        ],
+        "type": "string",
+        "default": "Manual"
+      },
       "RoleDetailDto": {
         "required": [
           "name",
@@ -2440,6 +2684,16 @@
               "null",
               "string"
             ]
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RoleAssignmentOrigin"
+          },
+          "sourceGroupId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -2762,6 +3016,15 @@
               "null",
               "string"
             ]
+          },
+          "roleAssignments": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RoleAssignmentDto"
+            }
           }
         }
       },

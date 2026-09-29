@@ -140,16 +140,18 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			from userRole in context.UserRoles.AsNoTracking()
 			join user in context.Users.AsNoTracking() on userRole.UserId equals user.Id
 			where userRole.RoleId == roleId
-			select user;
+			select new { user, userRole };
 
 		var total = await members.LongCountAsync(cancellationToken).ConfigureAwait(false);
 
 		var items = await members
-			.OrderBy(user => user.Email)
-			.ThenBy(user => user.Id)
+			.OrderBy(row => row.user.Email)
+			.ThenBy(row => row.user.Id)
 			.Skip(page.Skip)
 			.Take(page.Size)
-			.Select(user => new RoleMemberData(user.Id, user.Email!, user.LockoutEnabled, user.LockoutEnd, user.DisplayName))
+			.Select(row => new RoleMemberData(
+				row.user.Id, row.user.Email!, row.user.LockoutEnabled, row.user.LockoutEnd, row.user.DisplayName,
+				row.userRole.Origin, row.userRole.SourceGroupId))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		return PagedResult.Create<RoleMemberData>(items, page, total);

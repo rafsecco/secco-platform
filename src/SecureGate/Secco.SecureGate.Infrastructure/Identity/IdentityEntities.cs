@@ -38,7 +38,20 @@ public sealed class Role : IdentityRole<Guid>
 public sealed class UserClaim : IdentityUserClaim<Guid>;
 
 /// <summary>Associação usuário↔role (tabela <c>tb_user_roles</c>, PK composta de FKs → <c>id_pfk_*</c>).</summary>
-public sealed class UserRole : IdentityUserRole<Guid>;
+public sealed class UserRole : IdentityUserRole<Guid>
+{
+	/// <summary>
+	/// Origem da atribuição (issue #28, ADR-0036). Nasce <c>Manual</c> — toda atribuição existente
+	/// antes desta coluna converge para cá sem precisar de dado novo.
+	/// </summary>
+	public Application.Users.RoleAssignmentOrigin Origin { get; set; } = Application.Users.RoleAssignmentOrigin.Manual;
+
+	/// <summary>
+	/// Id do grupo do Entra ID que originou a atribuição, quando <see cref="Origin"/> é
+	/// <c>Directory</c>; <c>null</c> caso contrário.
+	/// </summary>
+	public Guid? SourceGroupId { get; set; }
+}
 
 /// <summary>Login externo (tabela <c>tb_user_logins</c>).</summary>
 public sealed class UserLogin : IdentityUserLogin<Guid>;
