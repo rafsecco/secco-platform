@@ -17,7 +17,7 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -568,6 +568,15 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_json_web_key_set");
 
+                    b.Property<string>("Name")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("ds_name");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_origin");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("text")
                         .HasColumnName("ds_permissions");
@@ -597,6 +606,10 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("text")
                         .HasColumnName("ds_settings");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_fk_tenant");
+
                     b.HasKey("Id")
                         .HasName("pk_oidc_applications");
 
@@ -604,7 +617,14 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .IsUnique()
                         .HasDatabaseName("uk_oidc_applications_ds_client_id");
 
-                    b.ToTable("tb_oidc_applications", (string)null);
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("uk_oidc_applications_id_fk_tenant_ds_name");
+
+                    b.ToTable("tb_oidc_applications", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_oidc_applications_origin_tenant", "(ie_origin = 1 AND id_fk_tenant IS NOT NULL) OR (ie_origin = 0 AND id_fk_tenant IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.OpenIddict.OidcAuthorization", b =>
@@ -918,6 +938,15 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_user");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_oidc_applications_tenant");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.OpenIddict.OidcAuthorization", b =>

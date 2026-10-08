@@ -1,4 +1,5 @@
 using OpenIddict.EntityFrameworkCore.Models;
+using Secco.SecureGate.Application.Clients;
 
 namespace Secco.SecureGate.Infrastructure.OpenIddict;
 
@@ -18,6 +19,24 @@ public sealed class OidcApplication : OpenIddictEntityFrameworkCoreApplication<G
 	/// no MESMO modelo Role + Permission da ADR-0021 que os usuários, sem caso especial.
 	/// </summary>
 	public string? Roles { get; set; }
+
+	/// <summary>Tamanho máximo do nome legível do client (ADR-0037).</summary>
+	public const int NameMaxLength = 100;
+
+	/// <summary>
+	/// Tenant do client de PRODUTO (coluna <c>id_fk_tenant</c>, ADR-0037). Preenchido: o token de
+	/// client credentials sai com <c>tenant_id</c>. Nulo: client de plataforma.
+	/// </summary>
+	public Guid? TenantId { get; set; }
+
+	/// <summary>Origem do client (coluna <c>ie_origin</c>, ADR-0037).</summary>
+	public ClientOrigin Origin { get; set; } = ClientOrigin.Configuration;
+
+	/// <summary>
+	/// Nome legível (coluna <c>ds_name</c>). Chave natural do client de produto dentro do tenant
+	/// (ADR-0034); no client de plataforma é o próprio <c>ClientId</c>.
+	/// </summary>
+	public string? Name { get; set; }
 }
 
 /// <summary>Autorização concedida (tabela <c>tb_oidc_authorizations</c>).</summary>

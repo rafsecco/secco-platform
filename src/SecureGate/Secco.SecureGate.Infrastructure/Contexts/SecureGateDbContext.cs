@@ -115,8 +115,20 @@ public sealed class SecureGateDbContext(
 
 		builder.Entity<OidcApplication>(application =>
 		{
-			application.ToTable("tb_oidc_applications");
+			application.ToTable("tb_oidc_applications", table =>
+				// Api ⇔ tenant preenchido (ADR-0037). SQL portável: identificadores minúsculos sem
+				// aspas valem igual em SQL Server e PostgreSQL.
+				table.HasCheckConstraint(
+					"ck_oidc_applications_origin_tenant",
+					"(ie_origin = 1 AND id_fk_tenant IS NOT NULL) OR (ie_origin = 0 AND id_fk_tenant IS NULL)"));
 			application.Property(a => a.Roles).HasMaxLength(OidcApplication.RolesMaxLength);
+			application.Property(a => a.Name).HasMaxLength(OidcApplication.NameMaxLength);
+			application.HasOne<Tenant>().WithMany().HasForeignKey(a => a.TenantId).OnDelete(DeleteBehavior.Restrict);
+
+			// Nome único por tenant. Client de plataforma usa Name = ClientId, então dois clients
+			// de plataforma (TenantId nulo, que o SQL Server trata como iguais no índice) nunca colidem.
+			application.HasIndex(a => new { a.TenantId, a.Name }).IsUnique()
+				.HasDatabaseName("uk_oidc_applications_id_fk_tenant_ds_name");
 		});
 		builder.Entity<OidcAuthorization>().ToTable("tb_oidc_authorizations");
 		builder.Entity<OidcScope>().ToTable("tb_oidc_scopes");

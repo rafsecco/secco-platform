@@ -1,10 +1,12 @@
 using System.Net;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Secco.SecureGate.Application.Clients;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
+using Secco.SecureGate.Infrastructure.OpenIddict;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -125,5 +127,71 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 
 		(await client.GetAsync("/health/live")).StatusCode.Should().Be(HttpStatusCode.OK);
 		(await client.GetAsync("/health/ready")).StatusCode.Should().Be(HttpStatusCode.OK);
+	}
+
+	[Fact]
+	public async Task OidcApplication_ClientDeApiSemTenant_ViolaCheckConstraint()
+	{
+		await using var context = CreateContext();
+		context.Set<OidcApplication>().Add(new()
+		{
+			ClientId = $"cli_{Guid.NewGuid():N}"[..20],
+			Origin = ClientOrigin.Api,
+			TenantId = null,
+			Name = "sem tenant",
+		});
+
+		var act = () => context.SaveChangesAsync();
+
+		await act.Should().ThrowAsync<DbUpdateException>("Api ⇔ tenant preenchido (ADR-0037)");
+	}
+
+	[Fact]
+	public async Task OidcApplication_MesmoNomeEmTenantsDiferentes_EhPermitido()
+	{
+		await using var context = CreateContext();
+		var tenantA = new Tenant("A", $"a-{Guid.NewGuid():N}");
+		var tenantB = new Tenant("B", $"b-{Guid.NewGuid():N}");
+		context.Tenants.AddRange(tenantA, tenantB);
+		await context.SaveChangesAsync();
+
+		foreach (var tenant in new[] { tenantA, tenantB })
+		{
+			context.Set<OidcApplication>().Add(new()
+			{
+				ClientId = $"cli_{Guid.NewGuid():N}"[..20],
+				Origin = ClientOrigin.Api,
+				TenantId = tenant.Id,
+				Name = "Sistema de compras",
+			});
+		}
+
+		var act = () => context.SaveChangesAsync();
+
+		await act.Should().NotThrowAsync();
+	}
+
+	[Fact]
+	public async Task OidcApplication_MesmoNomeNoMesmoTenant_ViolaIndiceUnico()
+	{
+		await using var context = CreateContext();
+		var tenant = new Tenant("C", $"c-{Guid.NewGuid():N}");
+		context.Tenants.Add(tenant);
+		await context.SaveChangesAsync();
+
+		for (var i = 0; i < 2; i++)
+		{
+			context.Set<OidcApplication>().Add(new()
+			{
+				ClientId = $"cli_{Guid.NewGuid():N}"[..20],
+				Origin = ClientOrigin.Api,
+				TenantId = tenant.Id,
+				Name = "Duplicado",
+			});
+		}
+
+		var act = () => context.SaveChangesAsync();
+
+		await act.Should().ThrowAsync<DbUpdateException>();
 	}
 }
