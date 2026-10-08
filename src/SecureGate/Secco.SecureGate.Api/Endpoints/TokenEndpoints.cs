@@ -10,6 +10,7 @@ using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Elevation;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
+using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Secco.SecureGate.Api.Endpoints;
@@ -32,14 +33,15 @@ public static class TokenEndpoints
 			IOpenIddictScopeManager scopeManager,
 			IOpenIddictApplicationManager applicationManager,
 			UserManager<User> userManager,
-			SignInManager<User> signInManager) =>
+			SignInManager<User> signInManager,
+			ITenantRepository tenants) =>
 		{
 			var request = context.GetOpenIddictServerRequest()
 				?? throw new InvalidOperationException("Requisição OIDC não encontrada no contexto.");
 
 			if (request.IsClientCredentialsGrantType())
 			{
-				return await HandleClientCredentialsAsync(context, request, scopeManager, applicationManager);
+				return await HandleClientCredentialsAsync(context, request, scopeManager, applicationManager, tenants);
 			}
 
 			if (request.IsAuthorizationCodeGrantType() || request.IsRefreshTokenGrantType())
@@ -64,21 +66,45 @@ public static class TokenEndpoints
 		HttpContext context,
 		OpenIddictRequest request,
 		IOpenIddictScopeManager scopeManager,
-		IOpenIddictApplicationManager applicationManager)
+		IOpenIddictApplicationManager applicationManager,
+		ITenantRepository tenants)
 	{
 		// Credenciais e permissões de scope já validadas pelo OpenIddict (client_secret hasheado)
+		var application = await applicationManager.FindByClientIdAsync(request.ClientId!, context.RequestAborted)
+			as Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication;
+
 		var identity = new ClaimsIdentity(
 			TokenValidationParameters.DefaultAuthenticationType, Claims.Name, Claims.Role);
 
-		// Claims curtas (ADR-0007): sub = client; sem tenant_id em serviço-a-serviço —
-		// o tenant alvo viaja no header X-Tenant-Id (cenário interno, ADR-0005)
+		// Claims curtas (ADR-0007): sub = client
 		identity.SetClaim(Claims.Subject, request.ClientId);
 		identity.SetScopes(request.GetScopes());
 
+		if (application?.TenantId is { } tenantId)
+		{
+			// Client de PRODUTO (ADR-0037): o token carrega o tenant do vínculo, e a regra de conflito
+			// do TenantResolver passa a conter o client nele. Desativar o tenant precisa parar as
+			// máquinas dele também — sem esta checagem, renovariam token a cada 5 minutos para sempre.
+			if (await tenants.GetByIdAsync(tenantId, context.RequestAborted) is not { IsActive: true })
+			{
+				return Forbid(Errors.InvalidClient, "O client não pode obter token.");
+			}
+
+			// Defesa em profundidade: o registro já barra, mas o banco pode ser editado à mão
+			if (request.GetScopes().Any(scope => !SecureGateScopes.IsProductScope(scope)))
+			{
+				return Forbid(Errors.InvalidScope, "Escopo não permitido a este client.");
+			}
+
+			identity.SetClaim(SeccoClaims.TenantId, tenantId.ToString());
+		}
+
+		// Sem tenant: client de PLATAFORMA (ADR-0037), só nasce da configuração da instalação — o
+		// tenant alvo viaja no header X-Tenant-Id (caminho "sem claim → header", ADR-0005/0024).
+
 		// Roles do client (Fase 6.4, ADR-0021): máquinas usam o MESMO modelo
 		// Role + Permission dos usuários — a claim curta 'role' sai no access token
-		if (await applicationManager.FindByClientIdAsync(request.ClientId!, context.RequestAborted)
-			is Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication { Roles.Length: > 0 } application)
+		if (application is { Roles.Length: > 0 })
 		{
 			identity.SetClaims(Claims.Role,
 				[.. application.Roles.Split(' ', StringSplitOptions.RemoveEmptyEntries)]);

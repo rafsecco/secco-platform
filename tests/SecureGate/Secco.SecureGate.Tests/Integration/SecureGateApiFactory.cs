@@ -90,6 +90,44 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	}
 
 	/// <summary>
+	/// Registra direto no banco um client de PRODUTO vinculado ao tenant (ADR-0037) — atalho de
+	/// teste para exercitar a emissão sem depender da API de gestão. Permissões gravadas como
+	/// vierem, inclusive escopo proibido: é assim que os testes provam a checagem na emissão.
+	/// </summary>
+	public async Task CreateProductClientAsync(
+		Guid tenantId, string clientId, string clientSecret, string? roles, params string[] scopes)
+	{
+		using var scope = Services.CreateScope();
+		var applications = scope.ServiceProvider
+			.GetRequiredService<OpenIddict.Core.OpenIddictApplicationManager<Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication>>();
+
+		var application = new Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication
+		{
+			TenantId = tenantId,
+			Origin = Secco.SecureGate.Application.Clients.ClientOrigin.Api,
+			Name = clientId,
+			Roles = roles,
+		};
+
+		var descriptor = new OpenIddict.Abstractions.OpenIddictApplicationDescriptor
+		{
+			ClientId = clientId,
+			ClientType = OpenIddict.Abstractions.OpenIddictConstants.ClientTypes.Confidential,
+			DisplayName = clientId,
+		};
+		descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Token);
+		descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.ClientCredentials);
+
+		foreach (var scopeName in scopes)
+		{
+			descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+		}
+
+		await applications.PopulateAsync(application, descriptor);
+		await applications.CreateAsync(application, clientSecret);
+	}
+
+	/// <summary>
 	/// Registra um client PÚBLICO de teste (authorization code + PKCE + refresh, sem secret) —
 	/// o modelo de uma aplicação web/SPA (Fase 6.5). Consent implícito (first-party).
 	/// </summary>
