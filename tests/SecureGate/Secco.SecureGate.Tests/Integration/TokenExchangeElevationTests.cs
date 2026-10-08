@@ -300,6 +300,47 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 	}
 
 	[Fact]
+	public async Task Exchange_ClientDeProdutoComPermissaoDeTrocaEOProprioToken_RecusaPelaPolitica()
+	{
+		// O caso que chega ATÉ a política: o client de produto tem a permissão de troca e apresenta o
+		// PRÓPRIO token, então o OpenIddict não barra antes (apresentador confere). Quem recusa é a
+		// invariante 5 — sub = client_id não é usuário. Sem isto o teste de cima só provaria a
+		// checagem de apresentador do OpenIddict, não a nossa.
+		await GrantAsync();
+
+		const string productSecret = "product-client-secret-de-32-chars-min!!";
+		var productClientId = $"cli_{Guid.NewGuid():N}"[..20];
+		await secureGate.CreateProductClientAsync(_tenantId, productClientId, productSecret, roles: null, "logstream");
+
+		using (var scope = secureGate.Services.CreateScope())
+		{
+			var applications = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+			var application = (await applications.FindByClientIdAsync(productClientId))!;
+			var descriptor = new OpenIddictApplicationDescriptor();
+			await applications.PopulateAsync(descriptor, application);
+			descriptor.Permissions.Add(Permissions.Prefixes.GrantType + TokenExchangeGrant);
+			await applications.UpdateAsync(application, descriptor);
+		}
+
+		using var client = secureGate.CreateClient();
+		var machine = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["grant_type"] = "client_credentials",
+			["client_id"] = productClientId,
+			["client_secret"] = productSecret,
+			["scope"] = "logstream",
+		}));
+		machine.EnsureSuccessStatusCode();
+
+		using var payload = JsonDocument.Parse(await machine.Content.ReadAsStringAsync());
+
+		AssertPolicyRefusal(await ExchangeAsync(
+			payload.RootElement.GetProperty("access_token").GetString()!,
+			clientId: productClientId,
+			clientSecret: productSecret));
+	}
+
+	[Fact]
 	public async Task Exchange_ComRefreshTokenDeclaradoComoRefresh_Recusa()
 	{
 		var (_, refreshToken) = await LoginAsync();
@@ -449,7 +490,8 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		string subjectToken,
 		string? scope = "logstream",
 		string subjectTokenType = AccessTokenType,
-		string clientId = ClientId)
+		string clientId = ClientId,
+		string? clientSecret = null)
 	{
 		var form = new Dictionary<string, string>
 		{
@@ -462,6 +504,11 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		if (scope is not null)
 		{
 			form["scope"] = scope;
+		}
+
+		if (clientSecret is not null)
+		{
+			form["client_secret"] = clientSecret;
 		}
 
 		using var client = secureGate.CreateClient();
