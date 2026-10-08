@@ -140,6 +140,43 @@ group.MapGet("/recursos", Handler)
     .RequireAuthorization(MeuProdutoPermissions.Recursos.Read);   // "recursos:read" — resolvido em runtime, fail-closed
 ```
 
+## 6. Registrar os clients OAuth no SecureGate
+
+O `ClientId`/`ClientSecret` acima precisa existir no SecureGate. Há dois tipos de client, e cada um nasce por um caminho só (ADR-0037).
+
+**Client de plataforma: sem tenant, declarado na configuração do SecureGate.** São os serviços da instalação: um produto que lê o catálogo ou resolve permissões (como o `meuproduto-service` acima), o AdminPortal, a identidade de auditoria. O token sai **sem** `tenant_id`, e o tenant alvo viaja no `X-Tenant-Id`. Declare cada um em `SecureGate:PlatformClients`, no SecureGate:
+
+```jsonc
+{
+  "SecureGate": {
+    "PlatformClients": [
+      {
+        "ClientId": "meuproduto-service",
+        "Type": "ClientCredentials",                 // ou "AuthorizationCode" (+ RedirectUris, PKCE obrigatório)
+        "Scopes": [ "catalog:meuproduto", "authorization:read", "logstream" ],
+        "Roles": [ "meuproduto-service" ]
+      }
+    ]
+  }
+}
+```
+
+O `ClientSecret` vem de variável de ambiente (`SecureGate__PlatformClients__0__ClientSecret`) ou de cofre, nunca de arquivo versionado, e precisa de ao menos 32 caracteres fora de Development. A lista é a fonte da verdade: ela é reconciliada pelo **seed de referência**, que cria, atualiza e **remove** client de plataforma que saiu dela. Configuração inválida derruba o startup. Fora de Development, o seed de referência ainda não roda sozinho — ver [#34](https://github.com/rafsecco/secco-platform/issues/34).
+
+**Client de produto: vinculado a um tenant, registrado pela API.** É a credencial de um sistema da empresa que **consome** os produtos da plataforma, por exemplo um "Sistema de compras" que grava log. Com escopo `securegate:admin`, pelo `Secco.SecureGate.Client`:
+
+```csharp
+var created = await secureGate.CreateProductClientAsync(tenantId, new ProductClientRequest
+{
+    Name = "Sistema de compras",
+    Scopes = ["logstream"],          // só escopos de API de produto: logstream, notificationhub
+    Roles = ["compras-writer"],      // perfis que já existem no tenant
+});
+// created.ClientId (cli_…) e created.ClientSecret — o secret aparece só aqui e na rotação
+```
+
+O token desse client sai **com** `tenant_id`. Um `X-Tenant-Id` de outro tenant é recusado com `400` pelo SDK, então o secret pode ser entregue a outro time sem que ele alcance outro tenant. Os escopos de infraestrutura (`securegate:admin`, `authorization:read`, `catalog:*`) não são concedíveis por esta via. Um sistema que precise deles é serviço de plataforma e entra pela configuração. Para trocar o secret use `RotateProductClientSecretAsync`, que invalida o anterior na hora; para revogar, `DeleteProductClientAsync`.
+
 ## Próximos passos
 
 - **Arquitetura**: [architecture-overview.md](architecture-overview.md) — os pilares e como os produtos se encaixam.

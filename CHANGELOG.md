@@ -12,7 +12,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-09-29. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client — 0.15.0 (aditivo)
+
+- **Novo:** clients de produto vinculados a tenant (issue #31, ADR-0037). Os métodos são `CreateProductClientAsync`, `ListProductClientsAsync`, `GetProductClientAsync`, `UpdateProductClientAsync`, `RotateProductClientSecretAsync` e `DeleteProductClientAsync`, todos sob `/api/v1/tenants/{tenantId}/clients` com escopo `securegate:admin`. O secret volta só na criação e na rotação. O token do client sai com `tenant_id`.
+
+**Mudanças no SecureGate (serviço) que acompanham esta versão — ação necessária antes de atualizar a instalação:**
+
+- **Quebra:** clients sem tenant passam a nascer só de `SecureGate:PlatformClients`, na configuração do SecureGate. O **seed de referência** reconcilia essa lista e **remove** todo client de plataforma que não estiver declarado nela, inclusive os inseridos à mão no banco. Antes de rodar o seed da versão nova, declare cada client que você usa (`ClientId`, `Type`, `Scopes`, `Roles` e, para `AuthorizationCode`, as redirect URIs). Passe o `ClientSecret` por variável de ambiente, por exemplo `SecureGate__PlatformClients__0__ClientSecret`. Os clients de DEV (`secco-dev-console`, `secco-adminportal`, `secco-adminportal-sessions`) já vêm declarados no `appsettings.Development.json`. O `secco-dev-webapp`, que era público, deixou de existir.
+- **Quebra:** excluir um perfil usado por client de máquina do tenant responde `409 SecureGate.Role.UsedByClients`.
+- Fora de Development, o seed de referência ainda não roda sozinho — ver issue #34.
 
 ---
 

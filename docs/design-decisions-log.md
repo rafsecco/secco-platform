@@ -1707,3 +1707,29 @@ Repor um valor fixo aí — sempre o nome de exibição, sem fallback — quebra
 **Por que `RemoveUserRole` RECUSA em vez de remover e deixar a sincronização devolver?** Recusar com erro explícito é o que torna a origem *visível* e *acionável* para o admin — exatamente o pedido do comentário da issue #28. Aceitar a remoção e deixar o próximo ciclo desfazer seria "sucesso" mentiroso: a API diria 204 para uma operação que não teve efeito duradouro nenhum. Sem reconciliação nesta rodada, o teste desta regra cria a atribuição `Directory` direto no banco (é exatamente o estado que a sincronização criaria) — a única forma honesta de testar uma regra cujo gatilho normal ainda não existe.
 
 **Por que o teste do `Origin` desabilitado por padrão não gerou migração de dado?** Toda atribuição existente é `UserRole` sem os campos — a coluna nova entra com `nullable: true` (`SourceGroupId`) ou `defaultValue` (`Origin = 0 = Manual`, o primeiro valor do enum é a escolha deliberada de "seguro por padrão"). Zero linha precisa de UPDATE.
+
+## Clients de produto e de plataforma (issue #31, ADR-0037, 2026-10-08)
+
+**Por que a entrega cobre mais que a #31?** A análise mostrou que nenhum client nascia fora do seed de desenvolvimento, inclusive os da própria plataforma (LogStream lendo o catálogo, AdminPortal, `installation-auditor`). O dono do produto escolheu resolver os dois na mesma ADR, em vez de entregar só o client de produto e deixar a instalação real dependente de insert manual. A alternativa de uma API única, com um campo "sem tenant", foi descartada: daria a quem tem `securegate:admin` o poder de emitir identidade cross-tenant por chamada HTTP, que é exatamente a premissa da ADR-0024 que a #31 ameaçava.
+
+**Por que reconciliação declarativa para o client de plataforma?** A configuração vira fonte da verdade: o que sai dela é removido, e trocar o secret nela é a rotação. Foram descartados o bootstrap único (secret exibido no console vai para o log do container, sem fonte da verdade o estado deriva em silêncio, e a rotação precisaria de outra ferramenta) e o seed que só cria (remover da configuração não desligaria a credencial vazada).
+
+**Por que lista fechada de escopos no código?** `catalog:<produto>` devolve as connection strings de **todos** os tenants, e `authorization:read` recebe o tenant no path. Esses dois escopos atravessam tenant por construção, e o `tenant_id` no token não os contém. Um catálogo filtrado pelo tenant do token daria um segundo modo ao `ITenantCatalog`, e um bug nele vazaria connection string, sem caso de uso que o justifique. Uma lista configurável por instalação deixaria o admin abrir `catalog:*` para outro time por engano. Consequência registrada na ADR: um sistema que seja ele mesmo resource server, ou multi-tenant com catálogo próprio, é serviço de plataforma.
+
+**Por que papéis = perfis existentes do tenant?** Máquina e pessoa no mesmo modelo (Fase 6.4, ADR-0021), sem conceito novo. Um papel dedicado por client poluiria a lista de perfis do tenant, e as telas teriam que escondê-los. Permissão direta no client contradiria "o token só carrega papel" e exigiria um segundo caminho no resolvedor do SDK. O custo do modelo escolhido é que o `ds_roles` é string livre: excluir um perfil usado por client passou a responder `409`, senão um perfil recriado com o mesmo nome devolveria acesso a um client esquecido.
+
+**Por que rotação imediata?** A sobreposição de secrets manteria o secret vazado valendo durante a janela, justamente na rotação de emergência, e exigiria validar fora do fluxo nativo do OpenIddict. O resíduo aceito é de até 5 minutos de token já emitido, como em todo token de máquina (ADR-0032).
+
+**Por que sem camada de compatibilidade?** Decisão do dono do produto: o único adotante é dele, e quebrar com nota de upgrade sai mais barato que manter uma origem `Legacy` para sempre.
+
+**Emenda antes de qualquer código: seed de referência, não startup.** Ao planejar, apareceu o conflito com a ADR-0005 e com a pergunta 431 deste log: seed fora do boot de produção, por causa da corrida entre réplicas. A reconciliação virou um `IReferenceDataSeeder`, como a convergência da ADR-0025. O mesmo exame revelou que **nenhum produto executa migrations nem seed fora de Development**, porque o "processo controlado" nunca foi construído. Isso virou a issue #34.
+
+**Desvio de execução que vale registrar:** os helpers de teste criam clients diretamente no banco com origem `Configuration`. Duas classes que re-executam o seed (`ConnectionStringEncryptionTests` e `OperatorRoleConvergenceTests`) foram para uma collection própria. Na collection compartilhada, a reconciliação apagaria os clients das outras classes, e o defeito dependeria da ordem de execução.
+
+**Mutação: o que as 13 invariantes ensinaram.** Três escaparam na primeira rodada, e as três eram teste fraco, não código errado:
+
+- **Papel homônimo:** o teste criava o homônimo do outro tenant depois do papel certo, e a consulta sem filtro de tenant devolvia o certo por acaso de ordem.
+- **Comparação por substring:** o teste só cobria o client com papel curto e o perfil excluído longo, direção em que substring nunca casa.
+- **Troca de token:** o teste usava um client sem permissão do grant, então a recusa vinha do OpenIddict e não da política da ADR-0031.
+
+Duas mutações são equivalentes. O filtro de origem no store é coberto pelo check constraint, que impede client de plataforma de ter tenant. A proibição do prefixo `cli_` na configuração já é barrada pela regex do `ClientId`, que não aceita `_`. As duas ficam como defesa em profundidade.
