@@ -117,7 +117,7 @@ Validação fail-fast (startup cai, mensagem nomeia o índice e o campo, nunca o
 - `ClientSecret` obrigatório; fora de Development, ≥ 32 caracteres.
 - Escopos existentes no gerenciador de escopos (verificado depois do seed de referência).
 
-Reconciliação (`PlatformClientReconciler`, roda depois do seed de referência e antes de aceitar requisições):
+Reconciliação (`PlatformClientReconciler`, **passo do seed de referência** logo depois do registro dos escopos — emenda da ADR-0037: roda onde o seed roda, automática em Development e no processo controlado fora dele; a validação das options continua fail-fast em toda subida):
 
 1. Para cada client declarado: se não existe, cria com `Origin = Configuration`; se existe com `Origin = Configuration`, atualiza permissões, papéis, URIs e — se `ValidateClientSecretAsync` falhar com o secret declarado — o secret.
 2. Se o `ClientId` declarado existe com `Origin = Api` — impossível pelo prefixo, mas checado — o startup cai.

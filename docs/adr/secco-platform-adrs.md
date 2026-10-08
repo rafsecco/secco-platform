@@ -1293,6 +1293,8 @@ Alternativas avaliadas:
 - **Bateria negativa provada por mutação** é parte da decisão, como na ADR-0031: header divergente recusado no produto; papel homônimo em outro tenant não concede nada; escopos de infraestrutura recusados no registro e na emissão; tenant desativado sem token; secret antigo morto na rotação; client revogado sem token; client de plataforma invisível pela API; perfil em uso por client não excluível; reconciliação não toca client da API; configuração inválida derruba o startup.
 - **Fora desta ADR**: tela no AdminPortal; client público (SPA/mobile); rotação com sobreposição; vínculo de um client a mais de um tenant.
 
+**Emenda (2026-10-08, antes de qualquer código).** Onde a decisão diz "na subida", leia-se **"no seed de referência"**: a reconciliação dos clients de plataforma é um passo do seed de referência (ADR-0019), logo depois do registro dos escopos, e roda onde ele roda — automática em Development, no processo controlado fora dele (ADR-0005), como a convergência de connection strings da ADR-0025. Rodar no startup de produção reabriria a corrida entre réplicas que fez o seed de referência sair do boot. A **validação** de `SecureGate:PlatformClients` continua fail-fast em toda subida, em qualquer ambiente. Achado no caminho: fora de Development nenhum código chama o seed de referência hoje — nem os escopos existem numa instalação real sem execução manual; o caminho de produção desse processo é lacuna própria, fora desta ADR.
+
 ---
 
 ## Backlog de ADRs futuras
