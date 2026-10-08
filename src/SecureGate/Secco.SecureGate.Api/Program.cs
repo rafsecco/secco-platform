@@ -74,6 +74,7 @@ app.MapAuthorizationEndpoints();
 app.MapUserEndpoints();
 app.MapElevationGrantEndpoints();
 app.MapEntraGroupsEndpoints();
+app.MapProductClientEndpoints();
 
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();
