@@ -40,6 +40,15 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<ListRoleMembersHandler>();
 		services.AddScoped<DeleteRoleHandler>();
 
+		// Clients de produto (ADR-0037)
+		services.AddScoped<Clients.ProductClientAccessValidator>();
+		services.AddScoped<Clients.CreateProductClientHandler>();
+		services.AddScoped<Clients.ListProductClientsHandler>();
+		services.AddScoped<Clients.GetProductClientHandler>();
+		services.AddScoped<Clients.UpdateProductClientHandler>();
+		services.AddScoped<Clients.RotateProductClientSecretHandler>();
+		services.AddScoped<Clients.DeleteProductClientHandler>();
+
 		// Ciclo de credencial (ADR-0033): convite, recuperação e troca de senha
 		services.AddScoped<Credentials.InviteUserHandler>();
 		services.AddScoped<Credentials.RequestPasswordResetHandler>();

@@ -144,6 +144,50 @@ public static class SecureGateErrors
 				"O perfil tem membros. Remova-os antes de excluir.");
 	}
 
+	/// <summary>Erros de client de produto (ADR-0037).</summary>
+	public static class Clients
+	{
+		/// <summary>Client não encontrado neste tenant — também para client de outro tenant ou de plataforma.</summary>
+		public static readonly Error NotFound =
+			Error.NotFound("SecureGate.Client.NotFound", "Client não encontrado neste tenant.");
+
+		/// <summary>Nome ausente, longo demais ou com caractere de controle.</summary>
+		public static readonly Error NameInvalid =
+			Error.Validation("SecureGate.Client.NameInvalid",
+				$"O nome do client é obrigatório, com até {Application.Clients.ProductClientRules.NameMaxLength} caracteres e sem caractere de controle.");
+
+		/// <summary>Já existe client com este nome no tenant (chave natural, ADR-0034).</summary>
+		public static readonly Error NameAlreadyExists =
+			Error.Conflict("SecureGate.Client.NameAlreadyExists", "Já existe um client com este nome neste tenant.");
+
+		/// <summary>Lista de escopos vazia, longa demais ou com repetição.</summary>
+		public static readonly Error ScopesInvalid =
+			Error.Validation("SecureGate.Client.ScopesInvalid",
+				$"Informe de 1 a {Application.Clients.ProductClientRules.MaxScopes} escopos distintos.");
+
+		/// <summary>Escopo fora da lista de produto — inclui todo escopo de infraestrutura.</summary>
+		public static readonly Error ScopeNotAllowed =
+			Error.Validation("SecureGate.Client.ScopeNotAllowed",
+				$"Escopo não concedível a client de produto. Permitidos: {string.Join(", ", SecureGateScopes.ProductScopes)}.");
+
+		/// <summary>Lista de papéis longa demais ou com repetição.</summary>
+		public static readonly Error RolesInvalid =
+			Error.Validation("SecureGate.Client.RolesInvalid",
+				$"Informe até {Application.Clients.ProductClientRules.MaxRoles} papéis distintos.");
+
+		/// <summary>Papel inexistente no tenant.</summary>
+		public static readonly Error RoleNotFound =
+			Error.Validation("SecureGate.Client.RoleNotFound", "Um dos papéis informados não existe neste tenant.");
+
+		/// <summary>Papel reservado à estrutura de instalação.</summary>
+		public static readonly Error RoleNotAssignable =
+			Error.Validation("SecureGate.Client.RoleNotAssignable", "Um dos papéis informados é reservado e não pode ser atribuído a client.");
+
+		/// <summary>Tenant desativado não recebe client novo.</summary>
+		public static readonly Error TenantInactive =
+			Error.Conflict("SecureGate.Client.TenantInactive", "O tenant está desativado.");
+	}
+
 	/// <summary>Erros do endpoint de catálogo (leitura pelos produtos).</summary>
 	public static class Catalog
 	{
