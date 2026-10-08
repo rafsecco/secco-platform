@@ -226,6 +226,21 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 	}
 
 	[Fact]
+	public async Task DeleteRole_PapelQueEhSubstringDoPapelDoClient_NaoBloqueia()
+	{
+		// Direção oposta do teste anterior: o perfil excluído é o CURTO ("admin-z") e o client guarda
+		// papéis que o CONTÊM ("tenant-admin-z", "admin-z-ops"). Comparar por substring bloquearia à toa.
+		await IdentitySeed.RoleAsync(factory, _tenantId, "admin-z");
+		await factory.CreateProductClientAsync(_tenantId, $"cli_{Guid.NewGuid():N}"[..20],
+			"client-secret-de-32-chars-minimo!!!", "tenant-admin-z admin-z-ops", "logstream");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/admin-z");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent, "comparação por papel inteiro, não por substring");
+	}
+
+	[Fact]
 	public async Task DeleteRole_ClientDeOutroTenantComMesmoNome_NaoBloqueia()
 	{
 		await IdentitySeed.RoleAsync(factory, _tenantId, "homonimo-y");
