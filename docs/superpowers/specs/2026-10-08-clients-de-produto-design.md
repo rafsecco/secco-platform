@@ -1,7 +1,7 @@
 # Clients OAuth de produto e de plataforma — design
 
 **Data:** 2026-10-08
-**Status:** aguardando revisão
+**Status:** aprovada (2026-10-08)
 **Decisões arquiteturais:** [ADR-0037](../../adr/secco-platform-adrs.md) (esta entrega), [ADR-0024](../../adr/secco-platform-adrs.md) (emendada), [ADR-0005](../../adr/secco-platform-adrs.md) (resolução de tenant), [ADR-0021](../../adr/secco-platform-adrs.md) (papel + permissão), [ADR-0032](../../adr/secco-platform-adrs.md) (token de máquina sem `sver`), [ADR-0034](../../adr/secco-platform-adrs.md) (idempotência), [ADR-0035](../../adr/secco-platform-adrs.md) (estado entre instâncias), [ADR-0020](../../adr/secco-platform-adrs.md) (segurança)
 **Origem:** issue [#31](https://github.com/rafsecco/secco-platform/issues/31) (`adopter-demand`, `secco-intranet`), ampliada na conversa de design para incluir o caminho de produção dos clients de plataforma.
 

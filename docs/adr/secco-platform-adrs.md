@@ -1243,7 +1243,7 @@ Alternativas avaliadas para o cliente HTTP:
 
 ## ADR-0037: Clients OAuth — de produto vinculados a tenant, de plataforma por configuração
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-10-08
 
 ### Contexto
