@@ -123,4 +123,25 @@ public class ProductClientTokenTests(SecureGateApiFactory factory) : IAsyncLifet
 		response.IsSuccessStatusCode.Should().BeFalse();
 		(await response.Content.ReadAsStringAsync()).Should().Contain("invalid_scope");
 	}
+
+	[Fact]
+	public async Task Resolucao_PapelHomonimoEmOutroTenant_UsaSoOTenantDoToken()
+	{
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		await IdentitySeed.RoleAsync(factory, _tenantId, "homonimo", "log-entries:read");
+		await IdentitySeed.RoleAsync(factory, otherTenant, "homonimo", "log-entries:write");
+
+		var clientId = NewClientId();
+		await factory.CreateProductClientAsync(_tenantId, clientId, Secret, "homonimo", "logstream");
+		var token = await ReadTokenAsync(await RequestTokenAsync(clientId, "logstream"));
+		var tokenTenant = token.GetClaim("tenant_id").Value;
+
+		var reader = factory.CreateClient();
+		reader.DefaultRequestHeaders.Authorization = new("Bearer",
+			factory.CreateTokenWithScopes(Secco.SecureGate.Application.SecureGateScopes.AuthorizationRead));
+		var permissions = await reader.GetFromJsonAsync<string[]>(
+			$"/api/v1/authorization/tenants/{tokenTenant}/roles/homonimo/permissions", Json);
+
+		permissions.Should().Equal("log-entries:read");
+	}
 }

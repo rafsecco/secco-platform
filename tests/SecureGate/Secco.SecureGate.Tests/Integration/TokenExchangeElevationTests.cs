@@ -274,6 +274,32 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 	}
 
 	[Fact]
+	public async Task Exchange_ComTokenDeClientDeProduto_Recusa()
+	{
+		// Client de produto (ADR-0037) vive no MESMO tenant do usuário com concessão vigente, e o token
+		// dele carrega tenant_id: máquina não eleva por isso (invariante 5, ADR-0031).
+		await GrantAsync();
+
+		const string productSecret = "product-client-secret-de-32-chars-min!!";
+		var productClientId = $"cli_{Guid.NewGuid():N}"[..20];
+		await secureGate.CreateProductClientAsync(_tenantId, productClientId, productSecret, roles: null, "logstream");
+
+		using var client = secureGate.CreateClient();
+		var machine = await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["grant_type"] = "client_credentials",
+			["client_id"] = productClientId,
+			["client_secret"] = productSecret,
+			["scope"] = "logstream",
+		}));
+		machine.EnsureSuccessStatusCode();
+
+		using var payload = JsonDocument.Parse(await machine.Content.ReadAsStringAsync());
+
+		AssertRefused(await ExchangeAsync(payload.RootElement.GetProperty("access_token").GetString()!));
+	}
+
+	[Fact]
 	public async Task Exchange_ComRefreshTokenDeclaradoComoRefresh_Recusa()
 	{
 		var (_, refreshToken) = await LoginAsync();
