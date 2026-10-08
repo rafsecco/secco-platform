@@ -213,6 +213,12 @@ public static class SecureGateInfrastructureExtensions
 		// Clients de produto vinculados a tenant (ADR-0037)
 		services.AddScoped<Application.Clients.IProductClientStore, Clients.OpenIddictProductClientStore>();
 
+		// Clients de plataforma (ADR-0037): validados em toda subida, reconciliados no seed de referência
+		services.AddOptions<Clients.PlatformClientsOptions>()
+			.BindConfiguration(Clients.PlatformClientsOptions.SectionKey)
+			.ValidateOnStart();
+		services.TryAddSingleton<IValidateOptions<Clients.PlatformClientsOptions>, Clients.PlatformClientsOptionsValidator>();
+
 		return services;
 	}
 
