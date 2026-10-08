@@ -163,7 +163,10 @@ Só existem em DEV, com guarda dupla (`IsDevelopment()` + `Secco:Seed:Developmen
 | Usuário comum de teste | `dev@secco.local` | `Dev@Secco2026` |
 | Client confidencial do AdminPortal | `secco-adminportal` | `secco-adminportal-secret-32-chars-min!` |
 | Client de máquina (client credentials) | `secco-dev-console` | `secco-dev-console-secret-32-chars-min!` |
-| Client web público (code + PKCE) | `secco-dev-webapp` | — (público) |
+
+Os clients de DEV são declarados em `SecureGate:PlatformClients` no `appsettings.Development.json`
+do SecureGate e reconciliados pelo seed de referência (ADR-0037) — o mesmo caminho de uma
+instalação real. Client que sair dessa lista é removido na próxima subida.
 
 ### 6.4 Roteiro sugerido
 

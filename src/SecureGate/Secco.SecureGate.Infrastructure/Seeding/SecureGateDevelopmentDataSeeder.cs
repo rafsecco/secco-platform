@@ -1,38 +1,26 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using OpenIddict.Abstractions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
-using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Secco.SecureGate.Infrastructure.Seeding;
 
 /// <summary>
-/// Seed de DESENVOLVIMENTO (ADR-0019, guarda dupla): um tenant demo (o mesmo Guid dos
-/// appsettings de DEV dos produtos), um client de console (client credentials), um client
-/// web (authorization code + PKCE, Fase 6.5) e um usuário demo com senha conhecida —
+/// Seed de DESENVOLVIMENTO (ADR-0019, guarda dupla): tenant demo (o mesmo Guid dos
+/// appsettings de DEV dos produtos), papel demo e usuários demo com senha conhecida; os clients
+/// de DEV vêm de <c>SecureGate:PlatformClients</c> no <c>appsettings.Development.json</c> (ADR-0037) —
 /// jamais chega a produção (a orquestração do SDK garante).
 /// </summary>
 public sealed class SecureGateDevelopmentDataSeeder(
 	SecureGateDbContext context,
-	IOpenIddictApplicationManager applicationManager,
 	UserManager<Identity.User> userManager) : IDevelopmentDataSeeder
 {
-	/// <summary>Client web de desenvolvimento (authorization code + PKCE, público — sem secret).</summary>
-	public const string DevWebClientId = "secco-dev-webapp";
-
 	/// <summary>Usuário demo do tenant de desenvolvimento.</summary>
 	public const string DevUserEmail = "dev@secco.local";
 
 	/// <summary>Senha do usuário demo (conhecida — só existe em DEV; satisfaz a política do Identity).</summary>
 	public const string DevUserPassword = "Dev@Secco2026";
-
-	/// <summary>Client confidencial do AdminPortal (authorization code + PKCE, Fase 7.1).</summary>
-	public const string AdminPortalClientId = "secco-adminportal";
-
-	/// <summary>Secret do client do AdminPortal (conhecido — só existe em DEV).</summary>
-	public const string AdminPortalClientSecret = "secco-adminportal-secret-32-chars-min!";
 
 	/// <summary>Usuário OPERADOR de instalação (ADR-0023) — recebe o scope admin no login.</summary>
 	public const string OperatorEmail = "operador@secco.local";
@@ -42,13 +30,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 	/// <summary>Tenant demo — mesmo Guid usado nos appsettings.Development dos produtos.</summary>
 	public static readonly Guid DemoTenantId = Guid.Parse("018f0000-0000-7000-8000-000000000001");
 
-	/// <summary>Client de desenvolvimento para chamadas de console/testes manuais.</summary>
-	public const string DevClientId = "secco-dev-console";
-
-	/// <summary>Secret do client de desenvolvimento (conhecido — só existe em DEV).</summary>
-	public const string DevClientSecret = "secco-dev-console-secret-32-chars-min!";
-
-	/// <summary>Role demo com as permissões do LogStream (Fase 6.4) — atribuído ao client de DEV.</summary>
+	/// <summary>Role demo com as permissões do LogStream (Fase 6.4) — referenciado pelo client de console de DEV (em <c>PlatformClients</c>).</summary>
 	public const string DevRoleName = "dev-admin";
 
 	/// <summary>Permissões do role demo (strings literais: as constantes vivem em cada produto, ADR-0003).</summary>
@@ -71,120 +53,10 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		}
 
 		await SeedDevRoleAsync(cancellationToken).ConfigureAwait(false);
-
-		if (await applicationManager.FindByClientIdAsync(DevClientId, cancellationToken).ConfigureAwait(false) is null)
-		{
-			await applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
-			{
-				ClientId = DevClientId,
-				ClientSecret = DevClientSecret,
-				DisplayName = "Console de desenvolvimento Secco",
-				Permissions =
-				{
-					Permissions.Endpoints.Token,
-					Permissions.GrantTypes.ClientCredentials,
-					Permissions.Prefixes.Scope + "logstream",
-					Permissions.Prefixes.Scope + "notificationhub",
-					Permissions.Prefixes.Scope + "securegate",
-					// Fase 6.3 — console de DEV também exercita catálogo e gestão localmente
-					Permissions.Prefixes.Scope + Application.SecureGateScopes.CatalogFor("logstream"),
-					Permissions.Prefixes.Scope + Application.SecureGateScopes.Admin,
-					// Fase 6.4 — e a resolução role→permissions
-					Permissions.Prefixes.Scope + Application.SecureGateScopes.AuthorizationRead,
-				},
-			}, cancellationToken).ConfigureAwait(false);
-		}
-
-		// Fase 6.4 (ADR-0021): o console de DEV carrega o role demo na claim curta 'role'
-		if (await applicationManager.FindByClientIdAsync(DevClientId, cancellationToken).ConfigureAwait(false)
-			is OpenIddict.OidcApplication { Roles: null or "" } devClient)
-		{
-			devClient.Roles = DevRoleName;
-			await applicationManager.UpdateAsync(devClient, cancellationToken).ConfigureAwait(false);
-		}
-
-		await SeedWebClientAsync(cancellationToken).ConfigureAwait(false);
 		await SeedDevUserAsync(cancellationToken).ConfigureAwait(false);
 
-		// Fase 7.1 (ADR-0023): client do AdminPortal + usuário operador de instalação
-		await SeedAdminPortalClientAsync(cancellationToken).ConfigureAwait(false);
-		await SeedAdminPortalSessionsClientAsync(cancellationToken).ConfigureAwait(false);
+		// Fase 7.1 (ADR-0023): usuário operador de instalação
 		await SeedOperatorUserAsync(cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <summary>
-	/// Client confidencial do AdminPortal: authorization code + PKCE + refresh, consent implícito.
-	/// Idempotente de verdade (ADR-0019): se o client já existe, as URIs são REESCRITAS em vez de
-	/// ignoradas — a porta local do AdminPortal muda, e um banco de DEV antigo guardando a porta
-	/// velha quebraria o login em silêncio (redirect_uri não confere).
-	/// </summary>
-	private async Task SeedAdminPortalClientAsync(CancellationToken cancellationToken)
-	{
-		var descriptor = new OpenIddictApplicationDescriptor
-		{
-			ClientId = AdminPortalClientId,
-			ClientSecret = AdminPortalClientSecret,
-			ClientType = ClientTypes.Confidential,
-			ConsentType = ConsentTypes.Implicit,
-			DisplayName = "Secco AdminPortal",
-			RedirectUris = { new Uri("https://localhost:5001/signin-oidc") },
-			PostLogoutRedirectUris = { new Uri("https://localhost:5001/signout-callback-oidc") },
-			Permissions =
-			{
-				Permissions.Endpoints.Authorization,
-				Permissions.Endpoints.Token,
-				Permissions.Endpoints.EndSession,
-				Permissions.GrantTypes.AuthorizationCode,
-				Permissions.GrantTypes.RefreshToken,
-				Permissions.ResponseTypes.Code,
-				Permissions.Scopes.Email,
-				Permissions.Scopes.Profile,
-				Permissions.Scopes.Roles,
-				// O scope admin é PERMITIDO ao client, mas só é EMITIDO a operadores (ADR-0023)
-				Permissions.Prefixes.Scope + Application.SecureGateScopes.Admin,
-				Permissions.Prefixes.Scope + "logstream",
-			},
-		};
-
-		if (await applicationManager.FindByClientIdAsync(AdminPortalClientId, cancellationToken).ConfigureAwait(false) is { } existing)
-		{
-			await applicationManager.UpdateAsync(existing, descriptor, cancellationToken).ConfigureAwait(false);
-			return;
-		}
-
-		await applicationManager.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <summary>Client de máquina do AdminPortal só para consultar versão de sessão (ADR-0032).</summary>
-	public const string AdminPortalSessionsClientId = "secco-adminportal-sessions";
-
-	/// <summary>Secret do client de sessões do AdminPortal (conhecido — só existe em DEV).</summary>
-	public const string AdminPortalSessionsClientSecret = "secco-adminportal-sessions-secret-32-chars!";
-
-	private async Task SeedAdminPortalSessionsClientAsync(CancellationToken cancellationToken)
-	{
-		var descriptor = new OpenIddictApplicationDescriptor
-		{
-			ClientId = AdminPortalSessionsClientId,
-			ClientSecret = AdminPortalSessionsClientSecret,
-			ClientType = ClientTypes.Confidential,
-			DisplayName = "Secco AdminPortal — versão de sessão",
-			Permissions =
-			{
-				Permissions.Endpoints.Token,
-				Permissions.GrantTypes.ClientCredentials,
-				// Só leitura de autorização: este client nunca pode pedir securegate:admin
-				Permissions.Prefixes.Scope + Application.SecureGateScopes.AuthorizationRead,
-			},
-		};
-
-		if (await applicationManager.FindByClientIdAsync(AdminPortalSessionsClientId, cancellationToken).ConfigureAwait(false) is { } existing)
-		{
-			await applicationManager.UpdateAsync(existing, descriptor, cancellationToken).ConfigureAwait(false);
-			return;
-		}
-
-		await applicationManager.CreateAsync(descriptor, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Usuário operador de instalação no tenant de plataforma, com o role de operador.</summary>
@@ -222,39 +94,6 @@ public sealed class SecureGateDevelopmentDataSeeder(
 			context.UserRoles.Add(new Identity.UserRole { UserId = user.Id, RoleId = role.Id });
 			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 		}
-	}
-
-	/// <summary>Client web de DEV: authorization code + PKCE + refresh, público (sem secret), consent implícito.</summary>
-	private async Task SeedWebClientAsync(CancellationToken cancellationToken)
-	{
-		if (await applicationManager.FindByClientIdAsync(DevWebClientId, cancellationToken).ConfigureAwait(false) is not null)
-		{
-			return;
-		}
-
-		await applicationManager.CreateAsync(new OpenIddictApplicationDescriptor
-		{
-			ClientId = DevWebClientId,
-			ClientType = ClientTypes.Public,
-			// First-party confiável → sem tela de consent (Fase 6.5)
-			ConsentType = ConsentTypes.Implicit,
-			DisplayName = "Aplicação web de desenvolvimento Secco",
-			RedirectUris = { new Uri("https://localhost/callback"), new Uri("http://localhost/callback") },
-			PostLogoutRedirectUris = { new Uri("https://localhost/") },
-			Permissions =
-			{
-				Permissions.Endpoints.Authorization,
-				Permissions.Endpoints.Token,
-				Permissions.Endpoints.EndSession,
-				Permissions.GrantTypes.AuthorizationCode,
-				Permissions.GrantTypes.RefreshToken,
-				Permissions.ResponseTypes.Code,
-				Permissions.Scopes.Email,
-				Permissions.Scopes.Profile,
-				Permissions.Scopes.Roles,
-				Permissions.Prefixes.Scope + "logstream",
-			},
-		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Usuário demo no tenant de desenvolvimento, com o role demo (para exercitar o login).</summary>
