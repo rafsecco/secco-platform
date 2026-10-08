@@ -18,7 +18,7 @@ namespace Secco.SecureGate.Tests.Integration;
 /// precisa RENOMEAR no lugar — preservando o Id — em vez de criar um role novo e deixar o
 /// antigo (e as atribuições que apontam para ele) órfão.
 /// </summary>
-[Collection(SharedApiCollectionDefinition.Name)]
+[Collection(ReseedApiCollectionDefinition.Name)]
 public class OperatorRoleConvergenceTests(SecureGateApiFactory secureGate) : IAsyncLifetime
 {
 	private static readonly string LegacyNormalized = SecureGatePlatform.LegacyOperatorRole.ToUpperInvariant();

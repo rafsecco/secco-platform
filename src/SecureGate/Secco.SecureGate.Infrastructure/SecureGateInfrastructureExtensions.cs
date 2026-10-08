@@ -194,6 +194,9 @@ public static class SecureGateInfrastructureExtensions
 		// para a chave ativa após as migrations — idempotente, roda em todos os ambientes.
 		services.AddScoped<IReferenceDataSeeder, TenantDatabaseReEncryptionSeeder>();
 
+		// Clients de plataforma (ADR-0037 + emenda): reconciliados no seed de referência
+		services.AddScoped<IReferenceDataSeeder, Clients.PlatformClientReconciler>();
+
 		// App registration do Entra ID (ADR-0026): a Api ainda lê a seção direto para decidir se
 		// registra o esquema OIDC no startup (síncrono, antes do container existir), mas a
 		// injeção de IOptions<> — usada pelo cliente Graph da ADR-0036 — é registrada aqui, onde

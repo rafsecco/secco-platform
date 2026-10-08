@@ -23,3 +23,15 @@ public sealed class SelfIssuedApiCollectionDefinition : ICollectionFixture<SelfI
 	/// <summary>Nome da collection.</summary>
 	public const string Name = "SecureGate auto-validado";
 }
+
+/// <summary>
+/// Testes que RE-EXECUTAM o seed de referência. Isolados da collection compartilhada: desde a
+/// ADR-0037 o seed reconcilia os clients de plataforma e remove os não declarados — inclusive os
+/// que os helpers de teste criam para as outras classes.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class ReseedApiCollectionDefinition : ICollectionFixture<SecureGateApiFactory>
+{
+	/// <summary>Nome da collection.</summary>
+	public const string Name = "SecureGate com seed re-executado";
+}

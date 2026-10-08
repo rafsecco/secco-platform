@@ -16,7 +16,7 @@ namespace Secco.SecureGate.Tests.Integration;
 /// entregando o plaintext funcional, e o legado em claro converge no startup (seed de
 /// referência) — idempotente.
 /// </summary>
-[Collection(SharedApiCollectionDefinition.Name)]
+[Collection(ReseedApiCollectionDefinition.Name)]
 public class ConnectionStringEncryptionTests(SecureGateApiFactory factory) : IAsyncLifetime
 {
 	private const string EncryptedPrefix = "secco-enc:v1:";
