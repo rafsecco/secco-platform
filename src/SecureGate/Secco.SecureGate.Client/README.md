@@ -13,3 +13,12 @@ O pacote também entrega, prontas para os produtos consumirem, duas integraçõe
 - **`AddSecureGateAdminClient()`** (pasta `Administration/`) — registra o `ISecureGateClient` tipado completo, autenticado por client credentials com o scope `securegate:admin` (gestão de tenants/roles/usuários), para produtos que precisam chamar a API administrativa do SecureGate diretamente — não só ler o catálogo ou resolver permissões.
 
 Todos usam a mesma seção `Secco:SecureGate` (`BaseUrl`/`ClientId`/`ClientSecret`) e herdam o pipeline de resiliência da plataforma quando o host chama `AddSeccoResilience()`.
+
+## Clients de produto (0.15.0, ADR-0037)
+
+Com escopo `securegate:admin`, registre a credencial `client_credentials` de um sistema da
+empresa vinculada a um tenant: `CreateProductClientAsync(tenantId, new ProductClientRequest { Name, Scopes, Roles })`.
+O secret volta **só** nessa resposta e em `RotateProductClientSecretAsync` — guarde-o na hora.
+O token desse client sai com `tenant_id`, então ele só alcança o próprio tenant. Escopos
+aceitos: `logstream`, `notificationhub`. Clients sem tenant (de plataforma) não passam por esta
+API: são declarados em `SecureGate:PlatformClients` na configuração do SecureGate.
