@@ -142,6 +142,14 @@ public static class SecureGateErrors
 		public static readonly Error HasMembers =
 			Error.Conflict("SecureGate.Role.HasMembers",
 				"O perfil tem membros. Remova-os antes de excluir.");
+
+		/// <summary>
+		/// Perfil usado por client de máquina do tenant (ADR-0037). Excluir e recriar o perfil com o
+		/// mesmo nome devolveria acesso a um client esquecido — por isso a exclusão é recusada.
+		/// </summary>
+		public static readonly Error UsedByClients =
+			Error.Conflict("SecureGate.Role.UsedByClients",
+				"O perfil é usado por client de máquina deste tenant. Retire-o dos clients antes de excluir.");
 	}
 
 	/// <summary>Erros de client de produto (ADR-0037).</summary>

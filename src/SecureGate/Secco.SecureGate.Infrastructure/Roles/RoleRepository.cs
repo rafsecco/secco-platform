@@ -175,6 +175,21 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			return DeleteRoleOutcome.HasMembers;
 		}
 
+		// Clients de produto do tenant guardam os papéis em ds_roles (lista separada por espaço).
+		// Filtro grosso no banco e comparação exata por papel em memória: "admin" não pode casar
+		// com "tenant-admin" (ADR-0037). Caixa ignorada — o Identity normaliza o nome do perfil.
+		var clientRoleLists = await context.Set<OpenIddict.OidcApplication>()
+			.Where(a => a.TenantId == tenantId && a.Roles != null)
+			.Select(a => a.Roles!)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		if (clientRoleLists.Any(list => list
+				.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+				.Contains(role.Name, StringComparer.OrdinalIgnoreCase)))
+		{
+			return DeleteRoleOutcome.UsedByClients;
+		}
+
 		// Permissões removidas explicitamente — não depende do comportamento de cascata da FK
 		context.RoleClaims.RemoveRange(await context.RoleClaims
 			.Where(c => c.RoleId == role.Id)

@@ -37,6 +37,9 @@ public enum DeleteRoleOutcome
 
 	/// <summary>Perfil tem membros; nada foi alterado.</summary>
 	HasMembers,
+
+	/// <summary>Perfil usado por client de produto do tenant (ADR-0037); nada foi alterado.</summary>
+	UsedByClients,
 }
 
 /// <summary>

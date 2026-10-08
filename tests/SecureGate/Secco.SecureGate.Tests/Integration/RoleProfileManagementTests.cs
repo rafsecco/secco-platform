@@ -197,4 +197,45 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 
 		(await client.SendAsync(request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 	}
+
+	[Fact]
+	public async Task DeleteRole_UsadoPorClientDoTenant_409()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "maquina-writer", "log-entries:write");
+		await factory.CreateProductClientAsync(_tenantId, $"cli_{Guid.NewGuid():N}"[..20],
+			"client-secret-de-32-chars-minimo!!!", "outro Maquina-Writer", "logstream");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/maquina-writer");
+
+		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+		(await response.Content.ReadAsStringAsync()).Should().Contain("SecureGate.Role.UsedByClients");
+	}
+
+	[Fact]
+	public async Task DeleteRole_ClientComPapelDeNomeParecido_NaoBloqueia()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "tenant-admin-x");
+		await factory.CreateProductClientAsync(_tenantId, $"cli_{Guid.NewGuid():N}"[..20],
+			"client-secret-de-32-chars-minimo!!!", "admin-x", "logstream");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/tenant-admin-x");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent, "comparação por papel inteiro, não por substring");
+	}
+
+	[Fact]
+	public async Task DeleteRole_ClientDeOutroTenantComMesmoNome_NaoBloqueia()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "homonimo-y");
+		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		await factory.CreateProductClientAsync(otherTenant, $"cli_{Guid.NewGuid():N}"[..20],
+			"client-secret-de-32-chars-minimo!!!", "homonimo-y", "logstream");
+
+		var response = await IdentitySeed.AdminClient(factory)
+			.DeleteAsync($"/api/v1/tenants/{_tenantId}/roles/homonimo-y");
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+	}
 }

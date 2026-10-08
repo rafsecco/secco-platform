@@ -28,6 +28,7 @@ public sealed class DeleteRoleHandler(IRoleRepository repository)
 		{
 			DeleteRoleOutcome.Deleted => Result.Success(),
 			DeleteRoleOutcome.HasMembers => Result.Failure(SecureGateErrors.Roles.HasMembers),
+			DeleteRoleOutcome.UsedByClients => Result.Failure(SecureGateErrors.Roles.UsedByClients),
 			_ => Result.Failure(SecureGateErrors.Roles.NotFound),
 		};
 	}
