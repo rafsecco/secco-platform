@@ -210,6 +210,9 @@ public static class SecureGateInfrastructureExtensions
 		// Mapeamento grupo→perfil (issue #28, ADR-0036)
 		services.AddScoped<Application.Federation.IGroupRoleMappingRepository, GroupRoleMappingRepository>();
 
+		// Clients de produto vinculados a tenant (ADR-0037)
+		services.AddScoped<Application.Clients.IProductClientStore, Clients.OpenIddictProductClientStore>();
+
 		return services;
 	}
 
