@@ -25,4 +25,16 @@ public static class SecureGateScopes
 	/// <summary>Monta o scope de leitura de catálogo de um produto (ex.: <c>catalog:logstream</c>).</summary>
 	/// <param name="product">Identificador do produto (kebab-case minúsculo).</param>
 	public static string CatalogFor(string product) => CatalogPrefix + product;
+
+	/// <summary>
+	/// Escopos concedíveis a client de PRODUTO, vinculado a tenant (ADR-0037). Lista fechada no
+	/// código: produto novo entra aqui no mesmo PR que registra o escopo no seed de referência.
+	/// <see cref="Admin"/>, <see cref="AuthorizationRead"/>, <c>catalog:*</c> e <c>securegate</c>
+	/// são de infraestrutura — atravessam tenant por construção e só existem em client de plataforma.
+	/// </summary>
+	public static readonly IReadOnlyList<string> ProductScopes = ["logstream", "notificationhub"];
+
+	/// <summary>Indica se o escopo pode ser concedido a client de produto (comparação exata, ordinal).</summary>
+	/// <param name="scope">Escopo candidato.</param>
+	public static bool IsProductScope(string scope) => ProductScopes.Contains(scope, StringComparer.Ordinal);
 }
