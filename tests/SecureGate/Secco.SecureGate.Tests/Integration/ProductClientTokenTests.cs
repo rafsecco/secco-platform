@@ -127,9 +127,13 @@ public class ProductClientTokenTests(SecureGateApiFactory factory) : IAsyncLifet
 	[Fact]
 	public async Task Resolucao_PapelHomonimoEmOutroTenant_UsaSoOTenantDoToken()
 	{
-		var otherTenant = await IdentitySeed.TenantAsync(factory);
+		// Homônimos criados ANTES e DEPOIS do papel do tenant do token: um resolvedor que ignore o
+		// tenant devolveria o de outro tenant qualquer que fosse a ordem de leitura do banco.
+		var tenantBefore = await IdentitySeed.TenantAsync(factory);
+		var tenantAfter = await IdentitySeed.TenantAsync(factory);
+		await IdentitySeed.RoleAsync(factory, tenantBefore, "homonimo", "log-entries:write");
 		await IdentitySeed.RoleAsync(factory, _tenantId, "homonimo", "log-entries:read");
-		await IdentitySeed.RoleAsync(factory, otherTenant, "homonimo", "log-entries:write");
+		await IdentitySeed.RoleAsync(factory, tenantAfter, "homonimo", "log-entries:write");
 
 		var clientId = NewClientId();
 		await factory.CreateProductClientAsync(_tenantId, clientId, Secret, "homonimo", "logstream");
