@@ -1241,6 +1241,60 @@ Alternativas avaliadas para o cliente HTTP:
 
 ---
 
+## ADR-0037: Clients OAuth — de produto vinculados a tenant, de plataforma por configuração
+
+**Status:** Proposta
+**Data:** 2026-10-08
+
+### Contexto
+
+A issue [#31](https://github.com/rafsecco/secco-platform/issues/31) pede que a empresa adotante registre, pela API, o client `client_credentials` de um sistema seu (o "Sistema de compras" do `secco-intranet`) e possa entregar o secret a outro time. Hoje isso é impossível, e a análise mostrou dois problemas maiores que a issue:
+
+1. **O token de máquina não tem tenant, e quem tem o secret escolhe o tenant.** `HandleClientCredentialsAsync` emite sem `tenant_id`; o `TenantResolver` aceita então o `X-Tenant-Id` sozinho. A autorização não contém o cruzamento: os papéis do client são strings globais (`ds_roles`) resolvidas como `(tenant alvo, nome do papel)`, e um papel homônimo com escrita no tenant alvo vira escrita cross-tenant — a mesma colisão que a ADR-0031 fechou no token elevado. A ADR-0024 justificou o caminho "sem claim → header" com a premissa de que tokens sem `tenant_id` "só são emitidos a identidades privilegiadas"; uma credencial entregue a outro time quebraria essa premissa.
+2. **Nenhum client nasce em produção.** Todos — os do LogStream lendo catálogo, o do AdminPortal, o `installation-auditor` (ADR-0031) — são criados pelo `SecureGateDevelopmentDataSeeder`, que por construção (ADR-0019) nunca roda fora de DEV. Instalar a plataforma de verdade exige insert manual nas tabelas do OpenIddict.
+
+Dois escopos existentes atravessam tenant por construção e não podem ser entregues a uma credencial de produto: `catalog:<produto>` (`ListCatalogTenants` devolve as connection strings de **todos** os tenants) e `authorization:read` (o tenant viaja no path).
+
+Alternativas avaliadas:
+
+- **Só a #31, clients de plataforma depois** — deixa a instalação real dependente de insert manual por mais uma entrega. Descartada pelo dono do produto.
+- **Uma API única para os dois tipos, com campo "sem tenant"** — quem tem `securegate:admin` passaria a emitir identidade cross-tenant por chamada HTTP. Descartada: superfície grande demais.
+- **Clients de plataforma por bootstrap único** (secret exibido uma vez no console) — sem fonte da verdade, estado deriva em silêncio, rotação precisa de outra ferramenta, secret no log do container. Descartada.
+- **Clients de plataforma por seed de referência que só cria** — remover da configuração não desliga. Descartada.
+- **Rotação com sobreposição de secrets** — durante a janela, o secret vazado segue valendo, e exige validação fora do fluxo nativo do OpenIddict. Descartada até haver demanda de rotação sem indisponibilidade.
+
+### Decisão
+
+**Dois tipos de client, distinguidos no dado.** `OidcApplication` ganha `TenantId` (anulável) e `Origin` (`Api` | `Configuration`). Client **de produto**: tem tenant, nasce pela API. Client **de plataforma**: sem tenant, nasce pela configuração. Cada caminho só enxerga e altera os seus.
+
+**Client de produto — token com `tenant_id`.** O token de `client_credentials` de um client vinculado sai com a claim `tenant_id` do vínculo. A regra de conflito existente do `TenantResolver` (claim ≠ header → 400) passa a conter o client no próprio tenant, e as permissões são resolvidas por `(tenant vinculado, papel)`. **SDK e produtos não mudam.** Na emissão, o SecureGate re-checa que o tenant está ativo (desativar tenant precisa parar as máquinas dele, não só as pessoas) e que todo escopo pertence à lista de produto (defesa contra edição direta do banco).
+
+**Gestão por API**, sob `/api/v1/tenants/{tenantId}/clients` e `securegate:admin`: registrar, listar, detalhar, alterar acesso (`PUT` idempotente com nome, escopos e papéis), rotacionar secret e revogar. O `clientId` é gerado pelo servidor (`cli_` + aleatório), o secret também, exibido uma única vez, persistido só como hash. Client de outro tenant ou de plataforma responde `404`. A API **não tem caminho** para client sem tenant.
+
+**Escopos de produto: lista fechada no código.** Só escopos de API de produto (`logstream`, `notificationhub`); um produto novo entra na lista por mudança de código. `securegate:admin`, `authorization:read`, `catalog:*` e `securegate` são **escopos de infraestrutura**, exclusivos de client de plataforma.
+
+**Papéis do client de produto: perfis existentes do tenant**, os mesmos que a gestão de perfis (issue #26) administra para pessoas — máquina e pessoa no mesmo modelo (ADR-0021). Papel reservado é recusado. `DeleteRole` passa a contar o client que usa o perfil como membro: excluir perfil em uso por máquina responde `409`, e um perfil recriado com o mesmo nome nunca devolve acesso a um client esquecido.
+
+**Rotação imediata e revogação por remoção.** Rotacionar troca o secret na hora; revogar remove o client. Como o token de máquina não carrega `sver` (ADR-0032), tokens já emitidos valem até expirar — no máximo o TTL do access token (5 minutos por padrão).
+
+**Client de plataforma — reconciliação declarativa na subida.** A seção `SecureGate:PlatformClients` declara cada client (`ClientId`, `Type` = `ClientCredentials` | `AuthorizationCode`, escopos, papéis, redirect URIs); o secret vem de variável de ambiente ou cofre, nunca de arquivo versionado. Na subida, o SecureGate cria ou atualiza cada client declarado e **remove** client de origem `Configuration` que deixou de estar declarado. A configuração é a fonte da verdade; trocar o secret nela é a rotação. Configuração inválida derruba o startup: `ClientId` fora do padrão kebab-case ou com o prefixo `cli_`, tipo desconhecido, authorization code sem redirect URI, redirect URI sem HTTPS fora de Development, secret ausente ou com menos de 32 caracteres fora de Development, escopo não registrado. Client público (sem secret) não existe nesta versão.
+
+**Migração sem camada de compatibilidade.** Todo client existente vira origem `Configuration`; na primeira subida, o que não estiver declarado é removido. O adotante converge declarando seus clients — decisão consciente do dono do produto, registrada como quebra na nota de upgrade. Em DEV, os clients saem do código do seeder de desenvolvimento para o `appsettings.Development.json` do SecureGate, que passa a exercitar o caminho de produção a cada execução local.
+
+**Emenda à ADR-0024.** A frase "tokens sem `tenant_id` só são emitidos a identidades privilegiadas" deixa de ser premissa e vira garantia de construção: pela API só nasce client com tenant, e token sem tenant só sai para client declarado na configuração da instalação — controlada por quem já detém a chave de assinatura e a connection string do SecureGate.
+
+### Consequências
+
+- **A instalação real deixa de depender de insert manual**: o mínimo para subir SecureGate + produtos + AdminPortal em produção passa a ser configuração.
+- **Quem pode criar identidade cross-tenant fica explícito**: só quem altera a configuração do SecureGate. Não amplia o que essa pessoa já pode (ela já tem a chave de assinatura), e tira esse poder de quem só tem `securegate:admin`.
+- **Sistema da empresa que seja ele mesmo resource server** (usa `AddSeccoAuthorization()` e, portanto, `authorization:read`) ou multi-tenant com catálogo próprio é **serviço de plataforma**: entra pela configuração do operador da instalação, não pela API. A API cobre o caso da issue — sistema que **consome** os produtos da plataforma.
+- **Até 5 minutos de token vivo** após rotacionar ou revogar, igual a todo token de máquina hoje (ADR-0032).
+- **Quebra para o adotante**: clients inseridos à mão desaparecem na primeira subida até serem declarados. Aceito, com nota de upgrade.
+- **Bateria negativa provada por mutação** é parte da decisão, como na ADR-0031: header divergente recusado no produto; papel homônimo em outro tenant não concede nada; escopos de infraestrutura recusados no registro e na emissão; tenant desativado sem token; secret antigo morto na rotação; client revogado sem token; client de plataforma invisível pela API; perfil em uso por client não excluível; reconciliação não toca client da API; configuração inválida derruba o startup.
+- **Fora desta ADR**: tela no AdminPortal; client público (SPA/mobile); rotação com sobreposição; vínculo de um client a mais de um tenant.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
