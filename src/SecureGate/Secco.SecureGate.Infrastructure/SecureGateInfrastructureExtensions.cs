@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Application.Provisioning;
@@ -186,6 +187,9 @@ public static class SecureGateInfrastructureExtensions
 				? ActivatorUtilities.CreateInstance<Elevation.LogStreamElevationAuditor>(serviceProvider)
 				: Elevation.NotConfiguredElevationAuditor.Instance);
 
+		// Processo controlado (ADR-0038): migrations do banco de plataforma
+		services.AddScoped<ISeccoDatabaseMigrator, SecureGatePlatformMigrator>();
+
 		// Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
 		services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
 		services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();
@@ -245,5 +249,31 @@ public static class SecureGateInfrastructureExtensions
 
 		await using var context = new SecureGateDbContext(options);
 		await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Recusa subir com migration pendente no banco de plataforma (ADR-0038). Só leitura. O seed de
+	/// referência não roda no boot de produção (sem lock, e remove clients — ADR-0037).
+	/// </summary>
+	/// <param name="serviceProvider">Raiz de serviços da aplicação.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public static async Task EnsureSecureGateDatabaseMigratedAsync(
+		this IServiceProvider serviceProvider,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(serviceProvider);
+
+		using var scope = serviceProvider.CreateScope();
+		var databaseOptions = scope.ServiceProvider.GetRequiredService<SecureGateDatabaseOptions>();
+		var options = SecureGateDatabaseProviderConfigurator.CreateOptions(
+			databaseOptions.Provider, databaseOptions.ConnectionString!);
+
+		await using var context = new SecureGateDbContext(options);
+
+		if ((await context.Database.GetPendingMigrationsAsync(cancellationToken).ConfigureAwait(false)).Any())
+		{
+			throw new InvalidOperationException(
+				"O banco de plataforma do SecureGate tem migrations pendentes. Rode 'dotnet Secco.SecureGate.Api.dll migrate' antes de subir (ADR-0038).");
+		}
 	}
 }

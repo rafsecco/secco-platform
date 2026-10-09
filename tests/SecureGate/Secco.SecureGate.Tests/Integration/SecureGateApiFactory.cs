@@ -175,6 +175,10 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	{
 		settings["SecureGate:Database:ConnectionString"] = GetPlatformConnectionString();
 
+		// O host de teste sobe ANTES de a factory migrar o banco (ADR-0027): a recusa com migration
+		// pendente (ADR-0038) tem teste próprio em SecureGateMigrationTests, que a liga.
+		settings["SecureGate:Database:VerifyMigrationsOnStartup"] = "false";
+
 		// Credenciais (ADR-0033): a seção de e-mail e a base pública são validadas no startup,
 		// então sem estas chaves nenhuma suíte sobe. O envio em si é trocado por um dublê nos
 		// testes que o exercitam; aqui só se satisfaz o fail-fast.

@@ -5,7 +5,7 @@ using Secco.SecureGate.Api.Extensions;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
-using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,18 +79,29 @@ app.MapProductClientEndpoints();
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();
 
+// Processo controlado (ADR-0005/0038): `dotnet Secco.SecureGate.Api.dll migrate` aplica migrations
+// e seed de referência e sai — o deploy o executa antes das réplicas.
+if (SeccoCommands.IsMigrate(args))
+{
+	return await app.Services.RunSeccoMigrationsAsync() ? 0 : 1;
+}
+
 if (app.Environment.IsDevelopment())
 {
 	// UI de documentação (ADR-0006) — apenas em DEV
 	app.MapScalarApiReference().AllowAnonymous();
 
-	// Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
-	// processo controlado). Banco ÚNICO de plataforma (ADR-0022), não por tenant.
-	await app.Services.MigrateSecureGateDatabaseAsync();
-	await app.Services.SeedSeccoDataAsync();
+	// Em DEV, o mesmo código do comando: F5 continua automático
+	await app.Services.RunSeccoMigrationsAsync();
+}
+else if (app.Configuration.GetValue("SecureGate:Database:VerifyMigrationsOnStartup", true))
+{
+	// Fora de DEV: só confere — quem migra é o `migrate` do deploy
+	await app.Services.EnsureSecureGateDatabaseMigratedAsync();
 }
 
 await app.RunAsync();
+return 0;
 
 /// <summary>Ponto de entrada exposto para os testes de integração (WebApplicationFactory).</summary>
 public partial class Program;
