@@ -6,6 +6,7 @@ using Secco.SampleService.Application.Samples;
 using Secco.SampleService.Infrastructure.Contexts;
 using Secco.SampleService.Infrastructure.Repositories;
 using Secco.SDK.AspNetCore.Tenancy;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 
 namespace Secco.SampleService.Infrastructure;
 
@@ -32,6 +33,14 @@ public static class SampleServiceInfrastructureExtensions
 		services.AddSingleton(serviceProvider =>
 			serviceProvider.GetRequiredService<IOptions<SampleServiceOptions>>().Value);
 
+		// Processo controlado (ADR-0038) e migração do tenant novo no primeiro uso
+		services.AddScoped<ISeccoDatabaseMigrator, SampleServiceTenantMigrator>();
+		services.AddSeccoTenantMigrations((serviceProvider, connectionString) =>
+			// Sem interceptor: este contexto só serve para migrar
+			new SampleServiceDbContext(SampleServiceDatabaseProviderConfigurator.CreateOptions(
+				serviceProvider.GetRequiredService<IOptions<SampleServiceDatabaseOptions>>().Value.Provider,
+				connectionString)));
+
 		services.AddDbContext<SampleServiceDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
@@ -41,6 +50,8 @@ public static class SampleServiceInfrastructureExtensions
 			var connectionString = connectionFactory.GetConnectionStringAsync().AsTask().GetAwaiter().GetResult();
 
 			SampleServiceDatabaseProviderConfigurator.Configure(options, databaseOptions.Provider, connectionString);
+
+			options.AddInterceptors(serviceProvider.GetRequiredService<SeccoTenantMigrationInterceptor<SampleServiceDbContext>>());
 		});
 
 		services.AddScoped<ISampleRepository, SampleRepository>();
@@ -49,9 +60,8 @@ public static class SampleServiceInfrastructureExtensions
 	}
 
 	/// <summary>
-	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo.
-	/// Uso: startup em Development e processos controlados de provisionamento (ADR-0005) —
-	/// nunca no startup de produção.
+	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo, via o migrator
+	/// do produto (ADR-0038); lança se algum tenant falhar. Uso: fábricas de teste e provisionamento.
 	/// </summary>
 	/// <param name="serviceProvider">Raiz de serviços da aplicação.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
@@ -62,16 +72,13 @@ public static class SampleServiceInfrastructureExtensions
 		ArgumentNullException.ThrowIfNull(serviceProvider);
 
 		using var scope = serviceProvider.CreateScope();
-		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<SampleServiceDatabaseOptions>>().Value;
+		var migrator = ActivatorUtilities.CreateInstance<SampleServiceTenantMigrator>(scope.ServiceProvider);
+		var failures = await migrator.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
-		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
+		if (failures.Count > 0)
 		{
-			var options = SampleServiceDatabaseProviderConfigurator.CreateOptions(
-				databaseOptions.Provider, tenant.ConnectionString);
-
-			await using var context = new SampleServiceDbContext(options);
-			await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+			throw new InvalidOperationException(
+				$"Migrations do SampleService falharam em {failures.Count} tenant(s): {string.Join(", ", failures)}.");
 		}
 	}
 }
