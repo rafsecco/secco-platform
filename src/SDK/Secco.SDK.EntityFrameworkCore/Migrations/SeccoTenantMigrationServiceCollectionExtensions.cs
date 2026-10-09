@@ -21,7 +21,8 @@ public static class SeccoTenantMigrationServiceCollectionExtensions
 		ArgumentNullException.ThrowIfNull(services);
 		ArgumentNullException.ThrowIfNull(createMigrationContext);
 
-		services.TryAddSingleton<SeccoTenantMigrationGate>();
+		services.TryAddSingleton(serviceProvider => new SeccoTenantMigrationGate(
+			serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System));
 		services.TryAddSingleton(serviceProvider => new SeccoTenantMigrationInterceptor<TContext>(
 			serviceProvider.GetRequiredService<SeccoTenantMigrationGate>(), serviceProvider, createMigrationContext));
 

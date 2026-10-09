@@ -21,7 +21,12 @@ public sealed class SeccoTenantMigrationInterceptor<TContext>(
 		DbConnection connection, ConnectionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(connection);
-		var connectionString = ConnectionStringOf(connection, eventData);
+		var connectionString = ConnectionStringOf(eventData);
+		if (connectionString.Length == 0)
+		{
+			return result;
+		}
+
 		await gate.EnsureMigratedAsync(connectionString, MigrateAsync(connectionString), cancellationToken)
 			.ConfigureAwait(false);
 		return result;
@@ -31,7 +36,12 @@ public sealed class SeccoTenantMigrationInterceptor<TContext>(
 	public override InterceptionResult ConnectionOpening(DbConnection connection, ConnectionEventData eventData, InterceptionResult result)
 	{
 		ArgumentNullException.ThrowIfNull(connection);
-		var connectionString = ConnectionStringOf(connection, eventData);
+		var connectionString = ConnectionStringOf(eventData);
+		if (connectionString.Length == 0)
+		{
+			return result;
+		}
+
 		gate.EnsureMigratedAsync(connectionString, MigrateAsync(connectionString), CancellationToken.None)
 			.GetAwaiter().GetResult();
 		return result;
@@ -39,9 +49,11 @@ public sealed class SeccoTenantMigrationInterceptor<TContext>(
 
 	// A string configurada no contexto, e não a do DbConnection: depois da primeira abertura o
 	// provider devolve a string SEM a senha (Persist Security Info=False), e a segunda abertura
-	// da mesma conexão geraria outra chave no gate e uma migração sem credencial.
-	private static string ConnectionStringOf(DbConnection connection, ConnectionEventData eventData) =>
-		eventData.Context?.Database.GetConnectionString() ?? connection.ConnectionString;
+	// da mesma conexão geraria outra chave no gate e uma migração sem credencial (tenant em 503
+	// permanente). Sem a string do contexto NÃO há fallback para a da conexão, pela mesma razão:
+	// ela pode já vir sem senha. Nesse caso o interceptor simplesmente não age.
+	private static string ConnectionStringOf(ConnectionEventData eventData) =>
+		eventData.Context?.Database.GetConnectionString() ?? string.Empty;
 
 	private Func<CancellationToken, Task> MigrateAsync(string connectionString) => async cancellationToken =>
 	{

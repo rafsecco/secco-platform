@@ -41,7 +41,8 @@ public class SeccoTenantMigrationGateTests
 	[Fact]
 	public async Task EnsureMigrated_Falha_LancaTransitoriaEPermiteNovaTentativa()
 	{
-		var gate = new SeccoTenantMigrationGate();
+		var clock = new ManualTimeProvider();
+		var gate = new SeccoTenantMigrationGate(clock);
 		var attempt = 0;
 		Task Migrate(CancellationToken _) => ++attempt == 1 ? throw new InvalidOperationException("servidor fora") : Task.CompletedTask;
 
@@ -50,8 +51,68 @@ public class SeccoTenantMigrationGateTests
 		thrown.Which.InnerException.Should().BeOfType<InvalidOperationException>();
 		thrown.Which.Message.Should().NotContain("segredo");
 
+		clock.Advance(SeccoTenantMigrationGate.FailureBackoff + TimeSpan.FromSeconds(1));
 		await gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
 		attempt.Should().Be(2, "falha não é memorizada");
+	}
+
+	[Fact]
+	public async Task EnsureMigrated_DentroDaJanelaDeBackoff_LancaSemChamarMigrate()
+	{
+		var clock = new ManualTimeProvider();
+		var gate = new SeccoTenantMigrationGate(clock);
+		var calls = 0;
+		Task Migrate(CancellationToken _) { calls++; throw new InvalidOperationException("servidor fora"); }
+
+		var call = () => gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
+		await call.Should().ThrowAsync<TenantDatabaseUnavailableException>();
+		clock.Advance(SeccoTenantMigrationGate.FailureBackoff - TimeSpan.FromSeconds(1));
+		var second = await call.Should().ThrowAsync<TenantDatabaseUnavailableException>();
+
+		calls.Should().Be(1);
+		second.Which.Message.Should().NotContain("segredo");
+	}
+
+	[Fact]
+	public async Task EnsureMigrated_AposAJanela_TentaMigrarDeNovo()
+	{
+		var clock = new ManualTimeProvider();
+		var gate = new SeccoTenantMigrationGate(clock);
+		var calls = 0;
+		Task Migrate(CancellationToken _) { calls++; throw new InvalidOperationException("servidor fora"); }
+
+		var call = () => gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
+		await call.Should().ThrowAsync<TenantDatabaseUnavailableException>();
+		clock.Advance(SeccoTenantMigrationGate.FailureBackoff);
+		await call.Should().ThrowAsync<TenantDatabaseUnavailableException>();
+
+		calls.Should().Be(2);
+	}
+
+	[Fact]
+	public async Task EnsureMigrated_SucessoAposAJanela_LimpaOEstadoDeFalha()
+	{
+		var clock = new ManualTimeProvider();
+		var gate = new SeccoTenantMigrationGate(clock);
+		var calls = 0;
+		Task Migrate(CancellationToken _) => ++calls == 1 ? throw new InvalidOperationException("servidor fora") : Task.CompletedTask;
+
+		var call = () => gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
+		await call.Should().ThrowAsync<TenantDatabaseUnavailableException>();
+		clock.Advance(SeccoTenantMigrationGate.FailureBackoff);
+		await gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
+		await gate.EnsureMigratedAsync(ConnectionString, Migrate, CancellationToken.None);
+
+		calls.Should().Be(2);
+	}
+
+	private sealed class ManualTimeProvider : TimeProvider
+	{
+		private DateTimeOffset _now = new(2026, 10, 8, 12, 0, 0, TimeSpan.Zero);
+
+		public override DateTimeOffset GetUtcNow() => _now;
+
+		public void Advance(TimeSpan by) => _now += by;
 	}
 
 	[Fact]
