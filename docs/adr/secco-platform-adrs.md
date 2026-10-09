@@ -1297,6 +1297,46 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0038: Migrations e seed de referência fora de Development
+
+**Status:** Proposta
+**Data:** 2026-10-08
+
+### Contexto
+
+A ADR-0005 manda aplicar migrations "via processo controlado (não no startup em produção)", e a ADR-0019 manda o seed de referência rodar "em TODOS os ambientes". O processo controlado nunca foi construído: em todos os produtos e no template, `Migrate*Async` e `SeedSeccoDataAsync` só são chamados dentro de `if (IsDevelopment())` (issue [#34](https://github.com/rafsecco/secco-platform/issues/34)). Numa instalação real, sem execução manual, o banco do SecureGate fica sem escopos, sem tenant de plataforma, sem papel de operador e — desde a ADR-0037 — sem clients de plataforma.
+
+Há um segundo buraco que a issue não nomeava. O SecureGate provisiona banco de tenant em tempo de execução (ADR-0028), e a ADR-0028 deixa a migração com cada produto. Hoje o produto só migra os tenants do catálogo ao subir em DEV: um tenant criado depois do deploy fica com o banco vazio até alguém reiniciar o produto.
+
+Um fato muda o peso de uma decisão anterior: o EF Core 10 adquire um **lock exclusivo** ao aplicar migrations. A corrida entre réplicas que tirou o seed do boot (pergunta 431 do log de design) não existe mais nas migrations — mas continua existindo no seed de referência, que não tem lock e, desde a ADR-0037, remove clients.
+
+Alternativas avaliadas:
+
+- **Migrar e semear no startup, em todo ambiente, apoiado no lock do EF.** Automático, mas obriga a credencial de runtime a ter DDL sempre, torna o boot proporcional ao número de tenants, deixa um tenant problemático bloquear a subida inteira e mantém o seed sem lock. Descartada.
+- **Bundle de migrations do EF mais comando de seed separado.** Dois artefatos por produto e por engine, e o seed precisa do código da aplicação de qualquer forma. Descartada.
+- **Para o tenant novo: job periódico no produto, passo manual (`migrate --tenant`) ou aviso do SecureGate ao produto.** O job deixa janela em que o tenant existe e não funciona; o passo manual quebra o fluxo de criar tenant pela Intranet; o aviso faria o SecureGate depender de todos os produtos e daria a cada produto um endpoint que executa DDL. Descartadas.
+
+### Decisão
+
+**O processo controlado é um verbo do próprio binário.** `dotnet Secco.<Produto>.Api.dll migrate` aplica as migrations e, só se todas passarem, o seed de referência — e sai, sem subir o servidor. O deploy o executa antes das réplicas (passo de pipeline, job ou *init container*). O SDK (`Secco.SDK.EntityFrameworkCore`) define a porta `ISeccoDatabaseMigrator`, que cada produto implementa (banco de plataforma, ou todos os tenants do catálogo), e a rotina única `RunSeccoMigrationsAsync`, usada pelo comando e pelo startup em Development — o F5 continua automático, pelo mesmo código. Num produto com tenants, a falha de um tenant não interrompe os outros; o comando sai com código diferente de zero e lista os que falharam, sem connection string. O template `secco-service` gera o mesmo padrão.
+
+**O tenant novo migra no primeiro uso.** Um `DbConnectionInterceptor` do SDK, registrado só nos contextos de **tenant**, confere e aplica as migrations pendentes na primeira abertura de cada banco no processo, guardando em memória (pelo hash da connection string, nunca o texto) os bancos já conferidos. Aberturas concorrentes aguardam a mesma tarefa; o lock do EF cobre as outras réplicas. Falha não é memorizada — a próxima abertura tenta de novo — e vira `TenantDatabaseUnavailableException`, que o SDK traduz em `503` com `Retry-After`, afetando só aquele tenant. Cobre HTTP, workers e jobs do Hangfire, porque intercepta a conexão e não a requisição. Nenhum privilégio novo: a credencial de runtime do tenant já tem `db_owner` no próprio banco (ADR-0028).
+
+**O seed de referência continua fora do boot de produção.** Ele não tem lock, e a ADR-0037 o tornou destrutivo para clients de plataforma. Por isso o startup do SecureGate fora de Development faz o oposto de migrar: **recusa-se a subir** se o banco de plataforma tiver migration pendente, e manda rodar `migrate`. É checagem só de leitura.
+
+**Base comum para falha transitória.** `Secco.SharedKernel` ganha `SeccoTransientException` (abstrata, deriva de `SeccoException`): falha de infraestrutura em que o chamador pode tentar de novo. `TenantCatalogUnavailableException` (SDK AspNetCore) passa a derivar dela, e `TenantDatabaseUnavailableException` (SDK EF Core) nasce derivando dela; o middleware de tenancy traduz a base em `503`. Admitida pela ADR-0003: é exceção base, usada pelos dois pacotes do SDK, sem dependência e sem estado — e é o único jeito de os dois pacotes, que não se referenciam, compartilharem o contrato.
+
+### Consequências
+
+- O "processo controlado" da ADR-0005 passa a existir; a ADR-0019 ("seed de referência em todos os ambientes") deixa de depender de execução manual.
+- A dependência da ADR-0037 em relação à #34 se resolve: os clients de plataforma passam a nascer numa instalação real pelo `migrate`.
+- O deploy ganha um passo obrigatório. Esquecê-lo no SecureGate é barrado no startup; nos produtos com tenants, o primeiro uso migra o que faltar.
+- A primeira requisição de um tenant novo paga a migração; as seguintes não pagam nada. Por processo, cada tenant já migrado custa uma leitura da tabela de histórico.
+- O `docker-compose.yml` ganha um serviço `*-migrate` por produto, do qual a API depende; o job `docker-stacks` do CI passa a provar o comando real dentro do container real a cada push.
+- **Fora desta ADR, registrado:** criar o banco (`CREATE DATABASE`) — é provisionamento: tenants pela ADR-0028, bancos de plataforma (SecureGate, Hangfire) pelo DBA; seed de referência **por tenant** — previsto pela ADR-0019 e sem mecanismo, nenhum produto tem hoje; expand/contract de schema em deploy com réplicas de versões diferentes.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
