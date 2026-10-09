@@ -21,7 +21,8 @@ public sealed class SeccoTenantMigrationInterceptor<TContext>(
 		DbConnection connection, ConnectionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(connection);
-		await gate.EnsureMigratedAsync(connection.ConnectionString, MigrateAsync(connection.ConnectionString), cancellationToken)
+		var connectionString = ConnectionStringOf(connection, eventData);
+		await gate.EnsureMigratedAsync(connectionString, MigrateAsync(connectionString), cancellationToken)
 			.ConfigureAwait(false);
 		return result;
 	}
@@ -30,10 +31,17 @@ public sealed class SeccoTenantMigrationInterceptor<TContext>(
 	public override InterceptionResult ConnectionOpening(DbConnection connection, ConnectionEventData eventData, InterceptionResult result)
 	{
 		ArgumentNullException.ThrowIfNull(connection);
-		gate.EnsureMigratedAsync(connection.ConnectionString, MigrateAsync(connection.ConnectionString), CancellationToken.None)
+		var connectionString = ConnectionStringOf(connection, eventData);
+		gate.EnsureMigratedAsync(connectionString, MigrateAsync(connectionString), CancellationToken.None)
 			.GetAwaiter().GetResult();
 		return result;
 	}
+
+	// A string configurada no contexto, e não a do DbConnection: depois da primeira abertura o
+	// provider devolve a string SEM a senha (Persist Security Info=False), e a segunda abertura
+	// da mesma conexão geraria outra chave no gate e uma migração sem credencial.
+	private static string ConnectionStringOf(DbConnection connection, ConnectionEventData eventData) =>
+		eventData.Context?.Database.GetConnectionString() ?? connection.ConnectionString;
 
 	private Func<CancellationToken, Task> MigrateAsync(string connectionString) => async cancellationToken =>
 	{

@@ -4,7 +4,7 @@ using Secco.LogStream.Api.Endpoints;
 using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
-using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 using Secco.SecureGate.Client.Authorization;
 using Secco.SecureGate.Client.Catalog;
 
@@ -46,18 +46,24 @@ app.MapAuditEntryEndpoints();
 // Contrato é público por design (ADR-0006) — exceção explícita à FallbackPolicy
 app.MapOpenApi().AllowAnonymous();
 
+// Processo controlado (ADR-0005/0038): `dotnet Secco.LogStream.Api.dll migrate` aplica migrations
+// de todos os tenants e o seed de referência e sai — o deploy o executa antes das réplicas.
+if (SeccoCommands.IsMigrate(args))
+{
+	return await app.Services.RunSeccoMigrationsAsync() ? 0 : 1;
+}
+
 if (app.Environment.IsDevelopment())
 {
-	// UI de documentação (ADR-0006) — apenas em DEV nesta fase
+	// UI de documentação (ADR-0006) — apenas em DEV
 	app.MapScalarApiReference().AllowAnonymous();
 
-	// Migrations + seed automáticos SOMENTE em Development (ADR-0005: fora daqui,
-	// processo controlado). O seed de desenvolvimento ainda exige a flag (ADR-0019).
-	await app.Services.MigrateLogStreamTenantDatabasesAsync();
-	await app.Services.SeedSeccoDataAsync();
+	// Em DEV, o mesmo código do comando: F5 continua automático
+	await app.Services.RunSeccoMigrationsAsync();
 }
 
 await app.RunAsync();
+return 0;
 
 /// <summary>Ponto de entrada exposto para os testes de integração (WebApplicationFactory).</summary>
 public partial class Program;

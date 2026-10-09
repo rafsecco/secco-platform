@@ -9,6 +9,7 @@ using Secco.NotificationHub.Infrastructure.Email;
 using Secco.NotificationHub.Infrastructure.Repositories;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.AspNetCore.Tenancy;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 using Secco.SDK.Email;
 
 namespace Secco.NotificationHub.Infrastructure;
@@ -42,6 +43,14 @@ public static class NotificationHubInfrastructureExtensions
 		// seção de configuração continua sendo NotificationHub:Email, sem quebra.
 		services.AddSeccoEmail("NotificationHub:Email");
 
+		// Processo controlado (ADR-0038) e migração do tenant novo no primeiro uso
+		services.AddScoped<ISeccoDatabaseMigrator, NotificationHubTenantMigrator>();
+		services.AddSeccoTenantMigrations((serviceProvider, connectionString) =>
+			// Sem interceptor: este contexto só serve para migrar
+			new NotificationHubDbContext(NotificationHubDatabaseProviderConfigurator.CreateOptions(
+				serviceProvider.GetRequiredService<IOptions<NotificationHubDatabaseOptions>>().Value.Provider,
+				connectionString)));
+
 		services.AddDbContext<NotificationHubDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
@@ -51,6 +60,8 @@ public static class NotificationHubInfrastructureExtensions
 			var connectionString = connectionFactory.GetConnectionStringAsync().AsTask().GetAwaiter().GetResult();
 
 			NotificationHubDatabaseProviderConfigurator.Configure(options, databaseOptions.Provider, connectionString);
+
+			options.AddInterceptors(serviceProvider.GetRequiredService<SeccoTenantMigrationInterceptor<NotificationHubDbContext>>());
 		});
 
 		services.AddScoped<INotificationRepository, NotificationRepository>();
@@ -92,9 +103,8 @@ public static class NotificationHubInfrastructureExtensions
 	}
 
 	/// <summary>
-	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo.
-	/// Uso: startup em Development e processos controlados de provisionamento (ADR-0005) —
-	/// nunca no startup de produção.
+	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo, via o migrator
+	/// do produto (ADR-0038); lança se algum tenant falhar. Uso: fábricas de teste e provisionamento.
 	/// </summary>
 	/// <param name="serviceProvider">Raiz de serviços da aplicação.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
@@ -105,16 +115,13 @@ public static class NotificationHubInfrastructureExtensions
 		ArgumentNullException.ThrowIfNull(serviceProvider);
 
 		using var scope = serviceProvider.CreateScope();
-		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<NotificationHubDatabaseOptions>>().Value;
+		var migrator = ActivatorUtilities.CreateInstance<NotificationHubTenantMigrator>(scope.ServiceProvider);
+		var failures = await migrator.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
-		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
+		if (failures.Count > 0)
 		{
-			var options = NotificationHubDatabaseProviderConfigurator.CreateOptions(
-				databaseOptions.Provider, tenant.ConnectionString);
-
-			await using var context = new NotificationHubDbContext(options);
-			await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+			throw new InvalidOperationException(
+				$"Migrations do NotificationHub falharam em {failures.Count} tenant(s): {string.Join(", ", failures)}.");
 		}
 	}
 }

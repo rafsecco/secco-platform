@@ -12,6 +12,7 @@ using Secco.LogStream.Infrastructure.Ingestion;
 using Secco.LogStream.Infrastructure.Repositories;
 using Secco.LogStream.Infrastructure.Retention;
 using Secco.SDK.AspNetCore.Tenancy;
+using Secco.SDK.EntityFrameworkCore.Migrations;
 
 namespace Secco.LogStream.Infrastructure;
 
@@ -43,6 +44,14 @@ public static class LogStreamInfrastructureExtensions
 
 		services.AddHostedService<LogRetentionWorker>();
 
+		// Processo controlado (ADR-0038) e migração do tenant novo no primeiro uso
+		services.AddScoped<ISeccoDatabaseMigrator, LogStreamTenantMigrator>();
+		services.AddSeccoTenantMigrations((serviceProvider, connectionString) =>
+			// Sem interceptor: este contexto só serve para migrar
+			new LogStreamDbContext(LogStreamDatabaseProviderConfigurator.CreateOptions(
+				serviceProvider.GetRequiredService<IOptions<LogStreamDatabaseOptions>>().Value.Provider,
+				connectionString)));
+
 		services.AddDbContext<LogStreamDbContext>((serviceProvider, options) =>
 		{
 			var connectionFactory = serviceProvider.GetRequiredService<ITenantConnectionFactory>();
@@ -53,6 +62,8 @@ public static class LogStreamInfrastructureExtensions
 			var connectionString = connectionFactory.GetConnectionStringAsync().AsTask().GetAwaiter().GetResult();
 
 			LogStreamDatabaseProviderConfigurator.Configure(options, databaseOptions.Provider, connectionString);
+
+			options.AddInterceptors(serviceProvider.GetRequiredService<SeccoTenantMigrationInterceptor<LogStreamDbContext>>());
 		});
 
 		services.AddScoped<ILogEntryRepository, LogEntryRepository>();
@@ -69,9 +80,8 @@ public static class LogStreamInfrastructureExtensions
 	}
 
 	/// <summary>
-	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo.
-	/// Uso: startup em Development e processos controlados de provisionamento (ADR-0005) —
-	/// nunca no startup de produção.
+	/// Aplica as migrations pendentes no banco de <b>cada tenant</b> do catálogo, via o migrator
+	/// do produto (ADR-0038); lança se algum tenant falhar. Uso: fábricas de teste e provisionamento.
 	/// </summary>
 	/// <param name="serviceProvider">Raiz de serviços da aplicação.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
@@ -82,16 +92,13 @@ public static class LogStreamInfrastructureExtensions
 		ArgumentNullException.ThrowIfNull(serviceProvider);
 
 		using var scope = serviceProvider.CreateScope();
-		var catalog = scope.ServiceProvider.GetRequiredService<ITenantCatalog>();
-		var databaseOptions = scope.ServiceProvider.GetRequiredService<IOptions<LogStreamDatabaseOptions>>().Value;
+		var migrator = ActivatorUtilities.CreateInstance<LogStreamTenantMigrator>(scope.ServiceProvider);
+		var failures = await migrator.MigrateAsync(cancellationToken).ConfigureAwait(false);
 
-		foreach (var tenant in await catalog.ListAsync(cancellationToken).ConfigureAwait(false))
+		if (failures.Count > 0)
 		{
-			var options = LogStreamDatabaseProviderConfigurator.CreateOptions(
-				databaseOptions.Provider, tenant.ConnectionString);
-
-			await using var context = new LogStreamDbContext(options);
-			await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+			throw new InvalidOperationException(
+				$"Migrations do LogStream falharam em {failures.Count} tenant(s): {string.Join(", ", failures)}.");
 		}
 	}
 }
