@@ -13,7 +13,7 @@ internal static partial class TenancyLog
 
 	[LoggerMessage(
 		EventId = 2,
-		Level = LogLevel.Error,
-		Message = "Catálogo de tenants indisponível — requisição respondida com 503 + Retry-After.")]
-	public static partial void CatalogUnavailable(ILogger logger, Exception exception);
+		Level = LogLevel.Warning,
+		Message = "Falha transitória de tenancy ({ExceptionType}); respondendo 503.")]
+	public static partial void TransientFailure(ILogger logger, string exceptionType, Exception exception);
 }

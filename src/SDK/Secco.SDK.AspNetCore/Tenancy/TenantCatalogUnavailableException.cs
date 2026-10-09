@@ -9,7 +9,7 @@ namespace Secco.SDK.AspNetCore.Tenancy;
 /// pipeline de tenancy. Diferente de <see cref="TenantNotFoundException"/>: aqui não se
 /// sabe se o tenant existe.
 /// </summary>
-public sealed class TenantCatalogUnavailableException : SeccoException
+public sealed class TenantCatalogUnavailableException : SeccoTransientException
 {
 	/// <summary>Inicializa a exceção com a mensagem padrão.</summary>
 	public TenantCatalogUnavailableException()

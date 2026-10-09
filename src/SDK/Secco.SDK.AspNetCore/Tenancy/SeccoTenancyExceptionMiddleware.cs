@@ -1,24 +1,26 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Secco.SharedKernel.Exceptions;
 
 namespace Secco.SDK.AspNetCore.Tenancy;
 
 /// <summary>
 /// Converte as exceções de tenancy em ProblemDetails (ADR-0004): sem tenant resolvido ou
-/// tenant desconhecido são erro do chamador (400); catálogo indisponível é condição
+/// tenant desconhecido são erro do chamador (400); falha transitória de infraestrutura (catálogo
+/// ou banco do tenant indisponível, <see cref="SeccoTransientException"/>) é condição
 /// transitória (503 + <c>Retry-After</c> — o cliente com retry da plataforma se recupera
 /// sozinho). Cirúrgico por design: qualquer outra exceção segue o fluxo normal — este
 /// middleware não substitui um exception handler global.
 /// </summary>
 public sealed class SeccoTenancyExceptionMiddleware(RequestDelegate next)
 {
-	/// <summary>Segundos sugeridos no <c>Retry-After</c> quando o catálogo está indisponível.</summary>
+	/// <summary>Segundos sugeridos no <c>Retry-After</c> quando há falha transitória.</summary>
 	internal const int RetryAfterSeconds = 15;
 
 	/// <summary>Invoca o próximo delegate traduzindo exceções de tenancy conhecidas.</summary>
 	/// <param name="context">Contexto HTTP da requisição atual.</param>
-	/// <param name="logger">Logger para sinalizar catálogo indisponível.</param>
+	/// <param name="logger">Logger para sinalizar falha transitória.</param>
 	public async Task InvokeAsync(HttpContext context, ILogger<SeccoTenancyExceptionMiddleware> logger)
 	{
 		ArgumentNullException.ThrowIfNull(context);
@@ -41,14 +43,17 @@ public sealed class SeccoTenancyExceptionMiddleware(RequestDelegate next)
 				"Tenant desconhecido",
 				"O tenant da requisição não existe no catálogo da plataforma.").ConfigureAwait(false);
 		}
-		catch (TenantCatalogUnavailableException exception) when (!context.Response.HasStarted)
+		catch (SeccoTransientException exception) when (!context.Response.HasStarted)
 		{
-			TenancyLog.CatalogUnavailable(logger, exception);
+			// Catálogo ou banco do tenant indisponível (ADR-0038): condição transitória — o
+			// client com retry da plataforma se recupera sozinho. O detalhe é a mensagem fixa
+			// da exceção, que nunca carrega connection string.
+			TenancyLog.TransientFailure(logger, exception.GetType().Name, exception);
 
 			context.Response.Headers.RetryAfter = RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
 			await WriteProblemAsync(context, StatusCodes.Status503ServiceUnavailable,
-				"Catálogo de tenants indisponível",
-				"O catálogo de tenants está temporariamente indisponível. Tente novamente.").ConfigureAwait(false);
+				"Serviço temporariamente indisponível",
+				exception.Message).ConfigureAwait(false);
 		}
 	}
 

@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Secco.SDK.AspNetCore.Tenancy;
+using Secco.SharedKernel.Exceptions;
 using Xunit;
 
 namespace Secco.SDK.AspNetCore.Tests.Tenancy;
@@ -63,8 +64,25 @@ public class SeccoTenancyExceptionMiddlewareTests
 
 		context.Response.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
 		context.Response.Headers.RetryAfter.ToString().Should().Be("15");
-		ReadProblem(context).GetProperty("title").GetString().Should().Be("Catálogo de tenants indisponível");
+		ReadProblem(context).GetProperty("title").GetString().Should().Be("Serviço temporariamente indisponível");
 	}
+
+	private sealed class TestTransientException() : SeccoTransientException("indisponivel agora");
+
+	[Fact]
+	public async Task Invoke_WithAnySeccoTransientException_Returns503WithRetryAfter()
+	{
+		var context = await InvokeAsync(_ => throw new TestTransientException());
+
+		context.Response.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+		context.Response.Headers.RetryAfter.ToString().Should().Be("15");
+		context.Response.ContentType.Should().StartWith("application/problem+json");
+		ReadProblem(context).GetProperty("detail").GetString().Should().Be("indisponivel agora");
+	}
+
+	[Fact]
+	public void TenantCatalogUnavailableException_IsSeccoTransientException() =>
+		new TenantCatalogUnavailableException().Should().BeAssignableTo<SeccoTransientException>();
 
 	[Fact]
 	public async Task Invoke_WithUnrelatedException_Propagates()

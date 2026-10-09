@@ -6,6 +6,12 @@ namespace Secco.SharedKernel.Tests.Exceptions;
 
 public class SeccoExceptionTests
 {
+	private sealed class TestTransientException(string message) : SeccoTransientException(message);
+
+	[Fact]
+	public void SeccoTransientException_DerivaDeSeccoException() =>
+		new TestTransientException("x").Should().BeAssignableTo<SeccoException>();
+
 	[Fact]
 	public void DomainInvariantException_Always_IsASeccoException()
 	{
