@@ -12,15 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client — 0.15.0 (aditivo)
-
-- **Novo:** clients de produto vinculados a tenant (issue #31, ADR-0037). Os métodos são `CreateProductClientAsync`, `ListProductClientsAsync`, `GetProductClientAsync`, `UpdateProductClientAsync`, `RotateProductClientSecretAsync` e `DeleteProductClientAsync`, todos sob `/api/v1/tenants/{tenantId}/clients` com escopo `securegate:admin`. O secret volta só na criação e na rotação. O token do client sai com `tenant_id`.
-
-**Mudanças no SecureGate (serviço) que acompanham esta versão — ação necessária antes de atualizar a instalação:**
-
-- **Quebra:** clients sem tenant passam a nascer só de `SecureGate:PlatformClients`, na configuração do SecureGate. O **seed de referência** reconcilia essa lista e **remove** todo client de plataforma que não estiver declarado nela, inclusive os inseridos à mão no banco. Antes de rodar o seed da versão nova, declare cada client que você usa (`ClientId`, `Type`, `Scopes`, `Roles` e, para `AuthorizationCode`, as redirect URIs). Passe o `ClientSecret` por variável de ambiente, por exemplo `SecureGate__PlatformClients__0__ClientSecret`. Os clients de DEV (`secco-dev-console`, `secco-adminportal`, `secco-adminportal-sessions`) já vêm declarados no `appsettings.Development.json`. O `secco-dev-webapp`, que era público, deixou de existir.
-- **Quebra:** excluir um perfil usado por client de máquina do tenant responde `409 SecureGate.Role.UsedByClients`.
-- Fora de Development, o seed de referência ainda não roda sozinho — ver issue #34.
+_Nada pendente._ A rodada mais recente saiu em 2026-10-08. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -34,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.4.7 — 2026-10-08
+
+Patch **sem mudança funcional**: o diff desde a 0.4.6 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.15.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.4.6 — 2026-09-29
 
@@ -101,6 +97,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.8.7 — 2026-10-08
+
+Patch **sem mudança de código**: o diff desde a 0.8.6 só sobe o piso das dependências de terceiros feito no `Directory.Packages.props` em 2026-10-07 (`Microsoft.*` 10.0.9 → 10.0.12). Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.15.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.8.6 — 2026-09-29
 
@@ -227,6 +227,16 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.15.0 — 2026-10-08
+
+- **Novo:** clients de produto vinculados a tenant (issue #31, ADR-0037). Os métodos são `CreateProductClientAsync`, `ListProductClientsAsync`, `GetProductClientAsync`, `UpdateProductClientAsync`, `RotateProductClientSecretAsync` e `DeleteProductClientAsync`, todos sob `/api/v1/tenants/{tenantId}/clients` com escopo `securegate:admin`. O secret volta só na criação e na rotação. O token do client sai com `tenant_id`.
+
+**Mudanças no SecureGate (serviço) que acompanham esta versão — ação necessária antes de atualizar a instalação:**
+
+- **Quebra:** clients sem tenant passam a nascer só de `SecureGate:PlatformClients`, na configuração do SecureGate. O **seed de referência** reconcilia essa lista e **remove** todo client de plataforma que não estiver declarado nela, inclusive os inseridos à mão no banco. Antes de rodar o seed da versão nova, declare cada client que você usa (`ClientId`, `Type`, `Scopes`, `Roles` e, para `AuthorizationCode`, as redirect URIs). Passe o `ClientSecret` por variável de ambiente, por exemplo `SecureGate__PlatformClients__0__ClientSecret`. Os clients de DEV (`secco-dev-console`, `secco-adminportal`, `secco-adminportal-sessions`) já vêm declarados no `appsettings.Development.json`. O `secco-dev-webapp`, que era público, deixou de existir.
+- **Quebra:** excluir um perfil usado por client de máquina do tenant responde `409 SecureGate.Role.UsedByClients`.
+- Fora de Development, o seed de referência ainda não roda sozinho — ver issue #34.
+
 #### 0.14.0 — 2026-09-29
 
 - **Adicionado** `CreateGroupRoleMapping`, `ListGroupRoleMappings` e `DeleteGroupRoleMapping` — `/api/v1/tenants/{tenantId}/entra/group-role-mappings`, escopo `securegate:admin`. Mapeia um grupo do diretório federado para um perfil do tenant (issue #28, ADR-0036); um grupo mapeia para exatamente um perfil. Exige federação habilitada; grupo já mapeado é `409`; perfil reservado (exceto o de operador) não é mapeável.
@@ -321,6 +331,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.11 — 2026-10-08
+
+Patch **sem mudança de código**: o diff desde a 0.1.10 só sobe o piso das dependências de terceiros feito no `Directory.Packages.props` em 2026-10-07 (`Microsoft.*` 10.0.9 → 10.0.12). Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.15.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.10 — 2026-09-29
 
