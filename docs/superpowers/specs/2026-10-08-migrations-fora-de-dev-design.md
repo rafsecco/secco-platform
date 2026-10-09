@@ -1,7 +1,7 @@
 # Migrations e seed de referência fora de Development — design
 
 **Data:** 2026-10-08
-**Status:** aguardando revisão
+**Status:** aprovada (2026-10-08)
 **Decisões arquiteturais:** [ADR-0038](../../adr/secco-platform-adrs.md) (esta entrega), [ADR-0005](../../adr/secco-platform-adrs.md) (processo controlado), [ADR-0019](../../adr/secco-platform-adrs.md) (seed de referência), [ADR-0028](../../adr/secco-platform-adrs.md) (provisionamento de banco de tenant), [ADR-0037](../../adr/secco-platform-adrs.md) (clients de plataforma no seed), [ADR-0003](../../adr/secco-platform-adrs.md) (admissão no SharedKernel), [ADR-0020](../../adr/secco-platform-adrs.md) (segurança)
 **Origem:** issue [#34](https://github.com/rafsecco/secco-platform/issues/34), achada no design da #31.
 
