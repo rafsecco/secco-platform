@@ -20,6 +20,13 @@
       "replaces": "SampleService",
       "fileRename": "SampleService",
       "description": "Nome curto do produto (sem o prefixo Secco.), usado em nomes de classes, arquivos e seções de configuração."
+    },
+    "lowerProductName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "stripSeccoPrefixLower",
+      "replaces": "sampleservice",
+      "description": "Nome curto do produto em minúsculas: audience, nomes de banco, serviço do compose e identificador do catálogo de permissões (ADR-0039)."
     }
   },
   "forms": {
@@ -27,6 +34,13 @@
       "identifier": "replace",
       "pattern": "^Secco\\.",
       "replacement": ""
+    },
+    "lowerCase": {
+      "identifier": "lowerCaseInvariant"
+    },
+    "stripSeccoPrefixLower": {
+      "identifier": "chain",
+      "steps": ["stripSeccoPrefix", "lowerCase"]
     }
   }
 }

@@ -14,8 +14,8 @@ public static class SampleServicePermissions
 {
 	/// <summary>
 	/// Identificador do produto no catálogo de permissões do SecureGate (ADR-0039): kebab-case, o mesmo
-	/// do escopo <c>permissions:&lt;produto&gt;</c> do client de plataforma. Nasce em minúsculas
-	/// (<c>sampleservice</c>) — ajuste junto do restante do scaffold (item 6 do README).
+	/// do escopo <c>permissions:&lt;produto&gt;</c> do client de plataforma. O template o renomeia
+	/// junto com o restante do nome em minúsculas (símbolo <c>lowerProductName</c>).
 	/// </summary>
 	public const string Product = "sampleservice";
 
