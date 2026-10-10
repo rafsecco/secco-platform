@@ -1337,6 +1337,48 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0039: Catálogo de permissões publicado por produto
+
+**Status:** Proposta
+**Data:** 2026-10-10
+
+### Contexto
+
+A issue [#33](https://github.com/rafsecco/secco-platform/issues/33) (`adopter-demand`) aponta que ninguém fora do processo de um produto sabe quais permissões ele define. O SecureGate guarda e resolve permissões de perfil (ADR-0021), mas o `SetRolePermissions` só valida o formato `recurso:acao` (`SeccoPermissions`). Cada produto mantém o próprio vocabulário em constantes no código (`LogStreamPermissions`, `NotificationHubPermissions`, `IntranetPermissoes` no adotante). Quem administra perfis de um sistema que não é o seu — a Intranet gerindo o "Sistema de compras" (ADR-0030), ou o AdminPortal — digita de memória, e um `pedido:aprovra` é aceito, salvo e simplesmente não funciona. A pergunta 82 do log de design deixou registrado o gatilho: "um seletor com catálogo entra se houver demanda real".
+
+O nome de permissão não carrega o produto: `documentos:read` de dois produtos é a mesma string, já hoje, na autorização.
+
+Alternativas avaliadas:
+
+- **Publicar na subida de cada réplica.** Efeito colateral no boot, N réplicas publicando o mesmo, e retentativa em segundo plano com o SecureGate fora. Contraria a ADR-0038. Descartada.
+- **O SecureGate busca o catálogo em cada produto** (`/.well-known/permissions`). O SecureGate passaria a depender de todos os produtos e de conhecer a URL de cada um — direção já descartada na ADR-0028. Descartada.
+- **Aceitar permissão desconhecida e devolver aviso.** Muda o `PUT` de `204` para corpo, mudando a assinatura no client, e aviso que ninguém lê não protege. Descartada.
+- **Recusa ligada por configuração, desligada por padrão.** O padrão continuaria aceitando o erro de digitação. Descartada.
+- **Publicar remove a permissão órfã de todos os perfis.** Escrita destrutiva em todos os tenants disparada pelo deploy de um produto; uma permissão removida por engano apagaria atribuições que voltar a versão não devolve. Descartada.
+- **Recusar também a órfã já gravada.** Obrigaria limpeza não relacionada a cada edição de perfil. Descartada.
+
+### Decisão
+
+**O catálogo é por produto, e o produto o publica no `migrate`.** Cada produto declara, na camada Application, a lista de `SeccoPermissionDefinition(Name, Description)` — record novo no SharedKernel, usado por dois ou mais produtos, sem dependência nem estado (ADR-0003). No `migrate` (ADR-0038), depois das migrations, um seeder de referência publica a lista inteira no SecureGate por `PUT /api/v1/permission-catalog/{product}`, idempotente. O catálogo só muda quando o código muda, ou seja, no deploy. O `Secco.SecureGate.Client` entrega o publicador; o SDK EF Core entrega um seeder de referência genérico por delegate; o produto liga os dois na Infrastructure — assim o client não arrasta o EF Core para quem só consome a API. Sem a seção `Secco:SecureGate`, o passo é pulado. Com ela, uma falha de publicação falha o `migrate` e para o deploy do produto: sem catálogo, as permissões novas daquela versão ficariam impossíveis de atribuir.
+
+**Autorização da publicação por produto.** Escopo `permissions:<produto>`, conferido contra o produto da rota — mesma mecânica do `catalog:<produto>`. O client do LogStream publica só o catálogo do LogStream. `permissions:*` é escopo de infraestrutura (ADR-0037): só client de plataforma, nunca client de produto. A leitura do catálogo exige `securegate:admin`.
+
+**A publicação nunca toca perfil.** Ela substitui apenas as entradas daquele produto.
+
+**`SetRolePermissions` recusa o acrescentado desconhecido.** Uma permissão que o perfil ainda não tinha só é aceita se aparecer no catálogo de **algum** produto; senão, `400` listando as desconhecidas. As permissões que o perfil já tinha passam, mesmo órfãs — o admin pode editar outra coisa sem ser obrigado a limpar naquele momento.
+
+**A órfã fica visível e só sai por ação do admin.** O detalhe do perfil passa a informar `unknownPermissions`: as gravadas que nenhum catálogo declara. Órfã não concede nada — nenhum produto a confere.
+
+### Consequências
+
+- Fecha a porta do erro de digitação na atribuição; a tela de perfis pode trocar o campo livre por uma lista.
+- **Deploy de produto passa a exigir o SecureGate no ar** — na prática já exigia, pelo catálogo de tenants e pela autorização.
+- **Quebra para o adotante:** permissão nova só é aceita depois que o produto dono publicar o catálogo. A Intranet publica o dela ao adotar o client novo; as permissões que os perfis dela já têm continuam passando.
+- Duas definições do mesmo nome em produtos diferentes coexistem no catálogo (uma por produto); a validação usa a união.
+- **Fora desta ADR:** tela de catálogo no AdminPortal; remoção em massa de órfãs; namespace de produto no nome da permissão.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
