@@ -1,7 +1,11 @@
 using System.Net;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application.Clients;
+using OpenIddict.Abstractions;
+using Secco.SecureGate.Application;
+using Secco.SecureGate.Domain.Permissions;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -193,5 +197,48 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 		var act = () => context.SaveChangesAsync();
 
 		await act.Should().ThrowAsync<DbUpdateException>();
+	}
+
+	[Fact]
+	public async Task PermissionCatalogEntry_MesmoProdutoEMesmoNome_ViolaIndiceUnico()
+	{
+		await using var context = CreateContext();
+		var product = $"p-{Guid.NewGuid():N}"[..20];
+		var now = DateTimeOffset.UtcNow;
+		context.PermissionCatalogEntries.Add(new PermissionCatalogEntry(product, "log-entries:read", "Ler logs", now));
+		context.PermissionCatalogEntries.Add(new PermissionCatalogEntry(product, "log-entries:read", "Duplicada", now));
+
+		var act = () => context.SaveChangesAsync();
+
+		await act.Should().ThrowAsync<DbUpdateException>("(produto, nome) é a identidade natural do catálogo (ADR-0039)");
+	}
+
+	[Fact]
+	public async Task PermissionCatalogEntry_MesmoNomeEmProdutosDiferentes_EhPermitido()
+	{
+		await using var context = CreateContext();
+		var productA = $"a-{Guid.NewGuid():N}"[..20];
+		var productB = $"b-{Guid.NewGuid():N}"[..20];
+		var now = DateTimeOffset.UtcNow;
+		context.PermissionCatalogEntries.Add(new PermissionCatalogEntry(productA, "x:read", "A", now));
+		context.PermissionCatalogEntries.Add(new PermissionCatalogEntry(productB, "x:read", "B", now));
+
+		var act = () => context.SaveChangesAsync();
+
+		await act.Should().NotThrowAsync("colisão entre produtos é visível, não bloqueia (ADR-0039)");
+	}
+
+	[Theory]
+	[InlineData("logstream")]
+	[InlineData("notificationhub")]
+	public async Task Seed_Always_RegistersPermissionsScopePerProduct(string product)
+	{
+		using var scope = factory.Services.CreateScope();
+		var scopes = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+		var registered = await scopes.FindByNameAsync(SecureGateScopes.PermissionsFor(product));
+
+		registered.Should().NotBeNull();
+		(await scopes.GetResourcesAsync(registered!)).Should().Contain("secco-securegate");
 	}
 }

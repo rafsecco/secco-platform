@@ -26,6 +26,13 @@ public static class SecureGateScopes
 	/// <param name="product">Identificador do produto (kebab-case minúsculo).</param>
 	public static string CatalogFor(string product) => CatalogPrefix + product;
 
+	/// <summary>Prefixo dos scopes de publicação do catálogo de permissões por produto (<c>permissions:&lt;produto&gt;</c>, ADR-0039).</summary>
+	public const string PermissionsPrefix = "permissions:";
+
+	/// <summary>Monta o scope de publicação do catálogo de permissões de um produto (ex.: <c>permissions:logstream</c>).</summary>
+	/// <param name="product">Identificador do produto (kebab-case minúsculo).</param>
+	public static string PermissionsFor(string product) => PermissionsPrefix + product;
+
 	/// <summary>
 	/// Escopos concedíveis a client de PRODUTO, vinculado a tenant (ADR-0037). Lista fechada no
 	/// código: produto novo entra aqui no mesmo PR que registra o escopo no seed de referência.

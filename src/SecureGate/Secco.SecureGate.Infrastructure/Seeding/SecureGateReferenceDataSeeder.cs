@@ -43,6 +43,9 @@ public sealed class SecureGateReferenceDataSeeder(
 	/// <summary>Produtos multi-tenant com catálogo servido pelo SecureGate (ADR-0005).</summary>
 	private static readonly IReadOnlyList<string> CatalogProducts = ["logstream"];
 
+	/// <summary>Produtos que publicam catálogo de permissões no SecureGate (ADR-0039).</summary>
+	private static readonly IReadOnlyList<string> PermissionCatalogProducts = ["logstream", "notificationhub"];
+
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
 	{
 		foreach (var (scopeName, resource) in ProductScopes)
@@ -56,6 +59,15 @@ public sealed class SecureGateReferenceDataSeeder(
 			await UpsertScopeAsync(
 				SecureGateScopes.CatalogFor(product),
 				$"Leitura do catálogo de tenants do produto {product}",
+				SecureGateResource,
+				cancellationToken).ConfigureAwait(false);
+		}
+
+		foreach (var product in PermissionCatalogProducts)
+		{
+			await UpsertScopeAsync(
+				SecureGateScopes.PermissionsFor(product),
+				$"Publicação do catálogo de permissões do produto {product}",
 				SecureGateResource,
 				cancellationToken).ConfigureAwait(false);
 		}

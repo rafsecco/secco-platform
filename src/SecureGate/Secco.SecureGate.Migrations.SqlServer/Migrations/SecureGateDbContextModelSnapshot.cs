@@ -87,6 +87,45 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                     b.ToTable("tb_elevation_grants");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Permissions.PermissionCatalogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_permission_catalog_entry");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_name");
+
+                    b.Property<string>("Product")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("ds_product");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_published_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_permission_catalog_entries");
+
+                    b.HasIndex("Product", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("uk_permission_catalog_entries_ds_product_ds_name");
+
+                    b.ToTable("tb_permission_catalog_entries");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")

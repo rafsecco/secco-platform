@@ -5,6 +5,7 @@ using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Conventions;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Elevation;
+using Secco.SecureGate.Domain.Permissions;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -54,6 +55,9 @@ public sealed class SecureGateDbContext(
 
 	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
 	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
+
+	/// <summary>Catálogo de permissões publicado pelos produtos (tabela <c>tb_permission_catalog_entries</c>, ADR-0039).</summary>
+	public DbSet<PermissionCatalogEntry> PermissionCatalogEntries => Set<PermissionCatalogEntry>();
 
 	/// <summary>
 	/// Chaves de Data Protection (ADR-0033). Ficam no banco porque os tokens de convite e de
@@ -204,6 +208,17 @@ public sealed class SecureGateDbContext(
 			// cascade até esta tabela porque tenant → usuário é Restrict (acima).
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
+		});
+
+		builder.Entity<PermissionCatalogEntry>(entry =>
+		{
+			entry.Property(e => e.Product).HasMaxLength(PermissionCatalogEntry.ProductMaxLength);
+			entry.Property(e => e.Name).HasMaxLength(PermissionCatalogEntry.NameMaxLength);
+			entry.Property(e => e.Description).HasMaxLength(PermissionCatalogEntry.DescriptionMaxLength);
+
+			// Identidade natural (ADR-0039): um nome por produto; o mesmo nome em produtos
+			// diferentes é colisão visível, não erro. Sem FK: é dado de plataforma, sem tenant.
+			entry.HasIndex(e => new { e.Product, e.Name }).IsUnique();
 		});
 
 		// ADR-0017: só o ToTable — a SeccoNamingConvention já deriva id_pk_data_protection_key
