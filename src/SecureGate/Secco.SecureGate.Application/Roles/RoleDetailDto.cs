@@ -7,7 +7,16 @@ namespace Secco.SecureGate.Application.Roles;
 /// <param name="Permissions">Permissões EFETIVAS — as mesmas que os produtos recebem na resolução.</param>
 /// <param name="IsReserved">Perfil reservado da plataforma (não editável nem excluível).</param>
 /// <param name="MemberCount">Quantidade de usuários membros.</param>
-public sealed record RoleDetailDto(string Name, IReadOnlyList<string> Permissions, bool IsReserved, int MemberCount);
+/// <param name="UnknownPermissions">
+/// Permissões do perfil que nenhum catálogo de produto declara (órfãs, ADR-0039): não concedem nada
+/// que um produto reconheça; ficam visíveis até alguém removê-las. Sempre vazio em perfil reservado.
+/// </param>
+public sealed record RoleDetailDto(
+	string Name,
+	IReadOnlyList<string> Permissions,
+	bool IsReserved,
+	int MemberCount,
+	IReadOnlyList<string> UnknownPermissions);
 
 /// <summary>Membro de um perfil.</summary>
 /// <param name="UserId">Usuário.</param>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Domain.Permissions;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -38,6 +39,29 @@ internal static class IdentitySeed
 		await context.SaveChangesAsync();
 
 		return tenant.Id;
+	}
+
+	/// <summary>
+	/// Publica direto no banco o catálogo de permissões de um produto de teste (ADR-0039) — a API de
+	/// perfis só aceita permissão acrescentada que algum produto declare. Idempotente: o catálogo é
+	/// global e a suíte compartilha o banco.
+	/// </summary>
+	public static async Task PermissionCatalogAsync(SecureGateApiFactory factory, string product, params string[] names)
+	{
+		using var scope = factory.Services.CreateScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+
+		var existing = (await context.PermissionCatalogEntries
+				.Where(e => e.Product == product)
+				.Select(e => e.Name)
+				.ToListAsync())
+			.ToHashSet(StringComparer.Ordinal);
+
+		context.PermissionCatalogEntries.AddRange(names
+			.Distinct(StringComparer.Ordinal)
+			.Where(name => !existing.Contains(name))
+			.Select(name => new PermissionCatalogEntry(product, name, "Permissão de teste", DateTimeOffset.UtcNow)));
+		await context.SaveChangesAsync();
 	}
 
 	public static async Task RoleAsync(SecureGateApiFactory factory, Guid tenantId, string name, params string[] permissions)

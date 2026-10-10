@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Permissions;
 using Secco.SharedKernel.Authorization;
 using Secco.SharedKernel.Results;
 
@@ -13,7 +14,7 @@ public sealed record SetRolePermissionsCommand(Guid TenantId, string? RoleName, 
 /// Substitui as permissões de um role (ADR-0021). Idempotente por design: o AdminPortal
 /// envia o conjunto completo; revogação propaga aos produtos em até um TTL de cache.
 /// </summary>
-public sealed class SetRolePermissionsHandler(IRoleRepository repository)
+public sealed class SetRolePermissionsHandler(IRoleRepository repository, IPermissionCatalogRepository catalog)
 {
 	/// <summary>Limite de permissões por role (ADR-0020 — input externo com tamanho limitado).</summary>
 	public const int MaxPermissionsPerRole = 200;
@@ -61,9 +62,24 @@ public sealed class SetRolePermissionsHandler(IRoleRepository repository)
 			normalized.Add(permission!);
 		}
 
-		if (!await repository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false))
+		var current = await repository.GetPermissionsAsync(command.TenantId, name, cancellationToken).ConfigureAwait(false);
+
+		if (current is null)
 		{
-			return Result.Failure(SecureGateErrors.Tenants.NotFound);
+			return Result.Failure(await repository.TenantExistsAsync(command.TenantId, cancellationToken).ConfigureAwait(false)
+				? SecureGateErrors.Roles.NotFound
+				: SecureGateErrors.Tenants.NotFound);
+		}
+
+		// ADR-0039: só o ACRESCENTADO precisa estar em algum catálogo; órfã já gravada passa
+		var added = normalized.Except(current, StringComparer.Ordinal).ToList();
+		var unknown = added.Count == 0
+			? []
+			: await catalog.FindUnknownAsync(added, cancellationToken).ConfigureAwait(false);
+
+		if (unknown.Count > 0)
+		{
+			return Result.Failure(SecureGateErrors.Roles.PermissionsNotInCatalog(unknown));
 		}
 
 		var replaced = await repository.ReplacePermissionsAsync(command.TenantId, name, normalized, cancellationToken)

@@ -85,6 +85,7 @@ public class CatalogE2ETests(SelfIssuedAuthSecureGateApiFactory secureGate) : IA
 	public async Task InitializeAsync()
 	{
 		await secureGate.EnsureDatabaseMigratedAsync();
+		await IdentitySeed.PermissionCatalogAsync(secureGate, "role-tests", "log-entries:read", "log-entries:write");
 		await secureGate.CreateClientAsync(AdminClientId, AdminClientSecret, SecureGateScopes.Admin);
 		await secureGate.CreateClientAsync(ServiceClientId, ServiceClientSecret,
 			"catalog:logstream", SecureGateScopes.AuthorizationRead);

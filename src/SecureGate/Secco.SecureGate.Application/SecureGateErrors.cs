@@ -126,6 +126,26 @@ public static class SecureGateErrors
 			Error.Validation("SecureGate.Role.PermissionInvalid",
 				"Cada permissão deve estar no formato canônico 'recurso:acao' (kebab-case minúsculo).");
 
+		/// <summary>Máximo de nomes listados no detalhe de <see cref="PermissionsNotInCatalog"/>.</summary>
+		public const int MaxUnknownListed = 20;
+
+		/// <summary>
+		/// Permissão ACRESCENTADA que nenhum produto declara (ADR-0039). A mensagem lista até
+		/// <see cref="MaxUnknownListed"/> nomes ordenados; os nomes já passaram por <c>SeccoPermissions.IsValid</c>
+		/// (formato restrito), então não há conteúdo livre na resposta.
+		/// </summary>
+		/// <param name="unknown">Nomes fora de qualquer catálogo.</param>
+		public static Error PermissionsNotInCatalog(IReadOnlyCollection<string> unknown)
+		{
+			ArgumentNullException.ThrowIfNull(unknown);
+
+			var listed = unknown.Order(StringComparer.Ordinal).Take(MaxUnknownListed).ToList();
+			var more = unknown.Count > listed.Count ? $" (e mais {unknown.Count - listed.Count})" : string.Empty;
+
+			return Error.Validation("SecureGate.Role.PermissionsNotInCatalog",
+				$"Permissões não declaradas por nenhum produto: {string.Join(", ", listed)}{more}.");
+		}
+
 		/// <summary>Conjunto de permissões acima do limite.</summary>
 		public static readonly Error TooManyPermissions =
 			Error.Validation("SecureGate.Role.TooManyPermissions",

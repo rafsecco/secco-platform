@@ -24,6 +24,7 @@ public class RoleManagementTests(SecureGateApiFactory factory) : IAsyncLifetime
 	public async Task InitializeAsync()
 	{
 		await factory.EnsureDatabaseMigratedAsync();
+		await IdentitySeed.PermissionCatalogAsync(factory, "role-tests", "log-entries:read", "log-entries:write");
 
 		_admin = CreateClientWithScopes(SecureGateScopes.Admin);
 
@@ -144,5 +145,70 @@ public class RoleManagementTests(SecureGateApiFactory factory) : IAsyncLifetime
 			new { permissions = new[] { "log-entries:read" } });
 
 		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+	}
+
+	[Fact]
+	public async Task SetPermissions_AddingPermissionNoProductDeclares_Returns400NamingIt()
+	{
+		(await _admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles", new { name = "typo" }))
+			.StatusCode.Should().Be(HttpStatusCode.Created);
+
+		var response = await _admin.PutAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles/typo/permissions",
+			new { permissions = new[] { "pedido:aprovra" } });
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+		(await response.Content.ReadAsStringAsync()).Should().Contain("pedido:aprovra");
+	}
+
+	[Fact]
+	public async Task SetPermissions_RoleWithStoredOrphanPlusNewKnown_Returns204_AndKeepsOrphan()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "legado", "antiga:read");
+
+		var response = await _admin.PutAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles/legado/permissions",
+			new { permissions = new[] { "antiga:read", "log-entries:read" } });
+
+		response.StatusCode.Should().Be(HttpStatusCode.NoContent, "a órfã já gravada não é acrescentada (ADR-0039)");
+	}
+
+	[Fact]
+	public async Task SetPermissions_CaseDifferentFromCatalog_IsRejectedAsInvalid()
+	{
+		(await _admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles", new { name = "caixa" }))
+			.StatusCode.Should().Be(HttpStatusCode.Created);
+
+		var response = await _admin.PutAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles/caixa/permissions",
+			new { permissions = new[] { "Log-Entries:Read" } });
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest, "SeccoPermissions.IsValid recusa maiúscula; a comparação com o catálogo é ordinal");
+	}
+
+	[Fact]
+	public async Task SetPermissions_TwentyFiveUnknown_ListsOnlyTwenty()
+	{
+		(await _admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles", new { name = "muitas" }))
+			.StatusCode.Should().Be(HttpStatusCode.Created);
+		var names = Enumerable.Range(0, 25).Select(i => $"fantasma-{i:D2}:read").ToArray();
+
+		var response = await _admin.PutAsJsonAsync($"/api/v1/tenants/{_tenantId}/roles/muitas/permissions",
+			new { permissions = names });
+		var body = await response.Content.ReadAsStringAsync();
+
+		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+		names.Count(name => body.Contains(name, StringComparison.Ordinal)).Should().Be(20);
+		body.Should().Contain("fantasma-00:read").And.Contain("fantasma-19:read").And.NotContain("fantasma-20:read");
+	}
+
+	[Fact]
+	public async Task GetRole_WithPermissionNoCatalogDeclares_ListsItAsUnknown_StillGranted()
+	{
+		await IdentitySeed.RoleAsync(factory, _tenantId, "mista", "log-entries:read", "removida:read");
+
+		var role = await _admin.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{_tenantId}/roles/mista", Json);
+
+		role.GetProperty("unknownPermissions").EnumerateArray().Select(p => p.GetString())
+			.Should().BeEquivalentTo(["removida:read"]);
+		role.GetProperty("permissions").EnumerateArray().Select(p => p.GetString())
+			.Should().BeEquivalentTo(["log-entries:read", "removida:read"], "publicar/remover do catálogo nunca tira do perfil");
 	}
 }

@@ -24,6 +24,7 @@ public class AuthorizationApiTests(SecureGateApiFactory factory) : IAsyncLifetim
 	public async Task InitializeAsync()
 	{
 		await factory.EnsureDatabaseMigratedAsync();
+		await IdentitySeed.PermissionCatalogAsync(factory, "role-tests", "log-entries:read", "log-entries:write");
 
 		_admin = CreateClientWithScopes(SecureGateScopes.Admin);
 

@@ -95,7 +95,7 @@ public class ReservedRoleNameTests
 	public async Task SetPermissions_ComNomeReservado_RetornaNameReserved()
 	{
 		var repository = Substitute.For<IRoleRepository>();
-		var handler = new SetRolePermissionsHandler(repository);
+		var handler = new SetRolePermissionsHandler(repository, Substitute.For<Secco.SecureGate.Application.Permissions.IPermissionCatalogRepository>());
 
 		var result = await handler.HandleAsync(new SetRolePermissionsCommand(
 			AnyTenant, SecureGatePlatform.OperatorRole, ["log-entries:read"]));
@@ -110,7 +110,7 @@ public class ReservedRoleNameTests
 	public async Task SetPermissions_ComNomeLegado_RetornaNameReserved()
 	{
 		var repository = Substitute.For<IRoleRepository>();
-		var handler = new SetRolePermissionsHandler(repository);
+		var handler = new SetRolePermissionsHandler(repository, Substitute.For<Secco.SecureGate.Application.Permissions.IPermissionCatalogRepository>());
 
 		var result = await handler.HandleAsync(new SetRolePermissionsCommand(
 			AnyTenant, SecureGatePlatform.LegacyOperatorRole, ["log-entries:read"]));
@@ -135,7 +135,7 @@ public class ReservedRoleNameTests
 	public async Task SetPermissions_ComVariacaoDeCaixaDoNomeReservado_RetornaNameReserved(string name)
 	{
 		var repository = Substitute.For<IRoleRepository>();
-		var handler = new SetRolePermissionsHandler(repository);
+		var handler = new SetRolePermissionsHandler(repository, Substitute.For<Secco.SecureGate.Application.Permissions.IPermissionCatalogRepository>());
 
 		var result = await handler.HandleAsync(new SetRolePermissionsCommand(
 			AnyTenant, name, ["log-entries:read"]));

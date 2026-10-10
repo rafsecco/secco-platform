@@ -1,4 +1,5 @@
 using Secco.SecureGate.Application.Authorization;
+using Secco.SecureGate.Application.Permissions;
 using Secco.SharedKernel.Results;
 
 namespace Secco.SecureGate.Application.Roles;
@@ -7,7 +8,8 @@ namespace Secco.SecureGate.Application.Roles;
 /// Detalha um perfil. As permissões vêm da MESMA resolução que os produtos consultam — inclusive os
 /// casos especiais de perfil reservado —, para a tela nunca mostrar uma segunda interpretação.
 /// </summary>
-public sealed class GetRoleHandler(IRoleRepository repository, GetRolePermissionsHandler permissions)
+public sealed class GetRoleHandler(
+	IRoleRepository repository, GetRolePermissionsHandler permissions, IPermissionCatalogRepository catalog)
 {
 	/// <summary>Executa o caso de uso.</summary>
 	/// <param name="tenantId">Tenant da rota.</param>
@@ -31,10 +33,14 @@ public sealed class GetRoleHandler(IRoleRepository repository, GetRolePermission
 
 		var granted = await permissions.HandleAsync(tenantId, role.Name, cancellationToken).ConfigureAwait(false);
 
-		return new RoleDetailDto(
-			role.Name,
-			granted.IsSuccess ? granted.Value : [],
-			RoleInputRules.IsReservedName(role.Name),
-			role.MemberCount);
+		var effective = granted.IsSuccess ? granted.Value : [];
+		var isReserved = RoleInputRules.IsReservedName(role.Name);
+
+		// Perfil reservado recebe o read-set da plataforma, que não é permissão gravada (nem limpável)
+		var unknown = isReserved || effective.Count == 0
+			? []
+			: await catalog.FindUnknownAsync(effective, cancellationToken).ConfigureAwait(false);
+
+		return new RoleDetailDto(role.Name, effective, isReserved, role.MemberCount, unknown);
 	}
 }
