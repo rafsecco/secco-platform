@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Domain.Permissions;
 using Secco.SharedKernel.Authorization;
@@ -10,11 +9,9 @@ namespace Secco.SecureGate.Application.Permissions;
 /// Publica o catálogo de permissões de um produto (ADR-0039). Valida tudo ANTES de persistir
 /// (ADR-0020: input externo): produto kebab-case, 0 a 200 entradas, nome no formato canônico,
 /// descrição de 1 a 200 caracteres após o trim e sem caractere de controle (log forging), sem nome
-/// repetido. Colisão de nome com outro produto é registrada em log e NUNCA bloqueia.
+/// repetido. Colisão de nome com outro produto NUNCA bloqueia (o repositório a registra em log).
 /// </summary>
-public sealed partial class PublishPermissionCatalogHandler(
-	IPermissionCatalogRepository repository,
-	ILogger<PublishPermissionCatalogHandler> logger)
+public sealed class PublishPermissionCatalogHandler(IPermissionCatalogRepository repository)
 {
 	/// <summary>Máximo de entradas por produto.</summary>
 	public const int MaxPermissions = 200;
@@ -71,22 +68,11 @@ public sealed partial class PublishPermissionCatalogHandler(
 			definitions.Add(new SeccoPermissionDefinition(input.Name!, description));
 		}
 
-		var collisions = await repository
+		// Colisão de nome com outro produto é logada pelo repositório (Infrastructure) e não bloqueia
+		await repository
 			.ReplaceAsync(product, definitions, DateTimeOffset.UtcNow, cancellationToken)
 			.ConfigureAwait(false);
 
-		// Produto e nome já validados (formato restrito) — nunca a descrição (ADR-0020)
-		foreach (var name in collisions)
-		{
-			LogNameCollision(logger, product, name);
-		}
-
 		return Result.Success();
 	}
-
-	[LoggerMessage(
-		EventId = 1,
-		Level = LogLevel.Warning,
-		Message = "Catálogo de permissões: o produto {Product} declara '{Permission}', nome que outro produto também declara (colisão visível, ADR-0039).")]
-	private static partial void LogNameCollision(ILogger logger, string product, string permission);
 }

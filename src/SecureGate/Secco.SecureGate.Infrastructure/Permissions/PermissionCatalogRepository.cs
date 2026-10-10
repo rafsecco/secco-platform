@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Secco.SecureGate.Application.Permissions;
 using Secco.SecureGate.Domain.Permissions;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -11,7 +12,8 @@ namespace Secco.SecureGate.Infrastructure.PermissionCatalog;
 /// comparações de nome e de produto são refeitas em memória de forma ORDINAL: o SQL Server compara
 /// sem diferenciar caixa por padrão, e o catálogo é case-sensitive.
 /// </summary>
-internal sealed class PermissionCatalogRepository(SecureGateDbContext context) : IPermissionCatalogRepository
+internal sealed partial class PermissionCatalogRepository(
+	SecureGateDbContext context, ILogger<PermissionCatalogRepository> logger) : IPermissionCatalogRepository
 {
 	public async Task<IReadOnlyList<string>> ReplaceAsync(
 		string product,
@@ -46,7 +48,15 @@ internal sealed class PermissionCatalogRepository(SecureGateDbContext context) :
 		// Uma única SaveChanges é uma única transação: o conjunto do produto troca por inteiro ou não troca
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-		return await FindCollisionsAsync(product, declared.Keys, cancellationToken).ConfigureAwait(false);
+		var collisions = await FindCollisionsAsync(product, declared.Keys, cancellationToken).ConfigureAwait(false);
+
+		// Produto e nome já validados (formato restrito) — nunca a descrição (ADR-0020)
+		foreach (var name in collisions)
+		{
+			LogNameCollision(logger, product, name);
+		}
+
+		return collisions;
 	}
 
 	public async Task<IReadOnlyList<ProductPermissionCatalogDto>> ListAsync(CancellationToken cancellationToken = default)
@@ -116,6 +126,12 @@ internal sealed class PermissionCatalogRepository(SecureGateDbContext context) :
 
 		return [.. others.Where(declared.Contains).Order(StringComparer.Ordinal)];
 	}
+
+	[LoggerMessage(
+		EventId = 1,
+		Level = LogLevel.Warning,
+		Message = "Catálogo de permissões: o produto {Product} declara '{Permission}', nome que outro produto também declara (colisão visível, ADR-0039).")]
+	private static partial void LogNameCollision(ILogger logger, string product, string permission);
 
 	private static List<ProductPermissionCatalogDto> BuildCatalogs(IReadOnlyCollection<PermissionCatalogEntry> entries)
 	{

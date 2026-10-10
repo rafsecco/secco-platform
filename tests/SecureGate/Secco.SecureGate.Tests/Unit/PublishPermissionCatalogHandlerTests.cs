@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Permissions;
@@ -11,21 +10,7 @@ namespace Secco.SecureGate.Tests.Unit;
 /// <summary>Validação e efeitos da publicação do catálogo de permissões (ADR-0039).</summary>
 public class PublishPermissionCatalogHandlerTests
 {
-	private sealed class CapturingLogger : ILogger<PublishPermissionCatalogHandler>
-	{
-		public List<(LogLevel Level, string Message)> Entries { get; } = [];
-
-		public IDisposable? BeginScope<TState>(TState state)
-			where TState : notnull => null;
-
-		public bool IsEnabled(LogLevel logLevel) => true;
-
-		public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-			Entries.Add((logLevel, formatter(state, exception)));
-	}
-
 	private readonly IPermissionCatalogRepository _repository = Substitute.For<IPermissionCatalogRepository>();
-	private readonly CapturingLogger _logger = new();
 	private readonly PublishPermissionCatalogHandler _handler;
 
 	public PublishPermissionCatalogHandlerTests()
@@ -33,7 +18,7 @@ public class PublishPermissionCatalogHandlerTests
 		_repository
 			.ReplaceAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<SeccoPermissionDefinition>>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
 			.Returns([]);
-		_handler = new PublishPermissionCatalogHandler(_repository, _logger);
+		_handler = new PublishPermissionCatalogHandler(_repository);
 	}
 
 	private static PublishPermissionCatalogCommand Command(string? product, params (string? Name, string? Description)[] permissions) =>
@@ -175,7 +160,7 @@ public class PublishPermissionCatalogHandlerTests
 	}
 
 	[Fact]
-	public async Task HandleAsync_NameCollidingWithAnotherProduct_LogsWarningWithProductAndNameOnly_AndSucceeds()
+	public async Task HandleAsync_NameCollidingWithAnotherProduct_StillSucceeds()
 	{
 		_repository
 			.ReplaceAsync("notificationhub", Arg.Any<IReadOnlyList<SeccoPermissionDefinition>>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
@@ -184,16 +169,5 @@ public class PublishPermissionCatalogHandlerTests
 		var result = await _handler.HandleAsync(Command("notificationhub", ("x:read", "SEGREDO-DA-DESCRICAO-INTEIRA")));
 
 		result.IsSuccess.Should().BeTrue("colisão é visível, não bloqueia (ADR-0039)");
-		var warning = _logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning).Subject;
-		warning.Message.Should().Contain("notificationhub").And.Contain("x:read");
-		warning.Message.Should().NotContain("SEGREDO-DA-DESCRICAO-INTEIRA");
-	}
-
-	[Fact]
-	public async Task HandleAsync_WithoutCollision_LogsNoWarning()
-	{
-		await _handler.HandleAsync(Command("logstream", ("log-entries:read", "Ler")));
-
-		_logger.Entries.Should().NotContain(e => e.Level == LogLevel.Warning);
 	}
 }

@@ -69,7 +69,6 @@
   <!-- Camadas de aplicação (abstrações puras, sem I/O) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.12" />
     <!-- IConfiguration.Bind(): normalmente chega via FrameworkReference a Microsoft.AspNetCore.App
          (ADR-0004); pacotes finos sem esse FrameworkReference (Secco.SDK.ClientCredentials) o
