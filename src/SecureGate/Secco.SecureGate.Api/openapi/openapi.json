@@ -636,6 +636,113 @@
         }
       }
     },
+    "/api/v1/permission-catalog/{product}": {
+      "put": {
+        "tags": [
+          "PermissionCatalog"
+        ],
+        "summary": "Publica o catálogo de permissões do produto da rota, substituindo o conjunto anterior (escopo permissions:<produto>). Nunca altera perfis.",
+        "operationId": "PublishPermissionCatalog",
+        "parameters": [
+          {
+            "name": "product",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishPermissionCatalogRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "PermissionCatalog"
+        ],
+        "summary": "Lê o catálogo de permissões de um produto (404 se ele nunca publicou).",
+        "operationId": "GetPermissionCatalog",
+        "parameters": [
+          {
+            "name": "product",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductPermissionCatalogDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/permission-catalog": {
+      "get": {
+        "tags": [
+          "PermissionCatalog"
+        ],
+        "summary": "Lista o catálogo de permissões de todos os produtos, com as colisões de nome visíveis.",
+        "operationId": "ListPermissionCatalog",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductPermissionCatalogDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/roles": {
       "post": {
         "tags": [
@@ -797,6 +904,48 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/roles/remove-unknown-permissions": {
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Remove dos perfis DESTE tenant as permissões que nenhum produto declara (idempotente; perfis reservados não são tocados).",
+        "operationId": "RemoveUnknownRolePermissions",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedUnknownPermissionsDto"
                 }
               }
             }
@@ -2868,6 +3017,49 @@
         },
         "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
       },
+      "PermissionDefinitionDto": {
+        "required": [
+          "name",
+          "description",
+          "alsoDeclaredBy"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "alsoDeclaredBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PermissionDefinitionRequest": {
+        "required": [
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -2992,6 +3184,29 @@
           }
         }
       },
+      "ProductPermissionCatalogDto": {
+        "required": [
+          "product",
+          "permissions",
+          "publishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionDefinitionDto"
+            }
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ProvisionTenantDatabaseRequest": {
         "type": "object",
         "properties": {
@@ -3022,6 +3237,55 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "PublishPermissionCatalogRequest": {
+        "required": [
+          "permissions"
+        ],
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PermissionDefinitionRequest"
+            }
+          }
+        }
+      },
+      "RemovedUnknownPermissionsDto": {
+        "required": [
+          "rolesChanged",
+          "permissionsRemoved",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "rolesChanged": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "permissionsRemoved": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleUnknownPermissionsDto"
+            }
           }
         }
       },
@@ -3061,7 +3325,8 @@
           "name",
           "permissions",
           "isReserved",
-          "memberCount"
+          "memberCount",
+          "unknownPermissions"
         ],
         "type": "object",
         "properties": {
@@ -3084,6 +3349,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "unknownPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3138,6 +3409,24 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "RoleUnknownPermissionsDto": {
+        "required": [
+          "role",
+          "removed"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3521,6 +3810,9 @@
     },
     {
       "name": "Catalog"
+    },
+    {
+      "name": "PermissionCatalog"
     },
     {
       "name": "Roles"

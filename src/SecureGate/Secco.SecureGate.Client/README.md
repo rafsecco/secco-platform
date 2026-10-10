@@ -22,3 +22,18 @@ O secret volta **só** nessa resposta e em `RotateProductClientSecretAsync` — 
 O token desse client sai com `tenant_id`, então ele só alcança o próprio tenant. Escopos
 aceitos: `logstream`, `notificationhub`. Clients sem tenant (de plataforma) não passam por esta
 API: são declarados em `SecureGate:PlatformClients` na configuração do SecureGate.
+
+## Catálogo de permissões (ADR-0039)
+
+O produto declara suas permissões (`SeccoPermissionDefinition`) e as publica no SecureGate durante o `migrate`:
+
+```csharp
+services.AddSecureGatePermissionCatalogPublisher();
+services.AddSeccoReferenceSeeder((serviceProvider, cancellationToken) =>
+    serviceProvider.GetRequiredService<ISecureGatePermissionCatalogPublisher>()
+        .PublishAsync("meu-produto", MeuProdutoPermissions.Catalog, cancellationToken));
+```
+
+- O client de plataforma do produto precisa do escopo `permissions:<produto>` (comparado ordinal com o produto da rota).
+- Sem a seção `Secco:SecureGate` a publicação é pulada com um log; com a seção, qualquer falha lança.
+- Publicar nunca altera perfis: permissão retirada do catálogo continua gravada nos perfis e aparece em `unknownPermissions` do `GetRole` até alguém removê-la (`RemoveUnknownRolePermissions`, por tenant).
