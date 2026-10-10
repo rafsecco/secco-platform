@@ -1733,3 +1733,19 @@ Repor um valor fixo aí — sempre o nome de exibição, sem fallback — quebra
 - **Troca de token:** o teste usava um client sem permissão do grant, então a recusa vinha do OpenIddict e não da política da ADR-0031.
 
 Duas mutações são equivalentes. O filtro de origem no store é coberto pelo check constraint, que impede client de plataforma de ter tenant. A proibição do prefixo `cli_` na configuração já é barrada pela regex do `ClientId`, que não aceita `_`. As duas ficam como defesa em profundidade.
+
+## Migrations e seed de referência fora de Development (issue #34, ADR-0038, 2026-10-08)
+
+**Por que um verbo no binário, e não migrar no startup?** O EF Core 10 já pega lock exclusivo ao migrar, e isso enfraquece o argumento da pergunta 431 (corrida entre réplicas), mas só para as migrations. O seed de referência continua sem lock e, desde a ADR-0037, remove clients de plataforma. Migrar no startup também obrigaria a credencial de runtime a ter DDL sempre, tornaria o boot proporcional ao número de tenants e deixaria um tenant com problema bloquear a subida inteira. O bundle de migrations do EF foi descartado porque o seed precisa do código da aplicação de qualquer forma.
+
+**Por que o tenant novo migra no primeiro uso?** Rodar migrations no deploy não cobre o tenant que o SecureGate provisiona em tempo de execução (ADR-0028). Um job periódico deixaria janela de tenant quebrado. Um passo manual quebraria a criação de tenant pela Intranet. Um aviso do SecureGate faria ele depender de todos os produtos e daria a cada produto um endpoint que executa DDL. O primeiro uso não cria privilégio novo, porque a credencial do tenant já tem `db_owner` no próprio banco.
+
+**Por que interceptor de conexão e não middleware?** Porque o banco do tenant é aberto também fora do HTTP: worker de ingestão, retenção que percorre todos os tenants, jobs do Hangfire. Interceptar a conexão cobre todos.
+
+**Por que `SeccoTransientException` no SharedKernel?** Os dois pacotes do SDK não se referenciam, e o middleware que responde `503` vive em um enquanto a exceção do banco nasce no outro. A ADR-0003 lista "exceções base" e aceita uso pelo SDK; o tipo é abstrato, sem estado e sem dependência.
+
+**Desvio de execução que vale registrar:** a `SeccoApiFactory` sobe o host em `Testing` **antes** de migrar o banco. A recusa de startup do SecureGate quebraria toda a suíte, e por isso a checagem ficou atrás de `SecureGate:Database:VerifyMigrationsOnStartup`. As factories desligam, e um teste dedicado liga.
+
+**Dois defeitos de disponibilidade, ambos no interceptor.** O primeiro foi achado pela suíte do LogStream: depois da primeira abertura, o SQL Server devolve a `ConnectionString` do `DbConnection` sem a senha (`Persist Security Info=False`). A segunda abertura gerava outra chave no gate e uma migração sem credencial, com "Login failed". A primeira correção trocou a fonte para a string do contexto, mas manteve o fallback para a do `DbConnection`. A revisão de segurança pegou esse resto: sem contexto, o defeito voltava. Agora, sem contexto, o interceptor não faz nada. O segundo defeito também veio da revisão: com o banco fora, toda abertura tentava migrar de novo e disputava o lock. Agora a falha abre 15 segundos de espera, igual ao `Retry-After`.
+
+**Mutação: 11 invariantes.** Só a do fallback escapou na primeira rodada, porque não havia teste unitário do interceptor. A prova de tenant novo passava com e sem o fallback, já que o contexto nunca vem nulo pelo EF. O teste novo constrói o evento sem contexto e confirma que o gate não é chamado.

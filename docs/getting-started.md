@@ -161,7 +161,7 @@ O `ClientId`/`ClientSecret` acima precisa existir no SecureGate. Há dois tipos 
 }
 ```
 
-O `ClientSecret` vem de variável de ambiente (`SecureGate__PlatformClients__0__ClientSecret`) ou de cofre, nunca de arquivo versionado, e precisa de ao menos 32 caracteres fora de Development. A lista é a fonte da verdade: ela é reconciliada pelo **seed de referência**, que cria, atualiza e **remove** client de plataforma que saiu dela. Configuração inválida derruba o startup. Fora de Development, o seed de referência ainda não roda sozinho — ver [#34](https://github.com/rafsecco/secco-platform/issues/34).
+O `ClientSecret` vem de variável de ambiente (`SecureGate__PlatformClients__0__ClientSecret`) ou de cofre, nunca de arquivo versionado, e precisa de ao menos 32 caracteres fora de Development. A lista é a fonte da verdade: ela é reconciliada pelo **seed de referência**, que cria, atualiza e **remove** client de plataforma que saiu dela. Configuração inválida derruba o startup. Fora de Development, a lista é aplicada pelo comando `migrate` do deploy (seção 7).
 
 **Client de produto: vinculado a um tenant, registrado pela API.** É a credencial de um sistema da empresa que **consome** os produtos da plataforma, por exemplo um "Sistema de compras" que grava log. Com escopo `securegate:admin`, pelo `Secco.SecureGate.Client`:
 
@@ -176,6 +176,33 @@ var created = await secureGate.CreateProductClientAsync(tenantId, new ProductCli
 ```
 
 O token desse client sai **com** `tenant_id`. Um `X-Tenant-Id` de outro tenant é recusado com `400` pelo SDK, então o secret pode ser entregue a outro time sem que ele alcance outro tenant. Os escopos de infraestrutura (`securegate:admin`, `authorization:read`, `catalog:*`) não são concedíveis por esta via. Um sistema que precise deles é serviço de plataforma e entra pela configuração. Para trocar o secret use `RotateProductClientSecretAsync`, que invalida o anterior na hora; para revogar, `DeleteProductClientAsync`.
+
+## 7. Implantar: `migrate` antes das réplicas
+
+Fora de Development, nenhuma API migra banco nem roda seed sozinha no startup (ADR-0005/0038). Quem faz isso é o **verbo `migrate` do próprio binário**. Ele aplica as migrations e, só se todas passarem, o seed de referência, e depois sai sem subir o servidor:
+
+```bash
+dotnet Secco.SecureGate.Api.dll migrate   # mesma imagem e mesma configuração da API
+echo $?                                    # 0 = tudo aplicado; 1 = alguma falha (o log diz qual alvo)
+```
+
+Rode-o **antes** de subir as réplicas da versão nova, como passo do pipeline, job ou *init container*:
+
+```yaml
+# Kubernetes: a API só inicia depois que o migrate termina com 0
+initContainers:
+  - name: migrate
+    image: <a mesma imagem da API>
+    args: ["migrate"]                      # vira argumento do ENTRYPOINT ["dotnet", "Secco.X.Api.dll"]
+    envFrom: [{ secretRef: { name: <a mesma configuração da API> } }]
+```
+
+O que cada produto faz:
+
+- **SecureGate:** migra o banco de plataforma e roda o seed de referência (escopos, tenant e papel de operador, clients de `SecureGate:PlatformClients`). Se a API subir com migration pendente, ela **se recusa a iniciar** e manda rodar `migrate`. `SecureGate:Database:VerifyMigrationsOnStartup` existe para os testes de integração; não desligue em produção.
+- **LogStream, NotificationHub e produtos gerados pelo template:** o `migrate` migra os bancos de todos os tenants do catálogo. Um tenant que falha não impede os outros, e o comando sai com `1` listando os que falharam. Um **tenant criado depois do deploy**, com o banco provisionado pelo SecureGate (ADR-0028), é migrado no **primeiro uso**, sem reiniciar nada. Se o banco dele estiver fora, só esse tenant recebe `503` com `Retry-After`, e a próxima tentativa acontece depois de 15 segundos.
+
+Criar o banco (`CREATE DATABASE`) não é papel do `migrate`. Os bancos de tenant vêm do provisionamento do SecureGate, e os de plataforma (SecureGate e Hangfire do NotificationHub) são criados pelo DBA.
 
 ## Próximos passos
 

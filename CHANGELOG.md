@@ -12,7 +12,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-10-08. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Migrations e seed de referência fora de Development (issue #34, ADR-0038)
+
+- **`Secco.SharedKernel` — Adicionado** `SeccoTransientException`, base abstrata para falha transitória de infraestrutura (o chamador pode tentar de novo).
+- **`Secco.SDK.AspNetCore` — Alterado** `SeccoTenancyExceptionMiddleware` traduz **qualquer** `SeccoTransientException` em `503` com `Retry-After: 15`. O título do ProblemDetails do catálogo indisponível passou de "Catálogo de tenants indisponível" para "Serviço temporariamente indisponível", e o detalhe é a mensagem da exceção. Status e header não mudaram. `TenantCatalogUnavailableException` agora deriva de `SeccoTransientException`.
+- **`Secco.SDK.EntityFrameworkCore` — Adicionado:**
+  - `ISeccoDatabaseMigrator`, `RunSeccoMigrationsAsync()` (migrators e depois o seed de referência, que não roda se algum falhar) e `SeccoCommands.IsMigrate(args)`.
+  - Migração do banco de tenant no primeiro uso, por `AddSeccoTenantMigrations<TContext>(...)` mais o `SeccoTenantMigrationInterceptor<TContext>` no `AddDbContext`. Cobre HTTP, workers e jobs.
+  - Uma falha vira `TenantDatabaseUnavailableException` (`503`), com 15 segundos de espera antes de nova tentativa.
+- **`Secco.Templates` — Alterado:** o produto gerado nasce com o verbo `migrate` e a migração no primeiro uso.
+
+**Serviços — ação necessária no deploy:**
+
+- Rode `dotnet Secco.<Produto>.Api.dll migrate` antes de subir as réplicas.
+- **O SecureGate não sobe fora de Development se o banco de plataforma tiver migration pendente.** O primeiro deploy desta versão exige o `migrate` antes.
+- O `docker-compose.yml` ganhou um serviço `*-migrate` por produto.
 
 ---
 
