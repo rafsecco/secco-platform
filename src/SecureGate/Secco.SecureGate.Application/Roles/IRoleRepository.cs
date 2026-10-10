@@ -91,6 +91,18 @@ public interface IRoleRepository
 		IReadOnlyCollection<string> permissions,
 		CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Remove as permissões indicadas de cada perfil do tenant, numa única transação. Só alcança perfis
+	/// do tenant informado; perfil ou permissão que não existe mais é ignorado (idempotente).
+	/// </summary>
+	/// <param name="tenantId">Tenant dono dos perfis.</param>
+	/// <param name="removals">Perfil e permissões a retirar.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task RemovePermissionsAsync(
+		Guid tenantId,
+		IReadOnlyCollection<RoleUnknownPermissionsDto> removals,
+		CancellationToken cancellationToken = default);
+
 	/// <summary>Localiza o perfil por (tenant, nome); <c>null</c> se não existe NESTE tenant.</summary>
 	/// <param name="tenantId">Tenant.</param>
 	/// <param name="name">Nome já validado.</param>

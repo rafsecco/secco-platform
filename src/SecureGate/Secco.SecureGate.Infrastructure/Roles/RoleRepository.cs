@@ -120,6 +120,31 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 		return true;
 	}
 
+	public async Task RemovePermissionsAsync(
+		Guid tenantId,
+		IReadOnlyCollection<RoleUnknownPermissionsDto> removals,
+		CancellationToken cancellationToken = default)
+	{
+		foreach (var removal in removals)
+		{
+			var normalized = Normalize(removal.Role);
+			var values = removal.Removed.ToList();
+
+			// O filtro de tenant é a barreira: o nome do perfil sozinho existe em vários tenants
+			var claims = await context.RoleClaims
+				.Where(c => c.ClaimType == PermissionClaimType
+					&& c.ClaimValue != null
+					&& values.Contains(c.ClaimValue)
+					&& context.Roles.Any(r => r.Id == c.RoleId && r.TenantId == tenantId && r.NormalizedName == normalized))
+				.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+			context.RoleClaims.RemoveRange(claims.Where(c => values.Contains(c.ClaimValue!, StringComparer.Ordinal)));
+		}
+
+		// Uma única SaveChanges é uma única transação: a limpeza do tenant acontece por inteiro ou não acontece
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+	}
+
 	public async Task<RoleSummaryData?> FindRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default)
 	{
 		var normalized = Normalize(name);

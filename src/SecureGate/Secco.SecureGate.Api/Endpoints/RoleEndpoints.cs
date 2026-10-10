@@ -61,6 +61,17 @@ public static class RoleEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapPost("/remove-unknown-permissions", async (
+				Guid tenantId,
+				RemoveUnknownRolePermissionsHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(tenantId, cancellationToken))
+				.ToHttpResult(dto => Results.Ok(dto)))
+			.WithName("RemoveUnknownRolePermissions")
+			.WithSummary("Remove dos perfis DESTE tenant as permissões que nenhum produto declara (idempotente; perfis reservados não são tocados).")
+			.Produces<RemovedUnknownPermissionsDto>(StatusCodes.Status200OK)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		group.MapGet("/{role}", async (
 				Guid tenantId,
 				string role,

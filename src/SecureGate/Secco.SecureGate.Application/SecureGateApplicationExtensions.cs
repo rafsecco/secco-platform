@@ -39,6 +39,7 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<GetRoleHandler>();
 		services.AddScoped<ListRoleMembersHandler>();
 		services.AddScoped<DeleteRoleHandler>();
+		services.AddScoped<RemoveUnknownRolePermissionsHandler>();
 
 		// Clients de produto (ADR-0037)
 		services.AddScoped<Clients.ProductClientAccessValidator>();
