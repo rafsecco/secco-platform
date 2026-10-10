@@ -12,21 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Migrations e seed de referência fora de Development (issue #34, ADR-0038)
-
-- **`Secco.SharedKernel` — Adicionado** `SeccoTransientException`, base abstrata para falha transitória de infraestrutura (o chamador pode tentar de novo).
-- **`Secco.SDK.AspNetCore` — Alterado** `SeccoTenancyExceptionMiddleware` traduz **qualquer** `SeccoTransientException` em `503` com `Retry-After: 15`. O título do ProblemDetails do catálogo indisponível passou de "Catálogo de tenants indisponível" para "Serviço temporariamente indisponível", e o detalhe é a mensagem da exceção. Status e header não mudaram. `TenantCatalogUnavailableException` agora deriva de `SeccoTransientException`.
-- **`Secco.SDK.EntityFrameworkCore` — Adicionado:**
-  - `ISeccoDatabaseMigrator`, `RunSeccoMigrationsAsync()` (migrators e depois o seed de referência, que não roda se algum falhar) e `SeccoCommands.IsMigrate(args)`.
-  - Migração do banco de tenant no primeiro uso, por `AddSeccoTenantMigrations<TContext>(...)` mais o `SeccoTenantMigrationInterceptor<TContext>` no `AddDbContext`. Cobre HTTP, workers e jobs.
-  - Uma falha vira `TenantDatabaseUnavailableException` (`503`), com 15 segundos de espera antes de nova tentativa.
-- **`Secco.Templates` — Alterado:** o produto gerado nasce com o verbo `migrate` e a migração no primeiro uso.
-
-**Serviços — ação necessária no deploy:**
-
-- Rode `dotnet Secco.<Produto>.Api.dll migrate` antes de subir as réplicas.
-- **O SecureGate não sobe fora de Development se o banco de plataforma tiver migration pendente.** O primeiro deploy desta versão exige o `migrate` antes.
-- O `docker-compose.yml` ganhou um serviço `*-migrate` por produto.
+_Nada pendente._ A rodada mais recente saiu em 2026-10-10. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -40,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.5.0 — 2026-10-10
+
+- **Adicionado** `SeccoTransientException`, base abstrata para falha transitória de infraestrutura em que o chamador pode tentar de novo (issue #34, ADR-0038). Os dois pacotes do SDK, que não se referenciam, a usam para responder `503` da mesma forma.
 
 #### 0.4.7 — 2026-10-08
 
@@ -111,6 +101,11 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.0 — 2026-10-10
+
+- **Alterado** `SeccoTenancyExceptionMiddleware` traduz **qualquer** `SeccoTransientException` em `503` com `Retry-After: 15` (issue #34, ADR-0038). O título do ProblemDetails do catálogo indisponível passou de "Catálogo de tenants indisponível" para "Serviço temporariamente indisponível", e o detalhe passou a ser a mensagem da exceção. Status e header não mudaram.
+- **Alterado** `TenantCatalogUnavailableException` passou a derivar de `SeccoTransientException`. A mudança é compatível em binário: nome e construtores são os mesmos, e a nova base deriva da antiga.
 
 #### 0.8.7 — 2026-10-08
 
@@ -192,6 +187,18 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 **Pacote novo** (0.1.0): porta `ISeccoEmailSender` com adaptadores **SMTP (MailKit)** e **SendGrid**, selecionáveis por configuração, e `AddSeccoEmail("<Produto>:Email")`. É a promoção dos adaptadores que viviam dentro do `Secco.NotificationHub` — agora que o SecureGate também envia e-mail (ADR-0033), duas cópias divergiriam na primeira correção. Cada produto mantém **sua** seção de configuração: o pacote entrega tipos e adaptadores, não a chave.
 
 ### Secco.SDK.EntityFrameworkCore
+
+#### 0.5.0 — 2026-10-10
+
+- **Adicionado** `ISeccoDatabaseMigrator`, `RunSeccoMigrationsAsync()` e `SeccoCommands.IsMigrate(args)`: o verbo `migrate` do binário aplica as migrations e, só se todas passarem, o seed de referência (issue #34, ADR-0038).
+- **Adicionado** migração do banco de tenant no primeiro uso: `AddSeccoTenantMigrations<TContext>(...)` mais `SeccoTenantMigrationInterceptor<TContext>` no `AddDbContext`. Cobre HTTP, workers e jobs. A memória dos bancos já conferidos guarda o hash da connection string, nunca o texto.
+- **Adicionado** `TenantDatabaseUnavailableException`, que vira `503`. Depois de uma falha, o mesmo banco espera 15 segundos antes de nova tentativa.
+
+**Serviços — ação necessária no deploy:**
+
+- Rode `dotnet Secco.<Produto>.Api.dll migrate` antes de subir as réplicas.
+- **O SecureGate não sobe fora de Development se o banco de plataforma tiver migration pendente.** O primeiro deploy desta versão exige o `migrate` antes.
+- O `docker-compose.yml` ganhou um serviço `*-migrate` por produto.
 
 #### 0.4.0 — 2026-09-06
 
@@ -470,6 +477,10 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 Primeira versão. Client NSwag gerado do `openapi.json` versionado do NotificationHub (ADR-0006) — a única forma legítima de outro produto da plataforma falar com ele. Cobre o despacho multi-canal, a consulta de status e os endpoints de inbox in-app.
 
 ### Secco.Templates
+
+#### 0.3.0 — 2026-10-10
+
+- **Alterado** o produto gerado nasce com o verbo `migrate` e a migração do tenant no primeiro uso (issue #34, ADR-0038).
 
 #### 0.2.0 — 2026-09-06
 

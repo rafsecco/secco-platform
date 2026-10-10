@@ -36,9 +36,9 @@ Versões publicadas atuais:
 
 | Pacote | Versão | Para quê |
 |---|---|---|
-| `Secco.SharedKernel` | 0.4.7 | `Result<T>`, paginação, entidades base, claims/permissions |
-| `Secco.SDK.AspNetCore` | 0.8.7 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
-| `Secco.SDK.EntityFrameworkCore` | 0.4.0 | `SeccoDbContext`, nomenclatura de banco por convention (ADR-0017) e cifragem de segredo em repouso (ADR-0025) |
+| `Secco.SharedKernel` | 0.5.0 | `Result<T>`, paginação, entidades base, claims/permissions |
+| `Secco.SDK.AspNetCore` | 0.9.0 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
+| `Secco.SDK.EntityFrameworkCore` | 0.5.0 | `SeccoDbContext`, nomenclatura de banco por convention (ADR-0017) e cifragem de segredo em repouso (ADR-0025) |
 | `Secco.SDK.Testing` | 0.1.0 | Base das factories de teste de integração (ADR-0027); marcado `DevelopmentDependency` |
 | `Secco.SecureGate.Client` | 0.15.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
 | `Secco.LogStream.Client` | 0.4.0 | Client do LogStream |
@@ -46,7 +46,7 @@ Versões publicadas atuais:
 | `Secco.SDK.Logging` | 0.2.0 | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) |
 | `Secco.SDK.Email` | 0.1.0 | Envio de e-mail (`ISeccoEmailSender`, SMTP/SendGrid por configuração, ADR-0033) |
 | `Secco.NotificationHub.Client` | 0.6.0 | Client do NotificationHub |
-| `Secco.Templates` | 0.2.0 | `dotnet new secco-service` |
+| `Secco.Templates` | 0.3.0 | `dotnet new secco-service` |
 
 > **`Secco.SDK.Logging` 0.1.0 não serve mais.** Ela foi empacotada quando o `Secco.LogStream.Client` ainda era 0.2.0 e chama um método que a 0.3.0 renomeou. Com os dois pacotes na versão mais recente, o despacho do lote falha e o dispatcher engole a exceção por design (ADR-0008) — o sintoma é log que não chega, sem nada cair. Suba para a 0.1.1.
 
