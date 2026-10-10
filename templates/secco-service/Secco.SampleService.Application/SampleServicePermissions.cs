@@ -1,3 +1,5 @@
+using Secco.SharedKernel.Authorization;
+
 namespace Secco.SampleService.Application;
 
 /// <summary>
@@ -10,6 +12,13 @@ namespace Secco.SampleService.Application;
 /// </summary>
 public static class SampleServicePermissions
 {
+	/// <summary>
+	/// Identificador do produto no catálogo de permissões do SecureGate (ADR-0039): kebab-case, o mesmo
+	/// do escopo <c>permissions:&lt;produto&gt;</c> do client de plataforma. Nasce em minúsculas
+	/// (<c>sampleservice</c>) — ajuste junto do restante do scaffold (item 6 do README).
+	/// </summary>
+	public const string Product = "sampleservice";
+
 	/// <summary>Permissões do recurso Sample.</summary>
 	public static class Samples
 	{
@@ -19,4 +28,14 @@ public static class SampleServicePermissions
 		/// <summary>Criar samples.</summary>
 		public const string Write = "samples:write";
 	}
+
+	/// <summary>
+	/// Catálogo de permissões do produto, publicado no SecureGate pelo <c>migrate</c> (ADR-0039).
+	/// Toda constante acima precisa de uma entrada aqui — o teste de reflexão garante.
+	/// </summary>
+	public static IReadOnlyList<SeccoPermissionDefinition> Catalog { get; } =
+	[
+		new(Samples.Read, "Consultar samples"),
+		new(Samples.Write, "Criar samples"),
+	];
 }

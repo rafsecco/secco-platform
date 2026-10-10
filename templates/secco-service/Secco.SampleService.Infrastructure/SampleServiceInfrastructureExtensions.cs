@@ -7,6 +7,8 @@ using Secco.SampleService.Infrastructure.Contexts;
 using Secco.SampleService.Infrastructure.Repositories;
 using Secco.SDK.AspNetCore.Tenancy;
 using Secco.SDK.EntityFrameworkCore.Migrations;
+using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Client.Permissions;
 
 namespace Secco.SampleService.Infrastructure;
 
@@ -55,6 +57,14 @@ public static class SampleServiceInfrastructureExtensions
 		});
 
 		services.AddScoped<ISampleRepository, SampleRepository>();
+
+		// Catálogo de permissões publicado no migrate, depois do seed de referência (ADR-0039);
+		// sem Secco:SecureGate, o publicador pula (compose, DEV isolado)
+		services.AddSecureGatePermissionCatalogPublisher();
+		services.AddSeccoReferenceSeeder(
+			(serviceProvider, cancellationToken) => serviceProvider.GetRequiredService<ISecureGatePermissionCatalogPublisher>()
+				.PublishAsync(SampleServicePermissions.Product, SampleServicePermissions.Catalog, cancellationToken),
+			order: int.MaxValue);
 
 		return services;
 	}

@@ -109,7 +109,7 @@ SECCO_UPDATE_OPENAPI=true dotnet test \
 dotnet build src/TemplateSmoke/Secco.TemplateSmoke.Client/Secco.TemplateSmoke.Client.csproj --configuration Release
 ```
 
-**Esperado: 13 testes, 0 falhas**, e o client compilando a partir do contrato gerado.
+**Esperado: 14 testes, 0 falhas**, e o client compilando a partir do contrato gerado.
 
 Limpeza obrigatória — o produto gerado **não** pode ser commitado:
 

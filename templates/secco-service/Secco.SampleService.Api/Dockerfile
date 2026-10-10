@@ -7,6 +7,10 @@ WORKDIR /src
 COPY Directory.Build.props Directory.Build.targets Directory.Packages.props nuget.config .editorconfig ./
 COPY src/SharedKernel/ src/SharedKernel/
 COPY src/SDK/ src/SDK/
+# A Infrastructure publica o catálogo de permissões no SecureGate (ADR-0039); o client NSwag é
+# gerado a partir do contrato publicado da API (ADR-0006), então o COPY leva o client e o openapi
+COPY src/SecureGate/Secco.SecureGate.Client/ src/SecureGate/Secco.SecureGate.Client/
+COPY src/SecureGate/Secco.SecureGate.Api/openapi/ src/SecureGate/Secco.SecureGate.Api/openapi/
 COPY src/SampleService/ src/SampleService/
 
 # MinVerSkip: dentro da imagem não há repositório git (versionamento é papel do CI, ADR-0011)

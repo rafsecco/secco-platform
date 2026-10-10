@@ -13,6 +13,8 @@
     <ProjectReference Include="..\..\SDK\Secco.SDK.EntityFrameworkCore\Secco.SDK.EntityFrameworkCore.csproj" />
     <!-- Tenancy (ITenantConnectionFactory/ITenantCatalog) vive no SDK.AspNetCore (ADR-0004/0005) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <!-- Publicador do catálogo de permissões (ADR-0039): ligado no migrate -->
+    <ProjectReference Include="..\..\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
   </ItemGroup>
 
 </Project>
