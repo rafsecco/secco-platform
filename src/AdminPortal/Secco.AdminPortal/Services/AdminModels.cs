@@ -55,7 +55,39 @@ public sealed record RoleSummary(string Name, IReadOnlyList<string> Permissions)
 /// <param name="Permissions">Permissões efetivas.</param>
 /// <param name="IsReserved">Reservado da plataforma.</param>
 /// <param name="MemberCount">Quantidade de membros.</param>
-public sealed record RoleDetail(string Name, IReadOnlyList<string> Permissions, bool IsReserved, int MemberCount);
+/// <param name="UnknownPermissions">Permissões gravadas que nenhum produto declara no catálogo (ADR-0039).</param>
+public sealed record RoleDetail(
+	string Name,
+	IReadOnlyList<string> Permissions,
+	bool IsReserved,
+	int MemberCount,
+	IReadOnlyList<string> UnknownPermissions);
+
+/// <summary>Permissão declarada no catálogo de um produto (ADR-0039).</summary>
+/// <param name="Name">Nome <c>recurso:acao</c>.</param>
+/// <param name="Description">Descrição para quem administra perfis.</param>
+/// <param name="AlsoDeclaredBy">Outros produtos que declaram o mesmo nome (colisão visível, sem bloqueio).</param>
+public sealed record PermissionEntry(string Name, string Description, IReadOnlyList<string> AlsoDeclaredBy);
+
+/// <summary>Catálogo de permissões de um produto.</summary>
+/// <param name="Product">Identificador do produto.</param>
+/// <param name="Permissions">Permissões declaradas.</param>
+/// <param name="PublishedAt">Momento da última publicação.</param>
+public sealed record ProductPermissions(string Product, IReadOnlyList<PermissionEntry> Permissions, DateTimeOffset PublishedAt);
+
+/// <summary>Permissões órfãs removidas de um perfil.</summary>
+/// <param name="Role">Perfil.</param>
+/// <param name="Removed">Permissões removidas.</param>
+public sealed record RoleUnknownPermissions(string Role, IReadOnlyList<string> Removed);
+
+/// <summary>Resumo da limpeza de permissões órfãs de um tenant.</summary>
+/// <param name="RolesChanged">Perfis alterados.</param>
+/// <param name="PermissionsRemoved">Total de permissões removidas.</param>
+/// <param name="Roles">Detalhe por perfil.</param>
+public sealed record RemovedUnknownPermissionsSummary(
+	int RolesChanged,
+	int PermissionsRemoved,
+	IReadOnlyList<RoleUnknownPermissions> Roles);
 
 /// <summary>Membro de perfil.</summary>
 /// <param name="UserId">Usuário.</param>

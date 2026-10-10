@@ -34,6 +34,7 @@ builder.Services.AddScoped<ISecureGateClientFactory, SecureGateClientFactory>();
 builder.Services.AddScoped<ITenantAdminService, SecureGateTenantAdminService>();
 builder.Services.AddScoped<IUserAdminService, SecureGateUserAdminService>();
 builder.Services.AddScoped<IRoleAdminService, SecureGateRoleAdminService>();
+builder.Services.AddScoped<IPermissionCatalogService, SecureGatePermissionCatalogService>();
 
 // Leitura de logs por tenant (Fase 7.3): client do LogStream + serviço de consulta
 builder.Services.AddHttpClient(AdminPortalDefaults.LogStreamHttpClient, (serviceProvider, client) =>

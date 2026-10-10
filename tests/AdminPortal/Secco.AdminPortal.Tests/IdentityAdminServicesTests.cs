@@ -327,7 +327,7 @@ public class IdentityAdminServicesTests
 
 		var role = await new SecureGateRoleAdminService(factory).GetRoleAsync(tenantId, "leitor");
 
-		role.Should().BeEquivalentTo(new RoleDetail("leitor", ["documentos:read"], false, 3));
+		role.Should().BeEquivalentTo(new RoleDetail("leitor", ["documentos:read"], false, 3, []));
 	}
 
 	[Fact]

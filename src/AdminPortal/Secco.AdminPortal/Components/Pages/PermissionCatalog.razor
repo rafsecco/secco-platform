@@ -1,0 +1,68 @@
+@page "/permission-catalog"
+@attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
+@inject IPermissionCatalogService PermissionCatalogService
+@inject ILogger<PermissionCatalog> Logger
+@using Secco.SecureGate.Client
+
+<PageTitle>Catálogo de permissões — Secco AdminPortal</PageTitle>
+
+<h1>Catálogo de permissões</h1>
+<p class="muted">Permissões declaradas por cada produto (somente leitura). O catálogo é publicado pelo próprio produto no migrate.</p>
+
+@if (_error is not null)
+{
+    <p class="error" role="alert">@_error</p>
+}
+else if (_catalog is null)
+{
+    <p>Carregando…</p>
+}
+else if (_catalog.Count == 0)
+{
+    <p>Nenhum produto publicou o catálogo.</p>
+}
+else
+{
+    @foreach (var product in _catalog)
+    {
+        <section>
+            <h2>@product.Product</h2>
+            <p class="muted">Publicado em @product.PublishedAt.ToLocalTime().ToString("g")</p>
+            <table class="grid">
+                <thead><tr><th>Permissão</th><th>Descrição</th><th>Colisão</th></tr></thead>
+                <tbody>
+                    @foreach (var permission in product.Permissions)
+                    {
+                        <tr>
+                            <td><code>@permission.Name</code></td>
+                            <td>@permission.Description</td>
+                            <td>@(permission.AlsoDeclaredBy.Count == 0 ? "—" : "também declarada por: " + string.Join(", ", permission.AlsoDeclaredBy))</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+}
+
+@code {
+    private IReadOnlyList<ProductPermissions>? _catalog;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _catalog = await PermissionCatalogService.ListAsync();
+        }
+        catch (ApiException exception)
+        {
+            _error = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao carregar o catálogo de permissões.");
+            _error = "Não foi possível carregar o catálogo.";
+        }
+    }
+}

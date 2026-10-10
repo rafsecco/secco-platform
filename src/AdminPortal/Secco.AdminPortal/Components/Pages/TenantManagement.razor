@@ -31,6 +31,29 @@ else
     {
         <p class="error" role="alert">@_actionError</p>
     }
+    @if (_cleanup is not null)
+    {
+        <div class="form-card" role="status">
+            <p>@_cleanup.PermissionsRemoved permissão(ões) órfã(s) removida(s) de @_cleanup.RolesChanged perfil(is).</p>
+            @if (_cleanup.Roles.Count > 0)
+            {
+                <ul>
+                    @foreach (var role in _cleanup.Roles)
+                    {
+                        <li>@role.Role: @string.Join(", ", role.Removed)</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+    @if (_confirmCleanup)
+    {
+        <div class="form-card" role="alertdialog">
+            <p>Remover de todos os perfis deste tenant as permissões que nenhum produto declara? Esta ação não pode ser desfeita.</p>
+            <button @onclick="CleanupOrphansAsync" disabled="@_busy">Confirmar</button>
+            <button @onclick="() => _confirmCleanup = false" disabled="@_busy">Cancelar</button>
+        </div>
+    }
 
     <section>
         <h2>Usuários</h2>
@@ -115,6 +138,10 @@ else
             </table>
         }
 
+        <p>
+            <button @onclick="AskCleanup" disabled="@(_busy || _confirmCleanup)">Remover permissões órfãs</button>
+        </p>
+
         <div class="form-card">
             <h3>Novo perfil</h3>
             <label>Nome<input type="text" @bind="_newRoleName" placeholder="ex.: financeiro-user" /></label>
@@ -165,6 +192,8 @@ else
     private string? _actionError;
     private string? _message;
     private bool _busy;
+    private bool _confirmCleanup;
+    private RemovedUnknownPermissionsSummary? _cleanup;
 
     private string _newUserEmail = string.Empty;
     private bool _newUserLocalLogin = true;
@@ -241,6 +270,23 @@ else
             _newRoleName = string.Empty;
             await ReloadRolesAsync();
             _message = "Perfil criado.";
+        });
+    }
+
+    private void AskCleanup()
+    {
+        _confirmCleanup = true;
+        _cleanup = null;
+    }
+
+    private async Task CleanupOrphansAsync()
+    {
+        _confirmCleanup = false;
+
+        await RunAsync(async () =>
+        {
+            _cleanup = await RoleAdminService.RemoveUnknownPermissionsAsync(TenantId);
+            await ReloadRolesAsync();
         });
     }
 

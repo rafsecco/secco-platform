@@ -2,6 +2,7 @@
 @attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
 @inject IRoleAdminService RoleAdminService
 @inject IUserAdminService UserAdminService
+@inject IPermissionCatalogService PermissionCatalogService
 @inject NavigationManager Navigation
 @inject ILogger<RoleManagement> Logger
 @using Secco.SecureGate.Client
@@ -55,9 +56,45 @@ else
         else
         {
             <div class="form-card">
-                <label>Permissões (uma <code>recurso:acao</code> por linha)
-                    <textarea rows="6" @bind="_permissionsText"></textarea>
-                </label>
+                @if (_catalog.Count == 0 && _role.UnknownPermissions.Count == 0)
+                {
+                    <p class="muted">Nenhum produto publicou o catálogo de permissões.</p>
+                }
+                @foreach (var product in _catalog)
+                {
+                    <fieldset>
+                        <legend>@product.Product</legend>
+                        @foreach (var permission in product.Permissions)
+                        {
+                            <label title="@permission.Description">
+                                <input type="checkbox"
+                                       checked="@_selected.Contains(permission.Name)"
+                                       @onchange="e => Toggle(permission.Name, e)" />
+                                <code>@permission.Name</code> — @permission.Description
+                                @if (permission.AlsoDeclaredBy.Count > 0)
+                                {
+                                    <span class="muted"> (também declarada por: @string.Join(", ", permission.AlsoDeclaredBy))</span>
+                                }
+                            </label>
+                        }
+                    </fieldset>
+                }
+                @if (_role.UnknownPermissions.Count > 0)
+                {
+                    <fieldset>
+                        <legend>Não declaradas por nenhum produto</legend>
+                        <p class="muted">Não declarada por nenhum produto — não concede nada. Desmarque e salve para remover.</p>
+                        @foreach (var permission in _role.UnknownPermissions)
+                        {
+                            <label>
+                                <input type="checkbox"
+                                       checked="@_selected.Contains(permission)"
+                                       @onchange="e => Toggle(permission, e)" />
+                                <code>@permission</code>
+                            </label>
+                        }
+                    </fieldset>
+                }
                 <button @onclick="SavePermissionsAsync" disabled="@_busy">Salvar permissões</button>
             </div>
         }
@@ -134,7 +171,8 @@ else
     private RoleDetail? _role;
     private MemberPage? _members;
     private IReadOnlyList<UserSummary> _users = [];
-    private string _permissionsText = string.Empty;
+    private IReadOnlyList<ProductPermissions> _catalog = [];
+    private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
     private string? _userToAdd;
 
     private string? _loadError;
@@ -170,7 +208,10 @@ else
     private async Task ReloadAsync(int page)
     {
         _role = await RoleAdminService.GetRoleAsync(TenantId, RoleName);
-        _permissionsText = string.Join('\n', _role.Permissions);
+        _catalog = await PermissionCatalogService.ListAsync();
+        _selected.Clear();
+        _selected.UnionWith(_role.Permissions);
+        _selected.UnionWith(_role.UnknownPermissions); // marcadas por padrão (ADR-0039)
         _members = await RoleAdminService.ListMembersAsync(TenantId, RoleName, page);
         _users = await UserAdminService.ListUsersAsync(TenantId);
     }
@@ -181,10 +222,22 @@ else
     {
         await RunAsync(async () =>
         {
-            await RoleAdminService.SetPermissionsAsync(TenantId, RoleName, ParseLines(_permissionsText));
+            await RoleAdminService.SetPermissionsAsync(TenantId, RoleName, [.. _selected.Order(StringComparer.Ordinal)]);
             await ReloadAsync(_members?.Page ?? 1);
             _message = "Permissões salvas.";
         });
+    }
+
+    private void Toggle(string permission, ChangeEventArgs change)
+    {
+        if (change.Value is true)
+        {
+            _selected.Add(permission);
+        }
+        else
+        {
+            _selected.Remove(permission);
+        }
     }
 
     private async Task AddMemberAsync()
@@ -251,7 +304,4 @@ else
             _busy = false;
         }
     }
-
-    private static IReadOnlyList<string> ParseLines(string value) =>
-        [.. value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
 }

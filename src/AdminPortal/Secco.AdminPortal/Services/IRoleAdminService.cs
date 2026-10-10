@@ -46,6 +46,12 @@ public interface IRoleAdminService
 	/// <param name="page">Página desejada (1-based).</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<MemberPage> ListMembersAsync(Guid tenantId, string role, int page, CancellationToken cancellationToken = default);
+
+	/// <summary>Remove de todos os perfis do tenant as permissões que nenhum produto declara (ADR-0039).</summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<RemovedUnknownPermissionsSummary> RemoveUnknownPermissionsAsync(
+		Guid tenantId, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -83,7 +89,8 @@ internal sealed class SecureGateRoleAdminService(ISecureGateClientFactory client
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 		var detail = await client.GetRoleAsync(tenantId, role, cancellationToken).ConfigureAwait(false);
 
-		return new RoleDetail(detail.Name, [.. detail.Permissions], detail.IsReserved, detail.MemberCount);
+		return new RoleDetail(detail.Name, [.. detail.Permissions], detail.IsReserved, detail.MemberCount,
+			[.. detail.UnknownPermissions]);
 	}
 
 	public async Task DeleteRoleAsync(Guid tenantId, string role, CancellationToken cancellationToken = default)
@@ -105,5 +112,17 @@ internal sealed class SecureGateRoleAdminService(ISecureGateClientFactory client
 			result.Page,
 			result.TotalPages,
 			result.TotalCount);
+	}
+
+	public async Task<RemovedUnknownPermissionsSummary> RemoveUnknownPermissionsAsync(
+		Guid tenantId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+		var result = await client.RemoveUnknownRolePermissionsAsync(tenantId, cancellationToken).ConfigureAwait(false);
+
+		return new RemovedUnknownPermissionsSummary(
+			result.RolesChanged,
+			result.PermissionsRemoved,
+			[.. result.Roles.Select(role => new RoleUnknownPermissions(role.Role, [.. role.Removed]))]);
 	}
 }
