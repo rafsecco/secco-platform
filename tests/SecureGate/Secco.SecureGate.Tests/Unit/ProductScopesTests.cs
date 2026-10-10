@@ -16,6 +16,7 @@ public class ProductScopesTests
 	[InlineData("securegate:admin")]
 	[InlineData("authorization:read")]
 	[InlineData("catalog:logstream")]
+	[InlineData("permissions:logstream")]
 	[InlineData("securegate")]
 	[InlineData("openid")]
 	[InlineData("LOGSTREAM")]

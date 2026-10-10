@@ -74,6 +74,7 @@ public class ProductClientApiTests(SecureGateApiFactory factory) : IAsyncLifetim
 	[InlineData("securegate:admin")]
 	[InlineData("authorization:read")]
 	[InlineData("catalog:logstream")]
+	[InlineData("permissions:logstream")]
 	[InlineData("securegate")]
 	public async Task Create_EscopoDeInfraestrutura_400(string scope)
 	{
