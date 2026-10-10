@@ -204,6 +204,32 @@ O que cada produto faz:
 
 Criar o banco (`CREATE DATABASE`) não é papel do `migrate`. Os bancos de tenant vêm do provisionamento do SecureGate, e os de plataforma (SecureGate e Hangfire do NotificationHub) são criados pelo DBA.
 
+## 8. Publicar o catálogo de permissões
+
+O SecureGate só aceita atribuir a um perfil uma permissão nova que esteja no **catálogo** de algum produto (ADR-0039). Cada produto declara o seu catálogo no código e o publica no `migrate`.
+
+```csharp
+// Application: ao lado das constantes, com a descrição que o admin vê
+public static IReadOnlyList<SeccoPermissionDefinition> Catalog { get; } =
+[
+    new(Pedidos.Read,    "Consultar pedidos"),
+    new(Pedidos.Aprovar, "Aprovar pedidos"),
+];
+
+// Infrastructure (composição): publica no seed de referência, rodado pelo `migrate`
+services.AddSecureGatePermissionCatalogPublisher();
+services.AddSeccoReferenceSeeder((serviceProvider, cancellationToken) =>
+    serviceProvider.GetRequiredService<ISecureGatePermissionCatalogPublisher>()
+        .PublishAsync("meuproduto", MeuProdutoPermissions.Catalog, cancellationToken),
+    order: int.MaxValue);
+```
+
+- O client do produto, declarado em `SecureGate:PlatformClients` (seção 6), precisa do escopo **`permissions:meuproduto`**. Sem ele, o `migrate` falha com `403`. Esse escopo só vale para o catálogo daquele produto.
+- Sem a seção `Secco:SecureGate` (produto isolado em DEV), a publicação é pulada.
+- Com o SecureGate fora do ar, o `migrate` falha e o deploy do produto para. É de propósito: sem catálogo, as permissões novas daquela versão não poderiam ser atribuídas.
+- Publicar substitui o catálogo daquele produto e **nunca mexe em perfil**. Uma permissão que saiu do catálogo continua nos perfis, mas aparece como `unknownPermissions` no detalhe do perfil. O admin a remove pelo próprio perfil ou com `POST /api/v1/tenants/{id}/roles/remove-unknown-permissions`, que limpa só aquele tenant.
+- Um teste por reflexão, como os de LogStream e NotificationHub, impede esquecer uma constante fora do `Catalog`. O template já gera esse teste.
+
 ## Próximos passos
 
 - **Arquitetura**: [architecture-overview.md](architecture-overview.md) — os pilares e como os produtos se encaixam.

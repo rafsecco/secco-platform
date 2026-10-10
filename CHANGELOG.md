@@ -12,7 +12,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-10-10. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Catálogo de permissões por produto (issue #33, ADR-0039)
+
+- **`Secco.SharedKernel` — Adicionado** `SeccoPermissionDefinition(Name, Description)`, a declaração de uma permissão de produto.
+- **`Secco.SDK.EntityFrameworkCore` — Adicionado** `AddSeccoReferenceSeeder(...)`, um seeder de referência por delegate, para ligar ao seed pacotes que não referenciam este SDK.
+- **`Secco.SecureGate.Client` — Adicionado:**
+  - `PublishPermissionCatalogAsync`, `ListPermissionCatalogAsync`, `GetPermissionCatalogAsync` e `RemoveUnknownRolePermissionsAsync`;
+  - `ISecureGatePermissionCatalogPublisher` com `AddSecureGatePermissionCatalogPublisher()`, que pede o escopo `permissions:<produto>`;
+  - `RoleDetailDto.UnknownPermissions` e `PermissionDefinitionDto.AlsoDeclaredBy` (aditivos).
+- **`Secco.Templates` — Alterado:**
+  - o produto gerado declara e publica o catálogo, com teste de completude;
+  - **corrigido**: o nome do produto em minúsculas (audience, bancos, serviço do compose) não era renomeado no produto gerado.
+
+**SecureGate (serviço) — ação necessária:**
+
+- **Quebra:** `PUT .../roles/{role}/permissions` recusa com `400` toda permissão **acrescentada** que não esteja no catálogo de nenhum produto. As permissões que os perfis já têm continuam passando.
+- Cada produto precisa publicar o catálogo (seção 8 do `getting-started`) antes de alguém atribuir as permissões dele.
+- O client de plataforma de cada produto precisa do escopo `permissions:<produto>` em `SecureGate:PlatformClients`. Sem ele, o `migrate` do produto falha.
+- Publicações simultâneas do mesmo produto podem responder `500` pelo índice único. Na prática só o `migrate` publica, uma vez por deploy.
 
 ---
 

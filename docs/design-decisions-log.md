@@ -1749,3 +1749,19 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 **Dois defeitos de disponibilidade, ambos no interceptor.** O primeiro foi achado pela suíte do LogStream: depois da primeira abertura, o SQL Server devolve a `ConnectionString` do `DbConnection` sem a senha (`Persist Security Info=False`). A segunda abertura gerava outra chave no gate e uma migração sem credencial, com "Login failed". A primeira correção trocou a fonte para a string do contexto, mas manteve o fallback para a do `DbConnection`. A revisão de segurança pegou esse resto: sem contexto, o defeito voltava. Agora, sem contexto, o interceptor não faz nada. O segundo defeito também veio da revisão: com o banco fora, toda abertura tentava migrar de novo e disputava o lock. Agora a falha abre 15 segundos de espera, igual ao `Retry-After`.
 
 **Mutação: 11 invariantes.** Só a do fallback escapou na primeira rodada, porque não havia teste unitário do interceptor. A prova de tenant novo passava com e sem o fallback, já que o contexto nunca vem nulo pelo EF. O teste novo constrói o evento sem contexto e confirma que o gate não é chamado.
+
+## Catálogo de permissões publicado por produto (issue #33, ADR-0039, 2026-10-10)
+
+**Quando o produto publica?** No `migrate`, porque o catálogo só muda quando o código muda. Publicar na subida de cada réplica foi descartado: seria efeito colateral no boot, contra a ADR-0038. O SecureGate buscar em cada produto também foi descartado, porque o faria depender de todos os produtos (direção já recusada na ADR-0028).
+
+**Recusar ou avisar?** Recusar a permissão acrescentada desconhecida. Aviso mudaria o contrato do `PUT` e não protege ninguém, e a recusa ligada por configuração deixaria o padrão aceitando o erro de digitação. O custo de transição, em que um produto precisa publicar antes que as permissões dele sejam atribuíveis, foi aceito.
+
+**E a órfã?** Fica visível e só sai por ato do admin. Publicar nunca toca perfil, porque uma permissão removida por engano numa versão apagaria atribuições em todos os tenants. A recusa vale só para o acrescentado, para o admin poder editar um perfil sem ser obrigado a limpar o que não tem a ver com a edição.
+
+**Itens que começaram fora e entraram por pedido do dono do produto:** a tela no AdminPortal, a limpeza de órfãs (por tenant, nunca cross-tenant numa chamada) e a colisão visível. O namespace de produto no nome (`produto.recurso:acao`) ficou fora por escolha: hoje não há colisão, e o namespace exigiria reescrever as permissões de todos os perfis de todos os tenants. Recusar colisão na publicação (`409`) também foi descartado, porque impediria um adotante de publicar por causa de um nome que outro produto escolheu antes.
+
+**Ajuste de desenho na escrita:** o `IReferenceDataSeeder` vive no SDK EF Core, que o `Secco.SecureGate.Client` não referencia. Para não arrastar o EF Core a quem só consome a API, o client entrega o publicador, o SDK EF Core entrega um seeder por delegate, e o produto liga os dois.
+
+**Defeito do template achado pelo catálogo:** o `template.json` só renomeava `SampleService` na caixa exata. Audience, nomes de banco, serviço do compose e o identificador do catálogo nasciam como `sampleservice` em todo produto gerado. Um símbolo derivado em minúsculas resolveu tudo de uma vez.
+
+**Mutação: 9 invariantes.** Escapou a de `permissions:*` não ser concedível a client de produto: a regra existe por construção (o `IsProductScope` lista só escopos de API), mas nenhum teste a fixava para esse prefixo. Ganhou duas linhas de teste.
