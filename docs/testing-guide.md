@@ -196,6 +196,8 @@ docker compose --profile all up -d --build              # os três, com um SQL S
 
 APIs em container respondem em **HTTP**: 4101 (SecureGate), 4102 (LogStream), 4103 (NotificationHub). Tasks: **`stack: subir um produto em container`** e **`stack: subir tudo em container`**.
 
+Cada produto tem um serviço **`*-migrate`** (`securegate-migrate`, `logstream-migrate` e `notificationhub-migrate`). Ele usa a mesma imagem da API, roda `migrate`, que aplica migrations e o seed de referência, e sai. A API só sobe se ele terminar com `0`, que é o mesmo caminho de um deploy real (ADR-0038). Em `docker compose ps -a`, o esperado é `Exited (0)`. Se a API não subir, o motivo está em `docker compose logs <produto>-migrate`.
+
 ## 7. Quando algo falha
 
 | Sintoma | Causa provável |

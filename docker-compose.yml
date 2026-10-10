@@ -12,7 +12,71 @@
 # servem HTTP puro). As portas HTTPS 4001/4002/4003 pertencem ao `dotnet run`/F5, então os
 # dois modos convivem sem colisão.
 #
-# Em Development cada API aplica migrations e seed automaticamente nos tenants do catálogo.
+# Cada produto tem um serviço `*-migrate` (ADR-0038) que roda `migrate` e sai com 0 antes da API
+# subir — o mesmo caminho do deploy de produção. Em Development a API também migra sozinha (F5).
+
+x-securegate: &securegate-base
+    build:
+      context: .
+      dockerfile: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Convite e recuperação (ADR-0033): SMTP do MailHog, e a base pública dos links, que
+      # nunca vem do header Host — aqui é a porta publicada pelo compose.
+      SecureGate__Email__Host: "mailhog"
+      SecureGate__Email__Port: "1025"
+      SecureGate__Email__UseStartTls: "false"
+      SecureGate__Email__FromAddress: "no-reply@secco.local"
+      SecureGate__PublicBaseUrl: "http://localhost:4101"
+      # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
+      # de container), aqui precisa apontar para o serviço sqlserver do compose.
+      SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=secco_securegate_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate_tenant_alfa;User Id=secco_securegate_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
+
+x-logstream: &logstream-base
+    build:
+      context: .
+      dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Catálogo de tenants apontando para o container (sobrepõe o appsettings.Development.json)
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_alfa;User Id=secco_logstream_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000002__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_beta;User Id=secco_logstream_beta_app;Password=Secco@Dev123;TrustServerCertificate=true"
+
+x-notificationhub: &notificationhub-base
+    build:
+      context: .
+      dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
+      mailhog:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_HTTP_PORTS: "8080"
+      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_tenant_alfa;User Id=secco_nh_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__BackgroundJobs__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_platform;User Id=secco_nh_platform_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      NotificationHub__Email__Host: "mailhog"
+      NotificationHub__Email__Port: "1025"
+      NotificationHub__Email__UseStartTls: "false"
+      NotificationHub__Email__FromAddress: "no-reply@secco.local"
 
 services:
   # --- Infraestrutura (sempre) -------------------------------------------------
@@ -73,11 +137,18 @@ services:
       retries: 20
 
   # --- Produtos (por profile) --------------------------------------------------
-  securegate-api:
+  securegate-migrate:
+    # Caminho de produção exercitado a cada `up` (ADR-0038): aplica as migrations do banco de
+    # plataforma e o seed de referência (escopos, operador, clients de plataforma), e sai. A API
+    # só sobe depois que este termina com 0.
+    <<: *securegate-base
     profiles: ["securegate", "all"]
-    build:
-      context: .
-      dockerfile: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+    command: ["migrate"]
+    restart: "no"
+
+  securegate-api:
+    <<: *securegate-base
+    profiles: ["securegate", "all"]
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -85,47 +156,43 @@ services:
         condition: service_completed_successfully
       mailhog:
         condition: service_started
-    environment:
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_HTTP_PORTS: "8080"
-      # Convite e recuperação (ADR-0033): SMTP do MailHog, e a base pública dos links, que
-      # nunca vem do header Host — aqui é a porta publicada pelo compose.
-      SecureGate__Email__Host: "mailhog"
-      SecureGate__Email__Port: "1025"
-      SecureGate__Email__UseStartTls: "false"
-      SecureGate__Email__FromAddress: "no-reply@secco.local"
-      SecureGate__PublicBaseUrl: "http://localhost:4101"
-      # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
-      # de container), aqui precisa apontar para o serviço sqlserver do compose.
-      SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=secco_securegate_app;Password=Secco@Dev123;TrustServerCertificate=true"
-      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate_tenant_alfa;User Id=secco_securegate_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      securegate-migrate:
+        condition: service_completed_successfully
     ports:
       - "4101:8080"
 
-  logstream-api:
+  logstream-migrate:
+    # Caminho de produção exercitado a cada `up` (ADR-0038): aplica migrations de todos os
+    # tenants e o seed de referência, e sai. A API só sobe depois que este termina com 0.
+    <<: *logstream-base
     profiles: ["logstream", "all"]
-    build:
-      context: .
-      dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+    command: ["migrate"]
+    restart: "no"
+
+  logstream-api:
+    <<: *logstream-base
+    profiles: ["logstream", "all"]
     depends_on:
       sqlserver:
         condition: service_healthy
       sqlserver-init:
         condition: service_completed_successfully
-    environment:
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_HTTP_PORTS: "8080"
-      # Catálogo de tenants apontando para o container (sobrepõe o appsettings.Development.json)
-      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_alfa;User Id=secco_logstream_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
-      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000002__ConnectionString: "Server=sqlserver,1433;Database=secco_logstream_tenant_beta;User Id=secco_logstream_beta_app;Password=Secco@Dev123;TrustServerCertificate=true"
+      logstream-migrate:
+        condition: service_completed_successfully
     ports:
       - "4102:8080"
 
-  notificationhub-api:
+  notificationhub-migrate:
+    # Caminho de produção exercitado a cada `up` (ADR-0038): aplica migrations de todos os
+    # tenants e o seed de referência, e sai. A API só sobe depois que este termina com 0.
+    <<: *notificationhub-base
     profiles: ["notificationhub", "all"]
-    build:
-      context: .
-      dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+    command: ["migrate"]
+    restart: "no"
+
+  notificationhub-api:
+    <<: *notificationhub-base
+    profiles: ["notificationhub", "all"]
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -133,15 +200,8 @@ services:
         condition: service_completed_successfully
       mailhog:
         condition: service_started
-    environment:
-      ASPNETCORE_ENVIRONMENT: "Development"
-      ASPNETCORE_HTTP_PORTS: "8080"
-      Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_tenant_alfa;User Id=secco_nh_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
-      NotificationHub__BackgroundJobs__ConnectionString: "Server=sqlserver,1433;Database=secco_notificationhub_platform;User Id=secco_nh_platform_app;Password=Secco@Dev123;TrustServerCertificate=true"
-      NotificationHub__Email__Host: "mailhog"
-      NotificationHub__Email__Port: "1025"
-      NotificationHub__Email__UseStartTls: "false"
-      NotificationHub__Email__FromAddress: "no-reply@secco.local"
+      notificationhub-migrate:
+        condition: service_completed_successfully
     ports:
       - "4103:8080"
 
