@@ -38,4 +38,24 @@ internal static class ScopeAuthorization
 			? await next(context).ConfigureAwait(false)
 			: Results.Forbid();
 	}
+
+	/// <summary>
+	/// Filtro de endpoint de publicação do catálogo de permissões (ADR-0039): exige o scope
+	/// <c>permissions:&lt;produto&gt;</c> do produto da PRÓPRIA ROTA — um produto não sobrescreve o
+	/// catálogo de outro. Comparação ordinal e SEM normalizar caixa: a rota "LogStream" não casa com
+	/// o scope <c>permissions:logstream</c> (e o handler recusa maiúscula de qualquer forma).
+	/// </summary>
+	/// <param name="context">Contexto de invocação do endpoint.</param>
+	/// <param name="next">Próximo delegate do pipeline de filtros.</param>
+	public static async ValueTask<object?> RequirePermissionsScopeAsync(
+		EndpointFilterInvocationContext context,
+		EndpointFilterDelegate next)
+	{
+		var product = context.HttpContext.Request.RouteValues["product"] as string;
+
+		return !string.IsNullOrEmpty(product)
+			&& HasScope(context.HttpContext.User, SecureGateScopes.PermissionsFor(product))
+			? await next(context).ConfigureAwait(false)
+			: Results.Forbid();
+	}
 }

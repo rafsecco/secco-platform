@@ -72,6 +72,11 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<RemoveUserRoleHandler>();
 		services.AddScoped<SetDisplayNameHandler>();
 
+		// Catálogo de permissões publicado pelos produtos (ADR-0039)
+		services.AddScoped<Permissions.PublishPermissionCatalogHandler>();
+		services.AddScoped<Permissions.ListPermissionCatalogHandler>();
+		services.AddScoped<Permissions.GetPermissionCatalogHandler>();
+
 		// Concessão de elevação de leitura cross-tenant (ADR-0031)
 		services.AddScoped<GrantElevationHandler>();
 		services.AddScoped<GetElevationHandler>();

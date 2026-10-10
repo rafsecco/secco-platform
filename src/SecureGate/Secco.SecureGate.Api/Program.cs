@@ -69,6 +69,7 @@ app.MapInteractiveEndpoints();
 app.MapFederatedLoginEndpoints();
 app.MapTenantEndpoints();
 app.MapCatalogEndpoints();
+app.MapPermissionCatalogEndpoints();
 app.MapRoleEndpoints();
 app.MapAuthorizationEndpoints();
 app.MapUserEndpoints();

@@ -115,6 +115,9 @@ public static class SecureGateInfrastructureExtensions
 		// Concessão de elevação de leitura cross-tenant (ADR-0031)
 		services.AddScoped<Application.Elevation.IElevationGrantRepository, Repositories.ElevationGrantRepository>();
 
+		// Catálogo de permissões publicado pelos produtos (ADR-0039)
+		services.AddScoped<Application.Permissions.IPermissionCatalogRepository, PermissionCatalog.PermissionCatalogRepository>();
+
 		// TTL do token de elevação (ADR-0031). A Application recebe o POCO — o teto é aplicado no
 		// próprio tipo (EffectiveTokenLifetime), então a configuração só consegue apertar.
 		services.AddOptions<Application.Elevation.ElevationOptions>()

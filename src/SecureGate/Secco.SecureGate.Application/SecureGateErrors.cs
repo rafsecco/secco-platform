@@ -1,4 +1,5 @@
 using Secco.SecureGate.Application.Provisioning;
+using Secco.SecureGate.Domain.Permissions;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SharedKernel.Results;
 
@@ -194,6 +195,45 @@ public static class SecureGateErrors
 		/// <summary>Tenant desativado não recebe client novo.</summary>
 		public static readonly Error TenantInactive =
 			Error.Conflict("SecureGate.Client.TenantInactive", "O tenant está desativado.");
+	}
+
+	/// <summary>Erros do catálogo de permissões publicado pelos produtos (ADR-0039).</summary>
+	public static class PermissionCatalog
+	{
+		/// <summary>Produto ausente ou fora do formato aceito.</summary>
+		public static readonly Error ProductInvalid =
+			Error.Validation("SecureGate.PermissionCatalog.ProductInvalid",
+				$"O produto deve ser kebab-case minúsculo (letras, dígitos e hífens) com até {PermissionCatalogEntry.ProductMaxLength} caracteres.");
+
+		/// <summary>Corpo sem a lista de permissões (lista vazia é válida; ausente é erro de contrato).</summary>
+		public static readonly Error PermissionsRequired =
+			Error.Validation("SecureGate.PermissionCatalog.PermissionsRequired",
+				"Informe a lista de permissões do produto (vazia, se o produto não declara nenhuma).");
+
+		/// <summary>Mais permissões que o limite por produto.</summary>
+		public static readonly Error TooManyPermissions =
+			Error.Validation("SecureGate.PermissionCatalog.TooManyPermissions",
+				$"O catálogo de um produto aceita até {Permissions.PublishPermissionCatalogHandler.MaxPermissions} permissões.");
+
+		/// <summary>Nome fora do formato canônico (o valor recebido não entra na mensagem — ADR-0020).</summary>
+		public static readonly Error PermissionNameInvalid =
+			Error.Validation("SecureGate.PermissionCatalog.PermissionNameInvalid",
+				"Cada permissão deve estar no formato canônico 'recurso:acao' (kebab-case minúsculo).");
+
+		/// <summary>Descrição ausente, longa demais ou com caractere de controle.</summary>
+		public static readonly Error DescriptionInvalid =
+			Error.Validation("SecureGate.PermissionCatalog.DescriptionInvalid",
+				$"A descrição é obrigatória, com até {PermissionCatalogEntry.DescriptionMaxLength} caracteres e sem caractere de controle.");
+
+		/// <summary>Mesmo nome declarado duas vezes no corpo.</summary>
+		public static readonly Error DuplicateName =
+			Error.Validation("SecureGate.PermissionCatalog.DuplicateName",
+				"O catálogo não pode declarar a mesma permissão mais de uma vez.");
+
+		/// <summary>O produto nunca publicou catálogo.</summary>
+		public static readonly Error NotFound =
+			Error.NotFound("SecureGate.PermissionCatalog.NotFound",
+				"Este produto não publicou catálogo de permissões.");
 	}
 
 	/// <summary>Erros do endpoint de catálogo (leitura pelos produtos).</summary>
