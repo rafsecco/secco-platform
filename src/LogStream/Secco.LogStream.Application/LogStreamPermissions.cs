@@ -1,3 +1,5 @@
+using Secco.SharedKernel.Authorization;
+
 namespace Secco.LogStream.Application;
 
 /// <summary>
@@ -47,4 +49,20 @@ public static class LogStreamPermissions
 		/// <summary>Registrar entradas de auditoria.</summary>
 		public const string Write = "audit-entries:write";
 	}
+
+	/// <summary>
+	/// Catálogo de permissões do produto, publicado no SecureGate pelo <c>migrate</c> (ADR-0039).
+	/// Toda constante acima precisa de uma entrada aqui — o teste de reflexão garante.
+	/// </summary>
+	public static IReadOnlyList<SeccoPermissionDefinition> Catalog { get; } =
+	[
+		new(LogEntries.Read, "Consultar registros de log"),
+		new(LogEntries.Write, "Ingerir registros de log"),
+		new(LogProcesses.Read, "Consultar processos e detalhes"),
+		new(LogProcesses.Write, "Ingerir processos e detalhes"),
+		new(ApiCallLogs.Read, "Consultar chamadas de API"),
+		new(ApiCallLogs.Write, "Ingerir chamadas de API"),
+		new(AuditEntries.Read, "Consultar entradas de auditoria"),
+		new(AuditEntries.Write, "Registrar entradas de auditoria"),
+	];
 }

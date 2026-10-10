@@ -13,6 +13,8 @@ using Secco.LogStream.Infrastructure.Repositories;
 using Secco.LogStream.Infrastructure.Retention;
 using Secco.SDK.AspNetCore.Tenancy;
 using Secco.SDK.EntityFrameworkCore.Migrations;
+using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Client.Permissions;
 
 namespace Secco.LogStream.Infrastructure;
 
@@ -75,6 +77,14 @@ public static class LogStreamInfrastructureExtensions
 		services.AddSingleton<LogEntryIngestionChannel>();
 		services.AddScoped<ILogIngestionQueue, LogEntryIngestionQueue>();
 		services.AddHostedService<LogEntryIngestionWorker>();
+
+		// Catálogo de permissões publicado no migrate, depois do seed de referência (ADR-0039);
+		// sem Secco:SecureGate, o publicador pula (compose, DEV isolado)
+		services.AddSecureGatePermissionCatalogPublisher();
+		services.AddSeccoReferenceSeeder(
+			(serviceProvider, cancellationToken) => serviceProvider.GetRequiredService<ISecureGatePermissionCatalogPublisher>()
+				.PublishAsync("logstream", LogStreamPermissions.Catalog, cancellationToken),
+			order: int.MaxValue);
 
 		return services;
 	}

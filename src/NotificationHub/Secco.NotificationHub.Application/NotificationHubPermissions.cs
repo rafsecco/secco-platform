@@ -1,3 +1,5 @@
+using Secco.SharedKernel.Authorization;
+
 namespace Secco.NotificationHub.Application;
 
 /// <summary>
@@ -36,4 +38,18 @@ public static class NotificationHubPermissions
 		/// <summary>Cadastrar, rotacionar ou remover o destino de um canal.</summary>
 		public const string Write = "notification-channels:write";
 	}
+
+	/// <summary>
+	/// Catálogo de permissões do produto, publicado no SecureGate pelo <c>migrate</c> (ADR-0039).
+	/// Toda constante acima precisa de uma entrada aqui — o teste de reflexão garante.
+	/// </summary>
+	public static IReadOnlyList<SeccoPermissionDefinition> Catalog { get; } =
+	[
+		new(Notifications.Read, "Consultar o status de uma notificação"),
+		new(Notifications.Write, "Despachar (enviar) uma notificação para 1+ canais"),
+		new(InAppNotifications.Read, "Consultar não lidas / contagem de um usuário"),
+		new(InAppNotifications.Write, "Marcar um item como lido"),
+		new(ChannelConfigurations.Read, "Consultar quais canais estão configurados (nunca o destino)"),
+		new(ChannelConfigurations.Write, "Cadastrar, rotacionar ou remover o destino de um canal"),
+	];
 }

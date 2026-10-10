@@ -10,6 +10,8 @@ using Secco.NotificationHub.Infrastructure.Repositories;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.AspNetCore.Tenancy;
 using Secco.SDK.EntityFrameworkCore.Migrations;
+using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Client.Permissions;
 using Secco.SDK.Email;
 
 namespace Secco.NotificationHub.Infrastructure;
@@ -78,6 +80,14 @@ public static class NotificationHubInfrastructureExtensions
 		services.AddScoped<Channels.SendExternalChannelJob>();
 		services.AddScoped<IEmailDispatchQueue, EmailDispatchScheduler>();
 		services.AddScoped<SendEmailJob>();
+
+		// Catálogo de permissões publicado no migrate, depois do seed de referência (ADR-0039);
+		// sem Secco:SecureGate, o publicador pula (compose, DEV isolado)
+		services.AddSecureGatePermissionCatalogPublisher();
+		services.AddSeccoReferenceSeeder(
+			(serviceProvider, cancellationToken) => serviceProvider.GetRequiredService<ISecureGatePermissionCatalogPublisher>()
+				.PublishAsync("notificationhub", NotificationHubPermissions.Catalog, cancellationToken),
+			order: int.MaxValue);
 
 		return services;
 	}
