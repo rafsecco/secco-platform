@@ -1,7 +1,7 @@
 # Catálogo de permissões publicado por produto — design
 
 **Data:** 2026-10-10
-**Status:** aguardando revisão
+**Status:** aprovada (2026-10-10)
 **Decisões arquiteturais:** [ADR-0039](../../adr/secco-platform-adrs.md) (esta entrega), [ADR-0021](../../adr/secco-platform-adrs.md) (papel + permissão), [ADR-0038](../../adr/secco-platform-adrs.md) (`migrate` e seed de referência), [ADR-0037](../../adr/secco-platform-adrs.md) (escopos de infraestrutura), [ADR-0034](../../adr/secco-platform-adrs.md) (idempotência), [ADR-0003](../../adr/secco-platform-adrs.md) (admissão no SharedKernel), [ADR-0020](../../adr/secco-platform-adrs.md) (segurança)
 **Origem:** issue [#33](https://github.com/rafsecco/secco-platform/issues/33) (`adopter-demand`, `secco-intranet`).
 
@@ -22,6 +22,7 @@ Confirmado no código em 2026-10-10:
 3. `SetRolePermissions` recusa (`400`) permissão **acrescentada** que não esteja no catálogo de nenhum produto.
 4. Órfã fica visível (`unknownPermissions`) e só sai por ação do admin; publicar nunca toca perfil.
 5. (Ajuste na escrita) O client entrega só o publicador; o SDK EF Core entrega um seeder por delegate; o produto liga os dois — o client não arrasta o EF Core.
+6. Incluídos depois da revisão: tela de catálogo no AdminPortal; remoção de órfãs por tenant; colisão de nome entre produtos visível (log + leitura), sem namespace — este fica para quando houver colisão real.
 
 ## SharedKernel
 
@@ -49,7 +50,8 @@ Sem validação embutida (o kernel não tem I/O nem regra de negócio); quem val
 | Ler um | `GET /api/v1/permission-catalog/{product}` | `securegate:admin` | `GetPermissionCatalog` | `200` + `ProductPermissionCatalogDto`; `404` |
 
 - Corpo do `PUT`: `{ "permissions": [ { "name", "description" } ] }`.
-- `ProductPermissionCatalogDto(string Product, IReadOnlyList<PermissionDefinitionDto> Permissions, DateTimeOffset PublishedAt)`; `PermissionDefinitionDto(string Name, string Description)`.
+- `ProductPermissionCatalogDto(string Product, IReadOnlyList<PermissionDefinitionDto> Permissions, DateTimeOffset PublishedAt)`; `PermissionDefinitionDto(string Name, string Description, IReadOnlyList<string> AlsoDeclaredBy)` — `AlsoDeclaredBy` lista os OUTROS produtos que declaram o mesmo nome (colisão visível).
+- Na publicação, cada nome que já existe no catálogo de outro produto gera um log `Warning` (`[LoggerMessage]`, produto e nome — nunca a descrição inteira). Não bloqueia.
 - Validação (Application, `Result`): produto kebab-case até 50; 0–200 entradas (lista vazia é válida: produto sem permissões); nome em `SeccoPermissions.IsValid`; descrição 1–200 após trim, sem caractere de controle; sem nome repetido.
 - `PUT` substitui o conjunto do produto numa transação; republicar igual não altera `PublishedAt` (efeito idêntico, ADR-0034).
 - A checagem do escopo contra a rota segue o filtro `ScopeAuthorization.RequireCatalogScopeAsync` existente (criar `RequirePermissionsScopeAsync` no mesmo arquivo, mesma forma).
@@ -58,6 +60,8 @@ Sem validação embutida (o kernel não tem I/O nem regra de negócio); quem val
 - `SetRolePermissionsHandler` passa a: carregar as permissões atuais do perfil; calcular `acrescentadas = novas − atuais`; para as acrescentadas, consultar o catálogo (`IPermissionCatalogRepository.FindUnknownAsync(IEnumerable<string>)`) e, se houver desconhecidas, devolver `SecureGateErrors.Roles.PermissionsNotInCatalog` (`400`) com as desconhecidas no detalhe (ordenadas, no máximo 20 listadas). Perfil inexistente segue `404` como hoje.
 - `RoleDetailDto` ganha `IReadOnlyList<string> UnknownPermissions` (aditivo): as permissões gravadas que nenhum catálogo declara.
 - Os perfis reservados seguem o caminho atual (não editáveis).
+
+**Limpeza de órfãs:** `POST /api/v1/tenants/{tenantId}/roles/remove-unknown-permissions`, escopo `securegate:admin`, `operationId` `RemoveUnknownRolePermissions`. Remove de todos os perfis NÃO reservados daquele tenant as permissões ausentes de todos os catálogos; responde `200` com `RemovedUnknownPermissionsDto(int RolesChanged, int PermissionsRemoved, IReadOnlyList<RoleUnknownPermissionsDto> Roles)` (`RoleUnknownPermissionsDto(string Role, IReadOnlyList<string> Removed)`). Tenant inexistente → `404`. Repetir não remove nada (ADR-0034). Uma transação por chamada.
 
 **Client:** `Secco.SecureGate.Client` 0.16.0 — os três métodos gerados, e:
 
@@ -93,6 +97,13 @@ services.AddSeccoReferenceSeeder((serviceProvider, cancellationToken) =>
 
 - Teste unitário por produto: toda constante pública de `*Permissions` está em `Catalog` (reflexão) — impede esquecer de catalogar permissão nova.
 
+## AdminPortal
+
+- `RoleManagement.razor` (`/tenants/{TenantId}/roles/{RoleName}`): o `textarea` de permissões vira caixas agrupadas por produto (via `ListPermissionCatalogAsync`), com a descrição e o aviso de colisão quando `AlsoDeclaredBy` não for vazio. As `UnknownPermissions` do perfil aparecem numa seção separada, marcadas por padrão, com o texto "não declarada por nenhum produto — não concede nada"; desmarcar e salvar remove. Salvar envia o conjunto completo (PUT idempotente, como hoje).
+- `TenantManagement.razor`: na seção de perfis, botão "Remover permissões órfãs" com confirmação, chamando `RemoveUnknownRolePermissionsAsync` e mostrando o resultado.
+- Página nova `/permission-catalog` (leitura, gate `Operator`): produtos, permissões, descrição, colisões e data da última publicação.
+- Serviços (`IRoleAdminService`/novo `IPermissionCatalogService`) seguem o padrão existente de `ISecureGateClientFactory` (token do operador); testes unitários nos serviços como os de `IdentityAdminServicesTests`.
+
 Template: o mesmo para `SampleServicePermissions` (produto `sample-service`, ou o nome que o template já usa como produto).
 
 DEV: `SecureGate:PlatformClients` do `appsettings.Development.json` do SecureGate — `secco-dev-console` ganha `permissions:logstream` e `permissions:notificationhub`.
@@ -116,7 +127,8 @@ DEV: `SecureGate:PlatformClients` do `appsettings.Development.json` do SecureGat
 - Integração (LogStream): seeder publica no SecureGate real (padrão dos testes entre produtos); sem `Secco:SecureGate`, pula sem erro.
 - Unit (LogStream, NotificationHub, template): reflexão — toda constante está no `Catalog`.
 - Contrato: `openapi.json` + client.
-- Mutação: escopo vs rota; recusa só do acrescentado; publicar não toca perfil; `permissions:*` fora dos escopos de produto.
+- Integração (SecureGate): limpeza de órfãs remove só do tenant da rota, nunca de perfil reservado, e repetir não remove nada; colisão aparece em `AlsoDeclaredBy` e não bloqueia a publicação.
+- Mutação: limpeza restrita ao tenant da rota; escopo vs rota; recusa só do acrescentado; publicar não toca perfil; `permissions:*` fora dos escopos de produto.
 
 ## Publicação
 
@@ -124,4 +136,4 @@ DEV: `SecureGate:PlatformClients` do `appsettings.Development.json` do SecureGat
 
 ## Fora desta entrega
 
-Tela de catálogo no AdminPortal; remoção em massa de órfãs; namespace de produto no nome da permissão.
+Namespace de produto no nome da permissão (até haver colisão real; a colisão fica visível nesta entrega). Remoção de órfãs cross-tenant numa chamada.

@@ -1339,7 +1339,7 @@ Alternativas avaliadas:
 
 ## ADR-0039: Catálogo de permissões publicado por produto
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-10-10
 
 ### Contexto
@@ -1369,13 +1369,19 @@ Alternativas avaliadas:
 
 **A órfã fica visível e só sai por ação do admin.** O detalhe do perfil passa a informar `unknownPermissions`: as gravadas que nenhum catálogo declara. Órfã não concede nada — nenhum produto a confere.
 
+**Limpeza de órfãs é ato explícito, por tenant.** `POST /api/v1/tenants/{tenantId}/roles/remove-unknown-permissions` (`securegate:admin`) tira de todos os perfis **daquele** tenant as permissões que nenhum catálogo declara — nunca cross-tenant numa chamada, pelo mesmo motivo que descartou a remoção automática. Idempotente (ADR-0034).
+
+**Colisão de nome entre produtos fica visível, não é proibida.** O nome não ganha namespace de produto nesta ADR: hoje não há colisão, e renomear exigiria reescrever as permissões de todos os perfis de todos os tenants. Em vez disso, a publicação registra no log quando um nome já existe no catálogo de outro produto, e a leitura do catálogo informa, por permissão, os outros produtos que declaram o mesmo nome. Se a colisão acontecer de fato, a decisão volta com evidência.
+
+**O AdminPortal usa o catálogo.** Na página de perfil, o texto livre das permissões vira lista de caixas agrupada por produto, com a descrição; as órfãs aparecem à parte, sinalizadas, e podem ser desmarcadas; há uma página de leitura do catálogo e um botão de limpeza de órfãs do tenant, com confirmação.
+
 ### Consequências
 
 - Fecha a porta do erro de digitação na atribuição; a tela de perfis pode trocar o campo livre por uma lista.
 - **Deploy de produto passa a exigir o SecureGate no ar** — na prática já exigia, pelo catálogo de tenants e pela autorização.
 - **Quebra para o adotante:** permissão nova só é aceita depois que o produto dono publicar o catálogo. A Intranet publica o dela ao adotar o client novo; as permissões que os perfis dela já têm continuam passando.
 - Duas definições do mesmo nome em produtos diferentes coexistem no catálogo (uma por produto); a validação usa a união.
-- **Fora desta ADR:** tela de catálogo no AdminPortal; remoção em massa de órfãs; namespace de produto no nome da permissão.
+- **Namespace de produto no nome da permissão fica para quando houver colisão real** — o catálogo a torna visível. Alternativa descartada junto: recusar colisão na publicação (`409`) impediria um adotante de publicar por causa de um nome escolhido antes por outro produto.
 
 ---
 
