@@ -12,26 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Catálogo de permissões por produto (issue #33, ADR-0039)
-
-- **`Secco.SharedKernel` — Adicionado** `SeccoPermissionDefinition(Name, Description)`, a declaração de uma permissão de produto.
-- **`Secco.SDK.EntityFrameworkCore` — Adicionado** `AddSeccoReferenceSeeder(...)`, um seeder de referência por delegate, para ligar ao seed pacotes que não referenciam este SDK.
-- **`Secco.SecureGate.Client` — Adicionado:**
-  - `PublishPermissionCatalogAsync`, `ListPermissionCatalogAsync`, `GetPermissionCatalogAsync` e `RemoveUnknownRolePermissionsAsync`;
-  - `ISecureGatePermissionCatalogPublisher` com `AddSecureGatePermissionCatalogPublisher()`, que pede o escopo `permissions:<produto>`;
-  - `RoleDetailDto.UnknownPermissions` e `PermissionDefinitionDto.AlsoDeclaredBy` (aditivos).
-- **`Secco.Templates` — Alterado:**
-  - o produto gerado declara e publica o catálogo, com teste de completude;
-  - **corrigido**: o nome do produto em minúsculas (audience, bancos, serviço do compose) não era renomeado no produto gerado.
-
-- **`Secco.SDK.Testing` — Corrigido:** o container de SQL Server dos testes passa a subir com até 3 tentativas, cada uma com um container novo. O Resource Reaper (Ryuk) do Testcontainers às vezes some na largada quando vários projetos de teste sobem containers ao mesmo tempo, e a primeira suíte do processo caía inteira com "Could not find resource 'DockerContainer'".
-
-**SecureGate (serviço) — ação necessária:**
-
-- **Quebra:** `PUT .../roles/{role}/permissions` recusa com `400` toda permissão **acrescentada** que não esteja no catálogo de nenhum produto. As permissões que os perfis já têm continuam passando.
-- Cada produto precisa publicar o catálogo (seção 8 do `getting-started`) antes de alguém atribuir as permissões dele.
-- O client de plataforma de cada produto precisa do escopo `permissions:<produto>` em `SecureGate:PlatformClients`. Sem ele, o `migrate` do produto falha.
-- Publicações simultâneas do mesmo produto podem responder `500` pelo índice único. Na prática só o `migrate` publica, uma vez por deploy.
+_Nada pendente._ A rodada mais recente saiu em 2026-10-11. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
 ---
 
@@ -45,6 +26,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.6.0 — 2026-10-11
+
+- **Adicionado** `SeccoPermissionDefinition(Name, Description)`, a declaração de uma permissão de produto (issue #33, ADR-0039).
 
 #### 0.5.0 — 2026-10-10
 
@@ -120,6 +105,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.1 — 2026-10-11
+
+Patch **sem mudança funcional**: o diff desde a 0.9.0 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.16.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.0 — 2026-10-10
 
@@ -207,6 +196,10 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 
 ### Secco.SDK.EntityFrameworkCore
 
+#### 0.6.0 — 2026-10-11
+
+- **Adicionado** `AddSeccoReferenceSeeder(...)`, um seeder de referência por delegate, para ligar ao seed pacotes que não referenciam este SDK (issue #33, ADR-0039).
+
 #### 0.5.0 — 2026-10-10
 
 - **Adicionado** `ISeccoDatabaseMigrator`, `RunSeccoMigrationsAsync()` e `SeccoCommands.IsMigrate(args)`: o verbo `migrate` do binário aplica as migrations e, só se todas passarem, o seed de referência (issue #34, ADR-0038).
@@ -266,6 +259,19 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.16.0 — 2026-10-11
+
+- **Adicionado** `PublishPermissionCatalogAsync`, `ListPermissionCatalogAsync`, `GetPermissionCatalogAsync` e `RemoveUnknownRolePermissionsAsync` (issue #33, ADR-0039).
+- **Adicionado** `ISecureGatePermissionCatalogPublisher` com `AddSecureGatePermissionCatalogPublisher()`, que pede o escopo `permissions:<produto>`.
+- **Adicionado (aditivo)** `RoleDetailDto.UnknownPermissions` e `PermissionDefinitionDto.AlsoDeclaredBy`.
+
+**SecureGate (serviço) — ação necessária:**
+
+- **Quebra:** `PUT .../roles/{role}/permissions` recusa com `400` toda permissão **acrescentada** que não esteja no catálogo de nenhum produto. As permissões que os perfis já têm continuam passando.
+- Cada produto precisa publicar o catálogo (seção 8 do `getting-started`) antes de alguém atribuir as permissões dele.
+- O client de plataforma de cada produto precisa do escopo `permissions:<produto>` em `SecureGate:PlatformClients`. Sem ele, o `migrate` do produto falha.
+- Publicações simultâneas do mesmo produto podem responder `500` pelo índice único. Na prática só o `migrate` publica, uma vez por deploy.
 
 #### 0.15.0 — 2026-10-08
 
@@ -372,6 +378,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SDK.ClientCredentials
 
+#### 0.1.12 — 2026-10-11
+
+Patch **sem mudança funcional**: o diff desde a 0.1.11 é vazio. Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.16.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.1.11 — 2026-10-08
 
 Patch **sem mudança de código**: o diff desde a 0.1.10 só sobe o piso das dependências de terceiros feito no `Directory.Packages.props` em 2026-10-07 (`Microsoft.*` 10.0.9 → 10.0.12). Existe pela cadeia do MinVer (ADR-0011) — o `Secco.SecureGate.Client` 0.15.0 sai deste commit e o referencia por `ProjectReference`.
@@ -446,6 +456,10 @@ Primeira publicação. Entrega o `AddLogStream()` que a ADR-0008 prometia em 202
 
 ### Secco.SDK.Testing
 
+#### 0.1.1 — 2026-10-11
+
+- **Corrigido:** o container de SQL Server dos testes sobe com até 3 tentativas, cada uma com um container novo. O Resource Reaper (Ryuk) do Testcontainers às vezes some na largada quando vários projetos de teste sobem containers ao mesmo tempo, e a primeira suíte do processo caía inteira com "Could not find resource 'DockerContainer'".
+
 #### 0.1.0 — 2026-08-30
 
 Primeira versão. Base compartilhada das factories de teste de integração (ADR-0027), substituindo cinco cópias divergentes de `*ApiFactory`.
@@ -496,6 +510,11 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 Primeira versão. Client NSwag gerado do `openapi.json` versionado do NotificationHub (ADR-0006) — a única forma legítima de outro produto da plataforma falar com ele. Cobre o despacho multi-canal, a consulta de status e os endpoints de inbox in-app.
 
 ### Secco.Templates
+
+#### 0.4.0 — 2026-10-11
+
+- **Alterado** o produto gerado declara e publica o catálogo de permissões, com teste de completude (issue #33, ADR-0039).
+- **Corrigido** o nome do produto em minúsculas (audience, bancos, serviço do compose, identificador do catálogo) não era renomeado no produto gerado.
 
 #### 0.3.0 — 2026-10-10
 
