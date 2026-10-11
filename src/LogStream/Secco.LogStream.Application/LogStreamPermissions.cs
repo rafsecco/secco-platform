@@ -16,7 +16,7 @@ public static class LogStreamPermissions
 		/// <summary>Consultar registros de log.</summary>
 		public const string Read = "log-entries:read";
 
-		/// <summary>Ingerir registros de log.</summary>
+		/// <summary>Inserir registros de log.</summary>
 		public const string Write = "log-entries:write";
 	}
 
@@ -26,7 +26,7 @@ public static class LogStreamPermissions
 		/// <summary>Consultar processos e detalhes.</summary>
 		public const string Read = "log-processes:read";
 
-		/// <summary>Ingerir processos e detalhes.</summary>
+		/// <summary>Inserir processos e detalhes.</summary>
 		public const string Write = "log-processes:write";
 	}
 
@@ -36,7 +36,7 @@ public static class LogStreamPermissions
 		/// <summary>Consultar chamadas de API.</summary>
 		public const string Read = "api-call-logs:read";
 
-		/// <summary>Ingerir chamadas de API.</summary>
+		/// <summary>Inserir chamadas de API.</summary>
 		public const string Write = "api-call-logs:write";
 	}
 
@@ -57,11 +57,11 @@ public static class LogStreamPermissions
 	public static IReadOnlyList<SeccoPermissionDefinition> Catalog { get; } =
 	[
 		new(LogEntries.Read, "Consultar registros de log"),
-		new(LogEntries.Write, "Ingerir registros de log"),
+		new(LogEntries.Write, "Inserir registros de log"),
 		new(LogProcesses.Read, "Consultar processos e detalhes"),
-		new(LogProcesses.Write, "Ingerir processos e detalhes"),
+		new(LogProcesses.Write, "Inserir processos e detalhes"),
 		new(ApiCallLogs.Read, "Consultar chamadas de API"),
-		new(ApiCallLogs.Write, "Ingerir chamadas de API"),
+		new(ApiCallLogs.Write, "Inserir chamadas de API"),
 		new(AuditEntries.Read, "Consultar entradas de auditoria"),
 		new(AuditEntries.Write, "Registrar entradas de auditoria"),
 	];
