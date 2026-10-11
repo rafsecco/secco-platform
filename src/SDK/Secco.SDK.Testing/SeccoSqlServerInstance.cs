@@ -100,16 +100,66 @@ internal sealed partial class SeccoSqlServerInstance : IAsyncDisposable
 		?? throw new InvalidOperationException(
 			"A instância de SQL Server ainda não foi iniciada — chame StartAsync() antes.");
 
-	/// <summary>Sobe o container. No modo externo é no-op.</summary>
-	public Task StartAsync()
+	/// <summary>Tentativas de subir o container antes de desistir.</summary>
+	internal const int MaxStartAttempts = 3;
+
+	/// <summary>
+	/// Sobe o container. No modo externo é no-op. Tenta até <see cref="MaxStartAttempts"/> vezes,
+	/// cada uma com um container NOVO: o Resource Reaper (Ryuk) do Testcontainers às vezes some na
+	/// largada quando vários processos de teste sobem containers juntos, e a primeira suíte do
+	/// processo caía inteira com "Could not find resource 'DockerContainer'" — uma nova tentativa
+	/// sobe normalmente, como as suítes seguintes sempre subiram.
+	/// </summary>
+	public async Task StartAsync()
 	{
 		if (UsesExternalInstance)
 		{
-			return Task.CompletedTask;
+			return;
 		}
 
-		_container ??= new MsSqlBuilder(DefaultImage).Build();
-		return _container.StartAsync();
+		await StartWithRetryAsync(
+			async () =>
+			{
+				if (_container is not null)
+				{
+					// Container da tentativa anterior que falhou: descartado, nunca reaproveitado
+					await _container.DisposeAsync();
+				}
+
+				_container = new MsSqlBuilder(DefaultImage).Build();
+				await _container.StartAsync();
+			},
+			MaxStartAttempts);
+	}
+
+	/// <summary>
+	/// Executa <paramref name="attempt"/> até dar certo ou esgotar as tentativas. Cancelamento
+	/// nunca é repetido. Esgotadas as tentativas, lança uma exceção com todas as causas.
+	/// </summary>
+	/// <param name="attempt">Uma tentativa de subida.</param>
+	/// <param name="maxAttempts">Número máximo de tentativas (≥ 1).</param>
+	internal static async Task StartWithRetryAsync(Func<Task> attempt, int maxAttempts)
+	{
+		ArgumentNullException.ThrowIfNull(attempt);
+		ArgumentOutOfRangeException.ThrowIfLessThan(maxAttempts, 1);
+
+		var failures = new List<Exception>();
+
+		for (var current = 1; current <= maxAttempts; current++)
+		{
+			try
+			{
+				await attempt();
+				return;
+			}
+			catch (Exception exception) when (exception is not OperationCanceledException)
+			{
+				failures.Add(exception);
+			}
+		}
+
+		throw new AggregateException(
+			$"O container de SQL Server dos testes não subiu em {maxAttempts} tentativa(s).", failures);
 	}
 
 	/// <summary>

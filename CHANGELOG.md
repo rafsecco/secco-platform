@@ -24,6 +24,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
   - o produto gerado declara e publica o catálogo, com teste de completude;
   - **corrigido**: o nome do produto em minúsculas (audience, bancos, serviço do compose) não era renomeado no produto gerado.
 
+- **`Secco.SDK.Testing` — Corrigido:** o container de SQL Server dos testes passa a subir com até 3 tentativas, cada uma com um container novo. O Resource Reaper (Ryuk) do Testcontainers às vezes some na largada quando vários projetos de teste sobem containers ao mesmo tempo, e a primeira suíte do processo caía inteira com "Could not find resource 'DockerContainer'".
+
 **SecureGate (serviço) — ação necessária:**
 
 - **Quebra:** `PUT .../roles/{role}/permissions` recusa com `400` toda permissão **acrescentada** que não esteja no catálogo de nenhum produto. As permissões que os perfis já têm continuam passando.

@@ -14,6 +14,55 @@ public class SeccoSqlServerInstanceTests
 		"Server=localhost,1433;User Id=sa;Password=irrelevante;TrustServerCertificate=true";
 
 	[Fact]
+	public async Task StartWithRetry_FalhaTransitoriaNaPrimeira_TentaDeNovoESobe()
+	{
+		var attempts = 0;
+
+		await SeccoSqlServerInstance.StartWithRetryAsync(
+			() => ++attempts == 1
+				? throw new InvalidOperationException("Could not find resource 'DockerContainer'.")
+				: Task.CompletedTask,
+			SeccoSqlServerInstance.MaxStartAttempts);
+
+		attempts.Should().Be(2);
+	}
+
+	[Fact]
+	public async Task StartWithRetry_FalhaEmTodas_LancaComTodasAsCausas()
+	{
+		var attempts = 0;
+
+		var act = () => SeccoSqlServerInstance.StartWithRetryAsync(
+			() => throw new InvalidOperationException($"falha {++attempts}"), 3);
+
+		var thrown = await act.Should().ThrowAsync<AggregateException>();
+		thrown.Which.InnerExceptions.Should().HaveCount(3);
+		attempts.Should().Be(3);
+	}
+
+	[Fact]
+	public async Task StartWithRetry_Cancelamento_NaoRepete()
+	{
+		var attempts = 0;
+
+		var act = () => SeccoSqlServerInstance.StartWithRetryAsync(
+			() => { attempts++; throw new OperationCanceledException(); }, 3);
+
+		await act.Should().ThrowAsync<OperationCanceledException>();
+		attempts.Should().Be(1);
+	}
+
+	[Fact]
+	public async Task StartWithRetry_SucessoNaPrimeira_NaoRepete()
+	{
+		var attempts = 0;
+
+		await SeccoSqlServerInstance.StartWithRetryAsync(() => { attempts++; return Task.CompletedTask; }, 3);
+
+		attempts.Should().Be(1);
+	}
+
+	[Fact]
 	public void Constructor_WithoutExternalConnectionString_UsesOwnContainer()
 	{
 		var instance = new SeccoSqlServerInstance(externalConnectionString: null);
