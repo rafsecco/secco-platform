@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-07-19 (ADR-0026 proposta)
+**Última atualização:** 2026-10-15 (ADR-0040 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1382,6 +1382,75 @@ Alternativas avaliadas:
 - **Quebra para o adotante:** permissão nova só é aceita depois que o produto dono publicar o catálogo. A Intranet publica o dela ao adotar o client novo; as permissões que os perfis dela já têm continuam passando.
 - Duas definições do mesmo nome em produtos diferentes coexistem no catálogo (uma por produto); a validação usa a união.
 - **Namespace de produto no nome da permissão fica para quando houver colisão real** — o catálogo a torna visível. Alternativa descartada junto: recusar colisão na publicação (`409`) impediria um adotante de publicar por causa de um nome escolhido antes por outro produto.
+
+---
+
+## ADR-0040: Pessoa membro de vários tenants — o tenant do login vem da aplicação
+
+**Status:** Aceita
+**Data:** 2026-10-15
+
+### Contexto
+
+A ADR-0022 decidiu que "o registro do usuário carrega o tenant", e a entrega 6.5 fez o login com e-mail único na instalação e tenant tirado do registro. Uma pessoa pertence a **um** tenant. A ADR-0030 deu o motivo de a instalação ter vários tenants: a empresa que adota roda vários sistemas seus sobre o mesmo SecureGate. Juntas, as duas decisões se contradizem assim que a empresa tem o segundo sistema: o funcionário que usa a Intranet (tenant A) e o Sistema de compras (tenant B) não consegue conta nos dois, porque o e-mail já está em uso, e o SSO entre os sistemas — um dos ganhos da tenancy — não existe (issue [#35](https://github.com/rafsecco/secco-platform/issues/35)).
+
+O dono do produto escolheu a direção na conversa de design da #32 e pediu uma prova antes da ADR. O spike (branch `spike/35-varios-tenants`, descartável) confirmou o comportamento, no teste de integração e no navegador: a mesma conta entrou na Intranet com senha e no Compras **sem tela**; cada aplicação recebeu o token com o próprio `tenant_id` e só os perfis daquele tenant; o RH, sem vínculo, recebeu `access_denied` sem derrubar a sessão nas outras; removido o vínculo do Compras, a renovação dele parou e a da Intranet continuou. A suíte do SecureGate passou inteira com a mudança (772 testes): clients sem vínculo seguem como hoje.
+
+O spike também achou o que muda de natureza com vários vínculos:
+
+1. **Perfis precisam ser filtrados pelo tenant do login.** Hoje o login lê todos os perfis da conta (`GetRolesAsync`); com dois vínculos, o token do Compras levaria os perfis da Intranet, e o resolvedor consultaria `(B, perfil-de-A)` — a colisão de nome que a ADR-0031 e a ADR-0037 já fecharam em outros caminhos.
+2. **"Ser operador" precisa olhar o tenant do login**, não só o de origem da conta: um operador membro do Compras, com um perfil homônimo de `installation-operator` lá, sairia com token sem `tenant_id` e com `securegate:admin`.
+3. **Operações sobre a credencial atingem todos os tenants da pessoa.** Quem reseta a senha ou o segundo fator de alguém, troca o e-mail ou desvincula o login do Entra assume a conta dela em todos os sistemas. Com um tenant por pessoa isso não tinha como vazar; com vários, passa a ter.
+4. O client interativo vinculado a tenant esbarra na restrição da ADR-0037 (só client de origem `Api` tem tenant), e a ADR-0037 só prevê client interativo pela configuração.
+
+Alternativas avaliadas:
+
+- **E-mail único por tenant** (uma conta por sistema). Senhas e segundos fatores separados, sem SSO, e desligar uma pessoa vira desligar N contas. Descartada na conversa de design.
+- **Manter como está.** A pessoa só existe num sistema da empresa. Descartada: anula o motivo da tenancy (ADR-0030).
+- **Seletor de tenant na tela de login.** A pessoa escolhe o tenant ao entrar. A aplicação já sabe para que tenant serve; perguntar à pessoa abre espaço para entrar num sistema com o tenant de outro, e exige tela nova. Descartada.
+
+### Decisão
+
+**Uma conta por pessoa, membro de vários tenants.** O e-mail continua único na instalação. O vínculo pessoa ↔ tenant passa a ser N:N, numa tabela própria (`tb_tenant_memberships`: pessoa, tenant, ativo, criação), com chave natural `(pessoa, tenant)`. Perfis continuam por tenant (ADR-0021) e só valem para quem tem vínculo ativo naquele tenant.
+
+**Tenant de origem.** A coluna de tenant do usuário continua e passa a significar **tenant dono da conta**: o tenant que a provisionou. Ele tem sempre um vínculo. É dele a federação Entra que autentica a pessoa (ADR-0026), é nele que a elevação se audita (ADR-0031), e é ele que governa a credencial (abaixo). Tenant dono desativado bloqueia a pessoa em todos os sistemas: a conta é dele, e na dúvida o lado seguro é não emitir.
+
+**O tenant do login vem da aplicação.** Client interativo **vinculado a tenant** emite sempre para o tenant do vínculo. Client interativo **sem vínculo** (de plataforma, pela configuração — o AdminPortal) emite para o tenant dono da conta, como hoje. A pessoa não escolhe tenant. Sem vínculo ativo no tenant da aplicação, o `/connect/authorize` responde `access_denied` ao `redirect_uri` daquela aplicação; a sessão da pessoa no SecureGate não é encerrada.
+
+**A sessão é da pessoa; o token é da aplicação.** O cookie do SecureGate, a senha e o segundo fator são um só — é isso que dá o SSO. Cada emissão (code, renovação) re-deriva do cadastro: vínculo ativo, tenant do login ativo, tenant dono ativo, conta não bloqueada, e **perfis só do tenant do login**. O tenant da renovação é o do token que o próprio SecureGate emitiu, nunca um parâmetro da requisição.
+
+**Operador de instalação é decidido pelo tenant do login.** O token sem `tenant_id` e o escopo `securegate:admin` (ADR-0023/0024) exigem que o tenant do login seja o de plataforma **e** que a conta seja dele. Um operador que entra no Compras recebe um token comum do Compras. A exigência de segundo fator do operador (entrega D) segue no login de operador; como o segundo fator é da pessoa, quem o tem cadastrado responde a ele em qualquer login.
+
+**Operações de pessoa × operações de vínculo.**
+- **Da pessoa**, só pelo tenant dono: convite e reset de senha, reset do segundo fator, login local liga/desliga, troca de e-mail pelo admin, desvínculo do login externo, nome de exibição pelo admin, desativar/ativar a conta, encerrar sessões. Chamadas por um tenant que não é o dono respondem `404`, como recurso de outro tenant responde hoje.
+- **Do vínculo**, por qualquer tenant de que a pessoa é membro: incluir, suspender, reativar e remover o vínculo, e atribuir ou remover perfis do próprio tenant.
+
+Hoje todas essas rotas exigem `securegate:admin`, que é de instalação; a separação vale desde já porque é o contrato que a área administrativa por tenant (ADR-0030, hierarquia admin de instalação × admin de tenant) vai herdar.
+
+**Fim de acesso por tenant é suspender o vínculo.** Suspender ou remover vínculo move o `SecurityStamp`, como a remoção de perfil já faz (ADR-0032): os tokens em uso da pessoa morrem em todas as aplicações e as que ela ainda pode usar renovam no próximo login silencioso (SSO). É mais amplo que o necessário, e é o mecanismo de revogação que já existe e já tem teste — revogar só os tokens de um tenant exigiria `sver` por vínculo, que fica para quando houver demanda.
+
+**Gestão por API**, sob `securegate:admin` (ADR-0034):
+- `PUT /api/v1/tenants/{tenantId}/members/{userId}` inclui ou reativa, idempotente; `POST .../members/{userId}/suspend` suspende; `DELETE .../members/{userId}` remove (vínculo do tenant dono não se remove: `409`).
+- A pessoa é localizada por e-mail na própria inclusão (`POST /api/v1/tenants/{tenantId}/members` com `email`: `404` se não existir, `409` se já for membro).
+- `GET /api/v1/tenants/{tenantId}/users` passa a listar dono e membros, com a indicação de qual é cada um.
+- Atribuir perfil a quem não é membro do tenant do perfil responde `409`.
+
+**Client interativo vinculado a tenant nasce pela API do tenant** (extensão da ADR-0037). `/api/v1/tenants/{tenantId}/clients` passa a aceitar o tipo `authorization_code`: client confidencial, PKCE obrigatório, redirect URIs HTTPS (fora de Development), escopos de produto mais os OIDC padrão (`openid`, `profile`, `email`, `roles`, `offline_access`). A restrição "só origem `Api` tem tenant" continua valendo. Client público segue fora (ADR-0037).
+
+**Migração:** cada usuário existente ganha o vínculo com o próprio tenant, na migration. Nada muda para quem tem um tenant só.
+
+### Consequências
+
+- **SSO entre os sistemas da empresa**, uma senha e um segundo fator por pessoa. Desligar a pessoa é uma operação, no tenant dono.
+- **Quem usa o SecureGate para um sistema só não muda nada.** O vínculo com o tenant dono nasce junto com a conta, e a aplicação — pela configuração, sem vínculo, ou pela API, vinculada ao único tenant — emite para o mesmo tenant de hoje, com o mesmo token. O custo é uma tabela e uma consulta a mais por emissão. Crescer para o segundo sistema é criar o tenant e incluir as pessoas, sem migração.
+- **A invariante mais fácil de quebrar é o filtro de perfis pelo tenant do login**: todo caminho que hoje lê os perfis da conta inteira passa a filtrar pelo tenant, e a bateria negativa é provada por mutação, como na ADR-0031 e na ADR-0037: perfil de outro tenant fora do token; homônimo do perfil de operador sem escalar; vínculo ausente, suspenso ou removido sem token; tenant do login desativado sem token; tenant dono desativado sem token em lugar nenhum; renovação mantém o tenant emitido; operação de pessoa por tenant não dono responde `404`.
+- **Suspender um vínculo derruba os tokens da pessoa em todos os sistemas** até o próximo login silencioso. Para a pessoa é uma renovação; para quem integra é igual à remoção de perfil hoje.
+- **A Intranet tem dois clients interativos**: o do tenant dela, que todo funcionário usa, e um de plataforma, sem vínculo, para a área administrativa on-behalf-of do operador. Isso coincide com a recomendação de segurança registrada na #35 — a área administrativa deixa de usar o client de máquina com `securegate:admin`.
+- **A federação Entra continua por tenant dono**: quem é dono no tenant A e membro no B entra pelo diretório de A em qualquer sistema. Um diretório por vínculo fica fora.
+- A **#32** (isolamento em três camadas) passa a isolar por vínculo, não pela coluna de tenant do usuário — por isso vem depois desta.
+- `Secco.SecureGate.Client` ganha os métodos de vínculo e o tipo de client interativo: versão minor, sem quebra. O token não muda de formato: produtos e SDK não mudam.
+- **Emenda à ADR-0022:** "o registro do usuário carrega o tenant" passa a "o registro carrega o tenant dono; o tenant do login vem da aplicação". **Emenda à ADR-0037:** client de produto pode ser interativo.
+- **Fora desta ADR:** tela de vínculos no AdminPortal; seletor de tenant para aplicação que sirva a vários tenants; `sver` por vínculo; diretório federado por vínculo; transferir a conta para outro tenant dono.
 
 ---
 

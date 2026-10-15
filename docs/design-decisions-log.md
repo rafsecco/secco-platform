@@ -1765,3 +1765,15 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 **Defeito do template achado pelo catálogo:** o `template.json` só renomeava `SampleService` na caixa exata. Audience, nomes de banco, serviço do compose e o identificador do catálogo nasciam como `sampleservice` em todo produto gerado. Um símbolo derivado em minúsculas resolveu tudo de uma vez.
 
 **Mutação: 9 invariantes.** Escapou a de `permissions:*` não ser concedível a client de produto: a regra existe por construção (o `IsProductScope` lista só escopos de API), mas nenhum teste a fixava para esse prefixo. Ganhou duas linhas de teste.
+
+## Pessoa membro de vários tenants (issue #35, ADR-0040, 2026-10-15)
+
+**Uma conta por pessoa ou uma por tenant?** Uma por pessoa, com vínculo N:N. E-mail único por tenant (contas separadas por sistema) foi descartado: sem SSO, e desligar alguém vira desligar N contas. Manter como estava foi descartado porque anula o motivo da tenancy da ADR-0030. O dono do produto escolheu o modelo pedindo para "verificar mais pra frente como isso vai se comportar" — daí o spike antes da ADR.
+
+**Spike (branch `spike/35-varios-tenants`, não mesclada).** Vínculo como claim de usuário, client interativo com tenant gravado direto no banco. Provado em teste de integração e no navegador, com três mini-aplicações locais: login com senha na Intranet, SSO sem tela no Compras, `access_denied` no RH sem derrubar a sessão, renovação parando só no Compras quando o vínculo saiu. A suíte do SecureGate passou inteira com a mudança (772), o que respondeu à pergunta do dono "quem usa o SecureGate para um projeto só continua funcionando?".
+
+**O que o spike achou e virou decisão:** (1) perfis filtrados pelo tenant do login — `GetRolesAsync` lê a conta inteira; (2) operador decidido pelo tenant do login — o homônimo de `installation-operator` num tenant de que o operador é membro escalaria; (3) operação de credencial atinge todos os tenants da pessoa — virou a regra "operação de pessoa só pelo tenant dono"; (4) a constraint da ADR-0037 (só origem `Api` tem tenant) — virou client interativo pela API do tenant.
+
+**Decisões aprovadas pelo dono (2026-10-15):** tenant dono desativado bloqueia a pessoa em todos os sistemas (lado seguro); operações de pessoa só pelo tenant dono; suspender vínculo move o `SecurityStamp` (derruba os tokens em todas as aplicações, que renovam por SSO — `sver` por vínculo fica para quando houver demanda); a Intranet passa a ter dois clients interativos (o do tenant dela e um de plataforma para a área administrativa on-behalf-of do operador).
+
+**Descartado:** seletor de tenant na tela de login — a aplicação já sabe o tenant, e perguntar à pessoa abre espaço para entrar num sistema com o tenant de outro.
