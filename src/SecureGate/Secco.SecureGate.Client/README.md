@@ -23,6 +23,26 @@ O token desse client sai com `tenant_id`, então ele só alcança o próprio ten
 aceitos: `logstream`, `notificationhub`. Clients sem tenant (de plataforma) não passam por esta
 API: são declarados em `SecureGate:PlatformClients` na configuração do SecureGate.
 
+### Client interativo (ADR-0040)
+
+O mesmo `CreateProductClientAsync` cria um client **interativo** (login de pessoa, authorization code + PKCE, confidencial) vinculado ao tenant: `new ProductClientRequest { Name, Scopes, Type = "authorization_code", RedirectUris, PostLogoutRedirectUris }`. `Type` nulo é `client_credentials` (o padrão).
+
+- `RedirectUris` é obrigatório (1 a 10); `PostLogoutRedirectUris` é opcional (até 10). Absolutas, `http(s)` sem credencial nem fragmento, até 2000 caracteres, sem repetição; `http` só em Development.
+- `Roles` não se aplica: a pessoa leva os próprios perfis (informar responde erro de validação). Em `client_credentials`, informar redirect URIs também é erro.
+- O tenant de plataforma não aceita client interativo por esta API (409): os clients interativos da plataforma vêm da configuração.
+- O token emitido leva o tenant em que a pessoa entrou (o da aplicação, ADR-0040) e só os perfis dela nesse tenant.
+
+## Vínculos de pessoa com tenant (ADR-0040)
+
+Uma pessoa tem a conta em um tenant (o dono) e pode ser **membro** de outros. Com escopo `securegate:admin`:
+
+- `AddTenantMemberAsync(tenantId, new AddTenantMemberRequest { Email })` — inclui no tenant uma pessoa que já tem conta, pelo e-mail; devolve `TenantMemberDto`.
+- `SetTenantMemberAsync(tenantId, userId)` — `PUT` idempotente: reativa o vínculo.
+- `SuspendTenantMemberAsync(tenantId, userId)` — suspende: a pessoa deixa de receber token do tenant; perfis e histórico ficam.
+- `RemoveTenantMemberAsync(tenantId, userId)` — remove o vínculo.
+
+`ListUsersAsync` e `GetUserAsync` passam a trazer `Membership` (`Owner`, `Member` ou `Suspended`) e `OwnerTenantId`; para quem não é dono, os campos de credencial (`HasPassword`, `LocalLoginEnabled`, `TwoFactorEnabled`, `ExternalLogins`) vêm vazios, porque pertencem à conta e ao tenant dono.
+
 ## Catálogo de permissões (ADR-0039)
 
 O produto declara suas permissões (`SeccoPermissionDefinition`) e as publica no SecureGate durante o `migrate`:

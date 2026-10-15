@@ -376,4 +376,88 @@ public class IdentityAdminServicesTests
 	public void ApiErrorFormatter_Conflito_MostraODetalheDoServidor() =>
 		ApiErrorFormatter.Describe(409, """{"title":"Conflict","detail":"A operação deixaria a instalação sem nenhum operador ativo."}""")
 			.Should().Be("A operação deixaria a instalação sem nenhum operador ativo.");
+
+	[Fact]
+	public async Task ListUsers_ProjetaVinculoEDono()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var ownerTenant = Guid.NewGuid();
+		client.ListUsersAsync(tenantId, Arg.Any<CancellationToken>()).Returns(new List<UserDto>
+		{
+			new() { Id = Guid.NewGuid(), Email = "dona@acme.test", TenantId = tenantId, Roles = [], Status = "Active", Membership = "Owner", OwnerTenantId = tenantId },
+			new() { Id = Guid.NewGuid(), Email = "visita@outra.test", TenantId = tenantId, Roles = [], Status = "Active", Membership = "Suspended", OwnerTenantId = ownerTenant },
+			new() { Id = Guid.NewGuid(), Email = "legado@acme.test", TenantId = tenantId, Roles = [], Status = "Active" },
+		});
+
+		var users = await new SecureGateUserAdminService(factory).ListUsersAsync(tenantId);
+
+		users[0].Membership.Should().Be("Owner");
+		users[1].Membership.Should().Be("Suspended");
+		users[1].OwnerTenantId.Should().Be(ownerTenant);
+		users[2].Membership.Should().Be("Owner", "resposta sem vínculo é de um SecureGate anterior: tudo é dono");
+	}
+
+	[Fact]
+	public async Task GetUser_ProjetaVinculoEDono()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		var ownerTenant = Guid.NewGuid();
+		client.GetUserAsync(tenantId, userId, Arg.Any<CancellationToken>()).Returns(new UserDetailDto
+		{
+			Id = userId,
+			Email = "visita@outra.test",
+			TenantId = tenantId,
+			Status = "Active",
+			Roles = ["comprador"],
+			EffectivePermissions = [],
+			ExternalLogins = [],
+			Membership = "Member",
+			OwnerTenantId = ownerTenant,
+		});
+
+		var user = await new SecureGateUserAdminService(factory).GetUserAsync(tenantId, userId);
+
+		user.Membership.Should().Be("Member");
+		user.OwnerTenantId.Should().Be(ownerTenant);
+	}
+
+	[Fact]
+	public async Task AddMember_EnviaOEmail()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+
+		await new SecureGateUserAdminService(factory).AddMemberAsync(tenantId, "visita@outra.test");
+
+		await client.Received(1).AddTenantMemberAsync(
+			tenantId, Arg.Is<AddTenantMemberRequest>(r => r.Email == "visita@outra.test"), Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task OperacoesDeVinculo_ChamamOMetodoCerto()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		var userId = Guid.NewGuid();
+		var service = new SecureGateUserAdminService(factory);
+
+		await service.ReactivateMemberAsync(tenantId, userId);
+		await service.SuspendMemberAsync(tenantId, userId);
+		await service.RemoveMemberAsync(tenantId, userId);
+
+		await client.Received(1).SetTenantMemberAsync(tenantId, userId, Arg.Any<CancellationToken>());
+		await client.Received(1).SuspendTenantMemberAsync(tenantId, userId, Arg.Any<CancellationToken>());
+		await client.Received(1).RemoveTenantMemberAsync(tenantId, userId, Arg.Any<CancellationToken>());
+	}
+
+	[Theory]
+	[InlineData("Owner", "Dono")]
+	[InlineData("Member", "Membro")]
+	[InlineData("Suspended", "Suspenso")]
+	[InlineData("Novo", "Novo")]
+	public void MembershipText_Traduz(string membership, string expected) =>
+		MembershipText.Describe(membership).Should().Be(expected);
 }

@@ -68,12 +68,13 @@ else
         else
         {
             <table class="grid">
-                <thead><tr><th>E-mail</th><th>Situação</th><th>Perfis</th></tr></thead>
+                <thead><tr><th>E-mail</th><th>Vínculo</th><th>Situação</th><th>Perfis</th></tr></thead>
                 <tbody>
                     @foreach (var user in _users)
                     {
                         <tr>
                             <td><a href="@($"tenants/{TenantId}/users/{user.Id}")">@user.Email</a></td>
+                            <td>@MembershipText.Describe(user.Membership)</td>
                             <td>@UserStatusText.Describe(user.Status)</td>
                             <td>@(user.Roles.Count == 0 ? "—" : string.Join(", ", user.Roles))</td>
                         </tr>
@@ -109,6 +110,63 @@ else
                 </fieldset>
             }
             <button @onclick="CreateUserAsync" disabled="@_busy">Criar usuário</button>
+        </div>
+    </section>
+
+    <section>
+        <h2>Membros</h2>
+        <p class="muted">
+            Pessoas cuja conta pertence a outro tenant e que também têm acesso a este (ADR-0040).
+            Perfis e histórico de acesso valem por tenant; a conta, a senha e o segundo fator seguem no tenant dono.
+        </p>
+        @if (_pendingMember is not null)
+        {
+            <div class="form-card" role="alertdialog">
+                <p>@_pendingMember.Message</p>
+                <button @onclick="ConfirmMemberAsync" disabled="@_busy">Confirmar</button>
+                <button @onclick="() => _pendingMember = null" disabled="@_busy">Cancelar</button>
+            </div>
+        }
+        @if (_users is null)
+        {
+            <p>Carregando…</p>
+        }
+        else if (Members.Count == 0)
+        {
+            <p>Nenhum membro de outro tenant.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>E-mail</th><th>Vínculo</th><th>Tenant dono</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var member in Members)
+                    {
+                        <tr>
+                            <td><a href="@($"tenants/{TenantId}/users/{member.Id}")">@member.Email</a></td>
+                            <td>@MembershipText.Describe(member.Membership)</td>
+                            <td class="muted">@(member.OwnerTenantId?.ToString() ?? "—")</td>
+                            <td>
+                                @if (member.Membership == MembershipText.Suspended)
+                                {
+                                    <button @onclick="() => ReactivateMemberAsync(member)" disabled="@_busy">Reativar</button>
+                                }
+                                else
+                                {
+                                    <button @onclick="() => AskSuspendMember(member)" disabled="@_busy">Suspender</button>
+                                }
+                                <button @onclick="() => AskRemoveMember(member)" disabled="@_busy">Remover</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="form-card">
+            <h3>Incluir membro</h3>
+            <label>E-mail de uma conta existente<input type="email" @bind="_newMemberEmail" autocomplete="off" /></label>
+            <button @onclick="AddMemberAsync" disabled="@_busy">Incluir membro</button>
         </div>
     </section>
 
@@ -195,12 +253,19 @@ else
     private bool _confirmCleanup;
     private RemovedUnknownPermissionsSummary? _cleanup;
 
+    private string _newMemberEmail = string.Empty;
+    private PendingMemberAction? _pendingMember;
     private string _newUserEmail = string.Empty;
     private bool _newUserLocalLogin = true;
     private readonly HashSet<string> _newUserRoles = new(StringComparer.Ordinal);
     private string _newRoleName = string.Empty;
     private string _newDbProduct = string.Empty;
     private string _newDbConnectionString = string.Empty;
+
+    private sealed record PendingMemberAction(string Message, Func<Task> Action);
+
+    private IReadOnlyList<UserSummary> Members =>
+        _users is null ? [] : [.. _users.Where(user => user.Membership != MembershipText.Owner)];
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,6 +319,62 @@ else
                 ? $"Usuário criado. Convite enviado para {email}."
                 : "Usuário criado. O acesso é pelo diretório corporativo.";
         });
+    }
+
+    private async Task AddMemberAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newMemberEmail))
+        {
+            SetError("Informe o e-mail.");
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            var email = _newMemberEmail.Trim();
+            await UserAdminService.AddMemberAsync(TenantId, email);
+            _newMemberEmail = string.Empty;
+            await ReloadUsersAsync();
+            _message = $"{email} incluído como membro. Atribua um perfil para liberar acesso.";
+        });
+    }
+
+    private Task ReactivateMemberAsync(UserSummary member) => RunAsync(async () =>
+    {
+        await UserAdminService.ReactivateMemberAsync(TenantId, member.Id);
+        await ReloadUsersAsync();
+        _message = $"Vínculo de {member.Email} reativado.";
+    });
+
+    private void AskSuspendMember(UserSummary member) =>
+        _pendingMember = new PendingMemberAction(
+            $"Suspender {member.Email} neste tenant? As sessões da pessoa em todos os sistemas são encerradas; perfis e histórico ficam preservados.",
+            async () =>
+            {
+                await UserAdminService.SuspendMemberAsync(TenantId, member.Id);
+                await ReloadUsersAsync();
+                _message = $"Vínculo de {member.Email} suspenso. As sessões da pessoa foram encerradas.";
+            });
+
+    private void AskRemoveMember(UserSummary member) =>
+        _pendingMember = new PendingMemberAction(
+            $"Remover {member.Email} deste tenant? Os perfis dela aqui são apagados e as sessões da pessoa em todos os sistemas são encerradas.",
+            async () =>
+            {
+                await UserAdminService.RemoveMemberAsync(TenantId, member.Id);
+                await ReloadUsersAsync();
+                _message = $"{member.Email} removido do tenant. As sessões da pessoa foram encerradas.";
+            });
+
+    private async Task ConfirmMemberAsync()
+    {
+        var pending = _pendingMember;
+        _pendingMember = null;
+
+        if (pending is not null)
+        {
+            await RunAsync(pending.Action);
+        }
     }
 
     private async Task CreateRoleAsync()

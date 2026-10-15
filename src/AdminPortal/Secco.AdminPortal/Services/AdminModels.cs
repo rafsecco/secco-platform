@@ -20,7 +20,15 @@ public sealed record TenantDetail(
 /// <param name="Email">E-mail.</param>
 /// <param name="Roles">Perfis.</param>
 /// <param name="Status">Situação (Active, Deactivated, LockedOut).</param>
-public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Roles, string Status);
+/// <param name="Membership">Vínculo com o tenant (<see cref="MembershipText"/>): Owner, Member ou Suspended (ADR-0040).</param>
+/// <param name="OwnerTenantId">Tenant dono da conta; só difere do tenant da tela para quem é membro.</param>
+public sealed record UserSummary(
+	Guid Id,
+	string Email,
+	IReadOnlyList<string> Roles,
+	string Status,
+	string Membership = MembershipText.Owner,
+	Guid? OwnerTenantId = null);
 
 /// <summary>Usuário detalhado.</summary>
 /// <param name="Id">Identificador.</param>
@@ -33,6 +41,8 @@ public sealed record UserSummary(Guid Id, string Email, IReadOnlyList<string> Ro
 /// <param name="HasPassword">Conta já tem senha definida (ADR-0033).</param>
 /// <param name="LocalLoginEnabled">Conta aceita login por senha local (ADR-0033).</param>
 /// <param name="TwoFactorEnabled">Segundo fator ativado (entrega D).</param>
+/// <param name="Membership">Vínculo com o tenant da tela: Owner, Member ou Suspended (ADR-0040).</param>
+/// <param name="OwnerTenantId">Tenant dono da conta.</param>
 public sealed record UserDetail(
 	Guid Id,
 	string Email,
@@ -43,7 +53,32 @@ public sealed record UserDetail(
 	IReadOnlyList<string> ExternalLogins,
 	bool HasPassword,
 	bool LocalLoginEnabled,
-	bool TwoFactorEnabled);
+	bool TwoFactorEnabled,
+	string Membership = MembershipText.Owner,
+	Guid? OwnerTenantId = null);
+
+/// <summary>Vínculo da pessoa com o tenant (ADR-0040): valores do contrato e texto para a tela.</summary>
+public static class MembershipText
+{
+	/// <summary>O tenant é o dono da conta.</summary>
+	public const string Owner = "Owner";
+
+	/// <summary>Membro com vínculo ativo.</summary>
+	public const string Member = "Member";
+
+	/// <summary>Membro com vínculo suspenso.</summary>
+	public const string Suspended = "Suspended";
+
+	/// <summary>Traduz o vínculo; valor desconhecido aparece como veio.</summary>
+	/// <param name="membership">Vínculo vindo do SecureGate.</param>
+	public static string Describe(string membership) => membership switch
+	{
+		Owner => "Dono",
+		Member => "Membro",
+		Suspended => "Suspenso",
+		_ => membership,
+	};
+}
 
 /// <summary>Perfil na listagem do tenant.</summary>
 /// <param name="Name">Nome.</param>

@@ -2,6 +2,7 @@
 @attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
 @inject IUserAdminService UserAdminService
 @inject IRoleAdminService RoleAdminService
+@inject ITenantAdminService TenantAdminService
 @inject ILogger<UserManagement> Logger
 @using Secco.SecureGate.Client
 
@@ -100,6 +101,21 @@ else
         }
     </section>
 
+    @if (!IsOwner)
+    {
+        @* ADR-0040: credencial, 2FA, login corporativo e ativação são da pessoa e do tenant dono —
+           quem administra só o vínculo aqui atribui perfis. *@
+        <section>
+            <h2>Conta</h2>
+            <p class="muted">
+                Membro deste tenant (@MembershipText.Describe(_user.Membership)); a conta pertence ao tenant
+                <a href="@($"tenants/{_user.OwnerTenantId}")">@(_ownerName ?? _user.OwnerTenantId?.ToString() ?? "desconhecido")</a>.
+                Senha, segundo fator, login corporativo e ativação são geridos lá.
+            </p>
+        </section>
+    }
+    else
+    {
     <section>
         <h2>Credencial</h2>
         <p class="muted">@CredentialStatusText</p>
@@ -179,6 +195,7 @@ else
             <button @onclick="ActivateAsync" disabled="@_busy">Ativar</button>
         }
     </section>
+    }
 }
 
 @code {
@@ -191,6 +208,7 @@ else
     private UserDetail? _user;
     private IReadOnlyList<RoleSummary> _roles = [];
     private string? _roleToAdd;
+    private string? _ownerName;
 
     private string? _loadError;
     private string? _actionError;
@@ -199,6 +217,8 @@ else
     private PendingAction? _pending;
 
     private sealed record PendingAction(string Message, Func<Task> Action);
+
+    private bool IsOwner => _user is null || _user.Membership == MembershipText.Owner;
 
     private IReadOnlyList<string> AvailableRoles =>
         _user is null
@@ -226,6 +246,26 @@ else
     {
         _user = await UserAdminService.GetUserAsync(TenantId, UserId);
         _roles = await RoleAdminService.ListRolesAsync(TenantId);
+        _ownerName = await ResolveOwnerNameAsync();
+    }
+
+    /// <summary>Nome do tenant dono, só para quem é membro; falha aqui nunca derruba a página (cai no id).</summary>
+    private async Task<string?> ResolveOwnerNameAsync()
+    {
+        if (IsOwner || _user?.OwnerTenantId is not { } ownerId)
+        {
+            return null;
+        }
+
+        try
+        {
+            return (await TenantAdminService.GetTenantAsync(ownerId)).Name;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogWarning(exception, "Não foi possível obter o nome do tenant dono {OwnerTenantId}.", ownerId);
+            return null;
+        }
     }
 
     private async Task AddRoleAsync()

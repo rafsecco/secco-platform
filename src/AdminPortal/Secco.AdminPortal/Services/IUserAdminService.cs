@@ -100,6 +100,33 @@ public interface IUserAdminService
 	/// <param name="userId">Identificador do usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task ResetTwoFactorAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Inclui no tenant uma pessoa que já tem conta em outro (ADR-0040), pelo e-mail. A pessoa não é
+	/// criada aqui: sem conta, o SecureGate responde que não a encontra.
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant que recebe o membro.</param>
+	/// <param name="email">E-mail da conta existente.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task AddMemberAsync(Guid tenantId, string email, CancellationToken cancellationToken = default);
+
+	/// <summary>Reativa o vínculo suspenso de um membro (PUT idempotente).</summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do membro.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task ReactivateMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Suspende o vínculo: a pessoa deixa de receber token deste tenant e as sessões dela são encerradas.</summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do membro.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SuspendMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Remove o vínculo (e os perfis da pessoa neste tenant); as sessões dela são encerradas.</summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="userId">Identificador do membro.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task RemoveMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 }
 
 /// <inheritdoc />
@@ -110,7 +137,8 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 		var users = await client.ListUsersAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
-		return [.. users.Select(user => new UserSummary(user.Id, user.Email, [.. user.Roles], user.Status))];
+		return [.. users.Select(user => new UserSummary(
+			user.Id, user.Email, [.. user.Roles], user.Status, user.Membership ?? MembershipText.Owner, user.OwnerTenantId))];
 	}
 
 	public async Task CreateUserAsync(
@@ -142,7 +170,9 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 			[.. user.ExternalLogins],
 			user.HasPassword,
 			user.LocalLoginEnabled,
-			user.TwoFactorEnabled);
+			user.TwoFactorEnabled,
+			user.Membership ?? MembershipText.Owner,
+			user.OwnerTenantId);
 	}
 
 	public async Task AddRoleAsync(Guid tenantId, Guid userId, string role, CancellationToken cancellationToken = default)
@@ -209,5 +239,34 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 
 		await client.ResetUserTwoFactorAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task AddMemberAsync(Guid tenantId, string email, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.AddTenantMemberAsync(tenantId, new AddTenantMemberRequest { Email = email }, cancellationToken)
+			.ConfigureAwait(false);
+	}
+
+	public async Task ReactivateMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.SetTenantMemberAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task SuspendMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.SuspendTenantMemberAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task RemoveMemberAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.RemoveTenantMemberAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
 	}
 }
