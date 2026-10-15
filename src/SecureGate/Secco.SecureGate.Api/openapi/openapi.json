@@ -4119,6 +4119,13 @@
               "null",
               "string"
             ]
+          },
+          "ownerTenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

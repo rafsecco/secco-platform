@@ -172,6 +172,8 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 		var asOwner = await Admin().GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{_home}/users/{userId}", Json);
 
 		asMember.GetProperty("membership").GetString().Should().Be("Member");
+		asMember.GetProperty("ownerTenantId").GetGuid().Should().Be(_home, "o membro mostra de onde vem a conta");
+		asMember.GetProperty("tenantId").GetGuid().Should().Be(_guest);
 		Strings(asMember, "roles").Should().Equal("comprador");
 		asMember.GetProperty("hasPassword").GetBoolean().Should().BeFalse("credencial é da pessoa");
 		asMember.GetProperty("localLoginEnabled").GetBoolean().Should().BeFalse();
@@ -179,6 +181,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 		Strings(asMember, "externalLogins").Should().BeEmpty();
 
 		asOwner.GetProperty("membership").GetString().Should().Be("Owner");
+		asOwner.GetProperty("ownerTenantId").GetGuid().Should().Be(_home);
 		Strings(asOwner, "roles").Should().Equal("colaborador");
 		asOwner.GetProperty("hasPassword").GetBoolean().Should().BeTrue("o dono continua vendo a credencial");
 		Strings(asOwner, "externalLogins").Should().Equal("EntraId");

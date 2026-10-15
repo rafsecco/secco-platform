@@ -22,6 +22,10 @@ namespace Secco.SecureGate.Application.Users;
 /// Relação com o tenant da rota (<see cref="MembershipStates"/>, ADR-0040). Para quem não é dono, os
 /// campos de credencial saem vazios: são da pessoa, não do vínculo.
 /// </param>
+/// <param name="OwnerTenantId">
+/// Tenant dono da conta (<c>User.TenantId</c>); <paramref name="TenantId"/> é o da rota. Entra NO FIM,
+/// como o vínculo — a tela mostra de onde vem quem é membro.
+/// </param>
 /// <remarks>
 /// <paramref name="HasPassword"/>, <paramref name="LocalLoginEnabled"/>, <paramref name="DisplayName"/>
 /// e <paramref name="RoleAssignments"/> entram NO FIM: o record é posicional e consumido pelo
@@ -41,7 +45,8 @@ public sealed record UserDetailDto(
 	bool TwoFactorEnabled,
 	string? DisplayName = null,
 	IReadOnlyList<RoleAssignmentDto>? RoleAssignments = null,
-	string? Membership = null);
+	string? Membership = null,
+	Guid? OwnerTenantId = null);
 
 /// <summary>Um perfil do usuário com a origem da atribuição, para exibição (issue #28, ADR-0036).</summary>
 /// <param name="Name">Nome do perfil.</param>

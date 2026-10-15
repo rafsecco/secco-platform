@@ -32,6 +32,7 @@ public sealed record CreateUserData(
 /// Relação da pessoa com o tenant consultado (<see cref="MembershipStates"/>, ADR-0040). <c>TenantId</c>
 /// é o tenant consultado, não o dono da conta; para quem não é dono, os campos de credencial vêm vazios.
 /// </param>
+/// <param name="OwnerTenantId">Tenant dono da conta (<c>User.TenantId</c>).</param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -45,7 +46,8 @@ public sealed record UserAccountData(
 	bool TwoFactorEnabled,
 	string? DisplayName = null,
 	IReadOnlyList<RoleAssignmentData>? RoleAssignments = null,
-	string? Membership = null);
+	string? Membership = null,
+	Guid? OwnerTenantId = null);
 
 /// <summary>Um perfil do usuário com a origem da atribuição (issue #28, ADR-0036).</summary>
 /// <param name="Name">Nome do perfil.</param>

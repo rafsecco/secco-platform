@@ -399,7 +399,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			return new UserAccountData(
 				user.Id, user.Email!, tenantId, user.LockoutEnabled, user.LockoutEnd, roles, [],
 				HasPassword: false, LocalLoginEnabled: false, TwoFactorEnabled: false, user.DisplayName,
-				roleAssignments, membership);
+				roleAssignments, membership, user.TenantId);
 		}
 
 		// Só o provedor: a chave (tid:oid do Entra) identifica a pessoa no diretório do cliente
@@ -414,7 +414,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
 			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName,
-			roleAssignments, membership);
+			roleAssignments, membership, user.TenantId);
 	}
 
 	public async Task<PersonData?> FindPersonByEmailAsync(string email, CancellationToken cancellationToken = default)
