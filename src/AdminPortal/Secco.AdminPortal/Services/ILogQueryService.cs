@@ -41,7 +41,8 @@ internal sealed class LogStreamQueryService(
 		// ADR-0024: o operador escolhe o tenant alvo por requisição (caminho "sem claim → header")
 		http.DefaultRequestHeaders.Add(SeccoHeaders.TenantId, tenantId.ToString());
 
-		var client = new LogStreamClient(http);
+		// Response preenchido nas falhas: sem isto o ProblemDetails some e a tela só mostra o status (ver SecureGateClientFactory)
+		var client = new LogStreamClient(http) { ReadResponseAsString = true };
 
 		var result = await client.SearchLogEntriesAsync(
 			filter.From, filter.To, ParseLevel(filter.Level), filter.Message,

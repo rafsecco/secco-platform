@@ -30,6 +30,8 @@ internal sealed class SecureGateClientFactory(
 			http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 		}
 
-		return new SecureGateClient(http);
+		// Sem isto o NSwag desserializa o ProblemDetails direto do stream e deixa ApiException.Response
+		// nulo: toda recusa documentada (400/404/409) chegava à tela como "HTTP 409", sem o motivo.
+		return new SecureGateClient(http) { ReadResponseAsString = true };
 	}
 }
