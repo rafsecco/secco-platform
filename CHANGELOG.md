@@ -12,7 +12,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-10-11. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SecureGate.Client — 0.17.0 (pessoa membro de vários tenants, issue #35, ADR-0040)
+
+- **Adicionado** `AddTenantMemberAsync` (por e-mail), `SetTenantMemberAsync` (inclui ou reativa), `SuspendTenantMemberAsync` e `RemoveTenantMemberAsync`, sob `/api/v1/tenants/{tenantId}/members`, escopo `securegate:admin`, e o `TenantMemberDto`.
+- **Adicionado (aditivo)** `UserDto.Membership` (`Owner` | `Member` | `Suspended`) e `UserDto.OwnerTenantId`; `UserDetailDto.Membership` e `UserDetailDto.OwnerTenantId`.
+- **Adicionado (aditivo)** client interativo pela API do tenant: `Type` (`client_credentials`, padrão, | `authorization_code`), `RedirectUris` e `PostLogoutRedirectUris` em `ProductClientRequest`, `ProductClientDto` e `CreatedProductClientDto`.
+
+**SecureGate (serviço) — ação necessária:**
+
+- **Migration nova** (`AddTenantMemberships`): rodar o `migrate` do SecureGate (ADR-0038). Ela cria o vínculo do tenant dono para cada usuário existente; quem usa um tenant só não percebe diferença.
+- **O tenant do login passa a vir da aplicação.** Client interativo vinculado a tenant emite sempre para aquele tenant, e só com os perfis da pessoa nele. Client sem vínculo (os de `SecureGate:PlatformClients`, como o AdminPortal) emite para o tenant dono da conta, como antes. O formato do token não muda.
+- **Quebra:** `POST`/`DELETE .../users/{userId}/roles/{role}` para pessoa sem vínculo com o tenant responde `409 Members.NotMember` (antes, `404`).
+- **Mudança de significado:** em `UserDto` e `UserDetailDto`, `TenantId` é o tenant da rota; o tenant dono está em `OwnerTenantId`. Para o dono os dois coincidem.
+- **Corrigido:** `ListUsers` juntava os perfis da pessoa sem filtrar pelo tenant da rota.
+- **Mais estrita:** a validação das redirect URIs de `SecureGate:PlatformClients` passou a ser a mesma do client interativo da API — além de absoluta e HTTPS fora de Development, recusa fragmento, credencial embutida, esquema que não seja http(s) e URI acima de 2000 caracteres.
+- As operações sobre a credencial da pessoa (convite, senha, segundo fator, login externo, nome de exibição pelo admin, ativar/desativar, encerrar sessões, elevação) continuam **só pelo tenant dono**; pelos outros tenants respondem `404`.
+- Suspender ou remover um vínculo encerra as sessões da pessoa em todos os sistemas (`SecurityStamp`, ADR-0032); as aplicações em que ela continua membro renovam pelo SSO. Remover apaga os perfis dela naquele tenant.
+- Client interativo no tenant de plataforma responde `409`: o token de operador só nasce de client da configuração.
 
 ---
 

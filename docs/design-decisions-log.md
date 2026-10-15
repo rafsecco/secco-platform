@@ -1777,3 +1777,13 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 **Decisões aprovadas pelo dono (2026-10-15):** tenant dono desativado bloqueia a pessoa em todos os sistemas (lado seguro); operações de pessoa só pelo tenant dono; suspender vínculo move o `SecurityStamp` (derruba os tokens em todas as aplicações, que renovam por SSO — `sver` por vínculo fica para quando houver demanda); a Intranet passa a ter dois clients interativos (o do tenant dela e um de plataforma para a área administrativa on-behalf-of do operador).
 
 **Descartado:** seletor de tenant na tela de login — a aplicação já sabe o tenant, e perguntar à pessoa abre espaço para entrar num sistema com o tenant de outro.
+
+**Entrega (2026-10-15).** Implementada por subagentes (Sonnet) em cinco tasks, revisada. Decisões e achados da implementação:
+
+- **Dono pela coluna, não pela linha** (revisão da Task 1): o `UserManager.CreateAsync` grava o usuário num `SaveChanges` próprio; se o seguinte falhasse, a pessoa ficaria sem a linha do vínculo do dono e sem acesso ao próprio tenant. Como o vínculo do dono nunca se suspende nem se remove, a emissão o aceita pela coluna `user.TenantId`, e a linha fica para listagem e uniformidade. De quebra, os testes de login existentes, que criam usuário sem vínculo, continuaram valendo sem ajuste — a prova de que "um sistema só" não muda.
+- **`TenantId` dos DTOs de usuário passou a ser o tenant da rota**, com o dono em `OwnerTenantId`. Para o dono os dois coincidem, então nada muda para quem já consumia.
+- **`409 NotMember` em vez de `404`** para atribuir perfil a quem existe mas não é membro: o `404` sugeriria que a pessoa não existe, e a distinção ajuda o admin a incluir o vínculo antes. Dois testes existentes trocaram de expectativa.
+- **Client interativo no tenant de plataforma recusado** (achado da revisão, antes da Task 4): sem a regra, quem tem `securegate:admin` criaria pela API um client que emite token de operador. O efeito prático era o mesmo do AdminPortal (2FA exigido, sem `securegate:admin`), mas contradizia a ADR-0037: o que é de plataforma vem da configuração.
+- **Regra de redirect URI extraída e compartilhada** com `SecureGate:PlatformClients`, que ficou um pouco mais estrita (fragmento, credencial embutida, esquema, tamanho).
+- **Mutação:** 10 invariantes, todas detectadas. Uma das minhas mutações não compilou na primeira tentativa (o analisador recusa parâmetro sem uso) e foi refeita de forma que compila.
+- **Pin de segurança fora do escopo:** advisories de 2026-10-13 em `System.Security.Cryptography.Pkcs`/`.Xml` derrubavam o restore; fixados na 10.0.13 em commit próprio.
