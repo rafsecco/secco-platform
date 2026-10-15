@@ -201,6 +201,17 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return RoleAssignmentOutcome.Done;
 	}
 
+	public async Task<IReadOnlyList<string>> GetRolesInTenantAsync(
+		Guid userId, Guid tenantId, CancellationToken cancellationToken = default) =>
+		await (
+			from userRole in context.UserRoles.AsNoTracking()
+			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
+			where userRole.UserId == userId && role.TenantId == tenantId
+			orderby role.Name
+			select role.Name!)
+			.ToListAsync(cancellationToken)
+			.ConfigureAwait(false);
+
 	public Task<bool> HasRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
 	{
 		var normalized = roleName.ToUpperInvariant();

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Application.Credentials;
+using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Infrastructure.Identity;
 
 namespace Secco.SecureGate.Api.Pages.Account;
@@ -29,6 +30,7 @@ namespace Secco.SecureGate.Api.Pages.Account;
 /// <param name="disableHandler">Caso de uso de desligar.</param>
 /// <param name="tokens">Porta de credencial, para saber se a conta usa senha local.</param>
 /// <param name="userManager">Gerenciador de usuários do Identity.</param>
+/// <param name="users">Diretório de usuários, para os perfis do tenant dono (ADR-0040).</param>
 /// <param name="signInManager">Gerenciador de login, para renovar o cookie após a mudança.</param>
 // O esquema é o cookie do login interativo, não o JwtBearer padrão da API (ADR-0007).
 [Authorize(AuthenticationSchemes = "Identity.Application")]
@@ -38,6 +40,7 @@ public sealed class TwoFactorModel(
 	DisableTwoFactorHandler disableHandler,
 	ICredentialTokens tokens,
 	UserManager<User> userManager,
+	IUserDirectory users,
 	SignInManager<User> signInManager) : PageModel
 {
 	/// <summary>Campos do formulário de confirmação.</summary>
@@ -143,7 +146,11 @@ public sealed class TwoFactorModel(
 		}
 
 		var owner = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
-		var roles = owner is null ? [] : await userManager.GetRolesAsync(owner).ConfigureAwait(false);
+		// ADR-0040: a página é a pessoa decidindo sobre o próprio segundo fator; o que importa é ser operador, e
+		// operador é do tenant DONO. GetRolesAsync devolveria perfis de todos os tenants, então a consulta é por tenant.
+		var roles = owner is null
+			? []
+			: await users.GetRolesInTenantAsync(owner.Id, owner.TenantId, cancellationToken).ConfigureAwait(false);
 
 		// O botão some para operador, mas a guarda é esta: esconder controle não é proteger.
 		if (owner is not null && !OperatorTwoFactorPolicy.CanDisable(owner, roles))
@@ -183,7 +190,9 @@ public sealed class TwoFactorModel(
 
 		if (await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false) is { } owner)
 		{
-			CanDisable = OperatorTwoFactorPolicy.CanDisable(owner, await userManager.GetRolesAsync(owner).ConfigureAwait(false));
+			CanDisable = OperatorTwoFactorPolicy.CanDisable(
+				owner,
+				await users.GetRolesInTenantAsync(owner.Id, owner.TenantId, cancellationToken).ConfigureAwait(false));
 		}
 
 		return userId;

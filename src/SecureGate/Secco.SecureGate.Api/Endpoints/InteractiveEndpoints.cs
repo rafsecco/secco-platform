@@ -85,12 +85,30 @@ public static class InteractiveEndpoints
 				[IdentityConstants.ApplicationScheme]);
 		}
 
-		var roles = await userManager.GetRolesAsync(user);
+		// ADR-0040: o tenant do login vem do registro do client, nunca de parâmetro. Sem vínculo ativo
+		// (ou com o tenant do login inativo) a pessoa não entra NESTA aplicação, mas a sessão dela segue
+		// valendo nas outras — por isso access_denied ao redirect_uri e nada de SignOut.
+		var loginTenants = context.RequestServices.GetRequiredService<LoginTenantResolver>();
+		var loginTenantId = await loginTenants.ForAuthorizeAsync(request.ClientId, user, context.RequestAborted);
+
+		if (!await loginTenants.CanIssueAsync(user, loginTenantId, context.RequestAborted))
+		{
+			return Results.Forbid(
+				authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme],
+				properties: new AuthenticationProperties(new Dictionary<string, string?>
+				{
+					[OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.AccessDenied,
+					[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] =
+						"A conta não tem acesso a esta aplicação.",
+				}));
+		}
+
+		var roles = await loginTenants.GetRolesAsync(user.Id, loginTenantId, context.RequestAborted);
 
 		// Operador de instalação sem segundo fator não recebe código de autorização (entrega D):
 		// é a conta que lê log de todos os tenants por elevação (ADR-0031). O desvio leva ao
 		// cadastro e volta a esta mesma requisição depois — nenhum relying party precisa saber.
-		if (OperatorTwoFactorPolicy.RequiresEnrollment(user, roles, user.TwoFactorEnabled))
+		if (OperatorTwoFactorPolicy.RequiresEnrollment(user, roles, user.TwoFactorEnabled, loginTenantId))
 		{
 			var destino = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
 
@@ -103,11 +121,11 @@ public static class InteractiveEndpoints
 		// O nome do role é único só por tenant: exigir também o tenant de plataforma impede
 		// que um operador forjado (role com o mesmo nome) num tenant de cliente ganhe o scope
 		// admin (defesa contra colisão de nome, ADR-0020/0023/0024).
-		var granted = InstallationOperatorPolicy.FilterScopes(user, roles, request.GetScopes());
+		var granted = InstallationOperatorPolicy.FilterScopes(user, roles, request.GetScopes(), loginTenantId);
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, granted, context.RequestAborted);
 
 		// Client first-party confiável (ConsentType Implicit no registro) → sem tela de consent (Fase 6.5)
-		var principal = OidcPrincipalBuilder.ForUser(user, roles, granted, resources);
+		var principal = OidcPrincipalBuilder.ForUser(user, roles, granted, resources, loginTenantId);
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}

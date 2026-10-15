@@ -35,7 +35,7 @@ public class OidcPrincipalBuilderTests
 		var user = UserIn(SecureGatePlatform.TenantId);
 
 		var principal = OidcPrincipalBuilder.ForUser(
-			user, [SecureGatePlatform.OperatorRole], scopes: [], resources: []);
+			user, [SecureGatePlatform.OperatorRole], scopes: [], resources: [], loginTenantId: user.TenantId);
 
 		TenantClaim(principal).Should().BeNull(
 			"o operador de instalação é tenant-less — escolhe o tenant por requisição (ADR-0024)");
@@ -48,7 +48,7 @@ public class OidcPrincipalBuilderTests
 		var user = UserIn(CustomerTenant);
 
 		var principal = OidcPrincipalBuilder.ForUser(
-			user, [SecureGatePlatform.OperatorRole], scopes: [], resources: []);
+			user, [SecureGatePlatform.OperatorRole], scopes: [], resources: [], loginTenantId: user.TenantId);
 
 		TenantClaim(principal).Should().Be(CustomerTenant.ToString(),
 			"colisão de nome fora do tenant de plataforma não concede o token tenant-less (ADR-0020)");
@@ -59,7 +59,7 @@ public class OidcPrincipalBuilderTests
 	{
 		var user = UserIn(CustomerTenant);
 
-		var principal = OidcPrincipalBuilder.ForUser(user, ["auditor"], scopes: [], resources: []);
+		var principal = OidcPrincipalBuilder.ForUser(user, ["auditor"], scopes: [], resources: [], loginTenantId: user.TenantId);
 
 		TenantClaim(principal).Should().Be(CustomerTenant.ToString(),
 			"usuário comum segue com tenant_id (isolamento da ADR-0005 intacto)");

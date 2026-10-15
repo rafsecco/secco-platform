@@ -22,22 +22,22 @@ public class OperatorTwoFactorPolicyTests
 
 	[Fact]
 	public void Operador_Sem2Fa_PrecisaCadastrar() =>
-		OperatorTwoFactorPolicy.RequiresEnrollment(Operador(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: false)
+		OperatorTwoFactorPolicy.RequiresEnrollment(Operador(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: false, loginTenantId: SecureGatePlatform.TenantId)
 			.Should().BeTrue();
 
 	[Fact]
 	public void Operador_Com2Fa_NaoPrecisa() =>
-		OperatorTwoFactorPolicy.RequiresEnrollment(Operador(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: true)
+		OperatorTwoFactorPolicy.RequiresEnrollment(Operador(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: true, loginTenantId: SecureGatePlatform.TenantId)
 			.Should().BeFalse();
 
 	[Fact]
 	public void UsuarioComum_Sem2Fa_NaoPrecisa() =>
-		OperatorTwoFactorPolicy.RequiresEnrollment(Comum(), ["leitor"], twoFactorEnabled: false)
+		OperatorTwoFactorPolicy.RequiresEnrollment(Comum(), ["leitor"], twoFactorEnabled: false, loginTenantId: SecureGatePlatform.TenantId)
 			.Should().BeFalse();
 
 	[Fact]
 	public void PapelHomonimoEmOutroTenant_NaoExige() =>
-		OperatorTwoFactorPolicy.RequiresEnrollment(Comum(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: false)
+		OperatorTwoFactorPolicy.RequiresEnrollment(Comum(), [SecureGatePlatform.OperatorRole], twoFactorEnabled: false, loginTenantId: SecureGatePlatform.TenantId)
 			.Should().BeFalse();
 
 	[Fact]

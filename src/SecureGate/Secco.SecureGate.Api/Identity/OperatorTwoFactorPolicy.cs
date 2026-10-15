@@ -20,17 +20,18 @@ public static class OperatorTwoFactorPolicy
 
 	/// <summary>Indica se a conta precisa cadastrar o segundo fator antes de receber token.</summary>
 	/// <param name="user">Conta autenticada pelo cookie.</param>
-	/// <param name="roles">Papéis da conta no tenant dela.</param>
+	/// <param name="roles">Papéis da conta no tenant do login.</param>
 	/// <param name="twoFactorEnabled">Estado atual do segundo fator.</param>
-	public static bool RequiresEnrollment(User user, IEnumerable<string> roles, bool twoFactorEnabled) =>
-		InstallationOperatorPolicy.IsInstallationOperator(user, roles) && !twoFactorEnabled;
+	/// <param name="loginTenantId">Tenant do login.</param>
+	public static bool RequiresEnrollment(User user, IEnumerable<string> roles, bool twoFactorEnabled, Guid loginTenantId) =>
+		InstallationOperatorPolicy.IsInstallationOperator(user, roles, loginTenantId) && !twoFactorEnabled;
 
 	/// <summary>
 	/// Operador não desliga o próprio segundo fator. Mesma lógica de ninguém desativar a própria
 	/// conta nem se remover do papel de operador (issue #26): senão a exigência vira decoração.
 	/// </summary>
 	/// <param name="user">Conta autenticada pelo cookie.</param>
-	/// <param name="roles">Papéis da conta no tenant dela.</param>
+	/// <param name="roles">Papéis da conta no tenant dono (a página da conta é a pessoa decidindo sobre si).</param>
 	public static bool CanDisable(User user, IEnumerable<string> roles) =>
-		!InstallationOperatorPolicy.IsInstallationOperator(user, roles);
+		!InstallationOperatorPolicy.IsInstallationOperator(user, roles, user.TenantId);
 }

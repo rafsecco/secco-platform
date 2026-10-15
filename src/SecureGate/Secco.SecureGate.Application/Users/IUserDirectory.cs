@@ -151,6 +151,16 @@ public interface IUserDirectory
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<RoleAssignmentOutcome> RemoveRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Perfis da pessoa NO tenant informado e só nele (<c>role.TenantId == tenantId</c>) — o que vai no
+	/// token (ADR-0040). Não passa pelo <c>UserManager.GetRolesAsync</c>, que devolve os perfis de todos os
+	/// tenants da conta.
+	/// </summary>
+	/// <param name="userId">Pessoa.</param>
+	/// <param name="tenantId">Tenant do login.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<IReadOnlyList<string>> GetRolesInTenantAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken = default);
+
 	/// <summary>Indica se o usuário do tenant é membro do perfil do MESMO tenant.</summary>
 	/// <param name="tenantId">Tenant.</param>
 	/// <param name="userId">Usuário.</param>

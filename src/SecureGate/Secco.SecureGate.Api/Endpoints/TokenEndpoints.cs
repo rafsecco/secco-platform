@@ -148,10 +148,20 @@ public static class TokenEndpoints
 
 		// Os scopes também são re-derivados, e não copiados do token anterior: sem o filtro aqui, um
 		// operador retirado do perfil seguiria renovando securegate:admin indefinidamente.
-		var roles = await userManager.GetRolesAsync(user);
-		var scopes = InstallationOperatorPolicy.FilterScopes(user, roles, stored!.GetScopes());
+		// ADR-0040: o tenant é o do token emitido (nunca de parâmetro) e o vínculo é re-checado a cada
+		// emissão: vínculo suspenso/removido encerra a sessão NAQUELE tenant, mesmo com vínculo ativo em outro.
+		var loginTenants = context.RequestServices.GetRequiredService<LoginTenantResolver>();
+		var loginTenantId = LoginTenantResolver.ForRenewal(stored!, user);
+
+		if (!await loginTenants.CanIssueAsync(user, loginTenantId, context.RequestAborted))
+		{
+			return Forbid(Errors.InvalidGrant, "A conta não pode mais ser autenticada.");
+		}
+
+		var roles = await loginTenants.GetRolesAsync(user.Id, loginTenantId, context.RequestAborted);
+		var scopes = InstallationOperatorPolicy.FilterScopes(user, roles, stored!.GetScopes(), loginTenantId);
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
-		var principal = OidcPrincipalBuilder.ForUser(user, roles, scopes, resources);
+		var principal = OidcPrincipalBuilder.ForUser(user, roles, scopes, resources, loginTenantId);
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}

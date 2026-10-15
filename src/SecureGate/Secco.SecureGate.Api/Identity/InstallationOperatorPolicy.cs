@@ -11,26 +11,31 @@ namespace Secco.SecureGate.Api.Identity;
 internal static class InstallationOperatorPolicy
 {
 	/// <summary>
-	/// Operador é quem tem o perfil de operador E está no tenant de plataforma. O nome do perfil é único
-	/// só por tenant: exigir o tenant impede que um homônimo num tenant de cliente escale.
+	/// Operador é quem tem o perfil de operador, é do tenant de plataforma E está logando nele. O nome do
+	/// perfil é único só por tenant: exigir o tenant impede que um homônimo num tenant de cliente escale —
+	/// inclusive o operador que é membro de outro tenant onde existe um perfil homônimo (ADR-0040).
 	/// </summary>
 	/// <param name="user">Conta.</param>
-	/// <param name="roles">Perfis atuais da conta.</param>
-	public static bool IsInstallationOperator(User user, IEnumerable<string> roles)
+	/// <param name="roles">Perfis da conta no tenant do login.</param>
+	/// <param name="loginTenantId">Tenant do login (sem valor padrão: todo chamador decide).</param>
+	public static bool IsInstallationOperator(User user, IEnumerable<string> roles, Guid loginTenantId)
 	{
 		ArgumentNullException.ThrowIfNull(user);
 
-		return user.TenantId == SecureGatePlatform.TenantId
+		return loginTenantId == SecureGatePlatform.TenantId
+			&& user.TenantId == SecureGatePlatform.TenantId
 			&& roles.Contains(SecureGatePlatform.OperatorRole, StringComparer.Ordinal);
 	}
 
 	/// <summary>Remove <c>securegate:admin</c> dos scopes de quem não é operador.</summary>
 	/// <param name="user">Conta.</param>
-	/// <param name="roles">Perfis atuais da conta.</param>
+	/// <param name="roles">Perfis da conta no tenant do login.</param>
 	/// <param name="scopes">Scopes pedidos (login) ou herdados (renovação).</param>
-	public static IReadOnlyList<string> FilterScopes(User user, IEnumerable<string> roles, IEnumerable<string> scopes)
+	/// <param name="loginTenantId">Tenant do login.</param>
+	public static IReadOnlyList<string> FilterScopes(
+		User user, IEnumerable<string> roles, IEnumerable<string> scopes, Guid loginTenantId)
 	{
-		var isOperator = IsInstallationOperator(user, roles);
+		var isOperator = IsInstallationOperator(user, roles, loginTenantId);
 
 		return [.. scopes.Where(scope => isOperator || scope != SecureGateScopes.Admin)];
 	}

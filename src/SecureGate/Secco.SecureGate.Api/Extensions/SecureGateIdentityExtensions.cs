@@ -30,6 +30,9 @@ public static class SecureGateIdentityExtensions
 			.SetApplicationName("secco-securegate")
 			.PersistKeysToDbContext<SecureGateDbContext>();
 
+		// ADR-0040: tenant do login e vínculo, usados no authorize e na renovação
+		services.AddScoped<LoginTenantResolver>();
+
 		services.AddIdentityCore<User>(options =>
 			{
 				// Política de senha (ADR-0020): mínimo forte, sem impor complexidade excessiva

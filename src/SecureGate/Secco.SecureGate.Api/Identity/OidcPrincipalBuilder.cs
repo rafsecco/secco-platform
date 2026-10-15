@@ -20,14 +20,16 @@ internal static class OidcPrincipalBuilder
 {
 	/// <summary>Constrói o principal de um usuário autenticado para os scopes/resources concedidos.</summary>
 	/// <param name="user">Usuário autenticado.</param>
-	/// <param name="roles">Roles do usuário no seu tenant (ADR-0021).</param>
+	/// <param name="roles">Roles do usuário NO tenant do login (ADR-0021, ADR-0040).</param>
 	/// <param name="scopes">Scopes concedidos na requisição.</param>
 	/// <param name="resources">Audiences derivadas dos scopes de produto (o que os produtos validam).</param>
+	/// <param name="loginTenantId">Tenant do login: é o <c>tenant_id</c> do token (ADR-0040).</param>
 	public static ClaimsPrincipal ForUser(
 		User user,
 		IEnumerable<string> roles,
 		IEnumerable<string> scopes,
-		IEnumerable<string> resources)
+		IEnumerable<string> resources,
+		Guid loginTenantId)
 	{
 		var roleList = roles as IReadOnlyList<string> ?? [.. roles];
 
@@ -43,11 +45,11 @@ internal static class OidcPrincipalBuilder
 		// tenant de plataforma impede que um operador forjado (role com o mesmo nome) num
 		// tenant de cliente receba o token tenant-less (defesa contra colisão de nome,
 		// ADR-0020/0023/0024).
-		var isInstallationOperator = InstallationOperatorPolicy.IsInstallationOperator(user, roleList);
+		var isInstallationOperator = InstallationOperatorPolicy.IsInstallationOperator(user, roleList, loginTenantId);
 
 		if (!isInstallationOperator)
 		{
-			identity.SetClaim(SeccoClaims.TenantId, user.TenantId.ToString());
+			identity.SetClaim(SeccoClaims.TenantId, loginTenantId.ToString());
 		}
 
 		identity.SetClaim(Claims.Email, user.Email);
