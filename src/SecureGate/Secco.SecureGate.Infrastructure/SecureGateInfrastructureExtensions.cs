@@ -220,6 +220,9 @@ public static class SecureGateInfrastructureExtensions
 		// Mapeamento grupo→perfil (issue #28, ADR-0036)
 		services.AddScoped<Application.Federation.IGroupRoleMappingRepository, GroupRoleMappingRepository>();
 
+		// Vínculo pessoa ↔ tenant (ADR-0040)
+		services.AddScoped<Application.Tenants.ITenantMembershipRepository, Tenants.TenantMembershipRepository>();
+
 		// Clients de produto vinculados a tenant (ADR-0037)
 		services.AddScoped<Application.Clients.IProductClientStore, Clients.OpenIddictProductClientStore>();
 

@@ -53,6 +53,9 @@ public sealed class SecureGateDbContext(
 	/// <summary>Mapeamentos grupo→perfil do diretório federado (tabela <c>tb_tenant_group_role_mappings</c>, ADR-0036).</summary>
 	public DbSet<TenantGroupRoleMapping> TenantGroupRoleMappings => Set<TenantGroupRoleMapping>();
 
+	/// <summary>Vínculos pessoa ↔ tenant (tabela <c>tb_tenant_memberships</c>, ADR-0040).</summary>
+	public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+
 	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
 	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
 
@@ -193,6 +196,21 @@ public sealed class SecureGateDbContext(
 			// a exclusão de perfil precisa passar por decisão explícita primeiro (mesma cautela da
 			// FK de Role em UserRole/RoleClaim, que o Identity já trata como Restrict).
 			mapping.HasOne<Role>().WithMany().HasForeignKey(m => m.RoleId).OnDelete(DeleteBehavior.Restrict);
+		});
+
+		builder.Entity<TenantMembership>(membership =>
+		{
+			// Chave natural (pessoa, tenant) — impede vínculo duplicado (ADR-0040).
+			membership.HasKey(m => new { m.UserId, m.TenantId });
+
+			// Cascade: apagar a pessoa apaga os vínculos dela.
+			membership.HasOne<User>().WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Cascade);
+
+			// Restrict: tenant com vínculo não some em silêncio (mesma cautela de users/roles).
+			membership.HasOne<Tenant>().WithMany().HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Restrict);
+
+			// Listagem dos membros do tenant.
+			membership.HasIndex(m => m.TenantId);
 		});
 
 		builder.Entity<ElevationGrant>(grant =>

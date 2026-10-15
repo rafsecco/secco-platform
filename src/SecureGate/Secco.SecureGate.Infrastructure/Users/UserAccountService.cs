@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Users;
+using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Results;
@@ -50,6 +51,10 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		{
 			return Result.Failure<UserDto>(MapIdentityError(created));
 		}
+
+		// Vínculo do tenant dono nasce com a conta (ADR-0040): sem ele a pessoa não receberia token
+		// nem no tenant que a provisionou.
+		context.TenantMemberships.Add(new TenantMembership(user.Id, user.TenantId, DateTimeOffset.UtcNow));
 
 		foreach (var role in tenantRoles)
 		{

@@ -287,6 +287,33 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.ToTable("tb_tenant_group_role_mappings");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantMembership", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pfk_user");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pfk_tenant");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_active");
+
+                    b.HasKey("UserId", "TenantId")
+                        .HasName("pk_tenant_memberships");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("idx_tenant_memberships_id_pfk_tenant");
+
+                    b.ToTable("tb_tenant_memberships");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -900,6 +927,23 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_tenant_group_role_mappings_tenant");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantMembership", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_memberships_tenant");
+
+                    b.HasOne("Secco.SecureGate.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_memberships_user");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.Role", b =>

@@ -81,6 +81,10 @@ public sealed class SecureGateDevelopmentDataSeeder(
 			return;
 		}
 
+		// Vínculo do tenant dono (ADR-0040)
+		context.TenantMemberships.Add(new TenantMembership(user.Id, user.TenantId, DateTimeOffset.UtcNow));
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
 		var normalizedOperator = Application.SecureGatePlatform.OperatorRole.ToUpperInvariant();
 
 		var role = await context.Roles
@@ -119,6 +123,10 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		{
 			return;
 		}
+
+		// Vínculo do tenant dono (ADR-0040)
+		context.TenantMemberships.Add(new TenantMembership(user.Id, user.TenantId, DateTimeOffset.UtcNow));
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
 		var normalizedRole = DevRoleName.ToUpperInvariant();
 
