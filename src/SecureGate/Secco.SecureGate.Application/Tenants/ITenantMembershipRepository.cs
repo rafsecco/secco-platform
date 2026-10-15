@@ -22,6 +22,15 @@ public interface ITenantMembershipRepository
 	void Add(TenantMembership membership);
 
 	/// <summary>
+	/// Adiciona e efetiva o vínculo, tratando a corrida: se outra chamada criou o mesmo par antes, devolve
+	/// <c>false</c> em vez de falhar na chave primária (ADR-0034).
+	/// </summary>
+	/// <param name="membership">Vínculo a adicionar.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns><c>false</c> se o vínculo já existia.</returns>
+	Task<bool> TryAddAsync(TenantMembership membership, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Remove o vínculo E as atribuições de perfil da pessoa naquele tenant, numa transação —
 	/// reincluí-la depois não pode devolver acesso esquecido (ADR-0040). Perfis de outros tenants
 	/// ficam como estão.

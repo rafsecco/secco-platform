@@ -65,7 +65,7 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		return new UserDto(
 			user.Id, user.Email!, user.TenantId, [.. tenantRoles.Select(role => role.Name!)], UserStatuses.Active,
-			user.DisplayName);
+			user.DisplayName, MembershipStates.Owner, user.TenantId);
 	}
 
 	public async Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default)
@@ -122,9 +122,9 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		Guid? sourceGroupId = null,
 		CancellationToken cancellationToken = default)
 	{
-		if (!await BelongsToTenantAsync(tenantId, userId, cancellationToken).ConfigureAwait(false))
+		if (await CheckMembershipAsync(tenantId, userId, cancellationToken).ConfigureAwait(false) is { } refusal)
 		{
-			return RoleAssignmentOutcome.UserNotFound;
+			return refusal;
 		}
 
 		var roleId = await FindRoleIdAsync(tenantId, roleName, cancellationToken).ConfigureAwait(false);
@@ -169,9 +169,9 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 	public async Task<RoleAssignmentOutcome> RemoveRoleAsync(
 		Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
 	{
-		if (!await BelongsToTenantAsync(tenantId, userId, cancellationToken).ConfigureAwait(false))
+		if (await CheckMembershipAsync(tenantId, userId, cancellationToken).ConfigureAwait(false) is { } refusal)
 		{
-			return RoleAssignmentOutcome.UserNotFound;
+			return refusal;
 		}
 
 		var roleId = await FindRoleIdAsync(tenantId, roleName, cancellationToken).ConfigureAwait(false);
@@ -248,6 +248,33 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 	}
 
 	/// <summary>
+	/// Atribuir e retirar perfil exigem que a pessoa seja dona ou membro (ativo ou suspenso) do tenant
+	/// (ADR-0040): sem vínculo, o perfil do tenant ficaria numa pessoa sem acesso a ele. O dono conta pela
+	/// coluna, não pela linha da tabela. <c>null</c> = pode seguir.
+	/// </summary>
+	private async Task<RoleAssignmentOutcome?> CheckMembershipAsync(
+		Guid tenantId, Guid userId, CancellationToken cancellationToken)
+	{
+		var ownerTenantId = await GetOwnerTenantAsync(userId, cancellationToken).ConfigureAwait(false);
+
+		if (ownerTenantId is null)
+		{
+			return RoleAssignmentOutcome.UserNotFound;
+		}
+
+		if (ownerTenantId == tenantId)
+		{
+			return null;
+		}
+
+		var isMember = await context.TenantMemberships.AsNoTracking()
+			.AnyAsync(m => m.TenantId == tenantId && m.UserId == userId, cancellationToken)
+			.ConfigureAwait(false);
+
+		return isMember ? null : RoleAssignmentOutcome.NotMember;
+	}
+
+	/// <summary>
 	/// Perfil por (tenant, nome normalizado) — NUNCA por nome global: o nome só é único por tenant, e a
 	/// busca global acharia o perfil homônimo de outro tenant.
 	/// </summary>
@@ -267,6 +294,8 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			.AsNoTracking()
 			.AnyAsync(userRole => userRole.UserId == userId && userRole.RoleId == roleId, cancellationToken);
 
+	// "Dono" (User.TenantId), não "membro": o nome ficou ambíguo com a ADR-0040. As operações de pessoa
+	// (convite, senha, 2FA, nome, login externo, desativar, sessões, elevação) usam este e só valem pelo dono.
 	public Task<bool> BelongsToTenantAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
 		context.Users
 			.AsNoTracking()
@@ -274,18 +303,35 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 	public async Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
 	{
-		var users = await context.Users
+		// O dono vem pela coluna; os membros, pelas linhas de vínculo de OUTRO dono (a linha do dono não
+		// entra, senão ele apareceria duas vezes)
+		var owners = await context.Users
 			.AsNoTracking()
 			.Where(user => user.TenantId == tenantId)
-			.OrderBy(user => user.UserName)
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
-		var userIds = users.Select(user => user.Id).ToList();
+		var members = await (
+			from membership in context.TenantMemberships.AsNoTracking()
+			join user in context.Users.AsNoTracking() on membership.UserId equals user.Id
+			where membership.TenantId == tenantId && user.TenantId != tenantId
+			select new { User = user, membership.IsActive })
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
+		var people = owners
+			.Select(user => (User: user, Membership: MembershipStates.Owner))
+			.Concat(members.Select(member => (
+				User: member.User,
+				Membership: member.IsActive ? MembershipStates.Member : MembershipStates.Suspended)))
+			.OrderBy(person => person.User.UserName, StringComparer.Ordinal)
+			.ToList();
+
+		var userIds = people.Select(person => person.User.Id).ToList();
+
+		// Só os perfis DESTE tenant: quem é membro de vários tenants tem perfis em todos eles
 		var roleAssignments = await (
 			from userRole in context.UserRoles.AsNoTracking()
 			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
-			where userIds.Contains(userRole.UserId)
+			where userIds.Contains(userRole.UserId) && role.TenantId == tenantId
 			select new { userRole.UserId, role.Name })
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
@@ -293,13 +339,15 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 		return
 		[
-			.. users.Select(user => new UserDto(
-				user.Id,
-				user.Email!,
-				user.TenantId,
-				[.. roleAssignments.Where(a => a.UserId == user.Id).Select(a => a.Name!)],
-				UserStatuses.From(user.LockoutEnabled, user.LockoutEnd, now),
-				user.DisplayName))
+			.. people.Select(person => new UserDto(
+				person.User.Id,
+				person.User.Email!,
+				tenantId,
+				[.. roleAssignments.Where(a => a.UserId == person.User.Id).Select(a => a.Name!)],
+				UserStatuses.From(person.User.LockoutEnabled, person.User.LockoutEnd, now),
+				person.User.DisplayName,
+				person.Membership,
+				person.User.TenantId))
 		];
 	}
 
@@ -307,12 +355,31 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 	{
 		var user = await context.Users
 			.AsNoTracking()
-			.FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken)
+			.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
 			.ConfigureAwait(false);
 
 		if (user is null)
 		{
 			return null;
+		}
+
+		var isOwner = user.TenantId == tenantId;
+		var membership = MembershipStates.Owner;
+
+		if (!isOwner)
+		{
+			var link = await context.TenantMemberships
+				.AsNoTracking()
+				.Where(m => m.TenantId == tenantId && m.UserId == userId)
+				.Select(m => (bool?)m.IsActive)
+				.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
+			if (link is null)
+			{
+				return null;
+			}
+
+			membership = link.Value ? MembershipStates.Member : MembershipStates.Suspended;
 		}
 
 		var roleAssignments = await (
@@ -324,6 +391,16 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		var roles = roleAssignments.Select(assignment => assignment.Name).ToList();
+
+		if (!isOwner)
+		{
+			// Credencial, federação e segundo fator são da pessoa e do tenant dono: quem administra só o
+			// vínculo não precisa deles (ADR-0040)
+			return new UserAccountData(
+				user.Id, user.Email!, tenantId, user.LockoutEnabled, user.LockoutEnd, roles, [],
+				HasPassword: false, LocalLoginEnabled: false, TwoFactorEnabled: false, user.DisplayName,
+				roleAssignments, membership);
+		}
 
 		// Só o provedor: a chave (tid:oid do Entra) identifica a pessoa no diretório do cliente
 		var logins = await context.UserLogins
@@ -337,8 +414,23 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
 			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName,
-			roleAssignments);
+			roleAssignments, membership);
 	}
+
+	public async Task<PersonData?> FindPersonByEmailAsync(string email, CancellationToken cancellationToken = default)
+	{
+		var user = await userManager.FindByEmailAsync(email).ConfigureAwait(false);
+
+		return user is null ? null : new PersonData(user.Id, user.Email!, user.DisplayName, user.TenantId);
+	}
+
+	public async Task<Guid?> GetOwnerTenantAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		await context.Users
+			.AsNoTracking()
+			.Where(user => user.Id == userId)
+			.Select(user => (Guid?)user.TenantId)
+			.FirstOrDefaultAsync(cancellationToken)
+			.ConfigureAwait(false);
 
 	public async Task<bool> RemoveExternalLoginAsync(
 		Guid tenantId,

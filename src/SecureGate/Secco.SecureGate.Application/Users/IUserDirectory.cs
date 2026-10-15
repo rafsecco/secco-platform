@@ -28,6 +28,10 @@ public sealed record CreateUserData(
 /// Entra NO FIM: o record é posicional e consumido pelo client NSwag — inserir no meio
 /// renumeraria os campos existentes.
 /// </param>
+/// <param name="Membership">
+/// Relação da pessoa com o tenant consultado (<see cref="MembershipStates"/>, ADR-0040). <c>TenantId</c>
+/// é o tenant consultado, não o dono da conta; para quem não é dono, os campos de credencial vêm vazios.
+/// </param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -40,13 +44,21 @@ public sealed record UserAccountData(
 	bool LocalLoginEnabled,
 	bool TwoFactorEnabled,
 	string? DisplayName = null,
-	IReadOnlyList<RoleAssignmentData>? RoleAssignments = null);
+	IReadOnlyList<RoleAssignmentData>? RoleAssignments = null,
+	string? Membership = null);
 
 /// <summary>Um perfil do usuário com a origem da atribuição (issue #28, ADR-0036).</summary>
 /// <param name="Name">Nome do perfil.</param>
 /// <param name="Origin">Origem da atribuição.</param>
 /// <param name="SourceGroupId">Id do grupo do Entra ID que originou, quando <see cref="Origin"/> é <c>Directory</c>.</param>
 public sealed record RoleAssignmentData(string Name, RoleAssignmentOrigin Origin, Guid? SourceGroupId);
+
+/// <summary>Pessoa localizada por e-mail para a gestão de vínculos (ADR-0040).</summary>
+/// <param name="Id">Identificador da pessoa.</param>
+/// <param name="Email">E-mail.</param>
+/// <param name="DisplayName">Nome de exibição, opcional.</param>
+/// <param name="OwnerTenantId">Tenant dono da conta (<c>User.TenantId</c>).</param>
+public sealed record PersonData(Guid Id, string Email, string? DisplayName, Guid OwnerTenantId);
 
 /// <summary>Resultado de atribuir ou remover perfil.</summary>
 public enum RoleAssignmentOutcome
@@ -68,6 +80,9 @@ public enum RoleAssignmentOutcome
 	/// porque o próximo ciclo de sincronização a devolveria em silêncio.
 	/// </summary>
 	BlockedByDirectoryOrigin,
+
+	/// <summary>A pessoa existe, mas não é dona nem membro (ativo ou suspenso) do tenant (ADR-0040).</summary>
+	NotMember,
 }
 
 /// <summary>Estado da conta relevante para a sessão.</summary>
@@ -89,13 +104,18 @@ public interface IUserDirectory
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<Result<UserDto>> CreateAsync(CreateUserData data, CancellationToken cancellationToken = default);
 
-	/// <summary>Lista os usuários de um tenant com seus roles (sem segredos).</summary>
-	/// <param name="tenantId">Tenant dono dos usuários.</param>
+	/// <summary>
+	/// Lista as pessoas do tenant — donas e membros (ativos ou suspensos, ADR-0040) — com os perfis DO
+	/// tenant (sem segredos).
+	/// </summary>
+	/// <param name="tenantId">Tenant da listagem.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<IReadOnlyList<UserDto>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Indica se o usuário existe E pertence ao tenant, numa consulta pontual. Existe para quem só
+	/// Indica se o usuário existe E é DONO do tenant (<c>User.TenantId</c>), numa consulta pontual. "Dono",
+	/// e não "membro": com a ADR-0040 a pessoa pode ter vínculo com outros tenants, e as operações de
+	/// pessoa (convite, senha, 2FA, desativar...) continuam só do tenant dono. Existe para quem só
 	/// precisa da resposta sim/não: listar o tenant inteiro para procurar um id carregaria todos os
 	/// usuários e os papéis de cada um a cada chamada.
 	/// </summary>
@@ -115,13 +135,19 @@ public interface IUserDirectory
 	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
 	Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default);
 
-	/// <summary>Conta do tenant; <c>null</c> se não existe ou é de outro tenant.</summary>
+	/// <summary>
+	/// Conta de dono ou membro do tenant; <c>null</c> se não existe ou não tem vínculo. Para quem não é
+	/// dono, os campos de credencial vêm vazios (ADR-0040).
+	/// </summary>
 	/// <param name="tenantId">Tenant esperado.</param>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<UserAccountData?> GetAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 
-	/// <summary>Torna o usuário membro do perfil, ambos no tenant. Idempotente.</summary>
+	/// <summary>
+	/// Torna o usuário membro do perfil, ambos no tenant. Idempotente. Exige que a pessoa seja dona ou
+	/// membro (ativo ou suspenso) do tenant; senão, <see cref="RoleAssignmentOutcome.NotMember"/>.
+	/// </summary>
 	/// <param name="tenantId">Tenant da rota.</param>
 	/// <param name="userId">Usuário.</param>
 	/// <param name="roleName">Nome do perfil já validado.</param>
@@ -185,6 +211,16 @@ public interface IUserDirectory
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
 	Task<bool> RemoveExternalLoginAsync(Guid tenantId, Guid userId, string provider, CancellationToken cancellationToken = default);
+
+	/// <summary>Pessoa pelo e-mail (comparação normalizada pelo Identity); <c>null</c> se não existe.</summary>
+	/// <param name="email">E-mail já validado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<PersonData?> FindPersonByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+	/// <summary>Tenant dono da conta (<c>User.TenantId</c>); <c>null</c> se a pessoa não existe.</summary>
+	/// <param name="userId">Pessoa.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<Guid?> GetOwnerTenantAsync(Guid userId, CancellationToken cancellationToken = default);
 
 	/// <summary>Estado de sessão do usuário, em qualquer tenant; <c>null</c> se não existe.</summary>
 	/// <param name="userId">Usuário.</param>

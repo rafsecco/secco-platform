@@ -433,6 +433,45 @@ public static class SecureGateErrors
 			Error.Validation("SecureGate.User.CreationFailed", detail);
 	}
 
+	/// <summary>Erros da gestão de vínculos pessoa-tenant (ADR-0040).</summary>
+	public static class Members
+	{
+		/// <summary>Nenhuma conta com o e-mail informado, ou a pessoa não existe.</summary>
+		public static readonly Error UserNotFound =
+			Error.NotFound("SecureGate.Member.UserNotFound", "Pessoa não encontrada.");
+
+		/// <summary>A pessoa existe, mas não tem vínculo com o tenant.</summary>
+		public static readonly Error MembershipNotFound =
+			Error.NotFound("SecureGate.Member.MembershipNotFound", "A pessoa não é membro deste tenant.");
+
+		/// <summary>A pessoa já é membro do tenant (ativa ou suspensa).</summary>
+		public static readonly Error AlreadyMember =
+			Error.Conflict("SecureGate.Member.AlreadyMember", "A pessoa já é membro deste tenant.");
+
+		/// <summary>O vínculo do tenant dono da conta não se suspende nem se remove.</summary>
+		public static readonly Error OwnerMembership =
+			Error.Conflict("SecureGate.Member.OwnerMembership",
+				"O vínculo com o tenant dono da conta não pode ser suspenso nem removido.");
+
+		/// <summary>O tenant de plataforma só aceita pessoas de que a plataforma é dona.</summary>
+		public static readonly Error PlatformTenantForeignUser =
+			Error.Conflict("SecureGate.Member.PlatformTenantForeignUser",
+				"O tenant de plataforma não aceita membros de outro tenant.");
+
+		/// <summary>Ninguém suspende nem remove o próprio vínculo: trancaria o chamador para fora do tenant.</summary>
+		public static readonly Error CannotChangeOwnMembership =
+			Error.Conflict("SecureGate.Member.CannotChangeOwnMembership",
+				"Não é possível suspender nem remover o próprio vínculo com o tenant.");
+
+		/// <summary>E-mail ausente ou fora do formato aceito.</summary>
+		public static readonly Error EmailInvalid =
+			Error.Validation("SecureGate.Member.EmailInvalid", "Informe um e-mail válido.");
+
+		/// <summary>Perfil só se atribui e retira de quem é membro do tenant.</summary>
+		public static readonly Error NotMember =
+			Error.Conflict("SecureGate.Member.NotMember", "A pessoa não é membro deste tenant.");
+	}
+
 	/// <summary>Erros da concessão de elevação (ADR-0031).</summary>
 	public static class Elevation
 	{

@@ -215,7 +215,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 	}
 
 	[Fact]
-	public async Task AddUserRole_UsuarioDeOutroTenant_Retorna404()
+	public async Task AddUserRole_UsuarioSemVinculoComOTenant_Retorna409()
 	{
 		await IdentitySeed.RoleAsync(factory, _tenantId, "leitor");
 		var otherTenant = await IdentitySeed.TenantAsync(factory);
@@ -224,7 +224,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		var response = await IdentitySeed.AdminClient(factory)
 			.PostAsync($"/api/v1/tenants/{_tenantId}/users/{stranger}/roles/leitor", null);
 
-		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 	}
 
 	[Fact]
@@ -306,7 +306,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 	}
 
 	[Fact]
-	public async Task RemoveUserRole_UsuarioDeOutroTenant_Retorna404ENaoAltera()
+	public async Task RemoveUserRole_UsuarioSemVinculoComOTenant_Retorna409ENaoAltera()
 	{
 		var otherTenant = await IdentitySeed.TenantAsync(factory);
 		await IdentitySeed.RoleAsync(factory, otherTenant, "leitor");
@@ -316,7 +316,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		var response = await IdentitySeed.AdminClient(factory)
 			.DeleteAsync($"/api/v1/tenants/{_tenantId}/users/{stranger}/roles/leitor");
 
-		response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
 		var detail = await IdentitySeed.AdminClient(factory)
 			.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{otherTenant}/users/{stranger}", Json);
 		Strings(detail, "roles").Should().Equal("leitor");

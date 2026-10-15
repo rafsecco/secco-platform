@@ -73,6 +73,7 @@ app.MapPermissionCatalogEndpoints();
 app.MapRoleEndpoints();
 app.MapAuthorizationEndpoints();
 app.MapUserEndpoints();
+app.MapMembershipEndpoints();
 app.MapElevationGrantEndpoints();
 app.MapEntraGroupsEndpoints();
 app.MapProductClientEndpoints();

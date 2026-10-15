@@ -51,6 +51,7 @@ public sealed class GetUserHandler(IUserDirectory userDirectory, GetRolePermissi
 			account.DisplayName,
 			account.RoleAssignments?
 				.Select(assignment => new RoleAssignmentDto(assignment.Name, assignment.Origin, assignment.SourceGroupId))
-				.ToList());
+				.ToList(),
+			account.Membership);
 	}
 }

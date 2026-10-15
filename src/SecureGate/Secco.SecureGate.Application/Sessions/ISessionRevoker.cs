@@ -14,6 +14,9 @@ public enum SessionRevocationReason
 
 	/// <summary>Senha definida, trocada ou redefinida (ADR-0033).</summary>
 	PasswordChanged,
+
+	/// <summary>Vínculo da pessoa com um tenant suspenso ou removido (ADR-0040).</summary>
+	MembershipEnded,
 }
 
 /// <summary>Encerra todas as sessões de um usuário (ADR-0032).</summary>

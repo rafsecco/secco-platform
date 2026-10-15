@@ -18,6 +18,35 @@ internal sealed class TenantMembershipRepository(SecureGateDbContext context) : 
 
 	public void Add(TenantMembership membership) => context.TenantMemberships.Add(membership);
 
+	public async Task<bool> TryAddAsync(TenantMembership membership, CancellationToken cancellationToken = default)
+	{
+		context.TenantMemberships.Add(membership);
+
+		try
+		{
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+			return true;
+		}
+		catch (DbUpdateException)
+		{
+			// Duas inclusões simultâneas (clique duplo, retry): a segunda bate na PK. Se o par existe, o
+			// estado pedido já foi atingido; qualquer outra falha sobe.
+			context.Entry(membership).State = EntityState.Detached;
+
+			if (await IsMemberRowAsync(membership.TenantId, membership.UserId, cancellationToken).ConfigureAwait(false))
+			{
+				return false;
+			}
+
+			throw;
+		}
+	}
+
+	private Task<bool> IsMemberRowAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken) =>
+		context.TenantMemberships.AsNoTracking()
+			.AnyAsync(m => m.TenantId == tenantId && m.UserId == userId, cancellationToken);
+
 	public async Task<bool> RemoveAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
 	{
 		// Vínculo e perfis do tenant saem juntos: nunca sobra perfil num tenant sem vínculo (ADR-0040).

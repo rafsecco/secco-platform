@@ -73,6 +73,12 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<RemoveUserRoleHandler>();
 		services.AddScoped<SetDisplayNameHandler>();
 
+		// Vínculos pessoa-tenant (ADR-0040)
+		services.AddScoped<Members.AddTenantMemberHandler>();
+		services.AddScoped<Members.SetTenantMemberHandler>();
+		services.AddScoped<Members.SuspendTenantMemberHandler>();
+		services.AddScoped<Members.RemoveTenantMemberHandler>();
+
 		// Catálogo de permissões publicado pelos produtos (ADR-0039)
 		services.AddScoped<Permissions.PublishPermissionCatalogHandler>();
 		services.AddScoped<Permissions.ListPermissionCatalogHandler>();

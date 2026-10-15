@@ -40,6 +40,7 @@ public sealed class AddUserRoleHandler(IUserDirectory userDirectory)
 		RoleAssignmentOutcome.Done => Result.Success(),
 		RoleAssignmentOutcome.UserNotFound => Result.Failure(SecureGateErrors.Users.NotFound),
 		RoleAssignmentOutcome.NotAssigned => Result.Success(),
+		RoleAssignmentOutcome.NotMember => Result.Failure(SecureGateErrors.Members.NotMember),
 		RoleAssignmentOutcome.BlockedByDirectoryOrigin => Result.Failure(SecureGateErrors.Federation.RoleAssignedByDirectory),
 		_ => Result.Failure(SecureGateErrors.Roles.NotFound),
 	};
