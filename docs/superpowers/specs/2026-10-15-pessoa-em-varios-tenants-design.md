@@ -55,7 +55,9 @@ Novo componente `LoginTenantResolver` em `Api/Identity` (substitui o `TenantMemb
 2. **Condições para emitir** (todas, a cada emissão):
    - `AccountStateGuard` atual (pode logar, não bloqueado, tenant **dono** ativo) — inalterado;
    - tenant do login ativo (quando difere do dono);
-   - vínculo **ativo** no tenant do login.
+   - tenant do login é o **dono** (`user.TenantId`) **ou** a pessoa tem vínculo **ativo** nele.
+
+   O dono conta pela coluna, não pela linha de `tb_tenant_memberships`: o vínculo do dono não se suspende nem se remove, e o `UserManager.CreateAsync` do Identity grava o usuário num `SaveChanges` próprio — se o seguinte falhasse, uma pessoa sem a linha perderia o acesso ao próprio tenant. A linha do dono existe para a listagem e para a uniformidade do dado, nunca como condição de emissão. (Ajuste da revisão da Task 1, 2026-10-15.)
 3. **Perfis:** consulta `UserRoles ⨝ Roles` com `role.TenantId == tenantDoLogin`. Substitui o `GetRolesAsync` nos dois endpoints.
 4. **Recusa:** no authorize, sem vínculo ativo ou tenant do login inativo → `access_denied` ao `redirect_uri` ("A conta não tem acesso a esta aplicação."), **sem** `SignOutAsync` — a sessão da pessoa continua valendo nas outras aplicações. Conta bloqueada/tenant dono inativo segue o caminho atual (encerra o cookie e desafia de novo). Na renovação, qualquer falha → `invalid_grant` com a mensagem atual.
 

@@ -85,7 +85,7 @@ dotnet ef migrations add AddTenantMemberships --project src/SecureGate/Secco.Sec
 - `LoginTenantResolver` (classe registrada no DI, scoped) com:
   - `Task<Guid> ForAuthorizeAsync(string? clientId, User user, CancellationToken)` — `OidcApplication.TenantId` do client ou `user.TenantId`;
   - `Guid ForRenewal(ClaimsPrincipal stored, User user)` — `tenant_id` do principal validado, ou `user.TenantId` sem a claim;
-  - `Task<bool> CanIssueAsync(User user, Guid loginTenantId, CancellationToken)` — vínculo ativo (`ITenantMembershipRepository.IsActiveMemberAsync`) e, quando `loginTenantId != user.TenantId`, tenant do login ativo (`ITenantRepository`);
+  - `Task<bool> CanIssueAsync(User user, Guid loginTenantId, CancellationToken)` — `loginTenantId == user.TenantId` (dono: sempre membro, pela coluna — não consultar a linha do dono) **ou** (vínculo ativo via `ITenantMembershipRepository.IsActiveMemberAsync` **e** tenant do login ativo via `ITenantRepository`);
   - `Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, Guid loginTenantId, CancellationToken)` — perfis com `role.TenantId == loginTenantId` (porta nova no `IUserDirectory` ou consulta própria via repositório; não `UserManager`).
 - `InstallationOperatorPolicy.IsInstallationOperator(User user, IEnumerable<string> roles, Guid loginTenantId)` — **sem** default; `FilterScopes(..., Guid loginTenantId)`; `OperatorTwoFactorPolicy.RequiresEnrollment(..., Guid loginTenantId)`; `CanDisable(user, roles)` passa `user.TenantId`.
 - `OidcPrincipalBuilder.ForUser(User user, IEnumerable<string> roles, IEnumerable<string> scopes, IEnumerable<string> resources, Guid loginTenantId)`.
