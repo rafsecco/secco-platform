@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIddict.Core;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Clients;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.OpenIddict;
@@ -62,10 +63,21 @@ internal sealed class OpenIddictProductClientStore(
 		var descriptor = new OpenIddictApplicationDescriptor();
 		await applications.PopulateAsync(descriptor, application, cancellationToken).ConfigureAwait(false);
 
-		var desired = Describe(clientId, access);
+		// O tipo não muda (ADR-0040): vale o do client gravado, nunca o do pedido
+		var desired = Describe(clientId, access with { Type = TypeOf(application) });
 		descriptor.DisplayName = desired.DisplayName;
 		descriptor.Permissions.Clear();
 		descriptor.Permissions.UnionWith(desired.Permissions);
+
+		if (desired.ConsentType is not null)
+		{
+			descriptor.Requirements.Clear();
+			descriptor.Requirements.UnionWith(desired.Requirements);
+			descriptor.RedirectUris.Clear();
+			descriptor.RedirectUris.UnionWith(desired.RedirectUris);
+			descriptor.PostLogoutRedirectUris.Clear();
+			descriptor.PostLogoutRedirectUris.UnionWith(desired.PostLogoutRedirectUris);
+		}
 
 		application.Name = access.Name;
 		application.Roles = JoinRoles(access.Roles);
@@ -108,6 +120,21 @@ internal sealed class OpenIddictProductClientStore(
 			DisplayName = access.Name,
 		};
 		descriptor.Permissions.Add(Permissions.Endpoints.Token);
+
+		if (access.Type == ProductClientRules.AuthorizationCodeType)
+		{
+			// Confidencial + PKCE + consent implícito; escopos de produto mais os OIDC padrão. Só
+			// authorization code e refresh: client_credentials nunca chega a um client interativo.
+			InteractiveClientDescriptor.Apply(descriptor, access.RedirectUris ?? [], access.PostLogoutRedirectUris ?? []);
+
+			foreach (var scope in access.Scopes.Concat(ProductClientRules.InteractiveStandardScopes).Distinct(StringComparer.Ordinal))
+			{
+				descriptor.Permissions.Add(InteractiveClientDescriptor.ScopePermission(scope));
+			}
+
+			return descriptor;
+		}
+
 		descriptor.Permissions.Add(Permissions.GrantTypes.ClientCredentials);
 
 		foreach (var scope in access.Scopes)
@@ -118,19 +145,33 @@ internal sealed class OpenIddictProductClientStore(
 		return descriptor;
 	}
 
+	private static string TypeOf(OidcApplication application) =>
+		ParsePermissions(application.Permissions).Contains(Permissions.GrantTypes.AuthorizationCode)
+			? ProductClientRules.AuthorizationCodeType
+			: ProductClientRules.ClientCredentialsType;
+
 	private static string? JoinRoles(IReadOnlyList<string> roles) => roles.Count == 0 ? null : string.Join(' ', roles);
 
 	// CreatedAt fica nulo: a entidade do OpenIddict EF Core não tem CreationDate e a spec não pede coluna nova.
-	private static ProductClientDto ToDto(OidcApplication application) =>
-		new(
+	private static ProductClientDto ToDto(OidcApplication application)
+	{
+		var type = TypeOf(application);
+		var interactive = type == ProductClientRules.AuthorizationCodeType;
+
+		return new(
 			application.ClientId!,
 			application.Name!,
 			[.. ParsePermissions(application.Permissions)
 				.Where(p => p.StartsWith(Permissions.Prefixes.Scope, StringComparison.Ordinal))
 				.Select(p => p[Permissions.Prefixes.Scope.Length..])
+				.Where(scope => !interactive || SecureGateScopes.IsProductScope(scope))
 				.Order(StringComparer.Ordinal)],
 			application.Roles?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
-			null);
+			null,
+			type,
+			interactive ? ParsePermissions(application.RedirectUris) : null,
+			interactive ? ParsePermissions(application.PostLogoutRedirectUris) : null);
+	}
 
 	private static string[] ParsePermissions(string? json) =>
 		string.IsNullOrEmpty(json) ? [] : System.Text.Json.JsonSerializer.Deserialize<string[]>(json) ?? [];

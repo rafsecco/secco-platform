@@ -2962,6 +2962,30 @@
           },
           "clientSecret": {
             "type": "string"
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "redirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "postLogoutRedirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3378,6 +3402,30 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "redirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "postLogoutRedirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -3405,6 +3453,30 @@
             }
           },
           "roles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "redirectUris": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "postLogoutRedirectUris": {
             "type": [
               "null",
               "array"

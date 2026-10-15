@@ -225,6 +225,7 @@ public static class SecureGateInfrastructureExtensions
 
 		// Clients de produto vinculados a tenant (ADR-0037)
 		services.AddScoped<Application.Clients.IProductClientStore, Clients.OpenIddictProductClientStore>();
+		services.AddSingleton<Application.Clients.IRedirectUriPolicy, Clients.HostRedirectUriPolicy>();
 
 		// Clients de plataforma (ADR-0037): validados em toda subida, reconciliados no seed de referência
 		services.AddOptions<Clients.PlatformClientsOptions>()

@@ -14,6 +14,22 @@ public static class ProductClientRules
 	/// <summary>Máximo de papéis por client.</summary>
 	public const int MaxRoles = 20;
 
+	/// <summary>Tipo de client de máquina (padrão quando o tipo não é informado).</summary>
+	public const string ClientCredentialsType = "client_credentials";
+
+	/// <summary>Tipo de client interativo (login de pessoa por authorization code + PKCE, ADR-0040).</summary>
+	public const string AuthorizationCodeType = "authorization_code";
+
+	/// <summary>Máximo de redirect URIs (e de post-logout URIs) por client interativo.</summary>
+	public const int MaxRedirectUris = 10;
+
+	/// <summary>Tamanho máximo de uma redirect URI.</summary>
+	public const int RedirectUriMaxLength = 2000;
+
+	/// <summary>Escopos OIDC padrão que todo client interativo recebe além dos de produto.</summary>
+	public static readonly IReadOnlyList<string> InteractiveStandardScopes =
+		["openid", "profile", "email", "roles", "offline_access"];
+
 	/// <summary>
 	/// Prefixo de todo <c>client_id</c> gerado pela API. A configuração de plataforma é proibida de
 	/// usá-lo, então os dois espaços de nome nunca se cruzam.
@@ -44,4 +60,20 @@ public static class ProductClientRules
 	/// <param name="name">Nome candidato.</param>
 	public static bool IsValidName(string name) =>
 		name.Length is > 0 and <= NameMaxLength && !name.Any(char.IsControl);
+
+	/// <summary>
+	/// Regra única de redirect URI (client interativo da API e <c>SecureGate:PlatformClients</c>):
+	/// absoluta, http(s) sem credencial nem fragmento, até <see cref="RedirectUriMaxLength"/>
+	/// caracteres e HTTPS, salvo onde o http é tolerado (Development).
+	/// </summary>
+	/// <param name="uri">URI candidata.</param>
+	/// <param name="allowInsecure">Aceita <c>http://</c> (só em Development).</param>
+	public static bool IsValidRedirectUri(string? uri, bool allowInsecure) =>
+		!string.IsNullOrEmpty(uri)
+		&& uri.Length <= RedirectUriMaxLength
+		&& Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+		&& parsed.UserInfo.Length == 0
+		&& string.IsNullOrEmpty(parsed.Fragment)
+		&& !uri.Contains('#', StringComparison.Ordinal)
+		&& (parsed.Scheme == Uri.UriSchemeHttps || (allowInsecure && parsed.Scheme == Uri.UriSchemeHttp));
 }

@@ -20,7 +20,8 @@ internal sealed partial class OidcLoginDriver(
 	SecureGateApiFactory factory,
 	string clientId,
 	string redirectUri,
-	string password)
+	string password,
+	string? clientSecret = null)
 {
 	[GeneratedRegex("__RequestVerificationToken.*?value=\"([^\"]+)\"", RegexOptions.Singleline)]
 	private static partial Regex AntiforgeryField();
@@ -61,7 +62,7 @@ internal sealed partial class OidcLoginDriver(
 	{
 		using var client = factory.CreateClient();
 
-		return await client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+		return await client.PostAsync("/connect/token", TokenForm(new Dictionary<string, string>
 		{
 			["grant_type"] = "refresh_token",
 			["refresh_token"] = refreshToken,
@@ -152,7 +153,7 @@ internal sealed partial class OidcLoginDriver(
 		});
 
 	public Task<HttpResponseMessage> ExchangeCodeAsync(HttpClient browser, string code, string verifier) =>
-		browser.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+		browser.PostAsync("/connect/token", TokenForm(new Dictionary<string, string>
 		{
 			["grant_type"] = "authorization_code",
 			["code"] = code,
@@ -160,6 +161,17 @@ internal sealed partial class OidcLoginDriver(
 			["client_id"] = clientId,
 			["code_verifier"] = verifier,
 		}));
+
+	/// <summary>Client confidencial (criado pela API, ADR-0040) autentica a troca com o secret; o público não.</summary>
+	private FormUrlEncodedContent TokenForm(Dictionary<string, string> fields)
+	{
+		if (clientSecret is not null)
+		{
+			fields["client_secret"] = clientSecret;
+		}
+
+		return new FormUrlEncodedContent(fields);
+	}
 
 	public static (string Verifier, string Challenge) CreatePkce()
 	{

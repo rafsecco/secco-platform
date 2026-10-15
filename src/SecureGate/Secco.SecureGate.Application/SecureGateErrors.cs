@@ -215,6 +215,39 @@ public static class SecureGateErrors
 		/// <summary>Tenant desativado não recebe client novo.</summary>
 		public static readonly Error TenantInactive =
 			Error.Conflict("SecureGate.Client.TenantInactive", "O tenant está desativado.");
+
+		/// <summary>Tipo de client desconhecido.</summary>
+		public static readonly Error TypeInvalid =
+			Error.Validation("SecureGate.Client.TypeInvalid",
+				$"Tipo de client inválido. Aceitos: {Application.Clients.ProductClientRules.ClientCredentialsType} (padrão) e {Application.Clients.ProductClientRules.AuthorizationCodeType}.");
+
+		/// <summary>O tipo do client não muda: de máquina para interativo é outro client (ADR-0040).</summary>
+		public static readonly Error TypeImmutable =
+			Error.Validation("SecureGate.Client.TypeImmutable", "O tipo do client não pode ser alterado. Registre outro client.");
+
+		/// <summary>Redirect URIs ausentes, em excesso, repetidas ou fora da regra (absoluta, sem fragmento, HTTPS fora de Development).</summary>
+		public static readonly Error RedirectUrisInvalid =
+			Error.Validation("SecureGate.Client.RedirectUrisInvalid",
+				$"Informe de 1 a {Application.Clients.ProductClientRules.MaxRedirectUris} redirect URIs distintas, absolutas, sem fragmento e em HTTPS (http só em Development).");
+
+		/// <summary>Post-logout URIs em excesso, repetidas ou fora da mesma regra.</summary>
+		public static readonly Error PostLogoutRedirectUrisInvalid =
+			Error.Validation("SecureGate.Client.PostLogoutRedirectUrisInvalid",
+				$"Informe até {Application.Clients.ProductClientRules.MaxRedirectUris} post-logout URIs distintas, absolutas, sem fragmento e em HTTPS (http só em Development).");
+
+		/// <summary>Client de máquina não tem redirect URI.</summary>
+		public static readonly Error RedirectUrisNotAllowed =
+			Error.Validation("SecureGate.Client.RedirectUrisNotAllowed", "Client client_credentials não aceita redirect URIs.");
+
+		/// <summary>Client interativo leva os perfis da pessoa, não papéis de máquina.</summary>
+		public static readonly Error RolesNotAllowedForInteractive =
+			Error.Validation("SecureGate.Client.RolesNotAllowedForInteractive",
+				"Client authorization_code não aceita papéis: a pessoa leva os próprios perfis.");
+
+		/// <summary>Client interativo no tenant de plataforma daria token de operador por um client criado pela API.</summary>
+		public static readonly Error InteractiveInPlatformTenant =
+			Error.Conflict("SecureGate.Client.InteractiveInPlatformTenant",
+				"O tenant de plataforma não aceita client interativo pela API; os clients interativos da plataforma vêm da configuração.");
 	}
 
 	/// <summary>Erros do catálogo de permissões publicado pelos produtos (ADR-0039).</summary>

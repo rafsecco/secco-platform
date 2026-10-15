@@ -8,7 +8,7 @@ namespace Secco.SecureGate.Application.Clients;
 /// resolvidos para o nome canônico de <c>tb_roles</c> — o token carrega exatamente o que o
 /// resolvedor de permissões vai procurar.
 /// </summary>
-public sealed class ProductClientAccessValidator(IRoleRepository roles)
+public sealed class ProductClientAccessValidator(IRoleRepository roles, IRedirectUriPolicy? redirectPolicy = null)
 {
 	/// <summary>Valida o comando e devolve o acesso normalizado.</summary>
 	public async Task<Result<ProductClientAccess>> ValidateAsync(
@@ -21,6 +21,43 @@ public sealed class ProductClientAccessValidator(IRoleRepository roles)
 		if (!ProductClientRules.IsValidName(name))
 		{
 			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.NameInvalid);
+		}
+
+		var type = command.Type ?? ProductClientRules.ClientCredentialsType;
+
+		if (type is not (ProductClientRules.ClientCredentialsType or ProductClientRules.AuthorizationCodeType))
+		{
+			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.TypeInvalid);
+		}
+
+		var interactive = type == ProductClientRules.AuthorizationCodeType;
+		IReadOnlyList<string>? redirectUris = null;
+		IReadOnlyList<string>? postLogoutRedirectUris = null;
+
+		if (interactive)
+		{
+			if (command.Roles is { Count: > 0 })
+			{
+				return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.RolesNotAllowedForInteractive);
+			}
+
+			var allowInsecure = redirectPolicy?.AllowInsecure ?? false;
+			redirectUris = [.. command.RedirectUris ?? []];
+			postLogoutRedirectUris = [.. command.PostLogoutRedirectUris ?? []];
+
+			if (redirectUris.Count is 0 or > ProductClientRules.MaxRedirectUris || !AreValid(redirectUris, allowInsecure))
+			{
+				return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.RedirectUrisInvalid);
+			}
+
+			if (postLogoutRedirectUris.Count > ProductClientRules.MaxRedirectUris || !AreValid(postLogoutRedirectUris, allowInsecure))
+			{
+				return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.PostLogoutRedirectUrisInvalid);
+			}
+		}
+		else if (command.RedirectUris is { Count: > 0 } || command.PostLogoutRedirectUris is { Count: > 0 })
+		{
+			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.RedirectUrisNotAllowed);
 		}
 
 		var scopes = command.Scopes ?? [];
@@ -67,6 +104,11 @@ public sealed class ProductClientAccessValidator(IRoleRepository roles)
 			canonicalRoles.Add(found.Name);
 		}
 
-		return Result.Success(new ProductClientAccess(name, [.. scopes], canonicalRoles));
+		return Result.Success(new ProductClientAccess(
+			name, [.. scopes], canonicalRoles, type, redirectUris, postLogoutRedirectUris));
 	}
+
+	private static bool AreValid(IReadOnlyList<string> uris, bool allowInsecure) =>
+		uris.All(uri => ProductClientRules.IsValidRedirectUri(uri, allowInsecure))
+		&& uris.Distinct(StringComparer.Ordinal).Count() == uris.Count;
 }

@@ -79,5 +79,5 @@ public static class ProductClientEndpoints
 	}
 
 	private static ProductClientCommand ToCommand(ProductClientRequest request) =>
-		new(request.Name, request.Scopes, request.Roles);
+		new(request.Name, request.Scopes, request.Roles, request.Type, request.RedirectUris, request.PostLogoutRedirectUris);
 }

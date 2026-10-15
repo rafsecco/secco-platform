@@ -68,8 +68,8 @@ internal sealed partial class PlatformClientsOptionsValidator(IHostEnvironment e
 
 				foreach (var uri in client.RedirectUris.Concat(client.PostLogoutRedirectUris))
 				{
-					if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
-						|| (!development && parsed.Scheme != Uri.UriSchemeHttps))
+					// A mesma regra da API de clients interativos (ADR-0040): uma só definição
+					if (!ProductClientRules.IsValidRedirectUri(uri, development))
 					{
 						failures.Add($"{at}: URI '{uri}' inválida — absoluta e, fora de Development, https.");
 					}

@@ -16,6 +16,13 @@ public sealed class CreateProductClientHandler(
 			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Tenants.NotFound);
 		}
 
+		// Token sem tenant_id (operador) nunca nasce de client criado pela API: o interativo da
+		// plataforma vem só da configuração (ADR-0037/ADR-0040)
+		if (command.Type == ProductClientRules.AuthorizationCodeType && tenantId == SecureGatePlatform.TenantId)
+		{
+			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Clients.InteractiveInPlatformTenant);
+		}
+
 		if (!tenant.IsActive)
 		{
 			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Clients.TenantInactive);
@@ -40,7 +47,8 @@ public sealed class CreateProductClientHandler(
 			.ConfigureAwait(false);
 
 		return Result.Success(new CreatedProductClientDto(
-			created.ClientId, created.Name, created.Scopes, created.Roles, created.CreatedAt, secret));
+			created.ClientId, created.Name, created.Scopes, created.Roles, created.CreatedAt, secret,
+			created.Type, created.RedirectUris, created.PostLogoutRedirectUris));
 	}
 }
 
@@ -69,6 +77,14 @@ public sealed class UpdateProductClientHandler(ProductClientAccessValidator vali
 	public async Task<Result> HandleAsync(
 		Guid tenantId, string clientId, ProductClientCommand command, CancellationToken cancellationToken = default)
 	{
+		// O tipo é imutável (ADR-0040): trocar máquina por interativo é outro client. Tipo omitido
+		// vale client_credentials, então também não converte um interativo.
+		if (await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false) is { } existing
+			&& (command.Type ?? ProductClientRules.ClientCredentialsType) != (existing.Type ?? ProductClientRules.ClientCredentialsType))
+		{
+			return Result.Failure(SecureGateErrors.Clients.TypeImmutable);
+		}
+
 		var validation = await validator.ValidateAsync(tenantId, command, cancellationToken).ConfigureAwait(false);
 
 		if (validation.IsFailure)

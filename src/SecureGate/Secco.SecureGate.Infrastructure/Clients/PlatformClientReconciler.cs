@@ -149,18 +149,7 @@ internal sealed partial class PlatformClientReconciler(
 
 		if (definition.Type == PlatformClientType.AuthorizationCode)
 		{
-			descriptor.ConsentType = ConsentTypes.Implicit;
-			descriptor.Permissions.UnionWith(
-			[
-				Permissions.Endpoints.Authorization,
-				Permissions.Endpoints.EndSession,
-				Permissions.GrantTypes.AuthorizationCode,
-				Permissions.GrantTypes.RefreshToken,
-				Permissions.ResponseTypes.Code,
-			]);
-			descriptor.Requirements.Add(Requirements.Features.ProofKeyForCodeExchange);
-			descriptor.RedirectUris.UnionWith(definition.RedirectUris.Select(uri => new Uri(uri)));
-			descriptor.PostLogoutRedirectUris.UnionWith(definition.PostLogoutRedirectUris.Select(uri => new Uri(uri)));
+			InteractiveClientDescriptor.Apply(descriptor, definition.RedirectUris, definition.PostLogoutRedirectUris);
 		}
 		else
 		{
@@ -169,13 +158,7 @@ internal sealed partial class PlatformClientReconciler(
 
 		foreach (var scope in definition.Scopes)
 		{
-			descriptor.Permissions.Add(scope switch
-			{
-				Scopes.Email => Permissions.Scopes.Email,
-				Scopes.Profile => Permissions.Scopes.Profile,
-				Scopes.Roles => Permissions.Scopes.Roles,
-				_ => Permissions.Prefixes.Scope + scope,
-			});
+			descriptor.Permissions.Add(InteractiveClientDescriptor.ScopePermission(scope));
 		}
 
 		return descriptor;
