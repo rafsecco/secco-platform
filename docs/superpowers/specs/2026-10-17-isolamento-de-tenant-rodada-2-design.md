@@ -1,7 +1,7 @@
 # Isolamento de tenant no banco do SecureGate, rodada 2 (RLS) — design
 
 **Data:** 2026-10-17
-**Status:** em revisão
+**Status:** aprovada (2026-10-17)
 **Decisões arquiteturais:** [ADR-0041](../../adr/secco-platform-adrs.md) (camada 2 desta ADR), [ADR-0038](../../adr/secco-platform-adrs.md) (`migrate` e recusa na subida), [ADR-0018](../../adr/secco-platform-adrs.md) (SQL Server padrão, Postgres segundo), [ADR-0017](../../adr/secco-platform-adrs.md) (nomenclatura), [ADR-0028](../../adr/secco-platform-adrs.md) (modelo de login por banco), [ADR-0020](../../adr/secco-platform-adrs.md)
 **Origem:** issue [#32](https://github.com/rafsecco/secco-platform/issues/32). A rodada 1 (escopo explícito, filtro global, teste de arquitetura) está na `main` desde 2026-10-17.
 
