@@ -82,6 +82,14 @@
     <!-- Secco.SDK.Email: AddOptions<T>().BindConfiguration(sectionKey) sem FrameworkReference
          a Microsoft.AspNetCore.App (pacote fino, sem produto nem SharedKernel). -->
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- Secco.SDK.Imaging (ADR-0042): SkiaSharp (MIT) decodifica/re-codifica imagens de upload atrás de
+       uma porta interna; o asset Linux NoDependencies dispensa libfontconfig no container. -->
+  <ItemGroup>
+    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
   </ItemGroup>
 
   <!-- Contratos HTTP (Fase 4, ADR-0006) -->

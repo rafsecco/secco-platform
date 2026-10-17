@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-imaging/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-imaging/v</MinVerTagPrefix>
+    <Description>Processamento seguro de imagens enviadas por usuários (ADR-0042): valida pelo conteúdo, remove metadados, corrige a orientação EXIF, recorta, redimensiona em variantes nomeadas e recodifica, com SkiaSharp atrás de uma porta interna.</Description>
+    <PackageTags>secco;sdk;imaging;image;upload</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SharedKernel\Secco.SharedKernel\Secco.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A porta de codec e o processador ficam internal (ADR-0042: superfície pública mínima);
+         o DynamicProxyGenAssembly2 permite ao NSubstitute substituir o IImageCodec interno. -->
+    <InternalsVisibleTo Include="Secco.SDK.Imaging.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+</Project>
