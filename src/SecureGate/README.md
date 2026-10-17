@@ -102,6 +102,18 @@ O usuário criado recebe **`db_owner` no próprio banco e nada no servidor** (DD
 O painel de status **não usa credencial privilegiada**: sonda cada banco com a conexão de runtime do próprio tenant e responde alcançável/inalcançável com classificação de falha, nunca com a exceção crua.
 
 
+### Isolamento de tenant no banco (ADR-0041, issue #32)
+
+Toda leitura do `SecureGateDbContext` passa por um **escopo de acesso** da requisição (`ITenantAccessScope`): **nenhum**, **tenant X** ou **plataforma**. Filtros nomeados do EF restringem as entidades de tenant (perfis, permissões, atribuições, vínculos, bancos, federação, mapeamento de grupo, elevação e a pessoa, que aparece se for dona ou membro) ao estado do escopo. **Sem escopo, nada aparece.**
+
+Para quem mexe no código:
+
+- Rotas sob `/api/v1/tenants/{tenantId}` (e `/{id}`) já entram no escopo do tenant da rota (`RequireTenantScope`). Rota nova com tenant usa o mesmo filtro.
+- Quando o tenant é conhecido, use `EnterTenant(tenantId)`. `EnterPlatform("motivo")` só onde não existe tenant — e cada chamada precisa de uma linha em `tests/SecureGate/Secco.SecureGate.Tests/Architecture/platform-scope-allowlist.txt`, senão o build reprova.
+- `IgnoreQueryFilters()` é proibido (teste de arquitetura).
+- O `SaveChanges` recusa gravar entidade de outro tenant, ou de qualquer tenant sem escopo.
+- Testes que montam dado pelo DI usam `Services.CreatePlatformScope()`.
+
 ## Configuração
 
 | Seção | Uso |

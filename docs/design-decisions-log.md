@@ -1787,3 +1787,19 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - **Regra de redirect URI extraída e compartilhada** com `SecureGate:PlatformClients`, que ficou um pouco mais estrita (fragmento, credencial embutida, esquema, tamanho).
 - **Mutação:** 10 invariantes, todas detectadas. Uma das minhas mutações não compilou na primeira tentativa (o analisador recusa parâmetro sem uso) e foi refeita de forma que compila.
 - **Pin de segurança fora do escopo:** advisories de 2026-10-13 em `System.Security.Cryptography.Pkcs`/`.Xml` derrubavam o restore; fixados na 10.0.13 em commit próprio.
+
+## Isolamento de tenant no banco do SecureGate, rodada 1 (issue #32, ADR-0041, 2026-10-17)
+
+**Três rodadas ou uma?** Duas. O RLS só contém injeção se a credencial do runtime não for dona do banco (no SQL Server, `db_owner` desliga a política com um comando injetado; no Postgres, o dono ignora o RLS sem `FORCE` e o superusuário sempre). Isso exige separar a credencial do `migrate` da do runtime — quebra de implantação que não deveria travar o ganho principal. A rodada 1 (filtro global + teste de arquitetura) já fecha o risco realista, o filtro esquecido; o EF parametriza tudo e o único SQL montado à mão (provisionamento) passa por allowlist.
+
+**`IgnoreQueryFilters` ou escopo explícito?** Escopo explícito. O RLS não enxerga `IgnoreQueryFilters()`; teríamos dois mecanismos de modo de sessão andando juntos para sempre. O mesmo escopo vira o contexto de sessão do banco na rodada 2. Filtro lendo a rota HTTP foi descartado por ser implícito (não cobre seed nem job).
+
+**O que fica fora do filtro:** a tabela de tenants, dado de plataforma sem tenant, dados da pessoa lidos pelo id dela e as tabelas do OpenIddict — o pipeline do protocolo consulta o client pelo `client_id` antes de existir tenant, e filtrar ali seria proteção só aparente.
+
+**A pessoa depois da ADR-0040:** não é mais "do tenant"; o filtro é "dona ou membro". Por isso a ADR-0041 só fazia sentido depois da #35.
+
+**Implementação (subagentes Sonnet, revisada):**
+- Ao ligar os filtros, 16 dos 880 testes quebraram, todos por caminho sem escopo. O mais importante: remover o vínculo deixava a pessoa invisível, e a revogação de sessão virava no-op silencioso — regressão de segurança que o teste existente pegou.
+- Os helpers de teste passaram a criar o DI scope já em modo plataforma (`CreatePlatformScope`), porque o teste observa de fora do pipeline; as requisições HTTP seguem o caminho de produção. Nenhuma asserção foi alterada.
+- Contexto criado fora de DI (design-time, migrations) fica em "nenhum" (fail-closed): `migrate` e a verificação na subida só tocam schema.
+- Mutação: 15 invariantes, todas detectadas. A mutação da checagem de escrita precisou ser refeita: a primeira versão não compilava (o analisador recusa código inalcançável).
