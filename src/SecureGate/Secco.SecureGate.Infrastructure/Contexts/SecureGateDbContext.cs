@@ -90,6 +90,69 @@ public sealed class SecureGateDbContext(
 	public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
 	/// <inheritdoc />
+	public override int SaveChanges(bool acceptAllChangesOnSuccess)
+	{
+		EnsureWritesStayInScope();
+
+		return base.SaveChanges(acceptAllChangesOnSuccess);
+	}
+
+	/// <inheritdoc />
+	public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+	{
+		EnsureWritesStayInScope();
+
+		return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+	}
+
+	/// <summary>
+	/// Checagem de escrita (ADR-0041): o filtro de consulta protege a leitura, mas uma entidade de
+	/// outro tenant pode chegar ao contexto por <c>Add</c>/<c>Attach</c>. Em escopo de tenant, toda
+	/// entrada nova ou alterada das entidades com <c>TenantId</c> direto precisa ser do tenant do
+	/// escopo; sem escopo, nenhuma delas pode ser escrita; em plataforma nada é checado. A mensagem
+	/// leva só o nome do tipo — nunca ids. <c>UserRole</c>/<c>RoleClaim</c> não carregam tenant (a
+	/// garantia vem de o perfil só ser carregável no escopo) e <c>User</c> é alterado pelo tenant dono
+	/// (ADR-0040), então ficam fora.
+	/// </summary>
+	private void EnsureWritesStayInScope()
+	{
+		if (_accessScope.Mode == TenantAccessMode.Platform)
+		{
+			return;
+		}
+
+		foreach (var entry in ChangeTracker.Entries())
+		{
+			if (entry.State is not (EntityState.Added or EntityState.Modified))
+			{
+				continue;
+			}
+
+			var tenantId = entry.Entity switch
+			{
+				Role role => role.TenantId,
+				TenantMembership membership => membership.TenantId,
+				TenantDatabase database => database.TenantId,
+				TenantFederation federation => federation.TenantId,
+				TenantGroupRoleMapping mapping => mapping.TenantId,
+				ElevationGrant grant => grant.TenantId,
+				_ => (Guid?)null,
+			};
+
+			if (tenantId is null)
+			{
+				continue;
+			}
+
+			if (_accessScope.Mode != TenantAccessMode.Tenant || tenantId != _accessScope.TenantId)
+			{
+				throw new InvalidOperationException(
+					$"Escrita de {entry.Entity.GetType().Name} fora do escopo de tenant corrente (ADR-0041).");
+			}
+		}
+	}
+
+	/// <inheritdoc />
 	protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
 	{
 		base.ConfigureConventions(configurationBuilder);

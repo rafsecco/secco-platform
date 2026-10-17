@@ -261,6 +261,99 @@ public class TenantIsolationTests(SecureGateApiFactory factory) : IAsyncLifetime
 		});
 	}
 
+	// ---- Item 4: checagem de escrita ----
+
+	[Fact]
+	public async Task Escrita_RoleDeB_EmEscopoA_Lanca()
+	{
+		await InScopeAsync(Tenant(_s.TenantA), async (context, _) =>
+		{
+			context.Roles.Add(new Role { Name = "intruso", NormalizedName = "INTRUSO", TenantId = _s.TenantB });
+
+			var act = () => context.SaveChangesAsync();
+
+			(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain(nameof(Role));
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_MembershipDeB_EmEscopoA_Lanca()
+	{
+		var tenantC = await IdentitySeed.TenantAsync(factory);
+
+		await InScopeAsync(Tenant(_s.TenantA), async (context, _) =>
+		{
+			context.TenantMemberships.Add(new TenantMembership(_s.OwnerOfB, tenantC, DateTimeOffset.UtcNow));
+
+			var act = () => context.SaveChangesAsync();
+
+			(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain(nameof(TenantMembership));
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_TenantDatabaseDeB_EmEscopoA_Lanca()
+	{
+		await InScopeAsync(Tenant(_s.TenantA), async (context, _) =>
+		{
+			context.TenantDatabases.Add(new TenantDatabase(_s.TenantB, "intruso", "Server=x;Database=x"));
+
+			var act = () => context.SaveChangesAsync();
+
+			(await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message.Should().Contain(nameof(TenantDatabase));
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_SemEscopo_Lanca()
+	{
+		await InScopeAsync(null, async (context, _) =>
+		{
+			context.TenantDatabases.Add(new TenantDatabase(_s.TenantA, "sem-escopo", "Server=x;Database=x"));
+
+			var act = () => context.SaveChangesAsync();
+
+			await act.Should().ThrowAsync<InvalidOperationException>();
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_SincronaEmEscopoErrado_Lanca()
+	{
+		await InScopeAsync(Tenant(_s.TenantA), (context, _) =>
+		{
+			context.TenantDatabases.Add(new TenantDatabase(_s.TenantB, "intruso-sync", "Server=x;Database=x"));
+
+			var act = () => context.SaveChanges();
+
+			act.Should().Throw<InvalidOperationException>();
+
+			return Task.CompletedTask;
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_NoProprioTenant_Passa()
+	{
+		await InScopeAsync(Tenant(_s.TenantA), async (context, _) =>
+		{
+			context.TenantDatabases.Add(new TenantDatabase(_s.TenantA, "proprio", "Server=x;Database=x"));
+
+			(await context.SaveChangesAsync()).Should().Be(1);
+		});
+	}
+
+	[Fact]
+	public async Task Escrita_EmPlataforma_NaoChecaTenant()
+	{
+		await InScopeAsync(Platform(), async (context, _) =>
+		{
+			context.TenantDatabases.Add(new TenantDatabase(_s.TenantB, "plataforma", "Server=x;Database=x"));
+
+			(await context.SaveChangesAsync()).Should().Be(1);
+		});
+	}
+
 	// ---- Item 5: ExecuteDelete passa pelo filtro ----
 
 	[Fact]

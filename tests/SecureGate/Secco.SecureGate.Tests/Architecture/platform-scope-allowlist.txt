@@ -1,0 +1,16 @@
+# Allowlist do modo plataforma (ADR-0041). Uma linha por chamada de EnterPlatform( em src/SecureGate:
+#   caminho/relativo/da/raiz.cs | motivo
+# Chamada sem linha reprova; linha sem chamada também. Preferir EnterTenant sempre que o tenant for conhecido.
+src/SecureGate/Secco.SecureGate.Api/Endpoints/AuthorizationEndpoints.cs | session-version: estado da pessoa em qualquer tenant
+src/SecureGate/Secco.SecureGate.Api/Endpoints/CatalogEndpoints.cs | catálogo de bancos de todos os tenants servido aos produtos
+src/SecureGate/Secco.SecureGate.Api/Endpoints/FederatedLoginEndpoints.cs | login federado: acha a pessoa por e-mail/oid antes de existir tenant
+src/SecureGate/Secco.SecureGate.Api/Endpoints/InteractiveEndpoints.cs | authorize: pessoa do cookie achada sem tenant; perfis lidos no tenant do login
+src/SecureGate/Secco.SecureGate.Api/Endpoints/TenantEndpoints.cs | operação de instalação: criar tenant
+src/SecureGate/Secco.SecureGate.Api/Endpoints/TenantEndpoints.cs | operação de instalação: listar tenants e produtos
+src/SecureGate/Secco.SecureGate.Api/Endpoints/TokenEndpoints.cs | emissão de token: pessoa achada sem tenant; perfis lidos no tenant do login
+src/SecureGate/Secco.SecureGate.Api/Tenancy/PlatformScopePageFilter.cs | telas de login e conta: pessoa achada por e-mail ou sessão, sem tenant de operação
+src/SecureGate/Secco.SecureGate.Infrastructure/Seeding/SecureGateDevelopmentDataSeeder.cs | seed de desenvolvimento: dados em vários tenants, fora de requisição
+src/SecureGate/Secco.SecureGate.Infrastructure/Seeding/TenantDatabaseReEncryptionSeeder.cs | recifragem das connection strings de todos os tenants, fora de requisição
+src/SecureGate/Secco.SecureGate.Infrastructure/Sessions/SessionRevoker.cs | revogação de sessões: a pessoa atravessa tenants e pode já não ser membro
+src/SecureGate/Secco.SecureGate.Infrastructure/Users/UserAccountService.cs | inclusão de membro: pessoa achada por e-mail, dona em outro tenant
+src/SecureGate/Secco.SecureGate.Infrastructure/Users/UserAccountService.cs | regra de vínculo: tenant dono de pessoa que pode não ser membro da rota
