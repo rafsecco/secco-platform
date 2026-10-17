@@ -99,11 +99,21 @@ if (app.Environment.IsDevelopment())
 
 	// Em DEV, o mesmo código do comando: F5 continua automático
 	await app.Services.RunSeccoMigrationsAsync();
+
+	// Runtime dona do banco em DEV só avisa (ADR-0041); depois do migrate, que usa a credencial de migração
+	await app.Services.EnsureRuntimeIsNotOwnerAsync(isDevelopment: true);
 }
-else if (app.Configuration.GetValue("SecureGate:Database:VerifyMigrationsOnStartup", true))
+else
 {
-	// Fora de DEV: só confere — quem migra é o `migrate` do deploy
-	await app.Services.EnsureSecureGateDatabaseMigratedAsync();
+	// Fora de DEV: recusa runtime dona do banco (ADR-0041) — só na subida do servidor, nunca no
+	// `migrate` (que usa a credencial de migração e já saiu acima)
+	await app.Services.EnsureRuntimeIsNotOwnerAsync(isDevelopment: false);
+
+	if (app.Configuration.GetValue("SecureGate:Database:VerifyMigrationsOnStartup", true))
+	{
+		// Só confere — quem migra é o `migrate` do deploy
+		await app.Services.EnsureSecureGateDatabaseMigratedAsync();
+	}
 }
 
 await app.RunAsync();

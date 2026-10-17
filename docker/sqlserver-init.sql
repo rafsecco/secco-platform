@@ -16,25 +16,29 @@
 SET NOCOUNT ON;
 GO
 
-DECLARE @databases TABLE (name SYSNAME, login SYSNAME);
+DECLARE @databases TABLE (name SYSNAME, login SYSNAME, readwrite_only BIT NOT NULL DEFAULT 0);
 
-INSERT INTO @databases (name, login) VALUES
+INSERT INTO @databases (name, login, readwrite_only) VALUES
     -- Banco de plataforma do SecureGate (identidade não é dado de tenant, ADR-0022)
-    (N'secco_securegate',                  N'secco_securegate_app'),
-    (N'secco_securegate_tenant_alfa',      N'secco_securegate_alfa_app'),
+    --   Dois logins (ADR-0041): o MIGRADOR é dono (db_owner) e só roda o DDL (`migrate`); o APP é
+    --   o de runtime e NÃO tem posse — só db_datareader + db_datawriter. Sem isso o Row-Level
+    --   Security seria decorativo, porque o dono desliga a política.
+    (N'secco_securegate',                  N'secco_securegate_migrator', 0),
+    (N'secco_securegate',                  N'secco_securegate_app',      1),
+    (N'secco_securegate_tenant_alfa',      N'secco_securegate_alfa_app', 0),
     -- Tenants de demonstração do LogStream
-    (N'secco_logstream_tenant_alfa',       N'secco_logstream_alfa_app'),
-    (N'secco_logstream_tenant_beta',       N'secco_logstream_beta_app'),
+    (N'secco_logstream_tenant_alfa',       N'secco_logstream_alfa_app',  0),
+    (N'secco_logstream_tenant_beta',       N'secco_logstream_beta_app',  0),
     -- NotificationHub: um tenant e o banco de plataforma do Hangfire (ADR-0015), que ao
     -- contrário das migrations do EF NÃO se cria sozinho
-    (N'secco_notificationhub_tenant_alfa', N'secco_nh_alfa_app'),
-    (N'secco_notificationhub_platform',    N'secco_nh_platform_app');
+    (N'secco_notificationhub_tenant_alfa', N'secco_nh_alfa_app',         0),
+    (N'secco_notificationhub_platform',    N'secco_nh_platform_app',     0);
 
-DECLARE @name SYSNAME, @login SYSNAME, @sql NVARCHAR(MAX);
-DECLARE cursor_databases CURSOR LOCAL FAST_FORWARD FOR SELECT name, login FROM @databases;
+DECLARE @name SYSNAME, @login SYSNAME, @readwrite_only BIT, @sql NVARCHAR(MAX);
+DECLARE cursor_databases CURSOR LOCAL FAST_FORWARD FOR SELECT name, login, readwrite_only FROM @databases;
 
 OPEN cursor_databases;
-FETCH NEXT FROM cursor_databases INTO @name, @login;
+FETCH NEXT FROM cursor_databases INTO @name, @login, @readwrite_only;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
@@ -56,10 +60,17 @@ BEGIN
     SET @sql = N'USE ' + QUOTENAME(@name) + N';
         IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = ' + QUOTENAME(@login, '''') + N')
             CREATE USER ' + QUOTENAME(@login) + N' FOR LOGIN ' + QUOTENAME(@login) + N';
-        ALTER ROLE db_owner ADD MEMBER ' + QUOTENAME(@login) + N';';
+        ' + CASE WHEN @readwrite_only = 1
+            -- Idempotente e convergente: um volume antigo, em que o app era db_owner, é rebaixado
+            THEN N'IF IS_ROLEMEMBER(N''db_owner'', ' + QUOTENAME(@login, '''') + N') = 1
+                ALTER ROLE db_owner DROP MEMBER ' + QUOTENAME(@login) + N';
+            ALTER ROLE db_datareader ADD MEMBER ' + QUOTENAME(@login) + N';
+            ALTER ROLE db_datawriter ADD MEMBER ' + QUOTENAME(@login) + N';'
+            ELSE N'ALTER ROLE db_owner ADD MEMBER ' + QUOTENAME(@login) + N';'
+        END;
     EXEC sp_executesql @sql;
 
-    FETCH NEXT FROM cursor_databases INTO @name, @login;
+    FETCH NEXT FROM cursor_databases INTO @name, @login, @readwrite_only;
 END
 
 CLOSE cursor_databases;

@@ -1,3 +1,6 @@
+using System.Data;
+using System.Security.Cryptography;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SDK.Testing;
 
@@ -15,8 +18,93 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// <inheritdoc />
 	protected override string Audience => "secco-securegate";
 
-	/// <summary>Connection string do banco de PLATAFORMA (ADR-0022 — identidade não é dado de tenant).</summary>
-	public string GetPlatformConnectionString() => GetConnectionStringFor("secco_securegate");
+	private const string PlatformDatabase = "secco_securegate";
+
+	private string? _runtimeConnectionString;
+
+	/// <summary>
+	/// Connection string do banco de PLATAFORMA com o login de ADMIN da instância (ADR-0022): é a
+	/// credencial de MIGRAÇÃO e a que os testes usam para inspecionar o banco por fora.
+	/// </summary>
+	public string GetPlatformConnectionString() => GetConnectionStringFor(PlatformDatabase);
+
+	/// <summary>
+	/// Connection string de RUNTIME (ADR-0041): login criado por esta factory, SEM posse do banco.
+	/// Só existe depois de <c>InitializeAsync</c>.
+	/// </summary>
+	public string GetRuntimeConnectionString() =>
+		_runtimeConnectionString
+		?? throw new InvalidOperationException("O login de runtime só existe depois de InitializeAsync().");
+
+	/// <summary>
+	/// Papéis de banco do login de runtime. Padrão: leitura e escrita, sem posse (ADR-0041) — é com
+	/// ele que a suíte inteira roda, então qualquer caminho de runtime que faça DDL quebra aqui.
+	/// </summary>
+	protected virtual string[] RuntimeDatabaseRoles => ["db_datareader", "db_datawriter"];
+
+	/// <summary>
+	/// Cria, antes de o host subir, o banco de plataforma (vazio) e o login de runtime: o usuário de
+	/// banco precisa de um banco existente, então o banco nasce aqui e as migrations (credencial de
+	/// admin) o populam depois. Senha aleatória por factory; identificadores gerados aqui e passados
+	/// por parâmetro ao T-SQL com QUOTENAME — nunca concatenados (ADR-0020).
+	/// </summary>
+	protected override async Task OnInitializedAsync()
+	{
+		await CreateDatabaseAsync(PlatformDatabase);
+
+		var login = $"secco_securegate_rt_{Convert.ToHexString(RandomNumberGenerator.GetBytes(6)).ToLowerInvariant()}";
+		// Hex + sufixo fixo: atende à política de complexidade sem caracteres que exijam escape
+		var password = $"Rt{Convert.ToHexString(RandomNumberGenerator.GetBytes(24))}a1!";
+
+		var connectionString = new SqlConnectionStringBuilder(GetPlatformConnectionString());
+
+		await using (var connection = new SqlConnection(connectionString.ConnectionString))
+		{
+			await connection.OpenAsync();
+
+			await ExecuteAsync(
+				connection,
+				"DECLARE @sql nvarchar(max) = N'CREATE LOGIN ' + QUOTENAME(@login) + N' WITH PASSWORD = ' + QUOTENAME(@password, '''') + N', CHECK_POLICY = OFF;' "
+				+ "+ N'CREATE USER ' + QUOTENAME(@login) + N' FOR LOGIN ' + QUOTENAME(@login) + N';'; "
+				+ "EXEC sp_executesql @sql;",
+				("@login", login),
+				("@password", password));
+
+			foreach (var role in RuntimeDatabaseRoles)
+			{
+				// Papel por allowlist estrita: ALTER ROLE não aceita parâmetro
+				if (role is not ("db_datareader" or "db_datawriter" or "db_owner"))
+				{
+					throw new InvalidOperationException($"Papel de banco não permitido nos testes: '{role}'.");
+				}
+
+				await ExecuteAsync(
+					connection,
+					"DECLARE @sql nvarchar(max) = N'ALTER ROLE ' + QUOTENAME(@role) + N' ADD MEMBER ' + QUOTENAME(@login) + N';'; EXEC sp_executesql @sql;",
+					("@role", role),
+					("@login", login));
+			}
+		}
+
+		connectionString.UserID = login;
+		connectionString.Password = password;
+		connectionString.IntegratedSecurity = false;
+		_runtimeConnectionString = connectionString.ConnectionString;
+	}
+
+	private static async Task ExecuteAsync(SqlConnection connection, string commandText, params (string Name, string Value)[] parameters)
+	{
+		await using var command = connection.CreateCommand();
+		command.CommandText = commandText;
+		command.CommandType = CommandType.Text;
+
+		foreach (var (name, value) in parameters)
+		{
+			command.Parameters.Add(new SqlParameter(name, SqlDbType.NVarChar, 256) { Value = value });
+		}
+
+		await command.ExecuteNonQueryAsync();
+	}
 
 	/// <summary>Base pública dos links de credencial nos testes (ADR-0033: nunca vem do header Host).</summary>
 	public const string PublicBaseUrl = "https://id.testes.local";
@@ -173,7 +261,9 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// <inheritdoc />
 	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
 	{
-		settings["SecureGate:Database:ConnectionString"] = GetPlatformConnectionString();
+		// Duas credenciais (ADR-0041): runtime SEM posse e migração com o admin da instância
+		settings["SecureGate:Database:ConnectionString"] = GetRuntimeConnectionString();
+		settings["SecureGate:Database:MigrationConnectionString"] = GetPlatformConnectionString();
 
 		// O host de teste sobe ANTES de a factory migrar o banco (ADR-0027): a recusa com migration
 		// pendente (ADR-0038) tem teste próprio em SecureGateMigrationTests, que a liga.

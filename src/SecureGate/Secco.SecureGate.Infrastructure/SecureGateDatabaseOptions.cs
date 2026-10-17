@@ -24,8 +24,29 @@ public sealed class SecureGateDatabaseOptions
 	/// <summary>Engine do banco de plataforma (default: SQL Server, ADR-0018).</summary>
 	public SecureGateDatabaseProvider Provider { get; set; } = SecureGateDatabaseProvider.SqlServer;
 
-	/// <summary>Connection string do banco <c>secco_securegate</c>. Obrigatória.</summary>
+	/// <summary>
+	/// Connection string de RUNTIME do banco <c>secco_securegate</c>. Obrigatória. Deve ser de um
+	/// login SEM posse do banco (leitura e escrita) — a ADR-0041 recusa subir fora de Development
+	/// com um login dono (<see cref="VerifyRuntimeIsNotOwner"/>).
+	/// </summary>
 	public string? ConnectionString { get; set; }
+
+	/// <summary>
+	/// Connection string de MIGRAÇÃO (login dono do banco, ADR-0041): usada só pelo verbo
+	/// <c>migrate</c> e pelo startup em Development, para o DDL. Ausente = usa <see cref="ConnectionString"/>
+	/// (compatível com instalações anteriores à separação de credenciais).
+	/// </summary>
+	public string? MigrationConnectionString { get; set; }
+
+	/// <summary>
+	/// Fora de Development, recusa subir quando a credencial de runtime é dona do banco (ADR-0041).
+	/// Padrão <c>true</c>; em Development só avisa.
+	/// </summary>
+	public bool VerifyRuntimeIsNotOwner { get; set; } = true;
+
+	/// <summary>Connection string que o DDL deve usar: a de migração, ou a de runtime se ela não existir.</summary>
+	public string EffectiveMigrationConnectionString =>
+		string.IsNullOrWhiteSpace(MigrationConnectionString) ? ConnectionString! : MigrationConnectionString;
 }
 
 /// <summary>

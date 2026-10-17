@@ -254,8 +254,11 @@ public static class SecureGateInfrastructureExtensions
 		using var scope = serviceProvider.CreateScope();
 		var databaseOptions = scope.ServiceProvider.GetRequiredService<SecureGateDatabaseOptions>();
 
+		// Contexto PRÓPRIO, com a credencial de migração (dona do banco, ADR-0041) e sem DI: o DDL
+		// não depende de escopo de tenant nem de cifrador (só Database.* — nunca lê entidade), então
+		// o contexto fica sem escopo (None) e nada do runtime participa da migração.
 		var options = SecureGateDatabaseProviderConfigurator.CreateOptions(
-			databaseOptions.Provider, databaseOptions.ConnectionString!);
+			databaseOptions.Provider, databaseOptions.EffectiveMigrationConnectionString);
 
 		await using var context = new SecureGateDbContext(options);
 		await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);

@@ -26,7 +26,7 @@ x-securegate: &securegate-base
         condition: service_completed_successfully
       mailhog:
         condition: service_started
-    environment:
+    environment: &securegate-env
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_HTTP_PORTS: "8080"
       # Convite e recuperação (ADR-0033): SMTP do MailHog, e a base pública dos links, que
@@ -37,7 +37,8 @@ x-securegate: &securegate-base
       SecureGate__Email__FromAddress: "no-reply@secco.local"
       SecureGate__PublicBaseUrl: "http://localhost:4101"
       # Banco de plataforma do SecureGate: o appsettings aponta para localhost (uso fora
-      # de container), aqui precisa apontar para o serviço sqlserver do compose.
+      # de container), aqui precisa apontar para o serviço sqlserver do compose. Esta é a
+      # credencial de RUNTIME (ADR-0041): login SEM posse do banco; o DDL usa a de migração.
       SecureGate__Database__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=secco_securegate_app;Password=Secco@Dev123;TrustServerCertificate=true"
       Secco__Tenancy__Tenants__018f0000-0000-7000-8000-000000000001__ConnectionString: "Server=sqlserver,1433;Database=secco_securegate_tenant_alfa;User Id=secco_securegate_alfa_app;Password=Secco@Dev123;TrustServerCertificate=true"
 
@@ -145,6 +146,11 @@ services:
     profiles: ["securegate", "all"]
     command: ["migrate"]
     restart: "no"
+    environment:
+      <<: *securegate-env
+      # Credencial de MIGRAÇÃO (ADR-0041): login dono do banco, só neste serviço. A de runtime
+      # (herdada) é usada pelo seed de referência, que é DML.
+      SecureGate__Database__MigrationConnectionString: "Server=sqlserver,1433;Database=secco_securegate;User Id=secco_securegate_migrator;Password=Secco@Dev123;TrustServerCertificate=true"
 
   securegate-api:
     <<: *securegate-base
