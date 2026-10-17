@@ -77,11 +77,16 @@
 	// Bancos e logins sao criados pelo sqlserver-init do compose (`docker compose up -d`).
 	"mssql.connections": [
 		{
+			// ADR-0041: o banco de plataforma tem Row-Level Security, que vale ate para o dono. Esta
+			// conexao usa o login de MIGRACAO (db_owner) para a ferramenta poder inspecionar o schema,
+			// mas sem contexto de sessao ela NAO ve linha nenhuma de tenant. Para ver dado, rode antes,
+			// na mesma sessao: EXEC sp_set_session_context N'secco_mode', N'platform';
+			// (o login de runtime, secco_securegate_app, e o que o servidor usa e nao e dono.)
 			"profileName": "Secco DEV — SecureGate (plataforma)",
 			"server": "localhost,1433",
 			"database": "secco_securegate",
 			"authenticationType": "SqlLogin",
-			"user": "secco_securegate_app",
+			"user": "secco_securegate_migrator",
 			"password": "Secco@Dev123",
 			"savePassword": true,
 			"trustServerCertificate": true

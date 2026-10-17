@@ -95,12 +95,17 @@ public static class SecureGateInfrastructureExtensions
 		// Escopo de acesso por requisição (ADR-0041): fonte única do tenant dos filtros globais do EF
 		services.AddScoped<Application.Tenancy.ITenantAccessScope, Tenancy.TenantAccessScope>();
 
+		// Contexto de sessão do banco (ADR-0041, camada 2): só no contexto de RUNTIME. O de migração
+		// (MigrateSecureGateDatabaseAsync) é criado fora de DI e só faz DDL.
+		services.AddScoped<Tenancy.TenantSessionContextInterceptor>();
+
 		services.AddDbContext<SecureGateDbContext>((serviceProvider, options) =>
 		{
 			var databaseOptions = serviceProvider.GetRequiredService<SecureGateDatabaseOptions>();
 
 			SecureGateDatabaseProviderConfigurator.Configure(
 				options, databaseOptions.Provider, databaseOptions.ConnectionString!);
+			options.AddInterceptors(serviceProvider.GetRequiredService<Tenancy.TenantSessionContextInterceptor>());
 		});
 
 		// Catálogo de tenants (Fase 6.3)

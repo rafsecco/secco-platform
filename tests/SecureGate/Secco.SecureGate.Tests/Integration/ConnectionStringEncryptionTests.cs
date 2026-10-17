@@ -118,8 +118,7 @@ public class ConnectionStringEncryptionTests(SecureGateApiFactory factory) : IAs
 
 	private async Task<string> ReadRawConnectionStringAsync(Guid tenantId)
 	{
-		await using var connection = new SqlConnection(factory.GetPlatformConnectionString());
-		await connection.OpenAsync();
+		await using var connection = await PlatformRawConnection.OpenPlatformAsync(factory.GetPlatformConnectionString());
 
 		await using var command = new SqlCommand(
 			"SELECT ds_connection_string FROM tb_tenant_databases WHERE id_fk_tenant = @tenant", connection);
@@ -130,8 +129,7 @@ public class ConnectionStringEncryptionTests(SecureGateApiFactory factory) : IAs
 
 	private async Task InsertRawDatabaseRowAsync(Guid tenantId, string product, string plaintext)
 	{
-		await using var connection = new SqlConnection(factory.GetPlatformConnectionString());
-		await connection.OpenAsync();
+		await using var connection = await PlatformRawConnection.OpenPlatformAsync(factory.GetPlatformConnectionString());
 
 		await using var command = new SqlCommand(
 			"""

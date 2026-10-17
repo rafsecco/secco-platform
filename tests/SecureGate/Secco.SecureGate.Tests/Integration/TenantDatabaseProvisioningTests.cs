@@ -128,8 +128,7 @@ public sealed class TenantDatabaseProvisioningApiTests(ProvisioningSecureGateApi
 		body.Should().NotContain("User Id");
 
 		// E o que foi persistido está cifrado (ADR-0025) — asserção direta na coluna.
-		await using var connection = new SqlConnection(factory.GetPlatformConnectionString());
-		await connection.OpenAsync();
+		await using var connection = await PlatformRawConnection.OpenPlatformAsync(factory.GetPlatformConnectionString());
 		await using var command = connection.CreateCommand();
 		command.CommandText =
 			"SELECT ds_connection_string FROM tb_tenant_databases WHERE id_fk_tenant = @tenant;";
