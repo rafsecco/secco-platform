@@ -74,7 +74,7 @@ public sealed record ProcessedImage(IReadOnlyDictionary<string, ImageOutput> Var
 public sealed record ImageOutput(byte[] Content, string ContentType, int Width, int Height);
 ```
 
-- Registro: `services.AddSeccoImaging()` com opções em `Secco:Imaging` (`AddOptions<T>().BindConfiguration()` e validação na subida):
+- Registro: `services.AddSeccoImaging(sectionKey)` — o produto escolhe a seção, como no `AddSeccoEmail` (ADR-0033: o pacote entrega tipos, não a chave) — com `AddOptions<T>().BindConfiguration()` e validação na subida:
   - `MaxInputBytes`, padrão 10 MB;
   - `MaxPixels`, padrão 50 milhões (cerca de 200 MB de pico em RGBA);
   - `MaxConcurrentOperations`, padrão `Environment.ProcessorCount`.
