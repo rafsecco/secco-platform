@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-17 (ADR-0041 aceita)
+**Última atualização:** 2026-10-17 (ADR-0042 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1495,6 +1495,65 @@ Alternativas avaliadas para o mecanismo:
 - Exportar e excluir os dados de um tenant (desejável na issue) fica fora.
 
 **Emenda (2026-10-17, antes do código da rodada 2).** O contexto de sessão pode ser regravado por qualquer comando da conexão, inclusive um injetado. **No SQL Server**, ele é gravado na abertura com `@read_only = 1`, e nada na conexão o muda até o pool resetá-la; trocar de escopo com a conexão aberta (transação em curso) lança, fail-closed. **No Postgres**, não há contexto somente leitura: o RLS segura o filtro esquecido em SQL cru, mas **não** contém injeção com comandos empilhados — limite registrado aqui e na nota de upgrade; o SQL Server segue o provider padrão (ADR-0018). Descartadas: regravar o contexto a cada comando (injeção o regravaria nos dois engines) e uma credencial de runtime por modo (complexidade alta, ganho só no Postgres). A suíte de testes do SecureGate passa a rodar com a credencial de runtime real, sem posse do banco, para que o RLS seja exercitado em todo teste.
+
+---
+
+## ADR-0042: Tratamento de imagem enviada por usuário — `Secco.SDK.Imaging` com SkiaSharp no próprio processo
+
+**Status:** Aceita
+**Data:** 2026-10-17
+
+### Contexto
+
+A Intranet vai aceitar foto do colaborador, e qualquer produto com avatar, logotipo ou anexo de imagem precisa do mesmo tratamento (issue [#29](https://github.com/rafsecco/secco-platform/issues/29)). Esse tratamento é fácil de errar:
+
+- arquivo que finge ser imagem;
+- EXIF com localização, um risco de LGPD e não só técnico;
+- arquivo pequeno em bytes que, ao decodificar, aloca gigabytes.
+
+A plataforma não tinha SDK de imagem, e o adotante recusou implementar isso dentro do produto.
+
+A biblioteca precisa ser utilizável comercialmente sem cobrança e rodar em Windows, Linux e container, sem `System.Drawing`. Alternativas de biblioteca:
+
+- **ImageSharp:** licença dividida, que cobra de empresa acima de um faturamento. Descartada em 2026-09-27.
+- **Decodificação gerenciada própria:** escrever PNG e JPEG em C#, sem código nativo, é trabalho grande e um decodificador novo também tem bugs. Fica como evolução possível, não como ponto de partida.
+- **SkiaSharp:** MIT, mantida pela Microsoft/.NET Foundation, decodifica com código nativo (libjpeg-turbo, libpng, libwebp).
+
+Alternativas de onde decodificar, já com o SkiaSharp. O código nativo pode ter falha de memória explorável, e a do libwebp em 2023 (CVE-2023-4863) foi explorada de verdade.
+
+- **No próprio processo, com defesas antes e depois.** O risco residual é uma falha não corrigida no decodificador chegar ao processo do produto, onde estão credenciais e sessões.
+- **Em processo separado e descartável.** Contém a falha, mas a SDK deixa de ser só uma biblioteca: um executável auxiliar a empacotar em cada imagem Docker de adotante.
+
+### Decisão
+
+Criaremos o pacote **`Secco.SDK.Imaging`**, que recebe os bytes enviados e devolve imagens normalizadas. O produto não conhece a biblioteca por baixo: o SkiaSharp fica atrás de uma porta **interna**, e nenhum tipo dele aparece na API pública.
+
+**Decodificaremos no próprio processo**, porque o caso que existe é upload de usuário autenticado da própria empresa, e o isolamento só se paga com upload anônimo. As defesas são estas:
+
+- leitura limitada em bytes, sem confiar em `Stream.Length`;
+- limite de pixels conferido no **cabeçalho**, antes de alocar o buffer de pixels;
+- concorrência limitada;
+- cancelamento;
+- versão fixada no `Directory.Packages.props` com o `NuGetAudit` quebrando o restore diante de advisory.
+
+O usuário erra no input e recebe `Result` com erro tipado (ADR-0004). O programador erra no uso e recebe `ArgumentException`.
+
+**A saída é codificada do zero a partir dos pixels:** orientação do EXIF aplicada, conversão para sRGB e nenhum metadado do original. A SDK trata só bytes; armazenamento, tenant e autorização são do produto. Entram JPEG, PNG e WebP; saem WebP (padrão) ou JPEG.
+
+Uma chamada produz **várias variantes** (nome livre + lado máximo, sem ampliar) a partir de **uma única** decodificação. Assim, o arquivo não confiável passa pelo decodificador uma vez só.
+
+### Consequências
+
+- **Mais fácil:**
+  - avatar, logotipo e anexo de imagem em qualquer produto, com as mesmas defesas;
+  - trocar o decodificador mais tarde, sem quebrar o adotante.
+- **Mais difícil:**
+  - a plataforma passa a ter a primeira dependência nativa fora do runtime, e advisory do Skia ou das bibliotecas que ele embute precisa virar atualização rápida;
+  - imagem Alpine (musl) fica fora do v1, porque o asset nativo referenciado é o de glibc.
+- **Proibido:**
+  - usar a SDK em upload **anônimo** sem ADR nova que reavalie o isolamento em processo separado;
+  - aceitar formato novo de entrada sem rever esta ADR;
+  - expor tipo do SkiaSharp na API pública.
 
 ---
 
