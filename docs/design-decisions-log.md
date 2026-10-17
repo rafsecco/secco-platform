@@ -1803,3 +1803,17 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - Os helpers de teste passaram a criar o DI scope já em modo plataforma (`CreatePlatformScope`), porque o teste observa de fora do pipeline; as requisições HTTP seguem o caminho de produção. Nenhuma asserção foi alterada.
 - Contexto criado fora de DI (design-time, migrations) fica em "nenhum" (fail-closed): `migrate` e a verificação na subida só tocam schema.
 - Mutação: 15 invariantes, todas detectadas. A mutação da checagem de escrita precisou ser refeita: a primeira versão não compilava (o analisador recusa código inalcançável).
+
+## Isolamento de tenant no banco do SecureGate, rodada 2 — RLS (issue #32, ADR-0041, 2026-10-17)
+
+**Contexto de sessão regravável.** A pergunta que a ADR não tinha detalhado: o contexto que o RLS lê pode ser regravado por qualquer comando da conexão, inclusive injetado. Escolha: SQL Server com `@read_only = 1` na abertura (nem injeção regrava; troca de escopo com conexão aberta lança) e Postgres com o limite registrado (sem contexto somente leitura, o RLS segura o filtro esquecido mas não a injeção empilhada). Descartadas: regravar a cada comando (injeção regravaria nos dois engines) e uma credencial de runtime por modo (complexidade alta, ganho só no Postgres). Emenda na ADR-0041.
+
+**Como provar.** A suíte inteira do SecureGate passou a rodar com a credencial de runtime real, sem posse — com `sa`, o RLS nunca seria exercitado. Mais testes de SQL cru por tabela, não-regravação do contexto, reaproveitamento do pool e `PostgresParityTests` próprios.
+
+**Achados da implementação (subagentes Sonnet, revisada):**
+- O RLS do SQL Server vale também para `sa`/`sysadmin` e `db_owner`: sem contexto, ninguém vê nada. O dono ainda pode desligar a política — por isso o runtime nunca pode ser dono. A ferramenta SQL de DEV passou a usar o login de migração, com a instrução de gravar o modo plataforma.
+- `SCHEMABINDING` faz qualquer migration que altere coluna de tabela protegida falhar enquanto a política existir; nasceu `TenantRowLevelSecurity.Drop/Create` em cada projeto de migrations, e a regra foi para a skill `secco-db-naming`.
+- Na revisão: o SQL Server só tinha `BLOCK` nas tabelas com tenant direto, atrás do Postgres (que tem `WITH CHECK` em todas) — e a suíte só roda em SQL Server, então um fluxo recusado pelo Postgres passaria despercebido. Entrou `BLOCK` nas 9. A revisão automática de segurança apontou em seguida que a escrita em `tb_users` usava o predicado de leitura (dono ou membro), deixando um tenant onde a pessoa é só membro alterar a linha dela — restrita ao tenant dono, como a ADR-0040 manda.
+- Dois alertas da revisão automática vieram de mutações temporárias da bateria (`@read_only = 0`), não do código commitado.
+- Mutação: 6 invariantes; uma sobreviveu (o teste de inserção bloqueada não cobria `tb_roles`) e virou teoria sobre as 9 tabelas.
+- Registrado: com a credencial de runtime em mãos, uma sessão própria consegue gravar o modo plataforma — a credencial é a fronteira de confiança; o RLS protege contra injeção nas conexões da aplicação, que já nascem com o contexto somente leitura.

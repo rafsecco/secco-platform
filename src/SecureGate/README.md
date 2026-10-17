@@ -113,6 +113,7 @@ Para quem mexe no código:
 - `IgnoreQueryFilters()` é proibido (teste de arquitetura).
 - O `SaveChanges` recusa gravar entidade de outro tenant, ou de qualquer tenant sem escopo.
 - Testes que montam dado pelo DI usam `Services.CreatePlatformScope()`.
+- **Row-Level Security (rodada 2):** o mesmo escopo vira contexto de sessão do banco, e a política `pol_tenant_isolation` aplica os mesmos filtros no banco — inclusive para SQL cru. A credencial de runtime (`SecureGate:Database:ConnectionString`) **não pode ser dona do banco** (o SecureGate recusa subir fora de Development); o `migrate` usa `SecureGate:Database:MigrationConnectionString`. Ver dado numa ferramenta SQL exige antes `EXEC sp_set_session_context N'secco_mode', N'platform'`. Migration que altere coluna de tabela protegida chama `TenantRowLevelSecurity.Drop` no começo e `Create` no fim.
 
 ## Configuração
 

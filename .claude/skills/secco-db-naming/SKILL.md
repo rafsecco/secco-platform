@@ -45,12 +45,15 @@ Regras:
 | `ft_` | índice full-text | `ft_<tabela>_<colunas>` | `ft_log_entries_ds_message` |
 | `sp_` | procedure (mutação/batch) | `sp_<verbo>_<nome>` | `sp_purge_old_logs` |
 | `fn_` | function (retorna dados) | `fn_<verbo>_<nome>` | `fn_select_active_tenants` |
+| `pol_` | security policy (RLS) | `pol_<descrição>` (Postgres: `pol_<descrição>_<tabela>`, um por tabela) | `pol_tenant_isolation` |
 
 ### Verbos de procedures/functions
 
 Vocabulário CRUD padronizado: `select` (listagem), `get` (leitura pontual), `insert`, `update`, `delete`, `upsert`. Operações de negócio usam verbo descritivo livre: `sp_purge_old_logs`, `sp_rebuild_tenant_stats`, `fn_calculate_retention`. Se não dá para nomear o verbo, a rotina faz coisa demais — dividir.
 
 Convenção semântica válida em qualquer engine: `fn_*` **retorna dados**; `sp_*` fica para mutações e batches (no PostgreSQL isso coincide com a natureza de functions vs procedures; no SQL Server é disciplina da plataforma).
+
+**Row-Level Security do SecureGate (ADR-0041):** as funções de predicado (`fn_check_*`) e a política `pol_tenant_isolation` usam `SCHEMABINDING`. Migration que **altere ou apague coluna** de tabela protegida (`tb_roles`, `tb_role_claims`, `tb_user_roles`, `tb_tenant_memberships`, `tb_users`, `tb_tenant_databases`, `tb_tenant_federations`, `tb_tenant_group_role_mappings`, `tb_elevation_grants`) chama `TenantRowLevelSecurity.Drop(migrationBuilder)` no começo do `Up` e `TenantRowLevelSecurity.Create(migrationBuilder)` no fim — a classe existe em cada projeto de migrations do SecureGate. Sem isso o SQL Server recusa a alteração.
 
 Nota SQL Server: o prefixo `sp_` foi **mantido por decisão registrada na ADR-0018** — o custo de lookup no banco `master` é conhecido e aceito. Usar `sp_` normalmente; não propor `usp_`.
 

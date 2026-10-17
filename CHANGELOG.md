@@ -14,6 +14,26 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 _Nada pendente._ A rodada mais recente saiu em 2026-10-15. O job `release-pendente` do CI verifica isto a cada push na `main`.
 
+### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
+
+Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.
+
+- **Quebra de implantação: duas credenciais de banco.** Fora de Development o SecureGate **não sobe** se a credencial de runtime (`SecureGate:Database:ConnectionString`) for dona do banco (SQL Server: `db_owner`, `sysadmin`, `ALTER ANY SECURITY POLICY` ou `CONTROL`; Postgres: superusuário, `BYPASSRLS` ou dona de tabela protegida). Crie uma credencial de migração (dona) e configure-a em `SecureGate:Database:MigrationConnectionString` no `migrate`; rebaixe a de runtime. SQL Server, por exemplo:
+  ```sql
+  CREATE LOGIN secco_securegate_migrator WITH PASSWORD = N'<senha>';
+  USE secco_securegate;
+  CREATE USER secco_securegate_migrator FOR LOGIN secco_securegate_migrator;
+  ALTER ROLE db_owner ADD MEMBER secco_securegate_migrator;
+  ALTER ROLE db_owner DROP MEMBER secco_securegate_app;      -- a credencial de runtime atual
+  ALTER ROLE db_datareader ADD MEMBER secco_securegate_app;
+  ALTER ROLE db_datawriter ADD MEMBER secco_securegate_app;
+  ```
+  Postgres: um papel dono das tabelas para o `migrate`, e o de runtime com `SELECT, INSERT, UPDATE, DELETE` nas tabelas e `USAGE` nas sequences, sem `BYPASSRLS`.
+- **Rode o `migrate` da versão nova** (migration `AddTenantRowLevelSecurity`: funções de predicado e política `pol_tenant_isolation` nas 9 tabelas de tenant; Postgres com `FORCE ROW LEVEL SECURITY`).
+- **Ferramentas SQL:** sem contexto de sessão o RLS não mostra nada, nem para o dono ou `sa`. Antes de consultar: `EXEC sp_set_session_context N'secco_mode', N'platform'` (SQL Server) ou `SELECT set_config('secco.mode', 'platform', false)` (Postgres).
+- **Limite no Postgres:** o contexto de sessão não é somente leitura lá; o RLS segura consulta que esqueceu o filtro, mas não contém injeção com comandos empilhados. No SQL Server (provider padrão) o contexto é gravado com `@read_only = 1` e contém as duas.
+- O `docker-compose.yml` de desenvolvimento já cria os dois logins (`secco_securegate_migrator` e `secco_securegate_app`) e converge o volume existente no próximo `up`.
+
 ---
 
 ## Publicado
