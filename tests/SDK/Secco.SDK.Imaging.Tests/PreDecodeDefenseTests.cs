@@ -169,18 +169,12 @@ public sealed class PreDecodeDefenseTests
 	public async Task Recorte_em_coordenadas_orientadas()
 	{
 		// 200x100 com Orientation 6 vira 100x200: (0,100,100,100) só cabe nas dimensões orientadas.
-		var real = new SkiaImageCodec(NullLogger<SkiaImageCodec>.Instance);
-		var codec = Substitute.For<IImageCodec>();
-		codec.Probe(Arg.Any<ReadOnlyMemory<byte>>()).Returns(call => real.Probe(call.Arg<ReadOnlyMemory<byte>>()));
-		codec.Render(default, default!, default!, default, default, default).ReturnsForAnyArgs(OneRendered());
-
 		var result = await Run(
-			Processor(codec),
+			RealProcessor(),
 			TestImages.JpegWithExif(200, 100, 6, "x"),
 			Request with { Crop = new CropRectangle(0, 100, 100, 100) });
 
 		result.IsSuccess.Should().BeTrue();
-		codec.ReceivedWithAnyArgs(1).Render(default, default!, default!, default, default, default);
 	}
 
 	[Fact]

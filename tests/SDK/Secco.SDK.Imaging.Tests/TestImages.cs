@@ -100,6 +100,46 @@ internal static class TestImages
 		return stream.ToArray();
 	}
 
+	/// <summary>
+	/// PNG válido de ponta a ponta num tipo de cor específico (0 cinza, 3 paleta, 4 cinza+alfa, 6 RGBA),
+	/// montado à mão para exercitar tipos que o encoder do Skia não gera. Os pixels são todos zero.
+	/// </summary>
+	internal static byte[] PngRaw(int width, int height, byte bitDepth, byte colorType)
+	{
+		var channels = colorType switch { 0 or 3 => 1, 4 => 2, 6 => 4, _ => throw new ArgumentOutOfRangeException(nameof(colorType)) };
+		var bytesPerRow = ((width * channels * bitDepth) + 7) / 8;
+
+		var ihdr = new byte[13];
+		BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(0), width);
+		BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
+		ihdr[8] = bitDepth;
+		ihdr[9] = colorType;
+
+		byte[] compressed;
+		using (var buffer = new MemoryStream())
+		{
+			using (var zlib = new System.IO.Compression.ZLibStream(buffer, System.IO.Compression.CompressionLevel.Optimal, leaveOpen: true))
+			{
+				zlib.Write(new byte[(bytesPerRow + 1) * height]);
+			}
+
+			compressed = buffer.ToArray();
+		}
+
+		using var stream = new MemoryStream();
+		stream.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+		WriteChunk(stream, "IHDR", ihdr);
+
+		if (colorType == 3)
+		{
+			WriteChunk(stream, "PLTE", [0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF]);
+		}
+
+		WriteChunk(stream, "IDAT", compressed);
+		WriteChunk(stream, "IEND", []);
+		return stream.ToArray();
+	}
+
 	internal static byte[] Gif1x1() =>
 	[
 		.. "GIF89a"u8.ToArray(),
