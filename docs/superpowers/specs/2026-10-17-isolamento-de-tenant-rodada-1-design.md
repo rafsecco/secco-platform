@@ -1,7 +1,7 @@
 # Isolamento de tenant no banco do SecureGate, rodada 1 — design
 
 **Data:** 2026-10-17
-**Status:** em revisão
+**Status:** aprovada (2026-10-17)
 **Decisões arquiteturais:** [ADR-0041](../../adr/secco-platform-adrs.md) (esta entrega), [ADR-0040](../../adr/secco-platform-adrs.md) (pessoa em vários tenants), [ADR-0021](../../adr/secco-platform-adrs.md) (perfis por tenant), [ADR-0002](../../adr/secco-platform-adrs.md) (camadas), [ADR-0020](../../adr/secco-platform-adrs.md) (segurança)
 **Origem:** issue [#32](https://github.com/rafsecco/secco-platform/issues/32). Rodada 1 = camadas 1 (filtro global no EF) e 3 (teste de arquitetura). A camada 2 (RLS) é a rodada 2, com spec própria.
 

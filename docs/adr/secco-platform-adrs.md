@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-17 (ADR-0041 proposta)
+**Última atualização:** 2026-10-17 (ADR-0041 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1456,7 +1456,7 @@ Hoje todas essas rotas exigem `securegate:admin`, que é de instalação; a sepa
 
 ## ADR-0041: Isolamento de tenant no banco do SecureGate — escopo explícito, filtro global e RLS
 
-**Status:** Proposta
+**Status:** Aceita
 **Data:** 2026-10-17
 
 ### Contexto
