@@ -110,41 +110,50 @@ public sealed class RenderTests
 		(output.Width, output.Height).Should().Be((100, 100));
 	}
 
+	// Armazenada 200x100: TL=R (vermelho), TR=G (verde), BL=B (azul), BR=Y (amarelo).
+	// Esperado (TL, TR, BL, BR) exibido, derivado da tabela EXIF e não da implementação.
 	[Theory]
-	[InlineData(3)]
-	[InlineData(6)]
-	[InlineData(8)]
-	public async Task Orientacao_aplicada(int orientation)
+	[InlineData(1, "RGBY")] // identidade
+	[InlineData(2, "GRYB")] // espelho horizontal
+	[InlineData(3, "YBGR")] // girar 180
+	[InlineData(4, "BYRG")] // espelho vertical
+	[InlineData(5, "RBGY")] // transposta
+	[InlineData(6, "BRYG")] // girar 90 horario
+	[InlineData(7, "YGBR")] // transversa
+	[InlineData(8, "GYRB")] // girar 90 anti-horario
+	public async Task Orientacao_aplicada(int orientation, string expectedTlTrBlBr)
 	{
-		var jpeg = TestImages.JpegWithExif(200, 100, (ushort)orientation, "x");
-		var crop = orientation == 3 ? new CropRectangle(0, 0, 200, 100) : new CropRectangle(0, 0, 100, 200);
+		var jpeg = TestImages.JpegWithExif(200, 100, (ushort)orientation, "x", quadrants: true);
+		var (displayW, displayH) = orientation >= 5 ? (100, 200) : (200, 100);
 
-		var output = await Single(jpeg, Req(512, crop));
+		var output = await Single(jpeg, Req(512, new CropRectangle(0, 0, displayW, displayH)));
 
+		(output.Width, output.Height).Should().Be((displayW, displayH));
 		using var bitmap = Decode(output);
-		var (width, height) = (bitmap.Width, bitmap.Height);
+		(bitmap.Width, bitmap.Height).Should().Be((displayW, displayH));
 
-		switch (orientation)
+		var centers = new[]
 		{
-			case 6:
-				(width, height).Should().Be((100, 200));
-				IsRed(bitmap.GetPixel(width / 2, height / 4)).Should().BeTrue();
-				IsBlue(bitmap.GetPixel(width / 2, height * 3 / 4)).Should().BeTrue();
-				break;
-			case 8:
-				(width, height).Should().Be((100, 200));
-				IsBlue(bitmap.GetPixel(width / 2, height / 4)).Should().BeTrue();
-				IsRed(bitmap.GetPixel(width / 2, height * 3 / 4)).Should().BeTrue();
-				break;
-			default:
-				(width, height).Should().Be((200, 100));
-				IsBlue(bitmap.GetPixel(width / 4, height / 2)).Should().BeTrue();
-				IsRed(bitmap.GetPixel(width * 3 / 4, height / 2)).Should().BeTrue();
-				break;
+			(displayW / 4, displayH / 4),
+			(displayW * 3 / 4, displayH / 4),
+			(displayW / 4, displayH * 3 / 4),
+			(displayW * 3 / 4, displayH * 3 / 4),
+		};
+
+		for (var i = 0; i < 4; i++)
+		{
+			var pixel = bitmap.GetPixel(centers[i].Item1, centers[i].Item2);
+			Named(pixel).Should().Be(expectedTlTrBlBr[i], $"quadrante {i} da orientação {orientation}");
 		}
 
-		static bool IsRed(SKColor c) => c.Red > 200 && c.Blue < 60;
-		static bool IsBlue(SKColor c) => c.Blue > 200 && c.Red < 60;
+		static char Named(SKColor c) => (c.Red > 150, c.Green > 150, c.Blue > 150) switch
+		{
+			(true, false, false) => 'R',
+			(false, true, false) => 'G',
+			(false, false, true) => 'B',
+			(true, true, false) => 'Y',
+			_ => '?',
+		};
 	}
 
 	[Fact]

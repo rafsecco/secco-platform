@@ -19,6 +19,23 @@ internal static class TestImages
 		return bitmap;
 	}
 
+	/// <summary>Quatro quadrantes: superior esquerdo vermelho, superior direito verde, inferior esquerdo azul, inferior direito amarelo.</summary>
+	internal static byte[] QuadrantsJpeg(int width, int height)
+	{
+		using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+		using var canvas = new SKCanvas(bitmap);
+		var (halfW, halfH) = (width / 2f, height / 2f);
+		using var red = new SKPaint { Color = SKColors.Red };
+		using var green = new SKPaint { Color = new SKColor(0, 255, 0) };
+		using var blue = new SKPaint { Color = SKColors.Blue };
+		using var yellow = new SKPaint { Color = SKColors.Yellow };
+		canvas.DrawRect(0, 0, halfW, halfH, red);
+		canvas.DrawRect(halfW, 0, width - halfW, halfH, green);
+		canvas.DrawRect(0, halfH, halfW, height - halfH, blue);
+		canvas.DrawRect(halfW, halfH, width - halfW, height - halfH, yellow);
+		return Encode(bitmap, SKEncodedImageFormat.Jpeg, 100);
+	}
+
 	internal static byte[] Encode(SKBitmap bitmap, SKEncodedImageFormat format, int quality = 90)
 	{
 		using var image = SKImage.FromBitmap(bitmap);
@@ -45,9 +62,9 @@ internal static class TestImages
 	}
 
 	/// <summary>JPEG com um APP1/EXIF montado à mão logo após o SOI (Orientation e ImageDescription).</summary>
-	internal static byte[] JpegWithExif(int width, int height, ushort orientation, string marker)
+	internal static byte[] JpegWithExif(int width, int height, ushort orientation, string marker, bool quadrants = false)
 	{
-		var jpeg = Jpeg(width, height);
+		var jpeg = quadrants ? QuadrantsJpeg(width, height) : Jpeg(width, height);
 		var description = Encoding.ASCII.GetBytes(marker + "\0");
 
 		// TIFF little-endian: cabeçalho (8) + IFD0 (2 + 2*12 + 4 = 30) + dados da descrição.

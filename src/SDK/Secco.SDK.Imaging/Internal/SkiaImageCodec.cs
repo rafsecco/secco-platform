@@ -81,13 +81,12 @@ internal sealed partial class SkiaImageCodec(ILogger<SkiaImageCodec> logger) : I
 
 			cancellationToken.ThrowIfCancellationRequested();
 
-			using var cropped = OrientAndCrop(source, codec.EncodedOrigin, crop);
 			var outputs = new List<RenderedImage>(variants.Count);
 
 			foreach (var variant in variants)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				outputs.Add(RenderVariant(cropped, variant, format, quality));
+				outputs.Add(RenderVariant(source, codec.EncodedOrigin, crop, variant, format, quality));
 			}
 
 			IReadOnlyList<RenderedImage> rendered = outputs;
@@ -100,22 +99,6 @@ internal sealed partial class SkiaImageCodec(ILogger<SkiaImageCodec> logger) : I
 			LogRenderFailed(logger, exceptionType);
 			return SeccoImagingErrors.InvalidImage;
 		}
-	}
-
-	/// <summary>Aplica a orientação EXIF e o recorte (já em coordenadas orientadas) numa única passada de desenho.</summary>
-	private static SKBitmap OrientAndCrop(SKBitmap source, SKEncodedOrigin origin, CropRectangle crop)
-	{
-		// Sem colorspace de propósito: os pixels já são sRGB e assim nenhum encoder embute perfil ICC.
-		var target = new SKBitmap(new SKImageInfo(crop.Width, crop.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-
-		using var canvas = new SKCanvas(target);
-		canvas.Clear(SKColors.Transparent);
-		canvas.Translate(-crop.X, -crop.Y);
-		canvas.Concat(OrientationMatrix(origin, source.Width, source.Height));
-		// Vizinho mais próximo: as transformações de orientação são exatas, sem reamostragem.
-		using var image = SKImage.FromBitmap(source);
-		canvas.DrawImage(image, 0, 0, new SKSamplingOptions(SKFilterMode.Nearest), null);
-		return target;
 	}
 
 	/// <summary>Matriz que leva um pixel da imagem armazenada para a imagem exibida (tabela EXIF 1 a 8).</summary>
@@ -131,13 +114,15 @@ internal sealed partial class SkiaImageCodec(ILogger<SkiaImageCodec> logger) : I
 		_ => SKMatrix.Identity,
 	};
 
-	private static RenderedImage RenderVariant(SKBitmap cropped, ImageVariant variant, ImageOutputFormat format, int quality)
+	private static RenderedImage RenderVariant(
+		SKBitmap source, SKEncodedOrigin origin, CropRectangle crop, ImageVariant variant, ImageOutputFormat format, int quality)
 	{
 		// Nunca amplia; nunca zera uma dimensão (4000x1 em 96 vira 96x1).
-		var scale = Math.Min(1d, (double)variant.MaxSide / Math.Max(cropped.Width, cropped.Height));
-		var width = Math.Max(1, (int)Math.Round(cropped.Width * scale));
-		var height = Math.Max(1, (int)Math.Round(cropped.Height * scale));
+		var scale = Math.Min(1d, (double)variant.MaxSide / Math.Max(crop.Width, crop.Height));
+		var width = Math.Max(1, (int)Math.Round(crop.Width * scale));
+		var height = Math.Max(1, (int)Math.Round(crop.Height * scale));
 
+		// Sem colorspace de propósito: os pixels já são sRGB e assim nenhum encoder embute perfil ICC.
 		var alpha = format == ImageOutputFormat.Jpeg ? SKAlphaType.Opaque : SKAlphaType.Premul;
 		using var output = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, alpha));
 
@@ -146,9 +131,15 @@ internal sealed partial class SkiaImageCodec(ILogger<SkiaImageCodec> logger) : I
 			// JPEG não tem alfa: compõe sobre branco opaco em vez de deixar o encoder decidir (fundo preto).
 			canvas.Clear(format == ImageOutputFormat.Jpeg ? SKColors.White : SKColors.Transparent);
 
+			// Um único desenho direto da fonte decodificada: escala x recorte x orientação.
+			// Nenhum bitmap intermediário do tamanho do recorte (teto de memória, ADR-0020).
+			canvas.Scale((float)width / crop.Width, (float)height / crop.Height);
+			canvas.Translate(-crop.X, -crop.Y);
+			canvas.Concat(OrientationMatrix(origin, source.Width, source.Height));
+
 			var sampling = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear);
-			using var image = SKImage.FromBitmap(cropped);
-			canvas.DrawImage(image, new SKRect(0, 0, width, height), sampling);
+			using var image = SKImage.FromBitmap(source);
+			canvas.DrawImage(image, 0, 0, sampling, null);
 		}
 
 		using var pixmap = output.PeekPixels();
