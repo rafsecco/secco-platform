@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-15 (ADR-0040 aceita)
+**Última atualização:** 2026-10-17 (ADR-0041 proposta)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1451,6 +1451,48 @@ Hoje todas essas rotas exigem `securegate:admin`, que é de instalação; a sepa
 - `Secco.SecureGate.Client` ganha os métodos de vínculo e o tipo de client interativo: versão minor, sem quebra. O token não muda de formato: produtos e SDK não mudam.
 - **Emenda à ADR-0022:** "o registro do usuário carrega o tenant" passa a "o registro carrega o tenant dono; o tenant do login vem da aplicação". **Emenda à ADR-0037:** client de produto pode ser interativo.
 - **Fora desta ADR:** tela de vínculos no AdminPortal; seletor de tenant para aplicação que sirva a vários tenants; `sver` por vínculo; diretório federado por vínculo; transferir a conta para outro tenant dono.
+
+---
+
+## ADR-0041: Isolamento de tenant no banco do SecureGate — escopo explícito, filtro global e RLS
+
+**Status:** Proposta
+**Data:** 2026-10-17
+
+### Contexto
+
+No banco do SecureGate o isolamento entre tenants é convenção: cada consulta escreve `where TenantId == …` à mão — cerca de 45 ocorrências em 8 arquivos da Infrastructure —, sem filtro global no EF nem Row-Level Security no banco (issue [#32](https://github.com/rafsecco/secco-platform/issues/32)). Uma consulta nova que esqueça o filtro vaza perfil, vínculo ou pessoa de outro tenant, e só um teste específico perceberia. A ADR-0040 tornou o risco concreto: sistemas diferentes da mesma empresa dividem as tabelas, e o filtro de perfis pelo tenant do login virou a invariante mais crítica da emissão de token.
+
+A ADR-0040 também mudou o que é "dado de tenant": a pessoa (`tb_users`) atravessa tenants, então o filtro dela é "dona **ou** membro do tenant da operação", não uma coluna.
+
+Banco do SecureGate por tenant foi descartado na própria issue: conteria o vazamento horizontal, mas login por e-mail, catálogo de connection strings, operador de instalação e elevação são cross-tenant por natureza e exigiriam um banco central de qualquer forma.
+
+Alternativas avaliadas para o mecanismo:
+
+- **Filtro global e `IgnoreQueryFilters()` nos caminhos cross-tenant** (como a issue descreve). O RLS da segunda camada não enxerga `IgnoreQueryFilters()`; seria preciso um segundo mecanismo de modo de sessão, e os dois teriam que andar juntos para sempre. Descartada.
+- **Filtro lendo o tenant da rota HTTP.** Implícito: não cobre seed nem job, e um endpoint com outro formato de rota fica sem filtro sem ninguém perceber. Descartada.
+- **Entregar as três camadas de uma vez.** O RLS só contém injeção se a credencial do runtime não for dona do banco — no SQL Server, `db_owner` desliga a política com um comando injetado; no Postgres, o dono da tabela ignora o RLS sem `FORCE` e o superusuário sempre. Isso separa a credencial do `migrate` da do runtime, uma quebra de implantação que não deveria travar o ganho principal. Descartada em favor de duas rodadas.
+
+### Decisão
+
+**Escopo explícito da operação.** O SecureGate ganha um escopo de acesso por requisição (`ITenantAccessScope`, porta da Application) com três estados: **nenhum**, **tenant X** e **plataforma**. Entrar num estado devolve um `IDisposable` que restaura o anterior, delimitando cada trecho. É a fonte única do tenant das camadas 1 e 2.
+
+**Camada 1 — filtro global no EF (rodada 1).** Filtros nomeados do EF Core restringem, ao estado do escopo, as entidades de tenant: perfis, permissões e atribuições de perfil (pelo tenant do perfil), vínculos, bancos de tenant, federação, mapeamento grupo→perfil, concessões de elevação, e a pessoa (dona ou membro). **Sem escopo, nada aparece** (fail-closed). Na escrita, o `SaveChanges` recusa incluir ou alterar entidade de outro tenant estando em escopo de tenant. Ficam fora, por natureza: a própria tabela de tenants (operação de instalação), dados de plataforma sem tenant (catálogo de permissões, chaves de Data Protection), dados da pessoa lidos só pelo id dela (logins externos, claims, tokens do Identity) e as tabelas do OpenIddict — o pipeline do protocolo consulta o client pelo `client_id` antes de existir tenant, e a API de clients do tenant mantém o filtro explícito.
+
+**Borda.** Rotas sob `/api/v1/tenants/{tenantId}` e `/api/v1/authorization/tenants/{tenantId}` entram no escopo do tenant da rota antes do handler. Caminhos cross-tenant entram em modo **plataforma** explicitamente, com motivo: login e emissão de token (a pessoa é achada em modo plataforma; os perfis são lidos já no escopo do tenant do login), páginas de login e de conta da própria pessoa, lista e criação de tenants, catálogo de bancos, contagem de operadores, versão de sessão, publicação do catálogo de permissões, busca da pessoa por e-mail na inclusão de membro, seeds, `migrate` e verificação de migration na subida.
+
+**Camada 3 — teste de arquitetura (rodada 1).** O build reprova `IgnoreQueryFilters` em qualquer ponto do SecureGate e toda entrada em modo plataforma fora de uma lista versionada (arquivo e motivo por linha). Caminho cross-tenant novo só entra mudando essa lista, que aparece no diff.
+
+**Camada 2 — RLS (rodada 2, spec própria).** O estado do escopo vira contexto de sessão do banco a cada abertura e a cada troca de estado (`sp_set_session_context` no SQL Server, `set_config` no Postgres; o pool limpa o contexto ao devolver a conexão). As políticas espelham os filtros da camada 1, com modo plataforma como valor explícito — sem contexto, nada aparece. A credencial do runtime deixa de ser dona do banco (só leitura e escrita); a do `migrate` faz o DDL. Fora de Development, o SecureGate recusa subir com credencial de runtime dona do banco, como recusa com migration pendente (ADR-0038).
+
+### Consequências
+
+- Consulta nova sem filtro deixa de vazar: na rodada 1 pelo EF, na rodada 2 também por SQL cru e injeção nos caminhos de tenant.
+- O filtro de perfis pelo tenant do login (ADR-0040) passa a ser garantido pelo escopo, não só pela consulta que o escreve.
+- **Limite assumido:** o modo plataforma enxerga tudo, no EF e no banco. Uma injeção num caminho de modo plataforma (o login, por exemplo) não é contida pelo RLS — segue contida pelo EF parametrizado, e esses caminhos são poucos e listados.
+- A rodada 1 não muda contrato nem pacote: o adotante não percebe. A rodada 2 traz nota de upgrade (duas credenciais) e o `docker-compose.yml` passa a criar os dois logins.
+- Os filtros manuais existentes continuam onde estão na rodada 1 (redundantes, inofensivos); removê-los é limpeza posterior, não requisito.
+- Exportar e excluir os dados de um tenant (desejável na issue) fica fora.
 
 ---
 
