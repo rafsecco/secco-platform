@@ -82,6 +82,7 @@ Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mud
 | `sdk-credentials/v*` | `src/SDK/Secco.SDK.ClientCredentials/Secco.SDK.ClientCredentials.csproj` |
 | `sdk-email/v*` | `src/SDK/Secco.SDK.Email/Secco.SDK.Email.csproj` |
 | `sdk-logging/v*` | `src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj` |
+| `sdk-imaging/v*` | `src/SDK/Secco.SDK.Imaging/Secco.SDK.Imaging.csproj` |
 | `logstream-client/v*` | `src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj` |
 | `notificationhub-client/v*` | `src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj` |
 | `securegate-client/v*` | `src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj` |
