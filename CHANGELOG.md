@@ -12,7 +12,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-_Nada pendente._ A rodada mais recente saiu em 2026-10-15. O job `release-pendente` do CI verifica isto a cada push na `main`.
+### Secco.SDK.Imaging 0.1.0 (novo)
+
+Pacote novo (issue #29, ADR-0042): tratamento seguro de imagem enviada por usuário, para qualquer produto com avatar, logotipo ou anexo de imagem. Ainda não publicado (tag `sdk-imaging/v0.1.0`).
+
+- **Adicionado** `ISeccoImageProcessor.ProcessAsync`: valida pelo conteúdo (JPEG, PNG e WebP), aplica a orientação do EXIF, recorta (retângulo em coordenadas da imagem orientada, ou quadrado central), gera **várias variantes nomeadas** (lado máximo de 1 a 4096, sem ampliar) a partir de **uma única** decodificação e recodifica em WebP (padrão) ou JPEG, sem nenhum metadado do original.
+- **Adicionado** `AddSeccoImaging(sectionKey)` e `SeccoImagingOptions`: `MaxInputBytes` (10 MB), `MaxPixels` (50 milhões, conferido no cabeçalho antes de alocar) e `MaxConcurrentOperations` (número de processadores).
+- **Adicionado** `SeccoImagingErrors` com cinco erros de validação de descrição fixa (`InputTooLarge`, `UnsupportedFormat`, `InvalidImage`, `TooManyPixels`, `InvalidCrop`); HEIC e AVIF são reconhecidos e respondem `UnsupportedFormat`. Pedido inválido lança `ArgumentException`.
+- **Dependência nativa nova:** SkiaSharp e `SkiaSharp.NativeAssets.Linux.NoDependencies`, a primeira da plataforma fora do runtime. Alpine (musl) fica fora do v1.
+- **Proibido pela ADR-0042:** usar em upload anônimo sem ADR nova.
 
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 

@@ -1817,3 +1817,20 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - Dois alertas da revisão automática vieram de mutações temporárias da bateria (`@read_only = 0`), não do código commitado.
 - Mutação: 6 invariantes; uma sobreviveu (o teste de inserção bloqueada não cobria `tb_roles`) e virou teoria sobre as 9 tabelas.
 - Registrado: com a credencial de runtime em mãos, uma sessão própria consegue gravar o modo plataforma — a credencial é a fronteira de confiança; o RLS protege contra injeção nas conexões da aplicação, que já nascem com o contexto somente leitura.
+
+## Secco.SDK.Imaging (issue #29, ADR-0042, 2026-10-17)
+
+**Dois tamanhos numa chamada.** A Intranet mostra a foto em dois tamanhos (avatar de lista e perfil). Escolha: o pedido leva várias variantes nomeadas e o arquivo passa pelo decodificador **uma vez só**.
+
+**Sem refazer o recorte depois.** Quem quiser outro recorte envia a foto de novo. Por isso não se guarda cópia mestra e o original é descartado: nada do arquivo enviado é armazenado.
+
+**Decodificar no próprio processo (A) × processo separado e descartável (B).** O upload é de usuário autenticado da própria empresa, então escolheu-se A, com defesas antes e depois da decodificação. B contém uma falha do decodificador, mas obriga a empacotar um executável auxiliar em cada imagem Docker de adotante, e só se paga com upload anônimo, que a ADR-0042 proíbe sem ADR nova.
+
+**HEIC.** Reconhecido pela marca `ftyp` e respondido com `UnsupportedFormat`, não `InvalidImage`. O SkiaSharp não lê HEIC no Linux e o Safari do iPhone costuma converter para JPEG no envio.
+
+**Saída.** WebP por padrão, JPEG como opção.
+
+**Achados da implementação (subagentes Sonnet, revisada):**
+- Um bitmap intermediário do tamanho do recorte dobrava o pico de memória. Cada variante passou a ser desenhada direto da fonte decodificada, com uma transformação combinada; o pico ficou em torno da fonte decodificada mais a maior variante.
+- Só 3 das 8 orientações EXIF eram testadas; virou uma teoria nas 8, com imagem de 4 cores em quadrantes.
+- Mutação: 6 invariantes, todas detectadas (limite de pixels, orientação ignorada, ampliação permitida, limite do recorte, fundo branco do JPEG, vaga de concorrência não liberada).

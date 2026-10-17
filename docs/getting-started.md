@@ -45,6 +45,7 @@ Versões publicadas atuais:
 | `Secco.SDK.ClientCredentials` | 0.1.13 | Client credentials OAuth 2 entre produtos; os clients de produto o usam sozinhos |
 | `Secco.SDK.Logging` | 0.2.0 | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) |
 | `Secco.SDK.Email` | 0.1.0 | Envio de e-mail (`ISeccoEmailSender`, SMTP/SendGrid por configuração, ADR-0033) |
+| `Secco.SDK.Imaging` | 0.1.0 (a publicar) | Tratamento seguro de imagem enviada (`ISeccoImageProcessor`, variantes sem metadados, SkiaSharp atrás de porta interna, ADR-0042) |
 | `Secco.NotificationHub.Client` | 0.6.0 | Client do NotificationHub |
 | `Secco.Templates` | 0.4.0 | `dotnet new secco-service` |
 
