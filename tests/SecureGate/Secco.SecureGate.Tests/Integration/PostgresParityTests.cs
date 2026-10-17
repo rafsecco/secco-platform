@@ -440,6 +440,53 @@ public sealed class PostgresParityTests(PostgresRlsFixture fixture) : IClassFixt
 		(await CountAsync(platform, "tb_roles", "id_fk_tenant = @b")).Should().Be(1);
 	}
 
+	// ---- tb_users: escrita so pelo tenant dono (ADR-0040) ----
+
+	[Fact]
+	public async Task Users_EscritaPeloTenantOndeAPessoaESoMembro_NaoAcertaNada()
+	{
+		await using var connection = await RuntimeAsync("tenant", _tenantB);
+		(await CountAsync(connection, "tb_users", "id_pk_user = @person")).Should().Be(1, "membro enxerga");
+
+		(await ExecuteAsync(connection, "UPDATE tb_users SET fl_lockout_enabled = fl_lockout_enabled WHERE id_pk_user = @person", ("@person", _person)))
+			.Should().Be(0, "a politica de escrita so concede ao tenant dono: o UPDATE nao enxerga a linha");
+		(await ExecuteAsync(connection, "DELETE FROM tb_users WHERE id_pk_user = @person", ("@person", _person)))
+			.Should().Be(0);
+
+		await using var platform = await RuntimeAsync("platform");
+		(await CountAsync(platform, "tb_users", "id_pk_user = @person")).Should().Be(1, "a linha segue la");
+	}
+
+	[Theory]
+	[InlineData("tenant")]
+	[InlineData("platform")]
+	public async Task Users_EscritaPeloTenantDonoEPelaPlataforma_Passa(string mode)
+	{
+		await using var connection = await RuntimeAsync(mode, mode == "tenant" ? _tenantA : null);
+		await using var transaction = await connection.BeginTransactionAsync();
+
+		(await ExecuteAsync(connection, "UPDATE tb_users SET fl_lockout_enabled = fl_lockout_enabled WHERE id_pk_user = @person", ("@person", _person)))
+			.Should().Be(1);
+
+		await transaction.RollbackAsync();
+	}
+
+	[Fact]
+	public async Task Users_MoverODonoOuInserirNoTenantAlheio_EBloqueado()
+	{
+		await using var connection = await RuntimeAsync("tenant", _tenantA);
+
+		var move = () => ExecuteAsync(connection, "UPDATE tb_users SET id_fk_tenant = @c WHERE id_pk_user = @person", ("@c", _tenantC), ("@person", _person));
+		(await move.Should().ThrowAsync<PostgresException>()).Which.SqlState.Should().Be("42501");
+
+		var insert = () => ExecuteAsync(
+			connection,
+			"INSERT INTO tb_users (id_pk_user, id_fk_tenant, fl_email_confirmed, fl_phone_number_confirmed, fl_two_factor_enabled, fl_lockout_enabled, nr_access_failed_count) "
+			+ "VALUES (@id, @b, false, false, false, false, 0)",
+			("@id", Guid.NewGuid()), ("@b", _tenantB));
+		(await insert.Should().ThrowAsync<PostgresException>()).Which.SqlState.Should().Be("42501");
+	}
+
 	// ---- Interceptor real contra Postgres real ----
 
 	[Fact]
@@ -547,7 +594,7 @@ public sealed class PostgresParityTests(PostgresRlsFixture fixture) : IClassFixt
 		await using var owner = new NpgsqlConnection(OwnerConnection());
 		await owner.OpenAsync();
 
-		(await StateAsync(owner)).Should().Be((9, 9, 9), "uma politica por tabela, RLS ligado e forcado nas 9");
+		(await StateAsync(owner)).Should().Be((10, 9, 9), "uma politica por tabela (tb_users tem duas: select e write), RLS ligado e forcado nas 9");
 
 		var drop = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
 		TenantRowLevelSecurity.Drop(drop);
@@ -557,10 +604,11 @@ public sealed class PostgresParityTests(PostgresRlsFixture fixture) : IClassFixt
 		var create = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
 		TenantRowLevelSecurity.Create(create);
 		await RunAsync(owner, create);
-		(await StateAsync(owner)).Should().Be((9, 9, 9));
+		(await StateAsync(owner)).Should().Be((10, 9, 9));
 
 		(await ScalarAsync(owner, "SELECT COUNT(*) FROM pg_policies WHERE policyname = ANY (@names)",
-			("@names", tables.Select(t => $"pol_tenant_isolation_{t}").ToArray()))).Should().Be(9);
+			("@names", tables.Where(t => t != "tb_users").Select(t => $"pol_tenant_isolation_{t}")
+				.Concat(["pol_tenant_isolation_tb_users_select", "pol_tenant_isolation_tb_users_write"]).ToArray()))).Should().Be(10);
 	}
 
 	private static async Task<(long Policies, long Enabled, long Forced)> StateAsync(NpgsqlConnection connection) =>

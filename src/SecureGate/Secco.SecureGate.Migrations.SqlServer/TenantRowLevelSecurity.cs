@@ -86,8 +86,11 @@ CREATE SECURITY POLICY dbo.pol_tenant_isolation
     ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_pfk_tenant) ON dbo.tb_tenant_memberships AFTER UPDATE,
 
     ADD FILTER PREDICATE dbo.fn_check_user_row(id_pk_user, id_fk_tenant) ON dbo.tb_users,
-    ADD BLOCK  PREDICATE dbo.fn_check_user_row(id_pk_user, id_fk_tenant) ON dbo.tb_users AFTER INSERT,
-    ADD BLOCK  PREDICATE dbo.fn_check_user_row(id_pk_user, id_fk_tenant) ON dbo.tb_users AFTER UPDATE,
+    -- Escrita de pessoa so pelo tenant DONO (ADR-0040) ou pela plataforma: o membro enxerga, nao altera
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_users AFTER INSERT,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_users BEFORE UPDATE,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_users AFTER UPDATE,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_users BEFORE DELETE,
 
     ADD FILTER PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_databases,
     ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_databases AFTER INSERT,

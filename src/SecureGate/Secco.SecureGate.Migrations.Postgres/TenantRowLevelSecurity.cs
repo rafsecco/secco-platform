@@ -64,13 +64,16 @@ public static class TenantRowLevelSecurity
                 $"CREATE POLICY pol_tenant_isolation_{table} ON {table} USING ({predicate}) WITH CHECK ({predicate});");
         }
 
-        // Pessoa: vista no tenant dono OU onde é membro (ADR-0040). Sem WITH CHECK próprio além do
-        // mesmo predicado: o tenant dono é gravado pelo UserManager no escopo do tenant.
-        var userPredicate = $"{Mode} = 'platform' OR ({Mode} = 'tenant' AND (id_fk_tenant = {Tenant} "
+        // Pessoa (ADR-0040): LEITURA no tenant dono OU onde e membro; ESCRITA so pelo tenant dono (ou plataforma).
+        // Duas politicas: pol_tenant_isolation_tb_users_select (FOR SELECT) e _write (FOR ALL: so concede escrita ao dono; a leitura de quem e so membro vem da _select, e as politicas permissivas se somam).
+        var userReadPredicate = $"{Mode} = 'platform' OR ({Mode} = 'tenant' AND (id_fk_tenant = {Tenant} "
             + $"OR EXISTS (SELECT 1 FROM tb_tenant_memberships m WHERE m.id_pfk_user = id_pk_user AND m.id_pfk_tenant = {Tenant})))";
+        var userWritePredicate = $"{Mode} = 'platform' OR ({Mode} = 'tenant' AND id_fk_tenant = {Tenant})";
 
         migrationBuilder.Sql(
-            $"CREATE POLICY pol_tenant_isolation_tb_users ON tb_users USING ({userPredicate}) WITH CHECK ({userPredicate});");
+            $"CREATE POLICY pol_tenant_isolation_tb_users_select ON tb_users FOR SELECT USING ({userReadPredicate});");
+        migrationBuilder.Sql(
+            $"CREATE POLICY pol_tenant_isolation_tb_users_write ON tb_users FOR ALL USING ({userWritePredicate}) WITH CHECK ({userWritePredicate});");
     }
 
     /// <summary>Remove as politicas e desabilita o RLS das tabelas protegidas. Idempotente.</summary>
@@ -79,6 +82,8 @@ public static class TenantRowLevelSecurity
         foreach (var table in AllTables)
         {
             migrationBuilder.Sql($"DROP POLICY IF EXISTS pol_tenant_isolation_{table} ON {table};");
+            migrationBuilder.Sql($"DROP POLICY IF EXISTS pol_tenant_isolation_{table}_select ON {table};");
+            migrationBuilder.Sql($"DROP POLICY IF EXISTS pol_tenant_isolation_{table}_write ON {table};");
             migrationBuilder.Sql($"ALTER TABLE {table} NO FORCE ROW LEVEL SECURITY;");
             migrationBuilder.Sql($"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY;");
         }

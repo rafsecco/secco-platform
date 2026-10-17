@@ -29,7 +29,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 	private Seed _s = null!;
 
 	private sealed record Seed(
-		Guid TenantA, Guid TenantB, Guid TenantC, Guid RoleA, Guid RoleB, Guid Person, Guid OwnerOfB);
+		Guid TenantA, Guid TenantB, Guid TenantC, Guid RoleA, Guid RoleB, Guid Person, Guid OwnerOfB, Guid WithoutGrant);
 
 	/// <summary>Tabela protegida + como reconhecer, por SQL, uma linha do tenant A e uma do tenant B.</summary>
 	private sealed record Protected(string Table, string RowOfA, string RowOfB);
@@ -60,6 +60,9 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		var person = await IdentitySeed.UserAsync(factory, tenantA, $"rls-pessoa-{Guid.NewGuid():N}@teste.local", "perfil-a");
 		var ownerOfB = await IdentitySeed.UserAsync(factory, tenantB, $"rls-dono-b-{Guid.NewGuid():N}@teste.local", "perfil-b");
 
+		// Pessoa sem concessao de elevacao (unica por usuario): alvo do INSERT bloqueado em tb_elevation_grants
+		var withoutGrant = await IdentitySeed.UserAsync(factory, tenantC, $"rls-sem-concessao-{Guid.NewGuid():N}@teste.local");
+
 		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var roleA = await context.Roles.SingleAsync(r => r.TenantId == tenantA && r.NormalizedName == "PERFIL-A");
@@ -83,7 +86,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 			new ElevationGrant(ownerOfB, tenantB, "teste", null, DateTimeOffset.UtcNow));
 		await context.SaveChangesAsync();
 
-		_s = new Seed(tenantA, tenantB, tenantC, roleA.Id, roleB.Id, person, ownerOfB);
+		_s = new Seed(tenantA, tenantB, tenantC, roleA.Id, roleB.Id, person, ownerOfB, withoutGrant);
 	}
 
 	public Task DisposeAsync() => Task.CompletedTask;
@@ -354,6 +357,125 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		(await act.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
 
 		transaction.Rollback();
+	}
+
+	// ---- BLOCK por tabela: cada predicado de escrita tem a sua prova ----
+
+	/// <summary>
+	/// INSERT de uma linha de OUTRO tenant, valido em tudo menos no tenant (para o erro ser o do BLOCK, nao de
+	/// NOT NULL/FK). Executado em escopo A; B e C sao os "outros".
+	/// </summary>
+	private static readonly Dictionary<string, string> ForeignInserts = new(StringComparer.Ordinal)
+	{
+		["tb_roles"] = "INSERT INTO tb_roles (id_pk_role, id_fk_tenant, ds_name, ds_normalized_name) VALUES (NEWID(), @b, N'intruso', N'INTRUSO')",
+		["tb_role_claims"] = "INSERT INTO tb_role_claims (id_fk_role, ds_claim_type, ds_claim_value) VALUES (@roleB, N'permission', N'x:y')",
+		["tb_user_roles"] = "INSERT INTO tb_user_roles (id_pfk_user, id_pfk_role, ie_origin) VALUES (@person, @roleB, 0)",
+		["tb_tenant_memberships"] = "INSERT INTO tb_tenant_memberships (id_pfk_user, id_pfk_tenant, fl_active, dt_created_at) VALUES (@ownerOfB, @c, 1, SYSDATETIMEOFFSET())",
+		["tb_users"] = "INSERT INTO tb_users (id_pk_user, id_fk_tenant, fl_email_confirmed, fl_phone_number_confirmed, fl_two_factor_enabled, fl_lockout_enabled, nr_access_failed_count, ds_email, ds_normalized_email, ds_user_name, ds_normalized_user_name) "
+			+ "VALUES (NEWID(), @b, 0, 0, 0, 0, 0, N'intruso@teste.local', N'INTRUSO@TESTE.LOCAL', N'intruso@teste.local', N'INTRUSO@TESTE.LOCAL')",
+		["tb_tenant_databases"] = "INSERT INTO tb_tenant_databases (id_pk_tenant_database, id_fk_tenant, ds_product, ds_connection_string, dt_created_at, dt_updated_at) VALUES (NEWID(), @b, N'intruso', N'x', SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET())",
+		["tb_tenant_federations"] = "INSERT INTO tb_tenant_federations (id_pk_tenant_federation, id_fk_tenant, ds_provider, directory_id, fl_enabled, dt_created_at, dt_updated_at) VALUES (NEWID(), @c, N'entra', NEWID(), 1, SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET())",
+		["tb_tenant_group_role_mappings"] = "INSERT INTO tb_tenant_group_role_mappings (id_pk_tenant_group_role_mapping, id_fk_tenant, entra_group_id, ds_entra_group_display_name, id_fk_role, dt_created_at) VALUES (NEWID(), @b, NEWID(), N'intruso', @roleB, SYSDATETIMEOFFSET())",
+		["tb_elevation_grants"] = "INSERT INTO tb_elevation_grants (id_pk_elevation_grant, id_fk_user, id_fk_tenant, ds_granted_by, dt_created_at) VALUES (NEWID(), @withoutGrant, @c, N'teste', SYSDATETIMEOFFSET())",
+	};
+
+	/// <summary>UPDATE em escopo A que move uma linha DE A para fora do escopo (tenant C ou perfil de B).</summary>
+	private static readonly Dictionary<string, string> MovingUpdates = new(StringComparer.Ordinal)
+	{
+		["tb_roles"] = "UPDATE tb_roles SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_role_claims"] = "UPDATE tb_role_claims SET id_fk_role = @roleB WHERE id_fk_role = @roleA",
+		["tb_user_roles"] = "UPDATE tb_user_roles SET id_pfk_role = @roleB WHERE id_pfk_role = @roleA",
+		["tb_tenant_memberships"] = "UPDATE tb_tenant_memberships SET id_pfk_tenant = @c WHERE id_pfk_tenant = @a AND id_pfk_user = @person",
+		["tb_users"] = "UPDATE tb_users SET id_fk_tenant = @c WHERE id_pk_user = @person",
+		["tb_tenant_databases"] = "UPDATE tb_tenant_databases SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_tenant_federations"] = "UPDATE tb_tenant_federations SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_tenant_group_role_mappings"] = "UPDATE tb_tenant_group_role_mappings SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_elevation_grants"] = "UPDATE tb_elevation_grants SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+	};
+
+	public static TheoryData<string> ProtectedTableNames => new(Tables.Select(t => t.Table));
+
+	private async Task ExpectBlockedAsync(string sql)
+	{
+		await using var connection = await RuntimeAsync("tenant", _s.TenantA);
+		await using var transaction = connection.BeginTransaction();
+
+		try
+		{
+			await using var command = Command(
+				connection,
+				sql,
+				[("@a", _s.TenantA), ("@b", _s.TenantB), ("@c", _s.TenantC), ("@roleA", _s.RoleA), ("@roleB", _s.RoleB), ("@person", _s.Person), ("@ownerOfB", _s.OwnerOfB), ("@withoutGrant", _s.WithoutGrant)]);
+			command.Transaction = transaction;
+
+			var act = () => command.ExecuteNonQueryAsync();
+			(await act.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504, "o BLOCK PREDICATE do banco recusa");
+		}
+		finally
+		{
+			transaction.Rollback();
+		}
+	}
+
+	[Theory]
+	[MemberData(nameof(ProtectedTableNames))]
+	public Task Insert_DeLinhaDeOutroTenant_EBloqueadoEmCadaTabela(string table) => ExpectBlockedAsync(ForeignInserts[table]);
+
+	[Theory]
+	[MemberData(nameof(ProtectedTableNames))]
+	public Task Update_QueMoveLinhaParaForaDoEscopo_EBloqueadoEmCadaTabela(string table) => ExpectBlockedAsync(MovingUpdates[table]);
+
+	// ---- tb_users: escrita so pelo tenant dono (ADR-0040) ----
+
+	[Fact]
+	public async Task Users_EscritaPeloTenantOndeAPessoaESoMembro_EBloqueada()
+	{
+		// A pessoa e dona em A e membro em B. Em B ela e visivel (FILTER) mas nao e alteravel nem removivel.
+		await using var connection = await RuntimeAsync("tenant", _s.TenantB);
+		(await CountAsync(connection, "tb_users", "id_pk_user = @person")).Should().Be(1, "membro enxerga");
+
+		await using var transaction = connection.BeginTransaction();
+
+		try
+		{
+
+			var update = () => ExecuteInAsync(connection, transaction, "UPDATE tb_users SET fl_lockout_enabled = fl_lockout_enabled WHERE id_pk_user = @person");
+			(await update.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
+
+			var delete = () => ExecuteInAsync(connection, transaction, "DELETE FROM tb_users WHERE id_pk_user = @person");
+			(await delete.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
+		}
+		finally
+		{
+			transaction.Rollback();
+		}
+	}
+
+	[Theory]
+	[InlineData("tenant")]
+	[InlineData("platform")]
+	public async Task Users_EscritaPeloTenantDonoEPelaPlataforma_Passa(string mode)
+	{
+		await using var connection = await RuntimeAsync(mode, mode == "tenant" ? _s.TenantA : null);
+		await using var transaction = connection.BeginTransaction();
+
+		try
+		{
+			(await ExecuteInAsync(connection, transaction, "UPDATE tb_users SET fl_lockout_enabled = fl_lockout_enabled WHERE id_pk_user = @person"))
+				.Should().Be(1);
+		}
+		finally
+		{
+			transaction.Rollback();
+		}
+	}
+
+	private async Task<int> ExecuteInAsync(SqlConnection connection, SqlTransaction transaction, string sql)
+	{
+		await using var command = Command(connection, sql, [("@person", _s.Person)]);
+		command.Transaction = transaction;
+
+		return await command.ExecuteNonQueryAsync();
 	}
 
 	// ---- Contexto somente leitura ----

@@ -26,6 +26,12 @@ public class TenantRowLevelSecurityHelperTests(SecureGateApiFactory factory) : I
 
 	private static readonly string[] PredicateKinds = ["BLOCK|AFTER INSERT", "BLOCK|AFTER UPDATE", "FILTER|NULL"];
 
+	// Pessoa: escrita so pelo tenant dono (ADR-0040), inclusive BEFORE UPDATE e BEFORE DELETE
+	private static readonly string[] UserPredicateKinds =
+	[
+		"BLOCK|AFTER INSERT", "BLOCK|AFTER UPDATE", "BLOCK|BEFORE DELETE", "BLOCK|BEFORE UPDATE", "FILTER|NULL",
+	];
+
 	public Task InitializeAsync() => factory.EnsureDatabaseMigratedAsync();
 
 	public Task DisposeAsync() => Task.CompletedTask;
@@ -64,11 +70,11 @@ public class TenantRowLevelSecurityHelperTests(SecureGateApiFactory factory) : I
 		(await PredicatesAsync(connectionString)).Should().Equal(Expected());
 	}
 
-	/// <summary>Por tabela: 1 FILTER, 1 BLOCK AFTER INSERT e 1 BLOCK AFTER UPDATE.</summary>
+	/// <summary>Por tabela: 1 FILTER, 1 BLOCK AFTER INSERT e 1 BLOCK AFTER UPDATE (tb_users: mais BEFORE UPDATE e BEFORE DELETE).</summary>
 	private static List<string> Expected() =>
 		ProtectedTables
 			.Order(StringComparer.Ordinal)
-			.SelectMany(table => PredicateKinds.Select(kind => $"{table}|{kind}"))
+			.SelectMany(table => (table == "tb_users" ? UserPredicateKinds : PredicateKinds).Select(kind => $"{table}|{kind}"))
 			.ToList();
 
 	private static async Task<List<string>> PredicatesAsync(string connectionString)
