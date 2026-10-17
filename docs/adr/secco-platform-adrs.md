@@ -1494,6 +1494,8 @@ Alternativas avaliadas para o mecanismo:
 - Os filtros manuais existentes continuam onde estão na rodada 1 (redundantes, inofensivos); removê-los é limpeza posterior, não requisito.
 - Exportar e excluir os dados de um tenant (desejável na issue) fica fora.
 
+**Emenda (2026-10-17, antes do código da rodada 2).** O contexto de sessão pode ser regravado por qualquer comando da conexão, inclusive um injetado. **No SQL Server**, ele é gravado na abertura com `@read_only = 1`, e nada na conexão o muda até o pool resetá-la; trocar de escopo com a conexão aberta (transação em curso) lança, fail-closed. **No Postgres**, não há contexto somente leitura: o RLS segura o filtro esquecido em SQL cru, mas **não** contém injeção com comandos empilhados — limite registrado aqui e na nota de upgrade; o SQL Server segue o provider padrão (ADR-0018). Descartadas: regravar o contexto a cada comando (injeção o regravaria nos dois engines) e uma credencial de runtime por modo (complexidade alta, ganho só no Postgres). A suíte de testes do SecureGate passa a rodar com a credencial de runtime real, sem posse do banco, para que o RLS seja exercitado em todo teste.
+
 ---
 
 ## Backlog de ADRs futuras
