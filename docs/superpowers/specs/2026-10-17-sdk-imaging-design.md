@@ -85,15 +85,15 @@ public sealed record ImageOutput(byte[] Content, string ContentType, int Width, 
 
 **Ordem do processamento:**
 1. Ler a entrada para um buffer **limitado**: parar e recusar ao passar de `MaxInputBytes`, sem confiar em `Stream.Length`.
-2. Abrir o codec só no cabeçalho (`SKCodec`), sem decodificar pixels. Formato fora da lista é `unsupported_format`; conteúdo que não é imagem é `invalid_image`. O Skia não abre HEIC/AVIF no Linux, então a SDK reconhece a caixa `ftyp` (marcas `heic`, `heix`, `mif1`, `avif`) pelos primeiros bytes e responde `unsupported_format`, e não `invalid_image`. Assim o produto pode dizer ao usuário "envie JPEG" em vez de "arquivo inválido".
-3. Conferir largura × altura do cabeçalho contra `MaxPixels` antes de alocar o buffer de pixels: `too_many_pixels`.
+2. Abrir o codec só no cabeçalho (`SKCodec`), sem decodificar pixels. Formato fora da lista é `UnsupportedFormat`; conteúdo que não é imagem é `InvalidImage`. O Skia não abre HEIC/AVIF no Linux, então a SDK reconhece a caixa `ftyp` (marcas `heic`, `heix`, `mif1`, `avif`) pelos primeiros bytes e responde `UnsupportedFormat`, e não `InvalidImage`. Assim o produto pode dizer ao usuário "envie JPEG" em vez de "arquivo inválido".
+3. Conferir largura × altura do cabeçalho contra `MaxPixels` antes de alocar o buffer de pixels: `TooManyPixels`.
 4. Esperar uma vaga em `MaxConcurrentOperations`, respeitando o cancelamento.
-5. Decodificar o primeiro quadro, aplicar a orientação do EXIF e converter para sRGB, RGBA 8 bits. Decodificação que falha no meio, como arquivo truncado, é `invalid_image`.
+5. Decodificar o primeiro quadro, aplicar a orientação do EXIF e converter para sRGB, RGBA 8 bits. Decodificação que falha no meio, como arquivo truncado, é `InvalidImage`.
 6. Recortar: retângulo informado ou quadrado central.
 7. Para cada variante: redimensionar para o lado máximo sem ampliar, com amostragem de boa qualidade, e codificar do zero a partir dos pixels. O encoder do Skia não escreve metadados, e é isso que garante a saída limpa.
 8. Liberar a vaga e devolver o `ProcessedImage`.
 
-**Coordenadas do recorte:** são pixels da imagem **já orientada**. É o que o usuário vê, porque o navegador aplica o EXIF ao exibir. Retângulo vazio, com coordenada negativa ou fora dos limites da imagem orientada é `invalid_crop`. O retângulo não precisa ser quadrado: o lado máximo vale para o maior lado, e a proporção se mantém.
+**Coordenadas do recorte:** são pixels da imagem **já orientada**. É o que o usuário vê, porque o navegador aplica o EXIF ao exibir. Retângulo vazio, com coordenada negativa ou fora dos limites da imagem orientada é `InvalidCrop`. O retângulo não precisa ser quadrado: o lado máximo vale para o maior lado, e a proporção se mantém.
 
 **Cancelamento:** é conferido entre as etapas e lança `OperationCanceledException`, como no resto do .NET. O Skia não interrompe uma decodificação em curso; o limite de pixels é o que mantém essa espera curta.
 
@@ -101,11 +101,11 @@ public sealed record ImageOutput(byte[] Content, string ContentType, int Width, 
 
 | Código | Quando |
 |---|---|
-| `imaging.input_too_large` | o arquivo passou de `MaxInputBytes` |
-| `imaging.unsupported_format` | é imagem, mas não é JPEG, PNG nem WebP (inclui HEIC e GIF) |
-| `imaging.invalid_image` | não é imagem, ou a decodificação falhou |
-| `imaging.too_many_pixels` | as dimensões do cabeçalho passam de `MaxPixels` |
-| `imaging.invalid_crop` | o retângulo é vazio ou sai dos limites |
+| `Imaging.Image.InputTooLarge` | o arquivo passou de `MaxInputBytes` |
+| `Imaging.Image.UnsupportedFormat` | é imagem, mas não é JPEG, PNG nem WebP (inclui HEIC e GIF) |
+| `Imaging.Image.InvalidImage` | não é imagem, ou a decodificação falhou |
+| `Imaging.Image.TooManyPixels` | as dimensões do cabeçalho passam de `MaxPixels` |
+| `Imaging.Image.InvalidCrop` | o retângulo é vazio ou sai dos limites |
 
 As mensagens não ecoam conteúdo do arquivo nem detalhes do decodificador. A exceção nativa capturada vai para o log em `Debug`, sem bytes do arquivo.
 
@@ -127,10 +127,10 @@ As imagens de teste são geradas no próprio teste com o SkiaSharp, e os arquivo
 - **Caminho feliz:** JPEG, PNG e WebP entram; WebP e JPEG saem com o `ContentType` certo; duas variantes saem com as dimensões certas; imagem menor que o lado máximo não é ampliada; recorte por retângulo e quadrado central.
 - **Orientação:** JPEG com EXIF `Orientation = 6` e GPS, com o segmento APP1 montado à mão. A saída tem as dimensões giradas e o pixel de canto confere.
 - **Sem metadados:** na saída não há segmento APP1/APP2 (JPEG) nem chunk `EXIF`/`XMP `/`ICCP` (WebP), e a string do GPS de teste não aparece.
-- **Formatos recusados:** GIF, SVG, BMP, cabeçalho HEIC (`ftypheic`) e texto com extensão `.jpg` resultam em `unsupported_format` ou `invalid_image`.
-- **Malformados:** JPEG truncado, PNG com CRC corrompido e zero bytes dão `invalid_image`, sem exceção.
-- **Bomba:** PNG pequeno com IHDR declarando 50000×50000 dá `too_many_pixels`. O teste confere que a recusa vem antes da decodificação, por exemplo com um codec falso na porta interna que registra se `Decode` foi chamado.
-- **Limite de bytes:** um stream sem `Length` (não pesquisável) maior que o limite dá `input_too_large`.
+- **Formatos recusados:** GIF, SVG, BMP, cabeçalho HEIC (`ftypheic`) e texto com extensão `.jpg` resultam em `UnsupportedFormat` ou `InvalidImage`.
+- **Malformados:** JPEG truncado, PNG com CRC corrompido e zero bytes dão `InvalidImage`, sem exceção.
+- **Bomba:** PNG pequeno com IHDR declarando 50000×50000 dá `TooManyPixels`. O teste confere que a recusa vem antes da decodificação, por exemplo com um codec falso na porta interna que registra se `Decode` foi chamado.
+- **Limite de bytes:** um stream sem `Length` (não pesquisável) maior que o limite dá `InputTooLarge`.
 - **Recorte inválido:** retângulo fora da imagem orientada, com largura zero ou com coordenada negativa.
 - **Cancelamento** e **concorrência:** com `MaxConcurrentOperations = 1`, a segunda chamada espera a primeira.
 - **Registro:** `AddSeccoImaging()` com opções inválidas falha na validação.

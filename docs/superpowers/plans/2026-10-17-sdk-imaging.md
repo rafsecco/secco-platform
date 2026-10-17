@@ -22,7 +22,7 @@
 
 **API pública**
 - Nenhum tipo do SkiaSharp na API pública. A porta `IImageCodec` e o adaptador são `internal`, com `InternalsVisibleTo` para o projeto de teste e para `DynamicProxyGenAssembly2` (NSubstitute).
-- Erro de input do usuário é `Result` com `Error.Validation` e um dos 5 códigos: `imaging.input_too_large`, `imaging.unsupported_format`, `imaging.invalid_image`, `imaging.too_many_pixels`, `imaging.invalid_crop`.
+- Erro de input do usuário é `Result` com `Error.Validation` e um dos 5 códigos: `Imaging.Image.InputTooLarge`, `Imaging.Image.UnsupportedFormat`, `Imaging.Image.InvalidImage`, `Imaging.Image.TooManyPixels`, `Imaging.Image.InvalidCrop`.
 - As mensagens de erro não ecoam conteúdo do arquivo nem texto de exceção do decodificador.
 
 **Padrões e validação**
@@ -226,7 +226,7 @@
 - Create: `src/SDK/Secco.SDK.Imaging/README.md`, empacotado como no Email. Conteúdo:
   - registro com `AddSeccoImaging("Intranet:Imaging")` e exemplo das duas variantes;
   - tabela das opções com os padrões;
-  - os 5 códigos de erro e como mapeá-los (sugestão: `413` para `input_too_large`, `400`/`415` para os demais, a critério do produto);
+  - os 5 códigos de erro e como mapeá-los (sugestão: `413` para `InputTooLarge`, `400`/`415` para os demais, a critério do produto);
   - formatos de entrada e saída, coordenadas orientadas e quadrado central;
   - **aviso:** não usar em upload anônimo sem ADR nova (ADR-0042); Alpine (musl) fora do v1;
   - ao servir: `Content-Type` fixo pelo `ContentType` devolvido, `X-Content-Type-Options: nosniff`, nome gerado pelo servidor, e descartar o original.
