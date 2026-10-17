@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Security.Cryptography;
 using FluentAssertions;
 using Microsoft.Data.SqlClient;
@@ -308,6 +308,52 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 
 		await using var platform = await RuntimeAsync("platform");
 		(await CountAsync(platform, "tb_tenant_databases", "id_fk_tenant = @b")).Should().Be(1);
+	}
+
+	[Fact]
+	public async Task Insert_DePermissaoEAtribuicaoNoPerfilDeOutroTenant_EBloqueadoPeloBanco()
+	{
+		await using var connection = await RuntimeAsync("tenant", _s.TenantA);
+
+		var claim = () => ExecuteAsync(
+			connection,
+			"INSERT INTO tb_role_claims (id_fk_role, ds_claim_type, ds_claim_value) VALUES (@roleB, N'permission', N'x:y')",
+			("@roleB", _s.RoleB));
+		(await claim.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
+
+		var assignment = () => ExecuteAsync(
+			connection,
+			"INSERT INTO tb_user_roles (id_pfk_user, id_pfk_role, ie_origin) VALUES (@u, @roleB, 0)",
+			("@u", _s.Person), ("@roleB", _s.RoleB));
+		(await assignment.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
+	}
+
+	[Fact]
+	public async Task Update_QueMovePessoaParaForaDoEscopo_EBloqueadoPeloBanco()
+	{
+		await using var connection = await RuntimeAsync("tenant", _s.TenantA);
+		await using var transaction = connection.BeginTransaction();
+
+		// Enquanto a pessoa for membro de A, mudar o dono para C ainda a deixa visivel em A (permitido).
+		// Sem o vinculo com A, a mesma mudanca a tiraria do escopo corrente: o BLOCK recusa.
+		await using var removeMembership = connection.CreateCommand();
+		removeMembership.Transaction = transaction;
+		removeMembership.CommandText = "DELETE FROM tb_tenant_memberships WHERE id_pfk_user = @person AND id_pfk_tenant = @a";
+		removeMembership.Parameters.AddWithValue("@person", _s.Person);
+		removeMembership.Parameters.AddWithValue("@a", _s.TenantA);
+		(await removeMembership.ExecuteNonQueryAsync()).Should().Be(1);
+
+		await using var move = connection.CreateCommand();
+		move.Transaction = transaction;
+		move.CommandText = "UPDATE tb_users SET id_fk_tenant = @c WHERE id_pk_user = @person";
+		move.Parameters.AddWithValue("@c", _s.TenantC);
+		move.Parameters.AddWithValue("@person", _s.Person);
+
+		// Dono A ainda vale (a pessoa continua dona em A ate o UPDATE); depois do UPDATE a linha sairia do escopo
+		var act = () => move.ExecuteNonQueryAsync();
+		(await act.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(33504);
+
+		transaction.Rollback();
 	}
 
 	// ---- Contexto somente leitura ----
