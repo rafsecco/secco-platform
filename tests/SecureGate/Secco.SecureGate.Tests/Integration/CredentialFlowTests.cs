@@ -205,7 +205,7 @@ public partial class CredentialFlowTests(SelfIssuedAuthSecureGateApiFactory fact
 	{
 		var (userId, _) = await CreateUserAsync(localLogin: false);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var user = await context.Users.FindAsync(userId);
 

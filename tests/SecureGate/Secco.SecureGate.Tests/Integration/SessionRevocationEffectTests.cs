@@ -46,7 +46,7 @@ public class SessionRevocationEffectTests(SecureGateApiFactory factory) : IAsync
 
 	private async Task<string> StampVersionAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var user = await scope.ServiceProvider.GetRequiredService<UserManager<User>>().FindByIdAsync(userId.ToString());
 
 		return SessionVersion.From(user!.SecurityStamp);
@@ -86,7 +86,7 @@ public class SessionRevocationEffectTests(SecureGateApiFactory factory) : IAsync
 	{
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			(await context.Tenants.SingleAsync(t => t.Id == _tenantId)).Deactivate();

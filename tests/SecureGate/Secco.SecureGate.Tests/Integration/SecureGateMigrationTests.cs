@@ -51,7 +51,7 @@ public class SecureGateMigrationTests
 			var ok = await factory.Services.RunSeccoMigrationsAsync();
 
 			ok.Should().BeTrue();
-			using var scope = factory.Services.CreateScope();
+			using var scope = factory.Services.CreatePlatformScope();
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			(await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
 			var scopes = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();

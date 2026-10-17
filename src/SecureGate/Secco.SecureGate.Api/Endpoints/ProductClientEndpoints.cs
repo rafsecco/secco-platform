@@ -1,5 +1,6 @@
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Clients;
 using Secco.SDK.AspNetCore.Extensions;
@@ -20,7 +21,8 @@ public static class ProductClientEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/clients")
 			.WithTags("Clients")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+			.RequireTenantScope();
 
 		group.MapPost("/", async (
 				Guid tenantId, ProductClientRequest request, CreateProductClientHandler handler, CancellationToken cancellationToken) =>

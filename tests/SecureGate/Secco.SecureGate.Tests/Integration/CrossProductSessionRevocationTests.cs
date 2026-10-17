@@ -112,7 +112,7 @@ public class CrossProductSessionRevocationTests(SelfIssuedAuthSecureGateApiFacto
 
 		(await ReadLogsAsync(session.AccessToken)).Should().Be(HttpStatusCode.OK);
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			await scope.ServiceProvider.GetRequiredService<ISessionRevoker>()
 				.RevokeAllAsync(_userId, SessionRevocationReason.AdminRequest);

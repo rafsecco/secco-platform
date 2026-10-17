@@ -57,7 +57,7 @@ public class ProductClientInteractiveLoginTests(SelfIssuedAuthSecureGateApiFacto
 		_admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
 			"Bearer", (await token.Content.ReadFromJsonAsync<JsonElement>(Json)).GetProperty("access_token").GetString());
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -93,7 +93,7 @@ public class ProductClientInteractiveLoginTests(SelfIssuedAuthSecureGateApiFacto
 	{
 		await IdentitySeed.RoleAsync(secureGate, tenantId, name, "log-entries:read");
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var normalized = name.ToUpperInvariant();
 		var role = await context.Roles.SingleAsync(r => r.TenantId == tenantId && r.NormalizedName == normalized);

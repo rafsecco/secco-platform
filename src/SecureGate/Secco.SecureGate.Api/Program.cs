@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using Secco.SecureGate.Api.Endpoints;
 using Secco.SecureGate.Api.Extensions;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
@@ -23,6 +24,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // Telas de login/logout (Fase 6.5) — únicas páginas server-rendered do produto
 builder.Services.AddRazorPages(options =>
 {
+	// ADR-0041: as telas de login e de conta rodam em modo plataforma (a pessoa não tem tenant de operação)
+	options.Conventions.ConfigureFilter(new PlatformScopePageFilter());
+
 	options.Conventions.AllowAnonymousToPage("/Login");
 
 	// Telas de credencial (ADR-0033): quem chega nelas ainda não tem credencial, ou acabou de

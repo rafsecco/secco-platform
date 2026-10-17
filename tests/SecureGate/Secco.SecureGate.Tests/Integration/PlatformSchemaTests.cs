@@ -27,7 +27,7 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 	public Task DisposeAsync() => Task.CompletedTask;
 
 	private SecureGateDbContext CreateContext() =>
-		new(SecureGateDatabaseProviderConfigurator.CreateOptions(
+		PlatformContextTestFactory.Create(SecureGateDatabaseProviderConfigurator.CreateOptions(
 			SecureGateDatabaseProvider.SqlServer, factory.GetPlatformConnectionString()));
 
 	[Fact]
@@ -233,7 +233,7 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 	[InlineData("notificationhub")]
 	public async Task Seed_Always_RegistersPermissionsScopePerProduct(string product)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var scopes = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
 
 		var registered = await scopes.FindByNameAsync(SecureGateScopes.PermissionsFor(product));

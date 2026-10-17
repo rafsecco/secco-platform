@@ -36,7 +36,7 @@ public class PermissionCatalogCollisionLogTests(SecureGateApiFactory factory) : 
 
 	private async Task<IReadOnlyList<string>> ReplaceAsync(string product, string name, string description, CapturingLogger logger)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var repository = new PermissionCatalogRepository(context, logger);
 

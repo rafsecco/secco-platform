@@ -64,7 +64,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		await secureGate.CreatePublicClientAsync(ClientWithoutExchange, RedirectUri, "logstream");
 		await secureGate.CreateClientAsync(MachineClientId, MachineSecret, "logstream");
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -189,7 +189,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		await GrantAsync();
 		(await ExchangeAsync(accessToken)).Status.Should().Be(HttpStatusCode.OK, "pré-condição: a concessão funcionava");
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			await scope.ServiceProvider.GetRequiredService<IElevationGrantRepository>().RemoveAsync(_userId);
 		}
@@ -205,7 +205,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		var (accessToken, _) = await LoginAsync();
 		await GrantAsync();
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 			var user = await userManager.FindByIdAsync(_userId.ToString());
@@ -222,7 +222,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		var (accessToken, _) = await LoginAsync();
 		await GrantAsync();
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			(await context.Tenants.SingleAsync(tenant => tenant.Id == _tenantId)).Deactivate();
@@ -312,7 +312,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 		var productClientId = $"cli_{Guid.NewGuid():N}"[..20];
 		await secureGate.CreateProductClientAsync(_tenantId, productClientId, productSecret, roles: null, "logstream");
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var applications = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
 			var application = (await applications.FindByClientIdAsync(productClientId))!;
@@ -532,7 +532,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 
 	private async Task GrantAsync(DateTimeOffset? expiresAt = null)
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var repository = scope.ServiceProvider.GetRequiredService<IElevationGrantRepository>();
 
 		var now = DateTimeOffset.UtcNow;
@@ -555,7 +555,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 	/// </summary>
 	private async Task ExpireGrantAsync()
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var grant = await context.ElevationGrants.SingleAsync(g => g.UserId == _userId);
@@ -565,7 +565,7 @@ public partial class TokenExchangeElevationTests(ElevationSecureGateApiFactory s
 
 	private async Task CreateClientWithTokenExchangeAsync()
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var applications = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
 
 		if (await applications.FindByClientIdAsync(ClientId) is not null)

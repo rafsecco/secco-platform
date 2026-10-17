@@ -51,7 +51,7 @@ public class RoleAssignmentOriginTests(SecureGateApiFactory factory) : IAsyncLif
 		var sourceGroupId = Guid.NewGuid();
 		var normalized = roleName.ToUpperInvariant();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var role = await context.Roles.FirstAsync(r => r.TenantId == tenantId && r.NormalizedName == normalized);
 		var assignment = await context.UserRoles.FirstAsync(ur => ur.UserId == userId && ur.RoleId == role.Id);

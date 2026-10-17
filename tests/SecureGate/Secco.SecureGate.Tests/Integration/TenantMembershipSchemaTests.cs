@@ -24,7 +24,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 	public Task DisposeAsync() => Task.CompletedTask;
 
 	private SecureGateDbContext CreateContext() =>
-		new(SecureGateDatabaseProviderConfigurator.CreateOptions(
+		PlatformContextTestFactory.Create(SecureGateDatabaseProviderConfigurator.CreateOptions(
 			SecureGateDatabaseProvider.SqlServer, factory.GetPlatformConnectionString()));
 
 	[Fact]
@@ -45,7 +45,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 	{
 		var tenantId = await IdentitySeed.TenantAsync(factory);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var directory = scope.ServiceProvider.GetRequiredService<IUserDirectory>();
 		var memberships = scope.ServiceProvider.GetRequiredService<ITenantMembershipRepository>();
 
@@ -62,7 +62,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 	[Fact]
 	public async Task GetAsync_NaoMembro_RetornaNuloEInativo()
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var memberships = scope.ServiceProvider.GetRequiredService<ITenantMembershipRepository>();
 
 		(await memberships.GetAsync(Guid.NewGuid(), Guid.NewGuid())).Should().BeNull();
@@ -83,7 +83,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 			await seed.SaveChangesAsync();
 		}
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var memberships = scope.ServiceProvider.GetRequiredService<ITenantMembershipRepository>();
 
 		(await memberships.GetAsync(tenantId, userId)).Should().NotBeNull();
@@ -127,7 +127,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 			await seed.SaveChangesAsync();
 		}
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var memberships = scope.ServiceProvider.GetRequiredService<ITenantMembershipRepository>();
 
 		var removed = await memberships.RemoveAsync(tenantB, userId);
@@ -150,7 +150,7 @@ public class TenantMembershipSchemaTests(SecureGateApiFactory factory) : IClassF
 	[Fact]
 	public async Task RemoveAsync_NaoMembro_RetornaFalso()
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var memberships = scope.ServiceProvider.GetRequiredService<ITenantMembershipRepository>();
 
 		(await memberships.RemoveAsync(Guid.NewGuid(), Guid.NewGuid())).Should().BeFalse();
@@ -175,7 +175,7 @@ public class TenantMembershipMigrationTests
 		{
 			var connectionString = factory.GetConnectionStringFor("secco_membership_migration");
 
-			await using var context = new SecureGateDbContext(SecureGateDatabaseProviderConfigurator.CreateOptions(
+			await using var context = PlatformContextTestFactory.Create(SecureGateDatabaseProviderConfigurator.CreateOptions(
 				SecureGateDatabaseProvider.SqlServer, connectionString));
 			var migrator = context.GetService<IMigrator>();
 

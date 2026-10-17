@@ -89,7 +89,7 @@ public class EntraSignInProcessorTests(SecureGateApiFactory factory) : IAsyncLif
 	private async Task<TResult> WithScopeAsync<TResult>(
 		Func<IServiceProvider, Task<TResult>> action)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		return await action(scope.ServiceProvider);
 	}
 

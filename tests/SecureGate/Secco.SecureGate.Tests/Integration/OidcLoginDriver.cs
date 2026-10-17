@@ -116,7 +116,7 @@ internal sealed partial class OidcLoginDriver(
 			return passwordResponse;
 		}
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider
 			.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Secco.SecureGate.Infrastructure.Identity.User>>();
 		var user = await userManager.FindByEmailAsync(email);

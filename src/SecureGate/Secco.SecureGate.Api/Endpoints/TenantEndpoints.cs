@@ -1,5 +1,6 @@
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Application.Tenants;
@@ -30,6 +31,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(new CreateTenantCommand(request.Name, request.Slug), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{dto.Id}", dto)))
 			.WithName("CreateTenant")
+			.RequirePlatformScope(scope => scope.EnterPlatform("operação de instalação: cria um tenant"))
 			.WithSummary("Cria um tenant no catálogo da plataforma (nasce ativo, sem bancos cadastrados).")
 			.Produces<TenantDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -39,6 +41,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(cancellationToken))
 				.ToHttpResult(tenants => Results.Ok(tenants)))
 			.WithName("ListTenants")
+			.RequirePlatformScope(scope => scope.EnterPlatform("operação de instalação: lista os tenants e seus produtos"))
 			.WithSummary("Lista os tenants do catálogo (sem connection strings).")
 			.Produces<IReadOnlyList<TenantDto>>(StatusCodes.Status200OK);
 
@@ -46,6 +49,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetTenant")
+			.RequireTenantScope("id")
 			.WithSummary("Busca um tenant com os produtos que têm banco cadastrado (sem connection strings).")
 			.Produces<TenantDetailDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -57,6 +61,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, active: true, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ActivateTenant")
+			.RequireTenantScope("id")
 			.WithSummary("Reativa um tenant — volta a ser servido pelo catálogo.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -68,6 +73,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, active: false, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeactivateTenant")
+			.RequireTenantScope("id")
 			.WithSummary("Desativa um tenant — some do catálogo em até um TTL de cache dos produtos, e seus usuários param de renovar token.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -83,6 +89,7 @@ public static class TenantEndpoints
 				new UpsertTenantDatabaseCommand(id, product, request.ConnectionString), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("UpsertTenantDatabase")
+			.RequireTenantScope("id")
 			.WithSummary("Cadastra ou substitui o banco do tenant em um produto (rotação de credencial = novo PUT).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -101,6 +108,7 @@ public static class TenantEndpoints
 				cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("ProvisionTenantDatabase")
+			.RequireTenantScope("id")
 			.WithSummary("Provisiona o banco dedicado do tenant no produto: cria (ou assume) o database, cria o usuário de aplicação com db_owner APENAS nele e grava a connection string cifrada. Sem credencial privilegiada configurada, devolve o script para um DBA aplicar.")
 			.Produces<TenantDatabaseProvisioningDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -114,6 +122,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(statuses => Results.Ok(statuses)))
 			.WithName("GetTenantDatabaseStatus")
+			.RequireTenantScope("id")
 			.WithSummary("Estado dos bancos do tenant: o que está cadastrado e o que responde. Usa a conexão de runtime de cada tenant — nenhuma credencial privilegiada.")
 			.Produces<IReadOnlyList<TenantDatabaseStatusDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -128,6 +137,7 @@ public static class TenantEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("UpsertTenantFederation")
+			.RequireTenantScope("id")
 			.WithSummary("Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)

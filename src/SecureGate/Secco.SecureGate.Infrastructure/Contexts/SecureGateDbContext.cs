@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Conventions;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Domain.Permissions;
@@ -10,6 +11,7 @@ using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SecureGate.Infrastructure.OpenIddict;
+using Secco.SecureGate.Infrastructure.Tenancy;
 
 namespace Secco.SecureGate.Infrastructure.Contexts;
 
@@ -26,10 +28,17 @@ namespace Secco.SecureGate.Infrastructure.Contexts;
 /// caminho de aplicação (<c>AddDbContext</c>) ele cifra/decifra a connection string do
 /// catálogo. Os caminhos <b>sem</b> DI (migrations e design-time, que só materializam o
 /// schema — o value converter não altera o snapshot) constroem o contexto sem cipher.
+/// <para>
+/// O <paramref name="accessScope"/> (ADR-0041) alimenta os filtros globais nomeados
+/// <c>"Tenant"</c>: sem escopo, as entidades de tenant não aparecem (fail-closed). Os caminhos sem
+/// DI recebem um escopo <b>None</b> — fail-closed também: migrations e a verificação de migration
+/// só usam <c>Database.*</c>, nunca leem entidade, e o design-time só olha o formato do modelo.
+/// </para>
 /// </remarks>
 public sealed class SecureGateDbContext(
 	DbContextOptions<SecureGateDbContext> options,
-	ISeccoSecretCipher? connectionStringCipher = null)
+	ISeccoSecretCipher? connectionStringCipher = null,
+	ITenantAccessScope? accessScope = null)
 	: IdentityDbContext<User, Role, Guid, UserClaim, UserRole, UserLogin, RoleClaim, UserToken>(options),
 		IDataProtectionKeyContext
 {
@@ -39,7 +48,18 @@ public sealed class SecureGateDbContext(
 	/// </summary>
 	private const int ConnectionStringColumnMaxLength = 4000;
 
+	/// <summary>Nome do filtro global de isolamento de tenant (ADR-0041).</summary>
+	private const string TenantFilter = "Tenant";
+
 	private readonly ISeccoSecretCipher? _connectionStringCipher = connectionStringCipher;
+	private readonly ITenantAccessScope _accessScope = accessScope ?? TenantAccessScope.Detached();
+
+	// Os filtros "Tenant" abaixo leem estas propriedades DA INSTÂNCIA do contexto (o padrão do EF
+	// para filtro parametrizado): o EF as troca por parâmetro a cada consulta, então o modelo
+	// continua único e cacheado e o valor é o do escopo no momento da consulta.
+	private bool IsPlatformScope => _accessScope.Mode == TenantAccessMode.Platform;
+
+	private Guid? ScopedTenantId => _accessScope.Mode == TenantAccessMode.Tenant ? _accessScope.TenantId : null;
 
 	/// <summary>Catálogo de tenants da plataforma (tabela <c>tb_tenants</c>).</summary>
 	public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -93,6 +113,12 @@ public sealed class SecureGateDbContext(
 			user.HasIndex(u => u.TenantId).HasDatabaseName("idx_users_id_fk_tenant");
 			user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId).OnDelete(DeleteBehavior.Restrict);
 			user.Property(u => u.DisplayName).HasMaxLength(DisplayNameRules.MaxLength);
+
+			// Pessoa (ADR-0040/0041): vista no tenant dono OU onde é membro. Fail-closed sem escopo.
+			user.HasQueryFilter(TenantFilter, u =>
+				IsPlatformScope
+				|| u.TenantId == ScopedTenantId
+				|| Set<TenantMembership>().Any(m => m.UserId == u.Id && m.TenantId == ScopedTenantId));
 		});
 
 		builder.Entity<Role>(role =>
@@ -112,14 +138,34 @@ public sealed class SecureGateDbContext(
 			role.HasIndex(r => new { r.TenantId, r.NormalizedName }).IsUnique()
 				.HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
 			role.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
+			role.HasQueryFilter(TenantFilter, r => IsPlatformScope || r.TenantId == ScopedTenantId);
 		});
 
+		// Fora do filtro (ADR-0041): UserClaim, UserLogin e UserToken são lidos só pelo id da pessoa
+		// (login externo, 2FA, tokens do Identity) e a pessoa atravessa tenants (ADR-0040).
 		builder.Entity<UserClaim>().ToTable("tb_user_claims");
-		builder.Entity<UserRole>().ToTable("tb_user_roles");
 		builder.Entity<UserLogin>().ToTable("tb_user_logins");
-		builder.Entity<RoleClaim>().ToTable("tb_role_claims");
 		builder.Entity<UserToken>().ToTable("tb_user_tokens");
 
+		// Atribuição e permissão não carregam tenant: seguem o do PERFIL referenciado (ADR-0041).
+		// Set<Role>() dentro do filtro herda o filtro do próprio perfil — mesmo resultado, já que
+		// é o mesmo predicado.
+		builder.Entity<UserRole>(userRole =>
+		{
+			userRole.ToTable("tb_user_roles");
+			userRole.HasQueryFilter(TenantFilter, ur =>
+				IsPlatformScope || Set<Role>().Any(r => r.Id == ur.RoleId && r.TenantId == ScopedTenantId));
+		});
+		builder.Entity<RoleClaim>(roleClaim =>
+		{
+			roleClaim.ToTable("tb_role_claims");
+			roleClaim.HasQueryFilter(TenantFilter, rc =>
+				IsPlatformScope || Set<Role>().Any(r => r.Id == rc.RoleId && r.TenantId == ScopedTenantId));
+		});
+
+		// Fora do filtro (ADR-0041): as tabelas do OpenIddict (OidcApplication, OidcAuthorization,
+		// OidcScope, OidcToken). O pipeline do protocolo consulta o client pelo client_id ANTES de
+		// existir tenant; a API de clients do tenant mantém o filtro explícito no store.
 		builder.Entity<OidcApplication>(application =>
 		{
 			application.ToTable("tb_oidc_applications", table =>
@@ -141,6 +187,7 @@ public sealed class SecureGateDbContext(
 		builder.Entity<OidcScope>().ToTable("tb_oidc_scopes");
 		builder.Entity<OidcToken>().ToTable("tb_oidc_tokens");
 
+		// Fora do filtro (ADR-0041): Tenant é o catálogo da instalação (listar, criar, achar por id).
 		builder.Entity<Tenant>(tenant =>
 			tenant.HasIndex(t => t.Slug).IsUnique());
 
@@ -166,6 +213,7 @@ public sealed class SecureGateDbContext(
 
 			// Cascade: o banco é dado intrínseco do tenant (diferente de users/roles, Restrict)
 			database.HasOne<Tenant>().WithMany().HasForeignKey(d => d.TenantId).OnDelete(DeleteBehavior.Cascade);
+			database.HasQueryFilter(TenantFilter, d => IsPlatformScope || d.TenantId == ScopedTenantId);
 		});
 
 		builder.Entity<TenantFederation>(federation =>
@@ -179,6 +227,7 @@ public sealed class SecureGateDbContext(
 
 			// Cascade: a federação é dado intrínseco do tenant (como TenantDatabase)
 			federation.HasOne<Tenant>().WithMany().HasForeignKey(f => f.TenantId).OnDelete(DeleteBehavior.Cascade);
+			federation.HasQueryFilter(TenantFilter, f => IsPlatformScope || f.TenantId == ScopedTenantId);
 		});
 
 		builder.Entity<TenantGroupRoleMapping>(mapping =>
@@ -196,6 +245,7 @@ public sealed class SecureGateDbContext(
 			// a exclusão de perfil precisa passar por decisão explícita primeiro (mesma cautela da
 			// FK de Role em UserRole/RoleClaim, que o Identity já trata como Restrict).
 			mapping.HasOne<Role>().WithMany().HasForeignKey(m => m.RoleId).OnDelete(DeleteBehavior.Restrict);
+			mapping.HasQueryFilter(TenantFilter, m => IsPlatformScope || m.TenantId == ScopedTenantId);
 		});
 
 		builder.Entity<TenantMembership>(membership =>
@@ -211,6 +261,7 @@ public sealed class SecureGateDbContext(
 
 			// Listagem dos membros do tenant.
 			membership.HasIndex(m => m.TenantId);
+			membership.HasQueryFilter(TenantFilter, m => IsPlatformScope || m.TenantId == ScopedTenantId);
 		});
 
 		builder.Entity<ElevationGrant>(grant =>
@@ -226,8 +277,10 @@ public sealed class SecureGateDbContext(
 			// cascade até esta tabela porque tenant → usuário é Restrict (acima).
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
+			grant.HasQueryFilter(TenantFilter, g => IsPlatformScope || g.TenantId == ScopedTenantId);
 		});
 
+		// Fora do filtro (ADR-0041): PermissionCatalogEntry é dado de plataforma, sem tenant (ADR-0039).
 		builder.Entity<PermissionCatalogEntry>(entry =>
 		{
 			entry.Property(e => e.Product).HasMaxLength(PermissionCatalogEntry.ProductMaxLength);
@@ -239,6 +292,7 @@ public sealed class SecureGateDbContext(
 			entry.HasIndex(e => new { e.Product, e.Name }).IsUnique();
 		});
 
+		// Fora do filtro (ADR-0041): DataProtectionKey é dado de plataforma, sem tenant (ADR-0033).
 		// ADR-0017: só o ToTable — a SeccoNamingConvention já deriva id_pk_data_protection_key
 		// (PK simples), ds_friendly_name e ds_xml (strings) sozinha.
 		builder.Entity<DataProtectionKey>().ToTable("tb_data_protection_keys");

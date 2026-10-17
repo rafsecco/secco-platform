@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Secco.SDK.EntityFrameworkCore.Cryptography;
 using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Cryptography;
 
@@ -25,6 +26,7 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 public sealed class TenantDatabaseReEncryptionSeeder(
 	SecureGateDbContext context,
 	ISeccoSecretCipher cipher,
+	ITenantAccessScope accessScope,
 	ILogger<TenantDatabaseReEncryptionSeeder> logger) : IReferenceDataSeeder
 {
 	/// <summary>Roda após os seeders estruturais (scopes/operador) do produto.</summary>
@@ -32,6 +34,10 @@ public sealed class TenantDatabaseReEncryptionSeeder(
 
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
 	{
+		// Converge as connection strings de TODOS os tenants, por SQL cru: fora de requisição e de
+		// qualquer tenant único (ADR-0041; sob RLS, na rodada 2, só o modo plataforma enxerga todas as linhas)
+		using var platformScope = accessScope.EnterPlatform("recifragem das connection strings do catálogo de todos os tenants");
+
 		var rows = await context.Database
 			.SqlQueryRaw<TenantDatabaseRawRow>(
 				"SELECT id_pk_tenant_database AS \"Id\", ds_connection_string AS \"ConnectionString\" FROM tb_tenant_databases")

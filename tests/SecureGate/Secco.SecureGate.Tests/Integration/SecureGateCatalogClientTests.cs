@@ -41,7 +41,7 @@ public class SecureGateCatalogClientTests(SelfIssuedAuthSecureGateApiFactory sec
 
 		// Desativa os tenants do teste: o E2E da mesma collection itera o catálogo ATIVO
 		// para aplicar migrations — entradas fabricadas aqui não podem vazar para lá
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		foreach (var tenantId in _createdTenants)
@@ -98,7 +98,7 @@ public class SecureGateCatalogClientTests(SelfIssuedAuthSecureGateApiFactory sec
 
 	private async Task<Guid> CreateCatalogEntryAsync(string connectionString)
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var tenant = new Tenant("Tenant do client", $"t-{Guid.NewGuid():N}");
@@ -113,7 +113,7 @@ public class SecureGateCatalogClientTests(SelfIssuedAuthSecureGateApiFactory sec
 
 	private async Task UpdateConnectionStringAsync(Guid tenantId, string connectionString)
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var database = await context.TenantDatabases

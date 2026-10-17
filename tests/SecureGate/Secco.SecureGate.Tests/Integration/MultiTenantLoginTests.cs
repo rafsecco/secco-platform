@@ -44,7 +44,7 @@ public class MultiTenantLoginTests(SelfIssuedAuthSecureGateApiFactory secureGate
 	{
 		await secureGate.EnsureDatabaseMigratedAsync();
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -175,7 +175,7 @@ public class MultiTenantLoginTests(SelfIssuedAuthSecureGateApiFactory secureGate
 		var (verifierB, codeB) = await AuthorizeSilentlyAsync(browser, ComprasClient);
 		var tokenB = await ReadTokensAsync(await compras.ExchangeCodeAsync(browser, codeB, verifierB));
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
@@ -262,7 +262,7 @@ public class MultiTenantLoginTests(SelfIssuedAuthSecureGateApiFactory secureGate
 
 	private async Task SetTenantActiveAsync(Guid tenantId, bool active)
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var tenant = await context.Tenants.SingleAsync(t => t.Id == tenantId);
 

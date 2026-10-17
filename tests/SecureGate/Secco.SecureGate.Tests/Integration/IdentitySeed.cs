@@ -31,7 +31,7 @@ internal static class IdentitySeed
 
 	public static async Task<Guid> TenantAsync(SecureGateApiFactory factory)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var tenant = new Tenant("Tenant de perfis", $"t-{Guid.NewGuid():N}");
@@ -48,7 +48,7 @@ internal static class IdentitySeed
 	/// </summary>
 	public static async Task PermissionCatalogAsync(SecureGateApiFactory factory, string product, params string[] names)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var existing = (await context.PermissionCatalogEntries
@@ -66,7 +66,7 @@ internal static class IdentitySeed
 
 	public static async Task RoleAsync(SecureGateApiFactory factory, Guid tenantId, string name, params string[] permissions)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var role = new Role
@@ -85,7 +85,7 @@ internal static class IdentitySeed
 
 	public static async Task<Guid> UserAsync(SecureGateApiFactory factory, Guid tenantId, string email, params string[] roles)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -122,7 +122,7 @@ internal static class IdentitySeed
 	{
 		var userId = await UserAsync(factory, SecureGatePlatform.TenantId, email, SecureGatePlatform.OperatorRole);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
 
@@ -140,7 +140,7 @@ internal static class IdentitySeed
 	/// <param name="userId">Usuário.</param>
 	public static async Task EnableTwoFactorAsync(SecureGateApiFactory factory, Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
 
@@ -162,7 +162,7 @@ internal static class IdentitySeed
 
 	private static async Task SetLockoutAsync(SecureGateApiFactory factory, Guid userId, DateTimeOffset until)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
 		var user = await userManager.FindByIdAsync(userId.ToString());

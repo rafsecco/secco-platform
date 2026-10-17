@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Members;
 using Secco.SDK.AspNetCore.Extensions;
@@ -22,7 +23,8 @@ public static class MembershipEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/members")
 			.WithTags("Members")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+			.RequireTenantScope();
 
 		group.MapPost("/", async (
 				Guid tenantId,

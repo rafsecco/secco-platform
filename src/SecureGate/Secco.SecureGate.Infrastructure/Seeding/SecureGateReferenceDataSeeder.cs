@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
 
@@ -18,7 +19,8 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 /// </summary>
 public sealed class SecureGateReferenceDataSeeder(
 	IOpenIddictScopeManager scopeManager,
-	SecureGateDbContext context) : IReferenceDataSeeder
+	SecureGateDbContext context,
+	ITenantAccessScope accessScope) : IReferenceDataSeeder
 {
 	/// <summary>
 	/// Nome de exibição ANTIGO do tenant de plataforma (issue #4/2026-09) — sugeria que a
@@ -86,7 +88,12 @@ public sealed class SecureGateReferenceDataSeeder(
 			cancellationToken).ConfigureAwait(false);
 
 		// Fase 7.1 (ADR-0023): estrutura do operador de instalação
-		await SeedInstallationOperatorAsync(cancellationToken).ConfigureAwait(false);
+		// O tenant de plataforma é conhecido: a estrutura do operador (perfil, nada de outro tenant) é
+		// criada e lida dentro do escopo dele (ADR-0041)
+		using (accessScope.EnterTenant(SecureGatePlatform.TenantId))
+		{
+			await SeedInstallationOperatorAsync(cancellationToken).ConfigureAwait(false);
+		}
 	}
 
 	/// <summary>

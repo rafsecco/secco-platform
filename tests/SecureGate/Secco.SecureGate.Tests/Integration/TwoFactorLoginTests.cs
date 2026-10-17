@@ -43,7 +43,7 @@ public class TwoFactorLoginTests(SelfIssuedAuthSecureGateApiFactory factory) : I
 		var email = Email();
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var enable = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();

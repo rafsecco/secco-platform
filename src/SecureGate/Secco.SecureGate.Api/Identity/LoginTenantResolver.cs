@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using OpenIddict.Abstractions;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -22,7 +23,8 @@ internal sealed class LoginTenantResolver(
 	IOpenIddictApplicationManager applicationManager,
 	ITenantRepository tenants,
 	ITenantMembershipRepository memberships,
-	IUserDirectory users)
+	IUserDirectory users,
+	ITenantAccessScope accessScope)
 {
 	/// <summary>
 	/// Tenant do login no authorize: o do client interativo vinculado (<c>OidcApplication.TenantId</c>),
@@ -76,9 +78,13 @@ internal sealed class LoginTenantResolver(
 			return true;
 		}
 
-		if (!await memberships.IsActiveMemberAsync(loginTenantId, user.Id, cancellationToken).ConfigureAwait(false))
+		// O tenant do login é conhecido (do client ou do token emitido pelo próprio SecureGate): o vínculo é lido nele
+		using (accessScope.EnterTenant(loginTenantId))
 		{
-			return false;
+			if (!await memberships.IsActiveMemberAsync(loginTenantId, user.Id, cancellationToken).ConfigureAwait(false))
+			{
+				return false;
+			}
 		}
 
 		return await tenants.GetByIdAsync(loginTenantId, cancellationToken).ConfigureAwait(false) is { IsActive: true };
@@ -88,6 +94,13 @@ internal sealed class LoginTenantResolver(
 	/// <param name="userId">Pessoa.</param>
 	/// <param name="loginTenantId">Tenant do login.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
-	public Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, Guid loginTenantId, CancellationToken cancellationToken) =>
-		users.GetRolesInTenantAsync(userId, loginTenantId, cancellationToken);
+	public async Task<IReadOnlyList<string>> GetRolesAsync(Guid userId, Guid loginTenantId, CancellationToken cancellationToken)
+	{
+		// A pessoa foi achada em modo plataforma, mas os perfis do token são SÓ os do tenant do login
+		// (ADR-0040): o filtro dos perfis passa a ser garantido pelo escopo, não só pela consulta (ADR-0041).
+		using (accessScope.EnterTenant(loginTenantId))
+		{
+			return await users.GetRolesInTenantAsync(userId, loginTenantId, cancellationToken).ConfigureAwait(false);
+		}
+	}
 }

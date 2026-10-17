@@ -30,7 +30,7 @@ public class PlatformClientReconciliationTests(PlatformClientsSecureGateApiFacto
 
 	private async Task<OidcApplication?> FindAsync(string clientId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		return await context.Set<OidcApplication>().AsNoTracking().FirstOrDefaultAsync(a => a.ClientId == clientId);
 	}
@@ -87,7 +87,7 @@ public class PlatformClientReconciliationTests(PlatformClientsSecureGateApiFacto
 	[Fact]
 	public async Task Seed_SecretAlteradoNoBanco_VoltaAoDaConfiguracao()
 	{
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
 			var app = await manager.FindByClientIdAsync(PlatformClientsSecureGateApiFactory.MachineId);

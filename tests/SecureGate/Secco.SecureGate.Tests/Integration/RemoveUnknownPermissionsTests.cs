@@ -40,7 +40,7 @@ public class RemoveUnknownPermissionsTests(SecureGateApiFactory factory) : IAsyn
 
 	private async Task<string[]> StoredPermissionsAsync(Guid tenantId, string role)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		return await context.RoleClaims

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Secco.SDK.EntityFrameworkCore.Seeding;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
 
@@ -14,7 +15,8 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 /// </summary>
 public sealed class SecureGateDevelopmentDataSeeder(
 	SecureGateDbContext context,
-	UserManager<Identity.User> userManager) : IDevelopmentDataSeeder
+	UserManager<Identity.User> userManager,
+	ITenantAccessScope accessScope) : IDevelopmentDataSeeder
 {
 	/// <summary>Usuário demo do tenant de desenvolvimento.</summary>
 	public const string DevUserEmail = "dev@secco.local";
@@ -44,6 +46,10 @@ public sealed class SecureGateDevelopmentDataSeeder(
 
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
 	{
+		// Cria dado em mais de um tenant (demo e plataforma) e procura o e-mail em todo o banco antes de
+		// existir dono: fora de requisição e de qualquer tenant único (ADR-0041)
+		using var platformScope = accessScope.EnterPlatform("seed de desenvolvimento: cria dado em vários tenants e checa e-mail globalmente");
+
 		if (!await context.Tenants.AnyAsync(t => t.Id == DemoTenantId, cancellationToken).ConfigureAwait(false))
 		{
 			var tenant = new Tenant("Tenant de Desenvolvimento", "dev-alfa");

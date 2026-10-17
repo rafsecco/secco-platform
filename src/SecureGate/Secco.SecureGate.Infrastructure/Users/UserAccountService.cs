@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -14,7 +15,10 @@ namespace Secco.SecureGate.Infrastructure.Users;
 /// roles é resolvida DENTRO do tenant (ADR-0021): não usa <c>UserManager.AddToRoleAsync</c>
 /// por nome, que consulta o índice global e poderia casar o role de outro tenant.
 /// </summary>
-internal sealed class UserAccountService(UserManager<User> userManager, SecureGateDbContext context) : IUserDirectory
+internal sealed class UserAccountService(
+	UserManager<User> userManager,
+	SecureGateDbContext context,
+	ITenantAccessScope accessScope) : IUserDirectory
 {
 	public async Task<Result<UserDto>> CreateAsync(CreateUserData data, CancellationToken cancellationToken = default)
 	{
@@ -228,12 +232,15 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 			.AnyAsync(cancellationToken);
 	}
 
-	public Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default)
+	public async Task<int> CountActiveOperatorsAsync(Guid excludingUserId, CancellationToken cancellationToken = default)
 	{
+		// Operadores vivem no tenant de plataforma, que é conhecido (ADR-0041: tenant sempre que houver)
+		using var tenantScope = accessScope.EnterTenant(SecureGatePlatform.TenantId);
+
 		var normalized = SecureGatePlatform.OperatorRole.ToUpperInvariant();
 		var now = DateTimeOffset.UtcNow;
 
-		return (
+		return await (
 			from userRole in context.UserRoles.AsNoTracking()
 			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
 			join user in context.Users.AsNoTracking() on userRole.UserId equals user.Id
@@ -244,7 +251,8 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 				&& (!user.LockoutEnabled || user.LockoutEnd == null || user.LockoutEnd <= now)
 			select user.Id)
 			.Distinct()
-			.CountAsync(cancellationToken);
+			.CountAsync(cancellationToken)
+			.ConfigureAwait(false);
 	}
 
 	/// <summary>
@@ -419,18 +427,28 @@ internal sealed class UserAccountService(UserManager<User> userManager, SecureGa
 
 	public async Task<PersonData?> FindPersonByEmailAsync(string email, CancellationToken cancellationToken = default)
 	{
+		// A pessoa é de OUTRO tenant dono (ainda não é membro deste): sem tenant que a contenha, só em plataforma
+		using var platformScope = accessScope.EnterPlatform("inclusão de membro: a pessoa é achada por e-mail e pertence a outro tenant dono");
+
 		var user = await userManager.FindByEmailAsync(email).ConfigureAwait(false);
 
 		return user is null ? null : new PersonData(user.Id, user.Email!, user.DisplayName, user.TenantId);
 	}
 
-	public async Task<Guid?> GetOwnerTenantAsync(Guid userId, CancellationToken cancellationToken = default) =>
-		await context.Users
+	public async Task<Guid?> GetOwnerTenantAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		// Quem vai ser incluído, ter perfil atribuído ou retirado ainda pode NÃO ser membro deste tenant:
+		// a regra do vínculo (ADR-0040) precisa do tenant dono dele, que só o modo plataforma enxerga.
+		// Só o id do tenant dono sai daqui.
+		using var platformScope = accessScope.EnterPlatform("regra de vínculo: tenant dono de uma pessoa que pode não ser membro do tenant da rota");
+
+		return await context.Users
 			.AsNoTracking()
 			.Where(user => user.Id == userId)
 			.Select(user => (Guid?)user.TenantId)
 			.FirstOrDefaultAsync(cancellationToken)
 			.ConfigureAwait(false);
+	}
 
 	public async Task<bool> RemoveExternalLoginAsync(
 		Guid tenantId,

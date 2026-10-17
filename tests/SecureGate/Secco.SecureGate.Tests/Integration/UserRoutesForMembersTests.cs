@@ -47,7 +47,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 
 	private async Task AddMembershipAsync(Guid tenantId, Guid userId, bool active = true)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var membership = new TenantMembership(userId, tenantId, DateTimeOffset.UtcNow);
 
@@ -62,7 +62,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 
 	private async Task AssignAsync(Guid userId, Guid tenantId, string roleName)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var normalized = roleName.ToUpperInvariant();
 		var role = await context.Roles.FirstAsync(r => r.TenantId == tenantId && r.NormalizedName == normalized);
@@ -72,7 +72,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 
 	private async Task<string> StampAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var user = await scope.ServiceProvider.GetRequiredService<UserManager<User>>().FindByIdAsync(userId.ToString());
 
 		return SessionVersion.From(user!.SecurityStamp);
@@ -155,7 +155,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 	{
 		var userId = await PersonWithRolesInBothAsync();
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			context.UserLogins.Add(new UserLogin
@@ -247,7 +247,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 		var response = await Admin().PostAsync($"/api/v1/tenants/{_guest}/users/{userId}/roles/comprador", null);
 
 		response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		(await context.UserRoles.AnyAsync(ur => ur.UserId == userId)).Should().BeFalse();
 	}
@@ -326,7 +326,7 @@ public class UserRoutesForMembersTests(SecureGateApiFactory factory) : IAsyncLif
 		detail.GetProperty("localLoginEnabled").GetBoolean().Should().BeTrue();
 		(await StampAsync(userId)).Should().Be(stampBefore);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		(await context.ElevationGrants.AnyAsync(g => g.UserId == userId)).Should().BeFalse();
 	}

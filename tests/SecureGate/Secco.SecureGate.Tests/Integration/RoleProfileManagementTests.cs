@@ -118,7 +118,7 @@ public class RoleProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 
 		(await admin.GetAsync($"/api/v1/tenants/{_tenantId}/roles/temporario")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		(await context.RoleClaims.CountAsync(c => c.ClaimValue == "relatorios:read"
 			&& !context.Roles.Any(r => r.Id == c.RoleId))).Should().Be(0, "permissões órfãs não podem sobrar");

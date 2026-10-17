@@ -41,7 +41,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var userId = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 
 		var state = await setup.GetStateAsync(userId);
@@ -55,7 +55,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var userId = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 
 		var enrollment = await setup.StartEnrollmentAsync(userId);
@@ -70,7 +70,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var userId = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		await setup.StartEnrollmentAsync(userId);
 
@@ -92,7 +92,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var userId = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 
 		var codigos = await setup.GenerateRecoveryCodesAsync(userId);
@@ -109,7 +109,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		var driver = new OidcLoginDriver(factory, ClientId, RedirectUri, IdentitySeed.Password);
 		var (_, refreshToken) = await driver.LoginAsync(email, "openid offline_access logstream");
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var handler = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
@@ -134,7 +134,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		var email = Email();
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var handler = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		await setup.StartEnrollmentAsync(userId);
@@ -150,7 +150,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		var email = Email();
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var enable = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		var disable = scope.ServiceProvider.GetRequiredService<DisableTwoFactorHandler>();
@@ -207,7 +207,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 
 	private async Task<string> CurrentKeyAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
 
@@ -235,7 +235,7 @@ public class TwoFactorEnrollmentTests(SelfIssuedAuthSecureGateApiFactory factory
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
 		using var browser = await SignedInBrowserAsync(email);
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			var user = await context.Users.FindAsync(userId);

@@ -46,7 +46,7 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 		await secureGate.EnsureDatabaseMigratedAsync();
 		await secureGate.CreatePublicClientAsync(ClientId, RedirectUri, "securegate:admin", "logstream");
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -109,7 +109,7 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 	{
 		var session = await Driver.LoginAsync(_userEmail, UserScope);
 
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 			var user = await userManager.FindByIdAsync(_userId.ToString());
@@ -320,7 +320,7 @@ public class SessionRevocationTests(SelfIssuedAuthSecureGateApiFactory secureGat
 			.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
 		// Não basta a autorização cair: os registros de token do usuário também saem de "valid"
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var subject = _userId.ToString();
 		var statuses = await context.Set<OidcToken>()

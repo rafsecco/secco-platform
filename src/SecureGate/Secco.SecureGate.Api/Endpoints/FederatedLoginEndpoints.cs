@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Infrastructure.Identity;
 
@@ -20,6 +21,7 @@ public static class FederatedLoginEndpoints
 	public static IEndpointRouteBuilder MapFederatedLoginEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		endpoints.MapGet("/login/entra-callback", CallbackAsync)
+			.RequirePlatformScope(scope => scope.EnterPlatform("login federado: casa a pessoa por e-mail ou oid dentro do tid registrado, antes de existir tenant"))
 			.AllowAnonymous()
 			.ExcludeFromDescription();
 

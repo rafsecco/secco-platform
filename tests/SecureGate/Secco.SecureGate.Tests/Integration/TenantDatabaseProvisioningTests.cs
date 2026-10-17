@@ -260,7 +260,7 @@ public sealed class TenantDatabaseProvisioningApiTests(ProvisioningSecureGateApi
 	/// <param name="tenantId">Tenant cujo banco foi provisionado.</param>
 	private async Task<string> ReadProvisionedPasswordAsync(Guid tenantId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var database = await context.TenantDatabases.FirstAsync(entry => entry.TenantId == tenantId);

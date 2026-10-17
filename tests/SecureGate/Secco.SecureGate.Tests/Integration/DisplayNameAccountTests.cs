@@ -59,7 +59,7 @@ public class DisplayNameAccountTests(SelfIssuedAuthSecureGateApiFactory factory)
 
 	private async Task SetDisplayNameDirectAsync(Guid userId, string displayName)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var user = await context.Users.FirstAsync(u => u.Id == userId);
 		user.DisplayName = displayName;
@@ -110,7 +110,7 @@ public class DisplayNameAccountTests(SelfIssuedAuthSecureGateApiFactory factory)
 
 		resposta.StatusCode.Should().Be(HttpStatusCode.OK);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		(await context.Users.FirstAsync(u => u.Id == userId)).DisplayName.Should().BeNull();
 	}

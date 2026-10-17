@@ -105,7 +105,7 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 
 	private async Task SetLocalLoginAsync(Guid userId, bool enabled)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var user = await context.Users.FindAsync(userId);
 		user!.LocalLoginEnabled = enabled;
@@ -249,7 +249,7 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 		var email = Email();
 		Guid userId;
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			var user = new User

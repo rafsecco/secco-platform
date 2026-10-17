@@ -55,7 +55,7 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// </summary>
 	public async Task CreateClientWithRolesAsync(string clientId, string clientSecret, string? roles, params string[] scopes)
 	{
-		using var scope = Services.CreateScope();
+		using var scope = Services.CreatePlatformScope();
 		var applications = scope.ServiceProvider.GetRequiredService<OpenIddict.Abstractions.IOpenIddictApplicationManager>();
 
 		if (await applications.FindByClientIdAsync(clientId) is not null)
@@ -97,7 +97,7 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	public async Task CreateProductClientAsync(
 		Guid tenantId, string clientId, string clientSecret, string? roles, params string[] scopes)
 	{
-		using var scope = Services.CreateScope();
+		using var scope = Services.CreatePlatformScope();
 		var applications = scope.ServiceProvider
 			.GetRequiredService<OpenIddict.Core.OpenIddictApplicationManager<Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication>>();
 
@@ -133,7 +133,7 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// </summary>
 	public async Task CreatePublicClientAsync(string clientId, string redirectUri, params string[] scopes)
 	{
-		using var scope = Services.CreateScope();
+		using var scope = Services.CreatePlatformScope();
 		var applications = scope.ServiceProvider.GetRequiredService<OpenIddict.Abstractions.IOpenIddictApplicationManager>();
 
 		if (await applications.FindByClientIdAsync(clientId) is not null)

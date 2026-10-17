@@ -48,7 +48,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var destino = Email();
 		var outro = Email();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 		var token = await tokens.CreateEmailChangeTokenAsync(userId, destino);
 
@@ -64,7 +64,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, _) = await UserAsync();
 		var destino = Email();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 		await tokens.ChangeEmailAsync(userId, destino, await tokens.CreateEmailChangeTokenAsync(userId, destino));
 
@@ -84,7 +84,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, original) = await UserAsync();
 		var (_, ocupado) = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 		var token = await tokens.CreateEmailChangeTokenAsync(userId, ocupado);
 
@@ -99,7 +99,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var (_, existente) = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 
 		(await tokens.IsEmailAvailableAsync(existente)).Should().BeFalse();
@@ -111,7 +111,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var (userId, _) = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 
 		(await tokens.CheckPasswordAsync(userId, IdentitySeed.Password)).Should().BeTrue();
@@ -124,7 +124,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, atual) = await UserAsync();
 		var destino = Email();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
 
 		(await handler.HandleAsync(userId, destino, "Errada@Senha1", remoteAddress: null)).Should().BeFalse();
@@ -138,7 +138,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, atual) = await UserAsync();
 		var destino = Email();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
 
 		(await handler.HandleAsync(userId, destino, IdentitySeed.Password, remoteAddress: null)).Should().BeTrue();
@@ -157,7 +157,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, _) = await UserAsync();
 		var (_, ocupado) = await UserAsync();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var handler = scope.ServiceProvider.GetRequiredService<RequestEmailChangeHandler>();
 
 		// true significa "a senha conferiu", nunca "o endereço estava livre": quem chama não
@@ -174,7 +174,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var driver = new OidcLoginDriver(factory, ClientId, RedirectUri, IdentitySeed.Password);
 		var (_, refreshToken) = await driver.LoginAsync(atual, "openid offline_access logstream");
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 		var confirm = scope.ServiceProvider.GetRequiredService<ConfirmEmailChangeHandler>();
 		var token = await tokens.CreateEmailChangeTokenAsync(userId, destino);
@@ -192,7 +192,7 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var (userId, _) = await UserAsync();
 		var destino = Email();
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var tokens = scope.ServiceProvider.GetRequiredService<ICredentialTokens>();
 		var confirm = scope.ServiceProvider.GetRequiredService<ConfirmEmailChangeHandler>();
 

@@ -6,8 +6,11 @@ using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Elevation;
+using Secco.SecureGate.Application.Tenancy;
+using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
@@ -56,6 +59,7 @@ public static class TokenEndpoints
 
 			return UnsupportedGrant("Grant type não suportado.");
 		})
+		.RequirePlatformScope(scope => scope.EnterPlatform("emissão de token: a pessoa é achada sem tenant; perfis e concessão são lidos no escopo do tenant (ADR-0040)"))
 		.AllowAnonymous()               // a autenticação AQUI é o client_secret/PKCE, validado pelo OpenIddict
 		.ExcludeFromDescription();      // endpoint de protocolo: descrito pelo discovery OIDC, não pelo contrato de negócio
 
@@ -260,8 +264,14 @@ public static class TokenEndpoints
 
 		// Autoridade (ADR-0031): concessão explícita e vigente. Revogada ou expirada, não troca.
 		var now = DateTimeOffset.UtcNow;
-		var grant = await services.GetRequiredService<IElevationGrantRepository>()
-			.GetByUserAsync(user.Id, context.RequestAborted);
+		ElevationGrant? grant;
+
+		// A concessão vive no tenant dono da conta (ADR-0031), que é conhecido: lê-se nele
+		using (services.GetRequiredService<ITenantAccessScope>().EnterTenant(user.TenantId))
+		{
+			grant = await services.GetRequiredService<IElevationGrantRepository>()
+				.GetByUserAsync(user.Id, context.RequestAborted);
+		}
 
 		if (grant is null || !grant.IsActiveAt(now))
 		{

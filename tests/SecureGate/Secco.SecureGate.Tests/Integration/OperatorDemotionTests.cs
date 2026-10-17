@@ -35,7 +35,7 @@ public class OperatorDemotionTests(SelfIssuedAuthSecureGateApiFactory secureGate
 		await secureGate.EnsureDatabaseMigratedAsync();
 		await secureGate.CreatePublicClientAsync(ClientId, RedirectUri, SecureGateScopes.Admin);
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 
@@ -102,7 +102,7 @@ public class OperatorDemotionTests(SelfIssuedAuthSecureGateApiFactory secureGate
 
 	private async Task RemoveOperatorRoleAsync()
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		// Direto no banco: esta correção não pode depender do endpoint de remoção, que vem depois

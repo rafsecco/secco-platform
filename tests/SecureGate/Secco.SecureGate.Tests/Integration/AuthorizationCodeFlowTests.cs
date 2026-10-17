@@ -48,7 +48,7 @@ public partial class AuthorizationCodeFlowTests(SelfIssuedAuthSecureGateApiFacto
 		await secureGate.EnsureDatabaseMigratedAsync();
 		await secureGate.CreatePublicClientAsync(ClientId, RedirectUri, "logstream");
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 

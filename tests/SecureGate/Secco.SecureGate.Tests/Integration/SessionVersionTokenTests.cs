@@ -39,7 +39,7 @@ public class SessionVersionTokenTests(SelfIssuedAuthSecureGateApiFactory secureG
 
 	private async Task<string> CurrentVersionAsync()
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var user = await scope.ServiceProvider.GetRequiredService<UserManager<User>>().FindByIdAsync(_userId.ToString());
 
 		return SessionVersion.From(user!.SecurityStamp);

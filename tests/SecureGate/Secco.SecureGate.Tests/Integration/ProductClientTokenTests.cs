@@ -96,7 +96,7 @@ public class ProductClientTokenTests(SecureGateApiFactory factory) : IAsyncLifet
 		var clientId = NewClientId();
 		await factory.CreateProductClientAsync(_tenantId, clientId, Secret, roles: null, "logstream");
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			var tenant = await context.Tenants.FindAsync(_tenantId);

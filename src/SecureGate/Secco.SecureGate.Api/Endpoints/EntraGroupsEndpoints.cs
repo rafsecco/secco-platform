@@ -1,5 +1,6 @@
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Federation;
 using Secco.SDK.AspNetCore.Extensions;
@@ -21,7 +22,8 @@ public static class EntraGroupsEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/entra")
 			.WithTags("Federation")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+			.RequireTenantScope();
 
 		group.MapGet("/groups", async (
 				Guid tenantId,

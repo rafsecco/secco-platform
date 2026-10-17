@@ -67,7 +67,7 @@ public class LocalLoginToggleTests(SelfIssuedAuthSecureGateApiFactory factory) :
 
 	private async Task<string?> SecurityStampAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		return (await context.Users.FindAsync(userId))!.SecurityStamp;

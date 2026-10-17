@@ -37,7 +37,7 @@ public class LastOperatorGuardTests(OperatorGuardSecureGateApiFactory factory) :
 		await factory.EnsureDatabaseMigratedAsync();
 
 		// Começa sem nenhum operador: cada teste monta exatamente o cenário que prova
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var normalized = SecureGatePlatform.OperatorRole.ToUpperInvariant();
 		var roleId = await context.Roles

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -25,6 +26,7 @@ public static class InteractiveEndpoints
 	public static IEndpointRouteBuilder MapInteractiveEndpoints(this IEndpointRouteBuilder endpoints)
 	{
 		endpoints.MapMethods("/connect/authorize", ["GET", "POST"], AuthorizeAsync)
+			.RequirePlatformScope(scope => scope.EnterPlatform("authorize: a pessoa autenticada pelo cookie é achada sem tenant; perfis lidos no escopo do tenant do login (ADR-0040)"))
 			.AllowAnonymous()
 			.ExcludeFromDescription();
 

@@ -35,7 +35,7 @@ public class OperatorRoleConvergenceTests(SecureGateApiFactory secureGate) : IAs
 
 		await secureGate.Services.SeedSeccoDataAsync();
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		var rolesInTenant = await context.Roles
@@ -73,7 +73,7 @@ public class OperatorRoleConvergenceTests(SecureGateApiFactory secureGate) : IAs
 		await secureGate.Services.SeedSeccoDataAsync();
 
 		string stampAfterConvergence;
-		using (var scope = secureGate.Services.CreateScope())
+		using (var scope = secureGate.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			stampAfterConvergence = await context.Roles
@@ -86,7 +86,7 @@ public class OperatorRoleConvergenceTests(SecureGateApiFactory secureGate) : IAs
 		// referência roda em todos os ambientes, então precisa ser seguro repetir)
 		await secureGate.Services.SeedSeccoDataAsync();
 
-		using var verifyScope = secureGate.Services.CreateScope();
+		using var verifyScope = secureGate.Services.CreatePlatformScope();
 		var verifyContext = verifyScope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var afterSecondRun = await verifyContext.Roles.SingleAsync(r => r.Id == roleId);
 
@@ -107,7 +107,7 @@ public class OperatorRoleConvergenceTests(SecureGateApiFactory secureGate) : IAs
 	/// </summary>
 	private async Task<(Guid RoleId, Guid UserId)> SeedLegacyOperatorRoleWithUserAsync()
 	{
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 

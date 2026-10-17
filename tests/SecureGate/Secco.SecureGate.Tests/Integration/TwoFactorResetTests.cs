@@ -64,7 +64,7 @@ public class TwoFactorResetTests(SelfIssuedAuthSecureGateApiFactory factory) : I
 		var email = Email();
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, email);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var enable = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
@@ -80,7 +80,7 @@ public class TwoFactorResetTests(SelfIssuedAuthSecureGateApiFactory factory) : I
 
 	private async Task<TwoFactorState> StateAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 
 		return (await scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>().GetStateAsync(userId))!;
 	}

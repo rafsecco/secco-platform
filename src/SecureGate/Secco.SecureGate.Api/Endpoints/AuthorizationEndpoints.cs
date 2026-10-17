@@ -1,4 +1,5 @@
 using Secco.SecureGate.Api.Authorization;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Authorization;
 using Secco.SecureGate.Application.Sessions;
@@ -32,7 +33,8 @@ public static class AuthorizationEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.RequireAuthorization(policy =>
 				policy.RequireAssertion(context =>
-					ScopeAuthorization.HasScope(context.User, SecureGateScopes.AuthorizationRead)));
+					ScopeAuthorization.HasScope(context.User, SecureGateScopes.AuthorizationRead)))
+			.RequireTenantScope();
 
 		endpoints.MapGet("/api/v1/authorization/users/{sub}/session-version", async (
 				string sub,
@@ -41,6 +43,7 @@ public static class AuthorizationEndpoints
 			Results.Ok(await handler.HandleAsync(sub, cancellationToken)))
 			.WithTags("Authorization")
 			.WithName("GetSessionVersion")
+			.RequirePlatformScope(scope => scope.EnterPlatform("versão de sessão: estado da pessoa em qualquer tenant (ADR-0032)"))
 			.WithSummary("Versão de sessão atual do usuário (ADR-0032); revogado para conta inexistente, desativada, bloqueada ou de tenant inativo.")
 			.Produces<SessionVersionDto>(StatusCodes.Status200OK)
 			.RequireAuthorization(policy =>

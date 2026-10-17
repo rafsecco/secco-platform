@@ -46,7 +46,7 @@ public class TenantMembershipApiTests(SecureGateApiFactory factory) : IAsyncLife
 
 	private async Task<string> StampAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var user = await scope.ServiceProvider.GetRequiredService<UserManager<User>>().FindByIdAsync(userId.ToString());
 
 		return SessionVersion.From(user!.SecurityStamp);
@@ -54,7 +54,7 @@ public class TenantMembershipApiTests(SecureGateApiFactory factory) : IAsyncLife
 
 	private async Task<bool> HasMembershipRowAsync(Guid tenantId, Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		return await context.TenantMemberships.AnyAsync(m => m.TenantId == tenantId && m.UserId == userId);
@@ -62,7 +62,7 @@ public class TenantMembershipApiTests(SecureGateApiFactory factory) : IAsyncLife
 
 	private async Task<bool?> MembershipActiveAsync(Guid tenantId, Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		return await context.TenantMemberships
@@ -208,7 +208,7 @@ public class TenantMembershipApiTests(SecureGateApiFactory factory) : IAsyncLife
 	public async Task Post_TenantInativo_Aceita()
 	{
 		var inactive = await IdentitySeed.TenantAsync(factory);
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			(await context.Tenants.FirstAsync(t => t.Id == inactive)).Deactivate();

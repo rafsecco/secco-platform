@@ -47,7 +47,7 @@ public partial class OperatorScopeFilterTests(SelfIssuedAuthSecureGateApiFactory
 		await secureGate.EnsureDatabaseMigratedAsync();
 		await secureGate.CreatePublicClientAsync(ClientId, RedirectUri, "securegate:admin", "logstream");
 
-		using var scope = secureGate.Services.CreateScope();
+		using var scope = secureGate.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 

@@ -125,7 +125,7 @@ public class PermissionCatalogApiTests(SecureGateApiFactory factory) : IAsyncLif
 
 		await PublishAsync(product);   // retira a permissão do catálogo
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		context.RoleClaims.Count(c => c.ClaimValue == permission).Should().Be(1,
 			"publicar nunca toca perfil (ADR-0039)");

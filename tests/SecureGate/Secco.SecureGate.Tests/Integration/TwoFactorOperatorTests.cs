@@ -56,7 +56,7 @@ public class TwoFactorOperatorTests(SelfIssuedAuthSecureGateApiFactory factory) 
 
 	private async Task EnableTwoFactorAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var setup = scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>();
 		var enable = scope.ServiceProvider.GetRequiredService<EnableTwoFactorHandler>();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
@@ -112,7 +112,7 @@ public class TwoFactorOperatorTests(SelfIssuedAuthSecureGateApiFactory factory) 
 
 	private async Task<string> CurrentKeyAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = await userManager.FindByIdAsync(userId.ToString());
 
@@ -181,7 +181,7 @@ public class TwoFactorOperatorTests(SelfIssuedAuthSecureGateApiFactory factory) 
 		resposta.StatusCode.Should().Be(HttpStatusCode.OK);
 		(await resposta.Content.ReadAsStringAsync()).Should().Contain("operadores da instala");
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		(await scope.ServiceProvider.GetRequiredService<ITwoFactorSetup>().GetStateAsync(userId))!
 			.Enabled.Should().BeTrue();
 	}

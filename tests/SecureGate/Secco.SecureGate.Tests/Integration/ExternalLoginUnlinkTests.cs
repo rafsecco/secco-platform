@@ -62,7 +62,7 @@ public class ExternalLoginUnlinkTests(SelfIssuedAuthSecureGateApiFactory factory
 	{
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, $"unlink-{Guid.NewGuid():N}@secco.test");
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var user = await context.Users.FindAsync(userId);
 		user!.LocalLoginEnabled = localLogin;
@@ -80,7 +80,7 @@ public class ExternalLoginUnlinkTests(SelfIssuedAuthSecureGateApiFactory factory
 
 	private async Task<IReadOnlyList<string>> LinksAsync(Guid userId)
 	{
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 
 		return await context.UserLogins
@@ -176,7 +176,7 @@ public class ExternalLoginUnlinkTests(SelfIssuedAuthSecureGateApiFactory factory
 		var userId = await UserWithLinkAsync();
 		var outroTenant = await IdentitySeed.TenantAsync(factory);
 
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var directory = scope.ServiceProvider.GetRequiredService<Application.Users.IUserDirectory>();
 
 		// A guarda de tenant existe em DUAS camadas: o caso de uso recusa antes de chamar, e o

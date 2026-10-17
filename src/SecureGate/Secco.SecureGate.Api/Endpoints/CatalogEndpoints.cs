@@ -1,4 +1,5 @@
 using Secco.SecureGate.Api.Authorization;
+using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application.Catalog;
 using Secco.SDK.AspNetCore.Extensions;
 
@@ -18,7 +19,8 @@ public static class CatalogEndpoints
 	{
 		var group = endpoints.MapGroup("/api/v1/catalog/{product}")
 			.WithTags("Catalog")
-			.AddEndpointFilter(ScopeAuthorization.RequireCatalogScopeAsync);
+			.AddEndpointFilter(ScopeAuthorization.RequireCatalogScopeAsync)
+			.RequirePlatformScope(scope => scope.EnterPlatform("catálogo de bancos de todos os tenants, servido aos produtos (catalog:<produto>)"));
 
 		group.MapGet("/tenants", async (
 				string product,

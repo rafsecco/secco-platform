@@ -92,6 +92,9 @@ public static class SecureGateInfrastructureExtensions
 		services.AddSingleton<ITenantDatabaseProvisioner, SqlServerTenantDatabaseProvisioner>();
 		services.AddSingleton<ITenantDatabaseHealthProbe, SqlServerTenantDatabaseHealthProbe>();
 
+		// Escopo de acesso por requisição (ADR-0041): fonte única do tenant dos filtros globais do EF
+		services.AddScoped<Application.Tenancy.ITenantAccessScope, Tenancy.TenantAccessScope>();
+
 		services.AddDbContext<SecureGateDbContext>((serviceProvider, options) =>
 		{
 			var databaseOptions = serviceProvider.GetRequiredService<SecureGateDatabaseOptions>();

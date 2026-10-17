@@ -67,7 +67,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 	{
 		// Simula o estado transitório entre o provisionamento e o convite aceito (ADR-0033,
 		// Tarefa 7): o Identity permite criar o usuário sem senha via CreateAsync(user).
-		using var scope = factory.Services.CreateScope();
+		using var scope = factory.Services.CreatePlatformScope();
 		var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
 		var user = new User
 		{
@@ -127,7 +127,7 @@ public class UserProfileManagementTests(SecureGateApiFactory factory) : IAsyncLi
 		const string providerKey = "11111111-2222-3333-4444-555555555555:aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
 
-		using (var scope = factory.Services.CreateScope())
+		using (var scope = factory.Services.CreatePlatformScope())
 		{
 			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 			context.UserLogins.Add(new UserLogin { UserId = userId, LoginProvider = "EntraId", ProviderKey = providerKey, ProviderDisplayName = "Microsoft" });
