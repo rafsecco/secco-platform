@@ -12,13 +12,6 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SharedKernel 0.7.0 e Secco.SecureGate.Client 0.18.0 — famílias de permissão (issue #36, ADR-0043)
-
-Só acréscimos (minor), sem ação necessária para quem já consome.
-
-- **Secco.SharedKernel:** `SeccoPermissions.IsValidFamily`, `MatchesFamily` (ordinal, sem regex) e `FromFamily` — o produto declara `setor-{id}:read` no catálogo (ADR-0039) e compõe `setor-rh:read` a partir da mesma declaração. `IsValid` não mudou: uma família não é nome de permissão. `SeccoPermissionDefinition.Name` passa a poder ser uma família.
-- **Secco.SecureGate.Client:** `PermissionDefinitionDto.IsFamily` na leitura do catálogo. O SecureGate passa a aceitar no `SetRolePermissions` a permissão que casa com uma família publicada, e esta nunca é órfã (`unknownPermissions`, limpeza por tenant). Ao excluir a instância, o produto dono remove a permissão dos perfis.
-
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.
@@ -51,6 +44,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.7.0 — 2026-10-18
+
+Famílias de permissão (issue #36, ADR-0043), só acréscimos: `SeccoPermissions.IsValidFamily`, `MatchesFamily` (ordinal, sem regex) e `FromFamily`. O produto declara `setor-{id}:read` no catálogo (ADR-0039) e compõe `setor-rh:read` a partir da mesma declaração. `IsValid` não mudou, porque uma família não é nome de permissão. `SeccoPermissionDefinition.Name` passa a poder ser uma família.
 
 #### 0.6.2 — 2026-10-17
 
@@ -138,6 +135,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.3 — 2026-10-18
+
+Patch **sem mudança funcional**: o diff desde a 0.9.2 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.18.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.2 — 2026-10-15
 
@@ -309,6 +310,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.18.0 — 2026-10-18
+
+Famílias de permissão (issue #36, ADR-0043), só acréscimos: `PermissionDefinitionDto.IsFamily` na leitura do catálogo. O SecureGate passa a aceitar no `SetRolePermissions` a permissão que casa com uma família publicada, e ela nunca é órfã (`unknownPermissions`, limpeza por tenant). Ao excluir a instância, o produto dono remove a permissão dos perfis.
+
 #### 0.17.0 — 2026-10-15 (issue #35, ADR-0040)
 
 - **Adicionado** `AddTenantMemberAsync` (por e-mail), `SetTenantMemberAsync` (inclui ou reativa), `SuspendTenantMemberAsync` e `RemoveTenantMemberAsync`, sob `/api/v1/tenants/{tenantId}/members`, escopo `securegate:admin`, e o `TenantMemberDto`.
@@ -444,6 +449,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.14 — 2026-10-18
+
+Patch **sem mudança funcional**: o diff desde a 0.1.13 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.18.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.13 — 2026-10-15
 
