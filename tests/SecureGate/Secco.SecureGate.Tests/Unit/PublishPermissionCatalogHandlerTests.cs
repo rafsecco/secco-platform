@@ -42,6 +42,21 @@ public class PublishPermissionCatalogHandlerTests
 	}
 
 	[Fact]
+	public async Task HandleAsync_FamilyAlongsideExactName_ReplacesBoth()
+	{
+		var result = await _handler.HandleAsync(Command("intranet",
+			("setor-{id}:read", "Ler o setor {id}"),
+			("setores:admin", "Administrar setores")));
+
+		result.IsSuccess.Should().BeTrue("a família é entrada válida do catálogo (ADR-0043)");
+		await _repository.Received(1).ReplaceAsync(
+			"intranet",
+			Arg.Is<IReadOnlyList<SeccoPermissionDefinition>>(p => p.Count == 2 && p[0].Name == "setor-{id}:read"),
+			Arg.Any<DateTimeOffset>(),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
 	public async Task HandleAsync_EmptyList_IsValid()
 	{
 		var result = await _handler.HandleAsync(Command("logstream"));
@@ -109,6 +124,12 @@ public class PublishPermissionCatalogHandlerTests
 	[InlineData("semseparador")]
 	[InlineData("Log-Entries:Read")]
 	[InlineData("a:b:c")]
+	[InlineData("{x}:read")]
+	[InlineData("setor-{id}:{acao}")]
+	[InlineData("setor-{id}-{x}:read")]
+	[InlineData("a-{x}-b:read")]
+	[InlineData("setor-{ID}:read")]
+	[InlineData("setor-*:read")]
 	public async Task HandleAsync_InvalidName_ReturnsPermissionNameInvalid(string? name)
 	{
 		var result = await _handler.HandleAsync(Command("logstream", (name, "descrição")));

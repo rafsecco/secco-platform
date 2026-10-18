@@ -7,9 +7,9 @@ namespace Secco.SecureGate.Application.Permissions;
 
 /// <summary>
 /// Publica o catálogo de permissões de um produto (ADR-0039). Valida tudo ANTES de persistir
-/// (ADR-0020: input externo): produto kebab-case, 0 a 200 entradas, nome no formato canônico,
-/// descrição de 1 a 200 caracteres após o trim e sem caractere de controle (log forging), sem nome
-/// repetido. Colisão de nome com outro produto NUNCA bloqueia (o repositório a registra em log).
+/// (ADR-0020: input externo): produto kebab-case, 0 a 200 entradas, nome no formato canônico ou
+/// família <c>prefixo-{param}:acao</c> (ADR-0043), descrição de 1 a 200 caracteres após o trim e
+/// sem caractere de controle (log forging), sem nome repetido. Colisão de nome com outro produto NUNCA bloqueia (o repositório a registra em log).
 /// </summary>
 public sealed class PublishPermissionCatalogHandler(IPermissionCatalogRepository repository)
 {
@@ -46,7 +46,7 @@ public sealed class PublishPermissionCatalogHandler(IPermissionCatalogRepository
 
 		foreach (var input in command.Permissions)
 		{
-			if (input is null || !SeccoPermissions.IsValid(input.Name))
+			if (input is null || !(SeccoPermissions.IsValid(input.Name) || SeccoPermissions.IsValidFamily(input.Name)))
 			{
 				return Result.Failure(SecureGateErrors.PermissionCatalog.PermissionNameInvalid);
 			}

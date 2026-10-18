@@ -10,7 +10,8 @@ namespace Secco.SecureGate.Infrastructure.PermissionCatalog;
 /// <summary>
 /// Persistência EF Core do catálogo de permissões (ADR-0039) sobre o banco de plataforma. As
 /// comparações de nome e de produto são refeitas em memória de forma ORDINAL: o SQL Server compara
-/// sem diferenciar caixa por padrão, e o catálogo é case-sensitive.
+/// sem diferenciar caixa por padrão, e o catálogo é case-sensitive. Uma entrada pode ser uma família
+/// (ADR-0043): <c>FindUnknownAsync</c> a trata como conhecida para os nomes que ela casa.
 /// </summary>
 internal sealed partial class PermissionCatalogRepository(
 	SecureGateDbContext context, ILogger<PermissionCatalogRepository> logger) : IPermissionCatalogRepository
@@ -104,7 +105,26 @@ internal sealed partial class PermissionCatalogRepository(
 				.ToListAsync(cancellationToken).ConfigureAwait(false))
 			.ToHashSet(StringComparer.Ordinal);
 
-		return [.. requested.Where(name => !found.Contains(name))];
+		var unknown = requested.Where(name => !found.Contains(name)).ToList();
+
+		if (unknown.Count == 0)
+		{
+			return [];
+		}
+
+		// ADR-0043: o que não é nome exato ainda pode casar com uma família. Só as famílias saem do
+		// banco (entradas com '{'), e o casamento é ordinal em memória, sem regex
+		var families = (await context.PermissionCatalogEntries.AsNoTracking()
+				.Where(e => e.Name.Contains('{'))
+				.Select(e => e.Name)
+				.Distinct()
+				.ToListAsync(cancellationToken).ConfigureAwait(false))
+			.Where(SeccoPermissions.IsValidFamily)
+			.ToList();
+
+		return families.Count == 0
+			? unknown
+			: [.. unknown.Where(name => !families.Any(family => SeccoPermissions.MatchesFamily(family, name)))];
 	}
 
 	private async Task<IReadOnlyList<string>> FindCollisionsAsync(
@@ -151,7 +171,8 @@ internal sealed partial class PermissionCatalogRepository(
 						e.Description,
 						[.. productsByName[e.Name]
 							.Where(other => !string.Equals(other, group.Key, StringComparison.Ordinal))
-							.Order(StringComparer.Ordinal)]))],
+							.Order(StringComparer.Ordinal)],
+						SeccoPermissions.IsValidFamily(e.Name)))],
 				group.Max(e => e.PublishedAt)))];
 	}
 }

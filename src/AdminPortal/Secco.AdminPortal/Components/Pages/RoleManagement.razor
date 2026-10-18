@@ -64,7 +64,7 @@ else
                 {
                     <fieldset>
                         <legend>@product.Product</legend>
-                        @foreach (var permission in product.Permissions)
+                        @foreach (var permission in product.Permissions.Where(p => !p.IsFamily))
                         {
                             <label title="@permission.Description">
                                 <input type="checkbox"
@@ -76,6 +76,32 @@ else
                                     <span class="muted"> (também declarada por: @string.Join(", ", permission.AlsoDeclaredBy))</span>
                                 }
                             </label>
+                        }
+                        @foreach (var family in product.Permissions.Where(p => p.IsFamily))
+                        {
+                            <div class="family">
+                                <p>
+                                    <code>@family.Name</code> <span class="badge">família</span> — @family.Description
+                                </p>
+                                @foreach (var instance in InstancesOf(product, family))
+                                {
+                                    <label>
+                                        <input type="checkbox"
+                                               checked="@_selected.Contains(instance)"
+                                               @onchange="e => Toggle(instance, e)" />
+                                        <code>@instance</code>
+                                    </label>
+                                }
+                                <input type="text" placeholder="valor da instância (ex.: rh)"
+                                       aria-label="@("Instância de " + family.Name)"
+                                       value="@InstanceInput(family.Name)"
+                                       @oninput="e => _instanceValues[family.Name] = e.Value?.ToString() ?? string.Empty" />
+                                <button type="button" @onclick="() => AddInstance(family.Name)" disabled="@_busy">Adicionar</button>
+                                @if (_instanceErrors.TryGetValue(family.Name, out var instanceError))
+                                {
+                                    <p class="error" role="alert">@instanceError</p>
+                                }
+                            </div>
                         }
                     </fieldset>
                 }
@@ -174,6 +200,10 @@ else
     private IReadOnlyList<ProductPermissions> _catalog = [];
     private readonly HashSet<string> _selected = new(StringComparer.Ordinal);
     private string? _userToAdd;
+    // ADR-0043: instâncias de família exibidas (gravadas no perfil + acrescentadas na tela), mesmo desmarcadas
+    private readonly HashSet<string> _instances = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _instanceValues = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _instanceErrors = new(StringComparer.Ordinal);
 
     private string? _loadError;
     private string? _actionError;
@@ -212,6 +242,10 @@ else
         _selected.Clear();
         _selected.UnionWith(_role.Permissions);
         _selected.UnionWith(_role.UnknownPermissions); // marcadas por padrão (ADR-0039)
+        _instances.Clear();
+        _instances.UnionWith(_role.Permissions);
+        _instanceValues.Clear();
+        _instanceErrors.Clear();
         _members = await RoleAdminService.ListMembersAsync(TenantId, RoleName, page);
         _users = await UserAdminService.ListUsersAsync(TenantId);
     }
@@ -226,6 +260,31 @@ else
             await ReloadAsync(_members?.Page ?? 1);
             _message = "Permissões salvas.";
         });
+    }
+
+    // Instâncias da família que não são nome exato do catálogo (esse já tem a própria caixa)
+    private IReadOnlyList<string> InstancesOf(ProductPermissions product, PermissionEntry family)
+    {
+        var exact = product.Permissions.Where(p => !p.IsFamily).Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+
+        return PermissionFamilyInput.InstancesOf(family.Name, _instances.Where(i => !exact.Contains(i)));
+    }
+
+    private string InstanceInput(string family) => _instanceValues.GetValueOrDefault(family, string.Empty);
+
+    private void AddInstance(string family)
+    {
+        if (!PermissionFamilyInput.TryCompose(family, InstanceInput(family), out var permission, out var error))
+        {
+            _instanceErrors[family] = error;
+
+            return;
+        }
+
+        _instanceErrors.Remove(family);
+        _instanceValues.Remove(family);
+        _instances.Add(permission);
+        _selected.Add(permission);
     }
 
     private void Toggle(string permission, ChangeEventArgs change)

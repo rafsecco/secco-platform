@@ -22,7 +22,7 @@ internal sealed class SecureGatePermissionCatalogService(ISecureGateClientFactor
 		[
 			.. catalog.Select(product => new ProductPermissions(
 				product.Product,
-				[.. product.Permissions.Select(p => new PermissionEntry(p.Name, p.Description, [.. p.AlsoDeclaredBy]))],
+				[.. product.Permissions.Select(p => new PermissionEntry(p.Name, p.Description, [.. p.AlsoDeclaredBy], p.IsFamily))],
 				product.PublishedAt)),
 		];
 	}

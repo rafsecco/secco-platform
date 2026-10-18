@@ -30,7 +30,10 @@ public interface IPermissionCatalogRepository
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<ProductPermissionCatalogDto?> GetAsync(string product, CancellationToken cancellationToken = default);
 
-	/// <summary>Dos nomes informados, devolve os que NENHUM produto declara (comparação ordinal).</summary>
+	/// <summary>
+	/// Dos nomes informados, devolve os que NENHUM produto declara (comparação ordinal), nem como nome
+	/// exato nem como instância de uma família (ADR-0043).
+	/// </summary>
 	/// <param name="names">Nomes a conferir.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<IReadOnlyList<string>> FindUnknownAsync(IEnumerable<string> names, CancellationToken cancellationToken = default);

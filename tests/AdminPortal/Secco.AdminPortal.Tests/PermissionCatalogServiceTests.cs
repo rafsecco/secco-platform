@@ -36,6 +36,7 @@ public class PermissionCatalogServiceTests
 				[
 					new PermissionDefinitionDto { Name = "logs:read", Description = "Ler logs", AlsoDeclaredBy = ["outro"] },
 					new PermissionDefinitionDto { Name = "logs:write", Description = "Gravar logs", AlsoDeclaredBy = [] },
+					new PermissionDefinitionDto { Name = "setor-{id}:read", Description = "Ler o setor {id}", AlsoDeclaredBy = [], IsFamily = true },
 				],
 			},
 			new() { Product = "notificationhub", PublishedAt = publishedAt, Permissions = [] },
@@ -45,10 +46,11 @@ public class PermissionCatalogServiceTests
 
 		catalog.Select(p => p.Product).Should().Equal("logstream", "notificationhub");
 		catalog[0].PublishedAt.Should().Be(publishedAt);
-		catalog[0].Permissions.Should().HaveCount(2);
+		catalog[0].Permissions.Should().HaveCount(3);
 		catalog[0].Permissions[0].Should().BeEquivalentTo(
-			new PermissionEntry("logs:read", "Ler logs", ["outro"]));
+			new PermissionEntry("logs:read", "Ler logs", ["outro"], false));
 		catalog[0].Permissions[1].AlsoDeclaredBy.Should().BeEmpty();
+		catalog[0].Permissions.Select(p => p.IsFamily).Should().Equal(false, false, true);
 	}
 
 	[Fact]

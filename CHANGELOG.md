@@ -12,6 +12,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SharedKernel 0.7.0 e Secco.SecureGate.Client 0.18.0 — famílias de permissão (issue #36, ADR-0043)
+
+Só acréscimos (minor), sem ação necessária para quem já consome.
+
+- **Secco.SharedKernel:** `SeccoPermissions.IsValidFamily`, `MatchesFamily` (ordinal, sem regex) e `FromFamily` — o produto declara `setor-{id}:read` no catálogo (ADR-0039) e compõe `setor-rh:read` a partir da mesma declaração. `IsValid` não mudou: uma família não é nome de permissão. `SeccoPermissionDefinition.Name` passa a poder ser uma família.
+- **Secco.SecureGate.Client:** `PermissionDefinitionDto.IsFamily` na leitura do catálogo. O SecureGate passa a aceitar no `SetRolePermissions` a permissão que casa com uma família publicada, e esta nunca é órfã (`unknownPermissions`, limpeza por tenant). Ao excluir a instância, o produto dono remove a permissão dos perfis.
+
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.

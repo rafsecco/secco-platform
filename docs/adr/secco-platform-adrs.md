@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-17 (ADR-0042 aceita)
+**Última atualização:** 2026-10-17 (ADR-0043 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1554,6 +1554,53 @@ Uma chamada produz **várias variantes** (nome livre + lado máximo, sem ampliar
   - usar a SDK em upload **anônimo** sem ADR nova que reavalie o isolamento em processo separado;
   - aceitar formato novo de entrada sem rever esta ADR;
   - expor tipo do SkiaSharp na API pública.
+
+---
+
+## ADR-0043: Famílias de permissão no catálogo — permissão por instância de recurso
+
+**Status:** Aceita
+**Data:** 2026-10-17
+**Complementa:** ADR-0039 (não a substitui)
+
+### Contexto
+
+A issue [#36](https://github.com/rafsecco/secco-platform/issues/36) (`adopter-demand`) aponta que o catálogo da ADR-0039 só declara **nomes exatos**, publicados no `migrate`, e que o `SetRolePermissions` recusa qualquer permissão acrescentada fora dele. O `secco-intranet` concede acesso **por instância de recurso**: cada setor criado pela tela ganha `setor-{slug}:read` e `setor-{slug}:write`. Os setores são dados de cada tenant, criados a qualquer momento — não há como listá-los no `migrate`. Contra um SecureGate com a ADR-0039, criar setor na Intranet falha. Qualquer produto que conceda acesso por projeto, unidade ou centro de custo cairia no mesmo problema.
+
+Alternativas avaliadas:
+
+- **O produto republica o catálogo a cada instância criada**, com a união das instâncias de todos os tenants. Corrida entre tenants (uma publicação substitui a outra), varredura de todos os bancos de tenant e escrita de infraestrutura no fluxo de uma tela comum. Descartada (recusada também pelo adotante).
+- **Catálogo por tenant.** O produto passaria a publicar dado de tenant no catálogo de plataforma, que é dado de deploy. Descartada.
+- **Curinga livre** (`setor-*`, ou placeholder em qualquer posição, inclusive na ação). Casamento ambíguo, sem caso real, e um padrão como `{x}:read` aceitaria qualquer leitura — desfaz a proteção contra erro de digitação que motivou a ADR-0039. Descartada.
+- **Trocar o acesso por instância de permissão para nome de perfil.** Desfaz o modelo de permissões do produto. Descartada (recusada pelo adotante).
+
+### Decisão
+
+**Uma entrada do catálogo pode ser uma família:** `<prefixo>-{<param>}:<acao>`, por exemplo `setor-{id}:read`, com descrição como "Ler o setor {id}". Regras de forma, validadas no SharedKernel (`SeccoPermissions.IsValidFamily`):
+
+- **um** placeholder, nome `[a-z]+`, **só no fim do segmento de recurso**;
+- **prefixo literal obrigatório**, em kebab-case, terminado em `-` antes do placeholder;
+- **ação fixa** — a família nunca varia a ação;
+- mesmo limite de tamanho do nome canônico (`SeccoPermissions.MaxLength`).
+
+**Casamento sem expressão regular.** Um nome canônico (`SeccoPermissions.IsValid`) casa com a família quando começa com `<prefixo>-`, termina com `:<acao>` e sobra ao menos um caractere entre os dois, sem `:`. Como o nome já é kebab-case válido, o valor do parâmetro é um ou mais trechos kebab (`setor-recursos-humanos:read` casa). Comparação ordinal; nenhuma regex sobre input externo (sem ReDoS). O SharedKernel entrega `IsValidFamily`, `MatchesFamily` e `FromFamily(familia, valor)` — este último para o produto compor o nome a partir da mesma declaração que publica.
+
+**`SeccoPermissionDefinition` não muda.** O `Name` passa a poder ser uma família; o catálogo do SecureGate a guarda como qualquer entrada (sem migration), e a leitura do catálogo informa `isFamily` por entrada.
+
+**`SetRolePermissions` aceita o acrescentado que casa com um nome exato OU com uma família de algum produto.** O resto da ADR-0039 vale como está: só o acrescentado é conferido, colisão fica visível (a família é comparada pelo padrão literal), publicação nunca toca perfil.
+
+**A família só afeta a validação.** A autorização nos produtos continua comparando a string exata da permissão gravada no perfil (ADR-0021). Família não concede nada a ninguém, e a permissão continua sendo por tenant, no perfil do tenant.
+
+**Órfã de família é responsabilidade do produto.** O SecureGate não conhece as instâncias: um nome que casa com uma família publicada nunca é órfão para ele, nem na leitura do perfil (`unknownPermissions`) nem na limpeza por tenant. Ao excluir a instância, o **produto dono** remove a permissão dos perfis — ele é quem sabe que a instância deixou de existir. Se a família deixar de ser publicada, os nomes voltam a ser órfãos e a limpeza da ADR-0039 os alcança.
+
+**O AdminPortal mostra as famílias.** A página do catálogo lista as famílias como padrão, com a descrição. Na edição do perfil, as permissões gravadas que casam com uma família aparecem agrupadas sob ela (desmarcáveis), e cada família oferece um campo para acrescentar uma instância — validado pelo formato antes do envio; a recusa final continua sendo do SecureGate.
+
+### Consequências
+
+- Fecha a lacuna do adotante: a Intranet publica `setor-{id}:read` e `setor-{id}:write` no catálogo estático e cria setores sem tocar no catálogo.
+- **Risco residual aceito:** um erro de digitação na **parte da instância** (`setor-rhh:read`) passa na validação. O produto monta esses nomes a partir das instâncias que ele conhece; quem digita à mão no AdminPortal assume o risco, que o prefixo literal e a ação fixa limitam à família certa.
+- `Secco.SharedKernel` ganha só acréscimos (minor); `Secco.SecureGate.Client` ganha o campo `isFamily` na leitura do catálogo (minor).
+- **Proibido:** placeholder fora do fim do segmento de recurso, mais de um placeholder, ou família sem prefixo literal — qualquer uma dessas formas exige ADR nova.
 
 ---
 

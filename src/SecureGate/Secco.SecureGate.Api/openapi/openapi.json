@@ -3291,7 +3291,8 @@
         "required": [
           "name",
           "description",
-          "alsoDeclaredBy"
+          "alsoDeclaredBy",
+          "isFamily"
         ],
         "type": "object",
         "properties": {
@@ -3306,6 +3307,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "isFamily": {
+            "type": "boolean"
           }
         }
       },

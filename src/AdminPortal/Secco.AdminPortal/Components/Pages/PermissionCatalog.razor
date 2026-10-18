@@ -34,7 +34,13 @@ else
                     @foreach (var permission in product.Permissions)
                     {
                         <tr>
-                            <td><code>@permission.Name</code></td>
+                            <td>
+                                <code>@permission.Name</code>
+                                @if (permission.IsFamily)
+                                {
+                                    <span class="badge" title="Padrão de instância (ADR-0043): casa com qualquer valor no lugar do parâmetro.">família</span>
+                                }
+                            </td>
                             <td>@permission.Description</td>
                             <td>@(permission.AlsoDeclaredBy.Count == 0 ? "—" : "também declarada por: " + string.Join(", ", permission.AlsoDeclaredBy))</td>
                         </tr>
