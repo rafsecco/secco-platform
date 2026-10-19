@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Secco.AdminPortal.Authentication;
+using Secco.SDK.RelyingParty;
 using Secco.AdminPortal.Services;
 using Xunit;
 
@@ -41,7 +42,7 @@ public class SecureGateClientFactoryTests
 
 		var httpClientFactory = services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
 
-		var tokenProvider = Substitute.For<IOperatorTokenProvider>();
+		var tokenProvider = Substitute.For<ISeccoUserTokenProvider>();
 		tokenProvider.GetAccessTokenAsync().Returns(token);
 
 		return (new SecureGateClientFactory(httpClientFactory, tokenProvider), handler);
@@ -91,7 +92,7 @@ public class SecureGateClientFactoryTests
 				client.BaseAddress = new Uri("https://securegate.test"))
 			.ConfigurePrimaryHttpMessageHandler(() => new ConflictHandler());
 
-		var tokenProvider = Substitute.For<IOperatorTokenProvider>();
+		var tokenProvider = Substitute.For<ISeccoUserTokenProvider>();
 		var factory = new SecureGateClientFactory(
 			services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>(), tokenProvider);
 

@@ -8,6 +8,7 @@ name: Publish NuGet
 #   sdk-testing/v0.1.0    → Secco.SDK.Testing 0.1.0
 #   sdk-logging/v0.1.0    → Secco.SDK.Logging 0.1.0
 #   sdk-credentials/v0.1.0 → Secco.SDK.ClientCredentials 0.1.0
+#   sdk-relyingparty/v0.1.0 → Secco.SDK.RelyingParty 0.1.0
 #   sdk-email/v0.1.0      → Secco.SDK.Email 0.1.0
 #   sdk-imaging/v0.1.0    → Secco.SDK.Imaging 0.1.0
 #   logstream-client/v0.1.0 → Secco.LogStream.Client 0.1.0
@@ -29,6 +30,7 @@ on:
       - "sdk-testing/v*"
       - "sdk-logging/v*"
       - "sdk-credentials/v*"
+      - "sdk-relyingparty/v*"
       - "sdk-email/v*"
       - "sdk-imaging/v*"
       - "logstream-client/v*"
@@ -75,6 +77,7 @@ jobs:
             sdk-testing/v*)  echo "project=src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-logging/v*)  echo "project=src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-credentials/v*) echo "project=src/SDK/Secco.SDK.ClientCredentials/Secco.SDK.ClientCredentials.csproj" >> "$GITHUB_OUTPUT" ;;
+            sdk-relyingparty/v*) echo "project=src/SDK/Secco.SDK.RelyingParty/Secco.SDK.RelyingParty.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-email/v*)    echo "project=src/SDK/Secco.SDK.Email/Secco.SDK.Email.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-imaging/v*)  echo "project=src/SDK/Secco.SDK.Imaging/Secco.SDK.Imaging.csproj" >> "$GITHUB_OUTPUT" ;;
             logstream-client/v*) echo "project=src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" >> "$GITHUB_OUTPUT" ;;

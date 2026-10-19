@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using Secco.AdminPortal.Authentication;
+using Secco.SDK.RelyingParty;
 using Secco.LogStream.Client;
 using Secco.SharedKernel.Constants;
 
@@ -24,7 +25,7 @@ public interface ILogQueryService
 /// </summary>
 internal sealed class LogStreamQueryService(
 	IHttpClientFactory httpClientFactory,
-	IOperatorTokenProvider tokenProvider) : ILogQueryService
+	ISeccoUserTokenProvider tokenProvider) : ILogQueryService
 {
 	public async Task<LogEntryPage> SearchLogEntriesAsync(
 		Guid tenantId, LogEntryFilter filter, CancellationToken cancellationToken = default)
@@ -33,7 +34,7 @@ internal sealed class LogStreamQueryService(
 
 		var http = httpClientFactory.CreateClient(AdminPortalDefaults.LogStreamHttpClient);
 
-		if (await tokenProvider.GetAccessTokenAsync().ConfigureAwait(false) is { Length: > 0 } token)
+		if (await tokenProvider.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false) is { Length: > 0 } token)
 		{
 			http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 		}

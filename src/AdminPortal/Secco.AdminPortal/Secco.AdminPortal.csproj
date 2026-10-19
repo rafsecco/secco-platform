@@ -14,6 +14,8 @@
   <ItemGroup>
     <!-- Cross-cutting não-de-auth do SDK (correlation, resilience, health) -->
     <ProjectReference Include="..\..\SDK\Secco.SDK.AspNetCore\Secco.SDK.AspNetCore.csproj" />
+    <!-- Custódia do token da pessoa: cofre, renovação, escopos (ADR-0046) -->
+    <ProjectReference Include="..\..\SDK\Secco.SDK.RelyingParty\Secco.SDK.RelyingParty.csproj" />
     <!-- Comunicação entre produtos exclusivamente via clients NSwag (ADR-0006) -->
     <ProjectReference Include="..\..\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
     <ProjectReference Include="..\..\LogStream\Secco.LogStream.Client\Secco.LogStream.Client.csproj" />

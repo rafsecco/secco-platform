@@ -1,10 +1,8 @@
+using Secco.SDK.RelyingParty;
 using Secco.SecureGate.Client.Catalog;
 using Secco.SecureGate.Client.Authorization;
 using Secco.SDK.AspNetCore.Extensions;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication;
-using System.Security.Cryptography;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
@@ -44,7 +42,7 @@ public static class AdminPortalAuthenticationExtensions
 				options.Cookie.HttpOnly = true;
 				options.Cookie.SameSite = SameSiteMode.Lax;
 
-				// ADR-0020: este cookie custodia o access token do operador (ver OnTokenValidated) —
+				// ADR-0020: este cookie identifica a sessão que custodia o token do operador (cofre do Secco.SDK.RelyingParty, ADR-0046; o cookie leva só o id da sessão) —
 				// em Production não pode trafegar sem TLS. Mesmo critério de RequireHttpsMetadata
 				// logo abaixo: só Production força HTTPS (Development e Testing seguem SameAsRequest,
 				// hosts locais/TestServer normalmente são HTTP puro).
@@ -53,19 +51,6 @@ public static class AdminPortalAuthenticationExtensions
 					: CookieSecurePolicy.SameAsRequest;
 
 				options.SlidingExpiration = true;
-
-				// Sessão sem cofre (expirou ou o AdminPortal reiniciou) não vale: volta ao login
-				options.Events.OnValidatePrincipal = async context =>
-				{
-					var store = context.HttpContext.RequestServices.GetRequiredService<IOperatorSessionStore>();
-
-					if (context.Principal?.FindFirst(AdminPortalDefaults.SessionIdClaim)?.Value is not { Length: > 0 } sessionId
-						|| await store.GetAsync(sessionId, context.HttpContext.RequestAborted) is null)
-					{
-						context.RejectPrincipal();
-						await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-					}
-				};
 			})
 			.AddOpenIdConnect(options =>
 			{
@@ -76,8 +61,7 @@ public static class AdminPortalAuthenticationExtensions
 				options.ResponseType = OpenIdConnectResponseType.Code;
 				options.UsePkce = true;
 
-				// O access token é custodiado como claim no cookie (ver OnTokenValidated) —
-				// acessível no circuito do Blazor Server via AuthenticationStateProvider
+				// O token do operador vai para o cofre do Secco.SDK.RelyingParty (ADR-0046), nunca para o cookie
 				options.SaveTokens = false;
 				options.GetClaimsFromUserInfoEndpoint = false; // as claims já vêm no id_token
 
@@ -94,38 +78,17 @@ public static class AdminPortalAuthenticationExtensions
 				{
 					options.Scope.Add(scope);
 				}
-
-				options.Events = new OpenIdConnectEvents
-				{
-					OnTokenValidated = async context =>
-					{
-						if (context.TokenEndpointResponse is not { AccessToken.Length: > 0, RefreshToken.Length: > 0 } tokens
-							|| context.Principal?.Identity is not ClaimsIdentity identity)
-						{
-							context.Fail("O SecureGate não devolveu access e refresh token.");
-							return;
-						}
-
-						var sessionId = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
-						var expiresIn = int.TryParse(tokens.ExpiresIn, out var seconds) ? seconds : 300;
-
-						await context.HttpContext.RequestServices.GetRequiredService<IOperatorSessionStore>().SetAsync(
-							sessionId,
-							new OperatorSession(tokens.AccessToken, tokens.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn)),
-							context.HttpContext.RequestAborted);
-
-						identity.AddClaim(new Claim(AdminPortalDefaults.SessionIdClaim, sessionId));
-					},
-				};
 			});
 
 		services.AddAuthorization(options =>
 			options.AddPolicy(AdminPortalDefaults.OperatorPolicy, policy =>
 				policy.RequireRole(AdminPortalDefaults.OperatorRole)));
 
-		services.AddDistributedMemoryCache();
-		services.AddSingleton<IOperatorSessionStore, DistributedOperatorSessionStore>();
-		services.AddScoped<IOperatorTokenRefresher, OperatorTokenRefresher>();
+		// Custódia do token do operador (ADR-0046): cofre no servidor, cookie só com o id da sessão. O circuito do
+		// Blazor não tem HttpContext, então a pessoa vem do AuthenticationStateProvider (registrar ANTES do pacote).
+		// Antes de AddSeccoCookieSessionValidation: a conferência do cofre roda primeiro, a da versão da sessão depois.
+		services.AddScoped<ISeccoUserContext, BlazorSeccoUserContext>();
+		services.AddSeccoRelyingPartyTokens();
 
 		// ADR-0032: revogar na plataforma derruba o cookie do operador. Credenciais PRÓPRIAS: o client
 		// secco-adminportal pode pedir securegate:admin e não pode ganhar client credentials.
@@ -133,8 +96,6 @@ public static class AdminPortalAuthenticationExtensions
 			configuration.GetSection(AdminPortalDefaults.SessionValidationSection).Get<SecureGateClientCredentialsOptions>()
 			?? new SecureGateClientCredentialsOptions());
 		services.AddSeccoCookieSessionValidation(CookieAuthenticationDefaults.AuthenticationScheme);
-
-		services.AddScoped<IOperatorTokenProvider, OperatorTokenProvider>();
 
 		return services;
 	}

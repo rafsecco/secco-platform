@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pacote publicável (ADR-0011): versão via tag git com prefixo sdk-relyingparty/v -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <MinVerTagPrefix>sdk-relyingparty/v</MinVerTagPrefix>
+    <Description>Custódia do token da pessoa para aplicações relying party (cookie + OIDC authorization code/PKCE, ADR-0046): cofre de sessão no servidor sobre IDistributedCache, renovação sob demanda com rotação do refresh token, escopos concedidos e DelegatingHandler que anexa o Bearer da pessoa a qualquer HttpClient. Não depende do Secco.SDK.AspNetCore nem de nenhum client de produto.</Description>
+    <PackageTags>secco;sdk;oidc;relying-party;openid-connect</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Secco.SDK.RelyingParty.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
