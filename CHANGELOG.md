@@ -12,35 +12,6 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SDK.RelyingParty 0.1.0 — pacote novo (issue #38, ADR-0046)
-
-Custódia do token da pessoa para relying party (cookie + OIDC code/PKCE), extraída do AdminPortal.
-
-- `AddSeccoRelyingPartyTokens()`: no login, access e refresh token vão para um **cofre no servidor** (`ISeccoUserSessionStore`, sobre `IDistributedCache`); o cookie leva só o id da sessão (`secco_session`). Cookie sem entrada no cofre é rejeitado. Os eventos que a aplicação já registrou são encadeados, não substituídos.
-- `ISeccoUserTokenProvider`: access token válido da pessoa, **renovado sob demanda** perto do vencimento, com o refresh rotacionado substituindo o anterior; renovação recusada (sessão revogada, ADR-0032) apaga a sessão e leva a novo login. Expõe os **escopos concedidos**, lidos do próprio access token — um escopo retirado na renovação some, nunca é herdado do token anterior.
-- `IHttpClientBuilder.AddSeccoUserToken()`: `DelegatingHandler` que anexa o Bearer da pessoa a qualquer `HttpClient` de produto (em aplicação com `HttpContext`; num circuito Blazor, use o provedor por chamada, como o AdminPortal).
-- `ISeccoUserContext`: porta para a aplicação dizer quem é a pessoa e como mandá-la ao login (o AdminPortal usa a do Blazor).
-- **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
-
-### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — diretório do tenant para client de produto (issue #40, ADR-0045)
-
-Só acréscimos no client. O escopo novo entra pelo seed de referência (`migrate`).
-
-- **Escopo `directory:read`**, concedível só a client de produto `client_credentials` vinculado a tenant (ADR-0037). Client interativo recebe `400` ao pedi-lo; client de plataforma com ele na configuração não sobe.
-- **`GET /api/v1/directory/people`** (paginado, até 100) e **`GET /api/v1/directory/people/{userId}`**: o tenant vem só do `tenant_id` do token. Campos: `id`, `email`, `displayName`, `isActive`, `isOwner`. Aparecem os donos e os membros com vínculo ativo; pessoa de outro tenant ou com vínculo suspenso responde `404`.
-- **Para a Intranet:** o Diretório e os destinatários de notificação podem trocar o client de máquina com `securegate:admin` por um client de produto do próprio tenant com `directory:read`.
-
-### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — admin de tenant cria tenant (issue #39, ADR-0047)
-
-Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` antes das réplicas (ADR-0038).
-
-- **Concessão de criação de tenant**, gerida só pelo operador: `PUT`/`DELETE /api/v1/tenant-creators/{userId}` (idempotentes) e `GET /api/v1/tenant-creators`, com quantos tenants cada pessoa criou.
-- **`POST /api/v1/tenants` aceita a autoridade de admin de tenant** para quem tem a concessão de criação: o tenant nasce administrado por quem o criou, na mesma transação, até `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` (padrão 20; acima disso, `409`).
-- **Desativar** o tenant administrado; desativar um tenant dono de conta administrativa responde `409`. Reativar continua só com o operador.
-- **Provisionamento automático e status** do banco do tenant administrado. Pela autoridade de admin de tenant o provisionamento é restrito: só com a automação ligada, só para os produtos da plataforma, sem alvo, servidor, database ou login vindos do pedido (`403` fora disso), e com criação estrita — database ou login já existentes abortam antes de criar qualquer coisa.
-- **Continuam só com o operador:** provisionamento em modo script, connection string manual, federação e grupos do Entra, clients de tenant.
-- **Destino da trilha** (emenda à ADR-0044): o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o tenant dono de quem agiu, com o administrado na `Metadata`. A criação vai para o tenant dono de quem criou.
-
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.
@@ -73,6 +44,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.7.2 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.7.1 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.20.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.7.1 — 2026-10-19
 
@@ -168,6 +143,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.5 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.9.4 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.20.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.4 — 2026-10-19
 
@@ -347,6 +326,29 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.20.0 — 2026-10-19
+
+Diretório do tenant para client de produto (issue #40, ADR-0045) e admin de tenant cria tenant (issue #39, ADR-0047), só acréscimos.
+
+**Diretório (ADR-0045):**
+
+Só acréscimos no client. O escopo novo entra pelo seed de referência (`migrate`).
+
+- **Escopo `directory:read`**, concedível só a client de produto `client_credentials` vinculado a tenant (ADR-0037). Client interativo recebe `400` ao pedi-lo; client de plataforma com ele na configuração não sobe.
+- **`GET /api/v1/directory/people`** (paginado, até 100) e **`GET /api/v1/directory/people/{userId}`**: o tenant vem só do `tenant_id` do token. Campos: `id`, `email`, `displayName`, `isActive`, `isOwner`. Aparecem os donos e os membros com vínculo ativo; pessoa de outro tenant ou com vínculo suspenso responde `404`.
+- **Para a Intranet:** o Diretório e os destinatários de notificação podem trocar o client de máquina com `securegate:admin` por um client de produto do próprio tenant com `directory:read`.
+
+**Criação e ciclo de vida do tenant (ADR-0047):**
+
+Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` antes das réplicas (ADR-0038).
+
+- **Concessão de criação de tenant**, gerida só pelo operador: `PUT`/`DELETE /api/v1/tenant-creators/{userId}` (idempotentes) e `GET /api/v1/tenant-creators`, com quantos tenants cada pessoa criou.
+- **`POST /api/v1/tenants` aceita a autoridade de admin de tenant** para quem tem a concessão de criação: o tenant nasce administrado por quem o criou, na mesma transação, até `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` (padrão 20; acima disso, `409`).
+- **Desativar** o tenant administrado; desativar um tenant dono de conta administrativa responde `409`. Reativar continua só com o operador.
+- **Provisionamento automático e status** do banco do tenant administrado. Pela autoridade de admin de tenant o provisionamento é restrito: só com a automação ligada, só para os produtos da plataforma, sem alvo, servidor, database ou login vindos do pedido (`403` fora disso), e com criação estrita — database ou login já existentes abortam antes de criar qualquer coisa.
+- **Continuam só com o operador:** provisionamento em modo script, connection string manual, federação e grupos do Entra, clients de tenant.
+- **Destino da trilha** (emenda à ADR-0044): o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o tenant dono de quem agiu, com o administrado na `Metadata`. A criação vai para o tenant dono de quem criou.
+
 #### 0.19.0 — 2026-10-19
 
 Admin de tenant on-behalf-of a pessoa (issue #37, ADR-0044). Só acréscimos no client (minor). O serviço ganha uma migration e um escopo no seed de referência: rodar o `migrate` antes das réplicas, como sempre (ADR-0038).
@@ -495,7 +497,23 @@ Famílias de permissão (issue #36, ADR-0043), só acréscimos: `PermissionDefin
 | 0.2.0 | 2026-07-19 |
 | 0.1.0 | 2026-07-14 |
 
+### Secco.SDK.RelyingParty
+
+#### 0.1.0 — 2026-10-19
+
+Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para relying party (cookie + OIDC code/PKCE), extraída do AdminPortal.
+
+- `AddSeccoRelyingPartyTokens()`: no login, access e refresh token vão para um **cofre no servidor** (`ISeccoUserSessionStore`, sobre `IDistributedCache`); o cookie leva só o id da sessão (`secco_session`). Cookie sem entrada no cofre é rejeitado. Os eventos que a aplicação já registrou são encadeados, não substituídos.
+- `ISeccoUserTokenProvider`: access token válido da pessoa, **renovado sob demanda** perto do vencimento, com o refresh rotacionado substituindo o anterior; renovação recusada (sessão revogada, ADR-0032) apaga a sessão e leva a novo login. Expõe os **escopos concedidos**, lidos do próprio access token — um escopo retirado na renovação some, nunca é herdado do token anterior.
+- `IHttpClientBuilder.AddSeccoUserToken()`: `DelegatingHandler` que anexa o Bearer da pessoa a qualquer `HttpClient` de produto (em aplicação com `HttpContext`; num circuito Blazor, use o provedor por chamada, como o AdminPortal).
+- `ISeccoUserContext`: porta para a aplicação dizer quem é a pessoa e como mandá-la ao login (o AdminPortal usa a do Blazor).
+- **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
+
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.16 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.1.15 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.20.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.15 — 2026-10-19
 
