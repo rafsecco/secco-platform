@@ -24,6 +24,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.7.1** |
 | [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.9.4** |
 | [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding e cifragem de segredo em repouso (ADR-0025) | `Secco.SDK.EntityFrameworkCore` **0.6.0** |
+| [Secco.SDK.RelyingParty](src/SDK/Secco.SDK.RelyingParty/README.md) | Custódia do token da pessoa para relying party on-behalf-of (cofre no servidor, renovação, handler de Bearer) | `Secco.SDK.RelyingParty` (não publicado) |
 | [Secco.SDK.ClientCredentials](src/SDK/Secco.SDK.ClientCredentials/README.md) | Client credentials OAuth 2 entre produtos (token de máquina, pacote fino) | `Secco.SDK.ClientCredentials` **0.1.15** |
 | [Secco.SDK.Email](src/SDK/Secco.SDK.Email/README.md) | Porta de e-mail + adaptadores SMTP/SendGrid (ADR-0033) | `Secco.SDK.Email` **0.1.0** |
 | [Secco.SDK.Logging](src/SDK/Secco.SDK.Logging/README.md) | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) | `Secco.SDK.Logging` **0.2.0** |

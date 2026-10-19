@@ -76,9 +76,9 @@ internal sealed class SeccoTokenRefresher(
 			? seconds
 			: DefaultExpiresInSeconds;
 
-		var scopes = root.TryGetProperty("scope", out var scope) && scope.GetString() is { Length: > 0 } granted
-			? SeccoUserSession.ParseScopes(granted)
-			: current.Scopes;
+		// Do token novo, nunca do anterior: escopo retirado na renovação some daqui (ADR-0044)
+		var scopes = SeccoUserSession.ScopesOf(
+			accessToken, root.TryGetProperty("scope", out var scope) ? scope.GetString() : null);
 
 		return new SeccoUserSession(accessToken, refreshToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn), scopes);
 	}

@@ -12,6 +12,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SDK.RelyingParty 0.1.0 — pacote novo (issue #38, ADR-0046)
+
+Custódia do token da pessoa para relying party (cookie + OIDC code/PKCE), extraída do AdminPortal.
+
+- `AddSeccoRelyingPartyTokens()`: no login, access e refresh token vão para um **cofre no servidor** (`ISeccoUserSessionStore`, sobre `IDistributedCache`); o cookie leva só o id da sessão (`secco_session`). Cookie sem entrada no cofre é rejeitado. Os eventos que a aplicação já registrou são encadeados, não substituídos.
+- `ISeccoUserTokenProvider`: access token válido da pessoa, **renovado sob demanda** perto do vencimento, com o refresh rotacionado substituindo o anterior; renovação recusada (sessão revogada, ADR-0032) apaga a sessão e leva a novo login. Expõe os **escopos concedidos**, lidos do próprio access token — um escopo retirado na renovação some, nunca é herdado do token anterior.
+- `IHttpClientBuilder.AddSeccoUserToken()`: `DelegatingHandler` que anexa o Bearer da pessoa a qualquer `HttpClient` de produto (em aplicação com `HttpContext`; num circuito Blazor, use o provedor por chamada, como o AdminPortal).
+- `ISeccoUserContext`: porta para a aplicação dizer quem é a pessoa e como mandá-la ao login (o AdminPortal usa a do Blazor).
+- **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
+
 ### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — admin de tenant cria tenant (issue #39, ADR-0047)
 
 Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` antes das réplicas (ADR-0038).

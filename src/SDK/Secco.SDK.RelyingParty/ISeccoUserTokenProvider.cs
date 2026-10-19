@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 
 namespace Secco.SDK.RelyingParty;
@@ -29,7 +28,9 @@ public interface ISeccoUserTokenProvider
 /// <summary>
 /// Renova uma vez por sessão: o refresh token é rotativo, e duas renovações simultâneas derrubariam a segunda.
 /// A exclusão é POR INSTÂNCIA da aplicação (semáforo em memória do processo); com várias réplicas, o emissor
-/// ainda recusa o refresh já usado e a perdedora cai em novo login — raro e seguro (fail-closed).
+/// ainda recusa o refresh já usado e a perdedora cai em novo login — raro e seguro (fail-closed). As travas são
+/// um conjunto fixo escolhido pelo hash da sessão: sessões diferentes podem dividir uma trava por instantes, mas
+/// a memória não cresce com cada login, como cresceria um dicionário por sessão que ninguém limpa.
 /// </summary>
 internal sealed class SeccoUserTokenProvider(
 	ISeccoUserContext userContext,
@@ -37,7 +38,9 @@ internal sealed class SeccoUserTokenProvider(
 	ISeccoTokenRefresher refresher,
 	IOptions<SeccoRelyingPartyOptions> options) : ISeccoUserTokenProvider
 {
-	private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.Ordinal);
+	private const int LockStripes = 64;
+
+	private static readonly SemaphoreSlim[] Locks = [.. Enumerable.Range(0, LockStripes).Select(_ => new SemaphoreSlim(1, 1))];
 
 	public async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default) =>
 		(await ResolveSessionAsync(cancellationToken).ConfigureAwait(false))?.AccessToken;
@@ -73,7 +76,7 @@ internal sealed class SeccoUserTokenProvider(
 			return session;
 		}
 
-		var gate = Locks.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+		var gate = Locks[(uint)StringComparer.Ordinal.GetHashCode(sessionId) % LockStripes];
 		await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
 		try

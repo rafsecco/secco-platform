@@ -136,7 +136,7 @@ public static class SeccoRelyingPartyExtensions
 						tokens.AccessToken,
 						tokens.RefreshToken,
 						DateTimeOffset.UtcNow.AddSeconds(expiresIn),
-						SeccoUserSession.ParseScopes(tokens.Scope)),
+						SeccoUserSession.ScopesOf(tokens.AccessToken, tokens.Scope)),
 					context.HttpContext.RequestAborted).ConfigureAwait(false);
 
 				identity.AddClaim(new Claim(claimType, sessionId));

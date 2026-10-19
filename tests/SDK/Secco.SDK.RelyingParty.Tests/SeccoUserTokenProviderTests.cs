@@ -135,6 +135,33 @@ public class SeccoUserTokenProviderTests
 	}
 
 	[Fact]
+	public async Task Renovacao_SemEscopoNaResposta_NaoHerdaOsEscoposAnteriores()
+	{
+		// Concessão revogada (ADR-0044): o token novo não traz o escopo, e a resposta não repete "scope"
+		var fixture = new RelyingPartyFixture();
+		fixture.TokenEndpoint.Respond = _ => FakeTokenEndpoint.Json(
+			"""{"access_token":"a1","refresh_token":"r1","expires_in":300}""");
+		await fixture.Store.SetAsync(Id, RelyingPartyFixture.Session(DateTimeOffset.UtcNow.AddSeconds(30)));
+
+		(await fixture.NewTokenProvider().HasScopeAsync("securegate:tenant-admin"))
+			.Should().BeFalse("escopo do token anterior não sobrevive à renovação");
+	}
+
+	[Fact]
+	public async Task Renovacao_LeOsEscoposDoProprioAccessToken()
+	{
+		var fixture = new RelyingPartyFixture();
+		var jwt = new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler().CreateToken(
+			"""{"sub":"pessoa","scope":"openid logstream"}""");
+		fixture.TokenEndpoint.Respond = _ => FakeTokenEndpoint.Json(
+			$$"""{"access_token":"{{jwt}}","refresh_token":"r1","expires_in":300,"scope":"openid securegate:tenant-admin"}""");
+		await fixture.Store.SetAsync(Id, RelyingPartyFixture.Session(DateTimeOffset.UtcNow.AddSeconds(30)));
+
+		(await fixture.NewTokenProvider().GetGrantedScopesAsync())
+			.Should().Equal(["openid", "logstream"], "o token é a fonte; a resposta só vale para token opaco");
+	}
+
+	[Fact]
 	public async Task SemSessao_NaoHaEscopos()
 	{
 		var fixture = new RelyingPartyFixture();
