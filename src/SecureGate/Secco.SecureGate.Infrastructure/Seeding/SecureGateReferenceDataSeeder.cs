@@ -94,6 +94,13 @@ public sealed class SecureGateReferenceDataSeeder(
 			SecureGateResource,
 			cancellationToken).ConfigureAwait(false);
 
+		// ADR-0045: diretório de pessoas do próprio tenant — só client de produto client_credentials
+		await UpsertScopeAsync(
+			SecureGateScopes.DirectoryRead,
+			"Leitura do diretório de pessoas do tenant do token",
+			SecureGateResource,
+			cancellationToken).ConfigureAwait(false);
+
 		// Fase 7.1 (ADR-0023): estrutura do operador de instalação
 		// O tenant de plataforma é conhecido: a estrutura do operador (perfil, nada de outro tenant) é
 		// criada e lida dentro do escopo dele (ADR-0041)

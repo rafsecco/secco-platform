@@ -91,6 +91,26 @@ public class ProductClientInteractiveValidationTests
 		result.Error.Should().Be(SecureGateErrors.Clients.RolesNotAllowedForInteractive);
 	}
 
+	[Fact]
+	public async Task Validate_InterativoComEscopoDeDiretorio_ScopeNotAllowed()
+	{
+		var command = new ProductClientCommand("App", [SecureGateScopes.DirectoryRead], [], AuthorizationCode, ["https://app.exemplo.com/cb"]);
+
+		var result = await new ProductClientAccessValidator(_roles).ValidateAsync(TenantId, command);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.ScopeNotAllowed);
+	}
+
+	[Fact]
+	public async Task Validate_ClientCredentialsComEscopoDeDiretorio_Aceito()
+	{
+		var command = new ProductClientCommand("Maquina", [SecureGateScopes.DirectoryRead], []);
+
+		var result = await new ProductClientAccessValidator(_roles).ValidateAsync(TenantId, command);
+
+		result.IsSuccess.Should().BeTrue();
+	}
+
 	private sealed class FixedPolicy(bool allowInsecure) : IRedirectUriPolicy
 	{
 		public bool AllowInsecure { get; } = allowInsecure;

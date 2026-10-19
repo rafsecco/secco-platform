@@ -164,7 +164,7 @@ internal sealed class OpenIddictProductClientStore(
 			[.. ParsePermissions(application.Permissions)
 				.Where(p => p.StartsWith(Permissions.Prefixes.Scope, StringComparison.Ordinal))
 				.Select(p => p[Permissions.Prefixes.Scope.Length..])
-				.Where(scope => !interactive || SecureGateScopes.IsProductScope(scope))
+				.Where(scope => !interactive || SecureGateScopes.IsProductScope(scope, interactive: true))
 				.Order(StringComparer.Ordinal)],
 			application.Roles?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
 			null,

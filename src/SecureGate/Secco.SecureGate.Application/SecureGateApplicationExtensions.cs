@@ -67,6 +67,10 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<CreateUserHandler>();
 		services.AddScoped<RemoveExternalLoginHandler>();
 		services.AddScoped<ListUsersHandler>();
+
+		// Diretório de pessoas do tenant para client de produto (ADR-0045)
+		services.AddScoped<Directory.ListDirectoryPeopleHandler>();
+		services.AddScoped<Directory.GetDirectoryPersonHandler>();
 		services.AddScoped<SetUserActivationHandler>();
 		services.AddScoped<GetUserHandler>();
 		services.AddScoped<AddUserRoleHandler>();

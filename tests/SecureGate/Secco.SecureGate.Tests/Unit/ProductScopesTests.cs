@@ -23,4 +23,12 @@ public class ProductScopesTests
 	[InlineData("")]
 	public void IsProductScope_EscopoDeInfraestruturaOuDesconhecido_Recusa(string scope) =>
 		SecureGateScopes.IsProductScope(scope).Should().BeFalse();
+
+	[Fact]
+	public void IsProductScope_DiretorioSoParaClientDeMaquina()
+	{
+		SecureGateScopes.IsProductScope(SecureGateScopes.DirectoryRead, interactive: false).Should().BeTrue();
+		SecureGateScopes.IsProductScope(SecureGateScopes.DirectoryRead, interactive: true).Should().BeFalse();
+		SecureGateScopes.IsProductScope(SecureGateScopes.DirectoryRead).Should().BeTrue("o padrão é client_credentials");
+	}
 }

@@ -40,6 +40,18 @@ public class PlatformClientsOptionsValidatorTests
 		Validator(Environments.Production).Validate(null, With(Machine(clientId))).Failed.Should().BeTrue();
 
 	[Fact]
+	public void Validate_EscopoDeDiretorio_Falha()
+	{
+		var client = Machine();
+		client.Scopes = ["directory:read"];
+
+		var result = Validator(Environments.Production).Validate(null, With(client));
+
+		result.Failed.Should().BeTrue();
+		result.FailureMessage.Should().Contain("directory:read");
+	}
+
+	[Fact]
 	public void Validate_ClientIdRepetido_Falha() =>
 		Validator(Environments.Production).Validate(null, With(Machine(), Machine())).Failed.Should().BeTrue();
 

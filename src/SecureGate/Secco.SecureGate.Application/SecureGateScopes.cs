@@ -26,6 +26,13 @@ public static class SecureGateScopes
 	/// </summary>
 	public const string AuthorizationRead = "authorization:read";
 
+	/// <summary>
+	/// Leitura do diretório de pessoas do PRÓPRIO tenant do token (ADR-0045): id, e-mail, nome e situação.
+	/// Concedível apenas a client de produto <c>client_credentials</c> vinculado a tenant — nunca a client
+	/// interativo nem a client de plataforma, que atravessam tenant. O tenant vem sempre da claim.
+	/// </summary>
+	public const string DirectoryRead = "directory:read";
+
 	/// <summary>Prefixo dos scopes de leitura de catálogo por produto (<c>catalog:&lt;produto&gt;</c>).</summary>
 	public const string CatalogPrefix = "catalog:";
 
@@ -48,7 +55,16 @@ public static class SecureGateScopes
 	/// </summary>
 	public static readonly IReadOnlyList<string> ProductScopes = ["logstream", "notificationhub"];
 
+	/// <summary>
+	/// Escopos concedíveis SÓ a client de produto <c>client_credentials</c> (ADR-0045): máquina do tenant,
+	/// nunca uma aplicação em nome de pessoa.
+	/// </summary>
+	public static readonly IReadOnlyList<string> ClientCredentialsOnlyProductScopes = [DirectoryRead];
+
 	/// <summary>Indica se o escopo pode ser concedido a client de produto (comparação exata, ordinal).</summary>
 	/// <param name="scope">Escopo candidato.</param>
-	public static bool IsProductScope(string scope) => ProductScopes.Contains(scope, StringComparer.Ordinal);
+	/// <param name="interactive">Se o client é interativo (<c>authorization_code</c>); os escopos só de máquina ficam de fora.</param>
+	public static bool IsProductScope(string scope, bool interactive = false) =>
+		ProductScopes.Contains(scope, StringComparer.Ordinal)
+		|| (!interactive && ClientCredentialsOnlyProductScopes.Contains(scope, StringComparer.Ordinal));
 }

@@ -67,7 +67,7 @@ public sealed class ProductClientAccessValidator(IRoleRepository roles, IRedirec
 			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.ScopesInvalid);
 		}
 
-		if (scopes.Any(scope => !SecureGateScopes.IsProductScope(scope)))
+		if (scopes.Any(scope => !SecureGateScopes.IsProductScope(scope, interactive)))
 		{
 			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.ScopeNotAllowed);
 		}

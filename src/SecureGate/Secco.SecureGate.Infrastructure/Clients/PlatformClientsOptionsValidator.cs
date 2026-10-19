@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Clients;
 
 namespace Secco.SecureGate.Infrastructure.Clients;
@@ -57,6 +58,11 @@ internal sealed partial class PlatformClientsOptionsValidator(IHostEnvironment e
 			else if (!development && client.ClientSecret.Length < MinimumSecretLength)
 			{
 				failures.Add($"{at}:ClientSecret precisa de ao menos {MinimumSecretLength} caracteres fora de Development.");
+			}
+
+			if (client.Scopes.Contains(SecureGateScopes.DirectoryRead, StringComparer.Ordinal))
+			{
+				failures.Add($"{at}:Scopes não pode conter '{SecureGateScopes.DirectoryRead}': só client de produto vinculado a tenant o recebe (ADR-0045).");
 			}
 
 			if (client.Type == PlatformClientType.AuthorizationCode)

@@ -22,6 +22,14 @@ Custódia do token da pessoa para relying party (cookie + OIDC code/PKCE), extra
 - `ISeccoUserContext`: porta para a aplicação dizer quem é a pessoa e como mandá-la ao login (o AdminPortal usa a do Blazor).
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
+### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — diretório do tenant para client de produto (issue #40, ADR-0045)
+
+Só acréscimos no client. O escopo novo entra pelo seed de referência (`migrate`).
+
+- **Escopo `directory:read`**, concedível só a client de produto `client_credentials` vinculado a tenant (ADR-0037). Client interativo recebe `400` ao pedi-lo; client de plataforma com ele na configuração não sobe.
+- **`GET /api/v1/directory/people`** (paginado, até 100) e **`GET /api/v1/directory/people/{userId}`**: o tenant vem só do `tenant_id` do token. Campos: `id`, `email`, `displayName`, `isActive`, `isOwner`. Aparecem os donos e os membros com vínculo ativo; pessoa de outro tenant ou com vínculo suspenso responde `404`.
+- **Para a Intranet:** o Diretório e os destinatários de notificação podem trocar o client de máquina com `securegate:admin` por um client de produto do próprio tenant com `directory:read`.
+
 ### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — admin de tenant cria tenant (issue #39, ADR-0047)
 
 Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` antes das réplicas (ADR-0038).

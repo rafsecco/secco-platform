@@ -116,6 +116,7 @@ public static class SecureGateInfrastructureExtensions
 
 		// Provisionamento de usuários (Fase 6.5) — sobre o ASP.NET Identity
 		services.AddScoped<Application.Users.IUserDirectory, Users.UserAccountService>();
+		services.AddScoped<Application.Directory.IDirectoryReader, Users.DirectoryReader>();
 
 		// Revogação única de sessões (ADR-0032)
 		services.AddScoped<Application.Sessions.ISessionRevoker, Sessions.SessionRevoker>();
