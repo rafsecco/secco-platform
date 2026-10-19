@@ -34,6 +34,11 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - Seção **Bancos** na página do tenant: lista os produtos que têm banco (a partir de `Products`) e cadastra/rotaciona a connection string via o PUT idempotente do SecureGate (produto em texto livre + input password).
 - **Write-only** (ADR-0020): a connection string nunca é exibida em nenhuma leitura — só se envia.
 
+**Admins de tenant (ADR-0044, issue #37)**
+- Seção **Admins do tenant** na página do tenant: quem administra o tenant on-behalf-of si mesmo (a pessoa pode ser de qualquer tenant), com revogação confirmada.
+- Seção **Administração de tenants** na página da pessoa: os tenants que ela administra (revogar) e a concessão de um novo. Não há rota "por pessoa" para o operador: o portal consulta os admins de cada tenant do catálogo.
+- As duas seções são independentes do resto da página: um SecureGate anterior à ADR-0044 mostra o erro só nelas.
+
 ## Configuração (`Secco:SecureGate`)
 
 | Chave | Uso |

@@ -22,4 +22,29 @@ public interface ITenantAdminService
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task UpsertDatabaseAsync(
 		Guid tenantId, string product, string connectionString, CancellationToken cancellationToken = default);
+
+	/// <summary>Lista as pessoas com concessão de admin do tenant (ADR-0044).</summary>
+	/// <param name="tenantId">Tenant administrado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<IReadOnlyList<TenantAdminSummary>> ListAdminsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Os tenants que a pessoa administra. Não há rota "por pessoa" para o operador: consulta os admins de
+	/// cada tenant do catálogo — custo proporcional ao número de tenants, aceitável numa tela de gestão.
+	/// </summary>
+	/// <param name="userId">Pessoa.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<IReadOnlyList<TenantSummary>> ListAdministeredByAsync(Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Concede a autoridade de admin do tenant à pessoa (PUT idempotente, ADR-0044).</summary>
+	/// <param name="tenantId">Tenant administrado.</param>
+	/// <param name="userId">Pessoa, de qualquer tenant.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task GrantAdminAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>Revoga a autoridade de admin do tenant (DELETE idempotente; vale na próxima requisição da pessoa).</summary>
+	/// <param name="tenantId">Tenant administrado.</param>
+	/// <param name="userId">Pessoa.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task RevokeAdminAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
 }

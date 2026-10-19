@@ -151,3 +151,18 @@ public static class UserStatusText
 		_ => status,
 	};
 }
+
+/// <summary>Pessoa com concessão de admin de um tenant (ADR-0044).</summary>
+/// <param name="UserId">Pessoa.</param>
+/// <param name="Email">E-mail da pessoa.</param>
+/// <param name="DisplayName">Nome de exibição, se houver.</param>
+/// <param name="OwnerTenantId">Tenant dono da conta — pode não ser o administrado.</param>
+/// <param name="GrantedBy">Sub de quem concedeu.</param>
+/// <param name="GrantedAt">Momento da concessão.</param>
+public sealed record TenantAdminSummary(
+	Guid UserId,
+	string Email,
+	string? DisplayName,
+	Guid OwnerTenantId,
+	string GrantedBy,
+	DateTimeOffset GrantedAt);

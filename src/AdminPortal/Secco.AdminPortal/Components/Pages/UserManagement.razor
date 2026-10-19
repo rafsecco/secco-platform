@@ -85,6 +85,56 @@ else
     </section>
 
     <section>
+        <h2>Administração de tenants</h2>
+        <p class="muted">
+            Tenants que esta pessoa administra por uma aplicação de plataforma, on-behalf-of si mesma (ADR-0044).
+            O login dela passa a exigir segundo fator para receber essa autoridade, e cada escrita vai à trilha do
+            tenant administrado. O tenant de plataforma não admite esta concessão.
+        </p>
+        @if (_administeredError is not null)
+        {
+            <p class="error" role="alert">@_administeredError</p>
+        }
+        else if (_administered is null)
+        {
+            <p>Carregando…</p>
+        }
+        else
+        {
+            @if (_administered.Count == 0)
+            {
+                <p>Não administra nenhum tenant.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var tenant in _administered)
+                    {
+                        <li>
+                            <a href="@($"tenants/{tenant.Id}")">@tenant.Name</a>
+                            <button @onclick="() => AskRevokeAdministration(tenant)" disabled="@_busy">Revogar</button>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (GrantableTenants.Count > 0)
+            {
+                <label>
+                    Conceder administração de
+                    <select @bind="_tenantToAdminister">
+                        <option value="">Escolha um tenant…</option>
+                        @foreach (var tenant in GrantableTenants)
+                        {
+                            <option value="@tenant.Id">@tenant.Name</option>
+                        }
+                    </select>
+                </label>
+                <button @onclick="GrantAdministrationAsync" disabled="@(_busy || string.IsNullOrEmpty(_tenantToAdminister))">Conceder</button>
+            }
+        }
+    </section>
+
+    <section>
         <h2>Acesso efetivo</h2>
         @if (_user.EffectivePermissions.Count == 0)
         {
@@ -209,6 +259,10 @@ else
     private IReadOnlyList<RoleSummary> _roles = [];
     private string? _roleToAdd;
     private string? _ownerName;
+    private IReadOnlyList<TenantSummary> _allTenants = [];
+    private IReadOnlyList<TenantSummary>? _administered;
+    private string? _administeredError;
+    private string? _tenantToAdminister;
 
     private string? _loadError;
     private string? _actionError;
@@ -247,7 +301,52 @@ else
         _user = await UserAdminService.GetUserAsync(TenantId, UserId);
         _roles = await RoleAdminService.ListRolesAsync(TenantId);
         _ownerName = await ResolveOwnerNameAsync();
+        await ReloadAdministrationAsync();
     }
+
+    private IReadOnlyList<TenantSummary> GrantableTenants =>
+        _administered is null
+            ? []
+            : [.. _allTenants.Where(tenant => _administered.All(administered => administered.Id != tenant.Id))];
+
+    // Seção à parte: um SecureGate anterior à ADR-0044 não tem a rota, e isso não derruba a página
+    private async Task ReloadAdministrationAsync()
+    {
+        try
+        {
+            _allTenants = await TenantAdminService.ListTenantsAsync();
+            _administered = await TenantAdminService.ListAdministeredByAsync(UserId);
+            _administeredError = null;
+        }
+        catch (ApiException exception)
+        {
+            _administeredError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+    }
+
+    private Task GrantAdministrationAsync() => RunAsync(async () =>
+    {
+        if (!Guid.TryParse(_tenantToAdminister, out var tenantId))
+        {
+            return;
+        }
+
+        var name = _allTenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? tenantId.ToString();
+        await TenantAdminService.GrantAdminAsync(tenantId, UserId);
+        _tenantToAdminister = null;
+        await ReloadAdministrationAsync();
+        _message = $"{_user?.Email} passa a administrar {name}.";
+    });
+
+    private void AskRevokeAdministration(TenantSummary tenant) =>
+        _pending = new PendingAction(
+            $"Revogar a administração de {tenant.Name} por {_user?.Email}? Vale na próxima requisição da pessoa.",
+            async () =>
+            {
+                await TenantAdminService.RevokeAdminAsync(tenant.Id, UserId);
+                await ReloadAdministrationAsync();
+                _message = $"{_user?.Email} não administra mais {tenant.Name}.";
+            });
 
     /// <summary>Nome do tenant dono, só para quem é membro; falha aqui nunca derruba a página (cai no id).</summary>
     private async Task<string?> ResolveOwnerNameAsync()

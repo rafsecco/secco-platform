@@ -171,6 +171,52 @@ else
     </section>
 
     <section>
+        <h2>Admins do tenant</h2>
+        <p class="muted">
+            Pessoas que administram este tenant por uma aplicação de plataforma, on-behalf-of si mesmas (ADR-0044):
+            pessoas, vínculos e perfis daqui, com cada escrita registrada na trilha deste tenant. A pessoa pode ser
+            de qualquer tenant. Para conceder, abra a página da pessoa no tenant dono dela.
+        </p>
+        @if (_pendingAdmin is not null)
+        {
+            <div class="form-card" role="alertdialog">
+                <p>@_pendingAdmin.Message</p>
+                <button @onclick="ConfirmAdminAsync" disabled="@_busy">Confirmar</button>
+                <button @onclick="() => _pendingAdmin = null" disabled="@_busy">Cancelar</button>
+            </div>
+        }
+        @if (_adminsError is not null)
+        {
+            <p class="error" role="alert">@_adminsError</p>
+        }
+        else if (_admins is null)
+        {
+            <p>Carregando…</p>
+        }
+        else if (_admins.Count == 0)
+        {
+            <p>Nenhuma pessoa administra este tenant.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>Pessoa</th><th>Tenant dono</th><th>Concedido em</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var admin in _admins)
+                    {
+                        <tr>
+                            <td><a href="@($"tenants/{admin.OwnerTenantId}/users/{admin.UserId}")">@(admin.DisplayName ?? admin.Email)</a></td>
+                            <td class="muted">@(admin.OwnerTenantId == TenantId ? "este" : admin.OwnerTenantId.ToString())</td>
+                            <td>@admin.GrantedAt.ToLocalTime().ToString("g")</td>
+                            <td><button @onclick="() => AskRevokeAdmin(admin)" disabled="@_busy">Revogar</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <section>
         <h2>Perfis</h2>
         @if (_roles is null)
         {
@@ -243,6 +289,9 @@ else
     [Parameter] public Guid TenantId { get; set; }
 
     private TenantDetail? _tenant;
+    private IReadOnlyList<TenantAdminSummary>? _admins;
+    private string? _adminsError;
+    private PendingMemberAction? _pendingAdmin;
     private IReadOnlyList<UserSummary>? _users;
     private IReadOnlyList<RoleSummary>? _roles;
 
@@ -274,6 +323,7 @@ else
             _tenant = await TenantAdminService.GetTenantAsync(TenantId);
             await ReloadUsersAsync();
             await ReloadRolesAsync();
+            await ReloadAdminsAsync();
         }
         catch (Exception exception)
         {
@@ -285,6 +335,41 @@ else
     private async Task ReloadUsersAsync() => _users = await UserAdminService.ListUsersAsync(TenantId);
 
     private async Task ReloadRolesAsync() => _roles = await RoleAdminService.ListRolesAsync(TenantId);
+
+    // Seção à parte: um SecureGate anterior à ADR-0044 não tem a rota, e isso não derruba a página
+    private async Task ReloadAdminsAsync()
+    {
+        try
+        {
+            _admins = await TenantAdminService.ListAdminsAsync(TenantId);
+            _adminsError = null;
+        }
+        catch (ApiException exception)
+        {
+            _adminsError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+    }
+
+    private void AskRevokeAdmin(TenantAdminSummary admin) =>
+        _pendingAdmin = new PendingMemberAction(
+            $"Revogar a autoridade de {admin.Email} sobre este tenant? Vale na próxima requisição da pessoa; conta, vínculos e perfis não mudam.",
+            async () =>
+            {
+                await TenantAdminService.RevokeAdminAsync(TenantId, admin.UserId);
+                await ReloadAdminsAsync();
+                _message = $"{admin.Email} não administra mais este tenant.";
+            });
+
+    private async Task ConfirmAdminAsync()
+    {
+        var pending = _pendingAdmin;
+        _pendingAdmin = null;
+
+        if (pending is not null)
+        {
+            await RunAsync(pending.Action);
+        }
+    }
 
     private void ToggleNewUserRole(string role, ChangeEventArgs change)
     {
