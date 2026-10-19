@@ -276,7 +276,7 @@ public class TenantCreatorAuthorityTests(TenantAdminSecureGateApiFactory secureG
 		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
 		var slug = (await context.Tenants.SingleAsync(t => t.Id == tenantId)).Slug;
 
-		return Secco.SecureGate.Application.Provisioning.DatabaseIdentifierPolicy.Derive("secco", product, slug);
+		return Secco.SecureGate.Application.Provisioning.DatabaseIdentifierPolicy.DeriveForTenant(tenantId, "secco", product, slug);
 	}
 
 	private async Task CreateDatabaseAsync(string name)

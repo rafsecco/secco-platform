@@ -82,4 +82,35 @@ public class DatabaseIdentifierPolicyTests
 		derived.Length.Should().BeLessThanOrEqualTo(DatabaseIdentifierPolicy.MaxLength);
 		DatabaseIdentifierPolicy.IsValid(derived).Should().BeTrue();
 	}
+
+	[Fact]
+	public void DeriveForTenant_NomeCurto_IgualAoDerive()
+	{
+		DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "logstream", "compras")
+			.Should().Be(DatabaseIdentifierPolicy.Derive("secco", "logstream", "compras"));
+	}
+
+	[Fact]
+	public void DeriveForTenant_SlugsLongosComOMesmoComeco_NaoColidem()
+	{
+		// Truncados, os dois dariam o mesmo nome: o sufixo do id do tenant os separa (ADR-0047)
+		var comum = new string('a', 45);
+		var primeiro = DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "notificationhub", comum + "-um");
+		var segundo = DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "notificationhub", comum + "-dois");
+
+		primeiro.Should().NotBe(segundo);
+		DatabaseIdentifierPolicy.IsValid(primeiro).Should().BeTrue();
+		DatabaseIdentifierPolicy.IsValid(segundo).Should().BeTrue();
+		primeiro.Length.Should().BeLessThanOrEqualTo(DatabaseIdentifierPolicy.MaxLength);
+	}
+
+	[Fact]
+	public void DeriveForTenant_MesmoTenant_Deterministico()
+	{
+		var tenant = Guid.NewGuid();
+		var slug = new string('b', 50);
+
+		DatabaseIdentifierPolicy.DeriveForTenant(tenant, "secco", "notificationhub", slug)
+			.Should().Be(DatabaseIdentifierPolicy.DeriveForTenant(tenant, "secco", "notificationhub", slug));
+	}
 }

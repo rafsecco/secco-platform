@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace Secco.SecureGate.Application.Provisioning;
@@ -72,13 +74,44 @@ public static partial class DatabaseIdentifierPolicy
 	{
 		ArgumentNullException.ThrowIfNull(parts);
 
+		var normalized = Normalize(parts);
+
+		return normalized.Length > MaxLength ? normalized[..MaxLength].TrimEnd('_') : normalized;
+	}
+
+	/// <summary>
+	/// Deriva o identificador de um tenant sem colisão por truncamento (ADR-0047): igual a <see cref="Derive"/>
+	/// quando cabe em <see cref="MaxLength"/>; quando não cabe, o corte ganha um sufixo com o hash do id do tenant.
+	/// Sem isso, dois slugs longos com o mesmo começo dariam o mesmo nome — e quem cria tenant poderia provisionar
+	/// antes o nome que o banco de um tenant futuro vai ter, ficando com <c>db_owner</c> nele quando o operador o
+	/// provisionasse.
+	/// </summary>
+	/// <param name="tenantId">Tenant dono do banco — o que torna o sufixo único.</param>
+	/// <param name="parts">Partes a concatenar com sublinhado.</param>
+	public static string DeriveForTenant(Guid tenantId, params string[] parts)
+	{
+		ArgumentNullException.ThrowIfNull(parts);
+
+		var normalized = Normalize(parts);
+
+		if (normalized.Length <= MaxLength)
+		{
+			return normalized;
+		}
+
+		var hash = SHA256.HashData(tenantId.ToByteArray());
+		var suffix = "_" + Convert.ToHexString(hash, 0, 4).ToLower(CultureInfo.InvariantCulture);
+
+		return normalized[..(MaxLength - suffix.Length)].TrimEnd('_') + suffix;
+	}
+
+	private static string Normalize(string[] parts)
+	{
 		var joined = string.Join('_', parts.Where(part => !string.IsNullOrWhiteSpace(part)))
 			.Trim()
 			.ToLowerInvariant();
 
-		var normalized = NonIdentifierCharacters().Replace(joined, "_").Trim('_');
-
-		return normalized.Length > MaxLength ? normalized[..MaxLength].TrimEnd('_') : normalized;
+		return NonIdentifierCharacters().Replace(joined, "_").Trim('_');
 	}
 
 	[GeneratedRegex("^[a-z][a-z0-9_]*$", RegexOptions.CultureInvariant)]
