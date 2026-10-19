@@ -551,6 +551,32 @@ public static class SecureGateErrors
 		/// <summary>Claim <c>sub</c> ausente no chamador autenticado (defesa em profundidade, ADR-0020).</summary>
 		public static readonly Error GrantedByRequired =
 			Error.Validation("SecureGate.TenantAdmin.GrantedByRequired", "O chamador autenticado não carrega a claim 'sub'.");
+
+		/// <summary>A pessoa chegou ao limite de tenants criados por ela (ADR-0047).</summary>
+		public static readonly Error CreationLimitReached =
+			Error.Conflict("SecureGate.TenantAdmin.CreationLimitReached",
+				"Limite de tenants criados por esta pessoa atingido. Peça ao operador da instalação.");
+
+		/// <summary>
+		/// O tenant é dono de conta administrativa (ADR-0047): desativá-lo pela autoridade de admin de tenant
+		/// bloquearia essa pessoa em todos os sistemas (ADR-0040). O operador desativa.
+		/// </summary>
+		public static readonly Error TenantOwnsAdministrativeAccount =
+			Error.Conflict("SecureGate.TenantAdmin.TenantOwnsAdministrativeAccount",
+				"Este tenant é dono de conta que administra tenants; só o operador da instalação pode desativá-lo.");
+
+		/// <summary>Provisionamento pela autoridade de admin de tenant só no modo automático (ADR-0047).</summary>
+		public static readonly Error ProvisioningRequiresAutomation =
+			Error.Forbidden("SecureGate.TenantAdmin.ProvisioningRequiresAutomation",
+				"Sem provisionamento automático configurado, só o operador da instalação provisiona (o script carrega a senha).");
+
+		/// <summary>
+		/// Provisionamento restrito (ADR-0047): sem servidor, database ou login vindos do pedido, e sempre criando
+		/// um database novo — senão o admin de um tenant assumiria o database de outro.
+		/// </summary>
+		public static readonly Error ProvisioningOverridesNotAllowed =
+			Error.Forbidden("SecureGate.TenantAdmin.ProvisioningOverridesNotAllowed",
+				"Pela autoridade de admin de tenant, o banco é sempre novo e com os nomes derivados do tenant.");
 	}
 
 	/// <summary>Erros do ciclo de credencial (ADR-0033).</summary>

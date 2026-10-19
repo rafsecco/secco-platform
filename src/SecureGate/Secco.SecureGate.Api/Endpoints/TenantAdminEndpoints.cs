@@ -64,6 +64,42 @@ public static class TenantAdminEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		// Concessão de criação (ADR-0047): autoridade de instalação, só do operador
+		var creators = endpoints.MapGroup("/api/v1/tenant-creators")
+			.WithTags("TenantAdmins")
+			.RequireAuthorization(policy =>
+				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+
+		creators.MapGet("/", async (ListTenantCreatorsHandler handler, CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(cancellationToken))
+				.ToHttpResult(list => Results.Ok(list)))
+			.WithName("ListTenantCreators")
+			.WithSummary("Lista as pessoas que podem criar tenant, com quantos cada uma já criou (ADR-0047).")
+			.Produces<IReadOnlyList<TenantCreatorDto>>(StatusCodes.Status200OK);
+
+		creators.MapPut("/{userId:guid}", async (
+				Guid userId,
+				ClaimsPrincipal caller,
+				GrantTenantCreatorHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(userId, caller.FindFirstValue(SeccoClaims.Subject) ?? string.Empty, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("GrantTenantCreator")
+			.WithSummary("Concede à pessoa a criação de tenant — idempotente. O tenant criado nasce administrado por ela, até o limite configurado.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status400BadRequest)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
+		creators.MapDelete("/{userId:guid}", async (
+				Guid userId,
+				RevokeTenantCreatorHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.HandleAsync(userId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("RevokeTenantCreator")
+			.WithSummary("Revoga a criação de tenant — idempotente. A administração dos tenants já criados continua.")
+			.Produces(StatusCodes.Status204NoContent);
+
 		endpoints.MapGet("/api/v1/tenant-admin/tenants", async (
 				ClaimsPrincipal caller,
 				ITenantAdminAuditor auditor,

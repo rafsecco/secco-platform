@@ -26,8 +26,12 @@ public sealed class TenantAdminGrant : BaseEntity
 	/// <param name="tenantId">Tenant administrado. Obrigatório.</param>
 	/// <param name="grantedBy">Sub de quem concedeu. Obrigatório.</param>
 	/// <param name="now">Instante da concessão (por parâmetro, para ser testável).</param>
+	/// <param name="createdTenant">
+	/// <c>true</c> quando a concessão nasce da criação do tenant pela própria pessoa (ADR-0047) — é o que
+	/// conta para o limite de tenants criados por pessoa.
+	/// </param>
 	/// <exception cref="DomainInvariantException">Se algum argumento violar os invariantes.</exception>
-	public TenantAdminGrant(Guid userId, Guid tenantId, string grantedBy, DateTimeOffset now)
+	public TenantAdminGrant(Guid userId, Guid tenantId, string grantedBy, DateTimeOffset now, bool createdTenant = false)
 	{
 		if (userId == Guid.Empty)
 		{
@@ -54,6 +58,7 @@ public sealed class TenantAdminGrant : BaseEntity
 		TenantId = tenantId;
 		GrantedBy = grantedBy;
 		CreatedAt = now;
+		CreatedTenant = createdTenant;
 	}
 
 	/// <summary>Pessoa que administra (coluna <c>id_fk_user</c>).</summary>
@@ -67,4 +72,7 @@ public sealed class TenantAdminGrant : BaseEntity
 
 	/// <summary>Momento da concessão (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }
+
+	/// <summary>Nasceu da criação do tenant pela própria pessoa (coluna <c>fl_created_tenant</c>, ADR-0047).</summary>
+	public bool CreatedTenant { get; private set; }
 }

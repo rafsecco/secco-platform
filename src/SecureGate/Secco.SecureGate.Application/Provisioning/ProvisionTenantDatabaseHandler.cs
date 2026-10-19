@@ -22,7 +22,8 @@ public sealed record ProvisionTenantDatabaseCommand(
 	string? Server,
 	bool CreateDatabase,
 	string? DatabaseName,
-	string? LoginName);
+	string? LoginName,
+	bool Restricted = false);
 
 /// <summary>Resultado do provisionamento.</summary>
 /// <param name="Applied">
@@ -104,6 +105,25 @@ public sealed class ProvisionTenantDatabaseHandler(
 		}
 
 		var (target, server, provisioner) = targetResult.Value;
+
+		// ADR-0047: pela autoridade de admin de tenant, só o modo automático (o script carrega a senha) e só
+		// um database novo com os nomes derivados do tenant — assumir um database existente, ou escolher o
+		// nome dele, deixaria o admin de um tenant ganhar db_owner no banco de outro
+		if (command.Restricted)
+		{
+			if (!command.CreateDatabase
+				|| !string.IsNullOrWhiteSpace(command.Server)
+				|| !string.IsNullOrWhiteSpace(command.DatabaseName)
+				|| !string.IsNullOrWhiteSpace(command.LoginName))
+			{
+				return Result.Failure<TenantDatabaseProvisioningDto>(SecureGateErrors.TenantAdmins.ProvisioningOverridesNotAllowed);
+			}
+
+			if (target is not { CanExecute: true })
+			{
+				return Result.Failure<TenantDatabaseProvisioningDto>(SecureGateErrors.TenantAdmins.ProvisioningRequiresAutomation);
+			}
+		}
 
 		var databaseName = string.IsNullOrWhiteSpace(command.DatabaseName)
 			? DatabaseIdentifierPolicy.Derive("secco", product, tenant.Slug)

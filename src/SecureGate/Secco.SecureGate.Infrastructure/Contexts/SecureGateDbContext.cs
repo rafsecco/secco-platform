@@ -83,6 +83,9 @@ public sealed class SecureGateDbContext(
 	/// <summary>Concessões de admin de tenant (tabela <c>tb_tenant_admin_grants</c>, ADR-0044).</summary>
 	public DbSet<TenantAdminGrant> TenantAdminGrants => Set<TenantAdminGrant>();
 
+	/// <summary>Concessões de criação de tenant (tabela <c>tb_tenant_creator_grants</c>, ADR-0047).</summary>
+	public DbSet<TenantCreatorGrant> TenantCreatorGrants => Set<TenantCreatorGrant>();
+
 	/// <summary>Catálogo de permissões publicado pelos produtos (tabela <c>tb_permission_catalog_entries</c>, ADR-0039).</summary>
 	public DbSet<PermissionCatalogEntry> PermissionCatalogEntries => Set<PermissionCatalogEntry>();
 
@@ -363,6 +366,17 @@ public sealed class SecureGateDbContext(
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasQueryFilter(TenantFilter, g => IsPlatformScope || g.TenantId == ScopedTenantId);
+		});
+
+		// Fora do filtro (ADR-0041): a concessão de criação é dado de plataforma — autoridade de instalação,
+		// sem tenant (ADR-0047)
+		builder.Entity<TenantCreatorGrant>(grant =>
+		{
+			grant.Property(g => g.GrantedBy).HasMaxLength(TenantAdminGrant.GrantedByMaxLength);
+
+			// Uma concessão por pessoa (ADR-0034: o PUT é idempotente pelo efeito)
+			grant.HasIndex(g => g.UserId).IsUnique();
+			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 		});
 
 		// Fora do filtro (ADR-0041): PermissionCatalogEntry é dado de plataforma, sem tenant (ADR-0039).

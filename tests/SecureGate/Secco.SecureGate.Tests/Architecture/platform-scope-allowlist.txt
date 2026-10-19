@@ -21,3 +21,7 @@ src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepo
 src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: concessão sobre o tenant da rota, conferida fora do escopo dele
 src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: os tenants que a pessoa administra
 src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: alvo protegido é admin de qualquer tenant ou operador
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: alguma autoridade da pessoa (admin em qualquer tenant ou criação)
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: tenants criados pela pessoa, para o limite
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: o tenant é dono de conta que administra outros
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: quem pode criar tenant é de qualquer tenant

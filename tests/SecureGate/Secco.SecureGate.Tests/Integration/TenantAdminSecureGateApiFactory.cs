@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Secco.SecureGate.Application.TenantAdministration;
@@ -11,8 +12,28 @@ namespace Secco.SecureGate.Tests.Integration;
 /// </summary>
 public sealed class TenantAdminSecureGateApiFactory : SelfIssuedAuthSecureGateApiFactory
 {
+	/// <summary>Limite de tenants criados por pessoa nesta suíte — baixo, para o teste de limite ser curto (ADR-0047).</summary>
+	public const int MaxCreatedTenantsPerPerson = 2;
+
 	/// <summary>Auditor controlável, compartilhado pela coleção (os testes dela rodam em sequência).</summary>
 	public FakeTenantAdminAuditor Auditor { get; } = new();
+
+	/// <inheritdoc />
+	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
+	{
+		base.ConfigureTestConfiguration(settings);
+
+		ArgumentNullException.ThrowIfNull(settings);
+
+		// Provisionamento automático ligado, contra o SQL Server da própria suíte (mesmo arranjo da issue #3):
+		// o admin de tenant só provisiona assim (ADR-0047)
+		var admin = new SqlConnectionStringBuilder(GetPlatformConnectionString()) { InitialCatalog = "master" };
+		settings["SecureGate:Provisioning:Targets:default:Provider"] = "SqlServer";
+		settings["SecureGate:Provisioning:Targets:default:Server"] = admin.DataSource;
+		settings["SecureGate:Provisioning:Targets:default:AdminConnectionString"] = admin.ConnectionString;
+		settings["SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson"] =
+			MaxCreatedTenantsPerPerson.ToString(System.Globalization.CultureInfo.InvariantCulture);
+	}
 
 	/// <inheritdoc />
 	protected override void ConfigureTestServices(IServiceCollection services)

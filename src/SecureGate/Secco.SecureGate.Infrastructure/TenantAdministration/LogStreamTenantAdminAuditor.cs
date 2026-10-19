@@ -9,8 +9,9 @@ using Secco.SharedKernel.Constants;
 namespace Secco.SecureGate.Infrastructure.TenantAdministration;
 
 /// <summary>
-/// Grava cada escrita por admin de tenant como <c>AuditEntry</c> no LogStream, no TENANT ADMINISTRADO
-/// (ADR-0044), pela identidade de auditoria da instalação — a mesma da elevação (ADR-0031). A ingestão
+/// Grava cada escrita por admin de tenant como <c>AuditEntry</c> no LogStream, no tenant que o registro indica
+/// — o administrado, ou o dono de quem agiu quando o administrado não tem LogStream (ADR-0044/0047) —, pela
+/// identidade de auditoria da instalação — a mesma da elevação (ADR-0031). A ingestão
 /// de auditoria do LogStream é síncrona, então um <c>true</c> aqui significa registro aceito; só com ele
 /// a escrita acontece.
 /// </summary>
@@ -33,7 +34,7 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 		{
 			var http = httpClientFactory.CreateClient(LogStreamElevationAuditor.HttpClientName);
 
-			// O tenant ADMINISTRADO: é ali que os admins daquele sistema veem quem mexeu nele
+			// O destino já vem decidido no registro (ADR-0047); o administrado segue na Metadata
 			http.DefaultRequestHeaders.Add(SeccoHeaders.TenantId, record.TenantId.ToString());
 
 			await new LogStreamClient(http).CreateAuditEntryAsync(
@@ -49,7 +50,7 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 					{
 						authority = SecureGateScopes.TenantAdmin,
 						act = record.ClientId,
-						tenantId = record.TenantId,
+						tenantId = record.AdministeredTenantId,
 					}),
 				},
 				cancellationToken).ConfigureAwait(false);

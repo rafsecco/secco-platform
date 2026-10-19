@@ -195,7 +195,8 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 
 	[Theory]
 	[InlineData("GET", "/api/v1/tenants")]
-	[InlineData("POST", "/api/v1/tenants/{b}/deactivate")]
+	[InlineData("PUT", "/api/v1/tenants/{b}/databases/logstream")]
+	[InlineData("PUT", "/api/v1/tenants/{b}/federation")]
 	[InlineData("GET", "/api/v1/tenants/{b}/clients")]
 	[InlineData("GET", "/api/v1/tenants/{b}/entra/group-role-mappings")]
 	[InlineData("GET", "/api/v1/tenants/{b}/admins")]
@@ -240,9 +241,15 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 	// ---- Trilha ----
 
 	[Fact]
-	public async Task Escrita_EAuditadaNoTenantAdministrado_ComAPessoaEAAplicacao()
+	public async Task Escrita_EAuditadaNoTenantAdministrado_QuandoEleTemLogStream()
 	{
 		await GrantAsync(_tenantB, _admin);
+		using (var operador = await OperatorAsync())
+		{
+			(await operador.PutAsJsonAsync($"/api/v1/tenants/{_tenantB}/databases/logstream",
+				new { connectionString = "Server=logstream-b;Database=logs;User Id=app;Password=x" })).IsSuccessStatusCode.Should().BeTrue();
+		}
+
 		using var admin = await TenantAdminClientAsync();
 
 		var response = await admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantB}/roles", new { name = "compras-aprovador" });
@@ -250,9 +257,24 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 		response.StatusCode.Should().Be(HttpStatusCode.Created);
 		var record = secureGate.Auditor.Records.Should().ContainSingle().Subject;
 		record.UserId.Should().Be(_admin);
-		record.TenantId.Should().Be(_tenantB, "a trilha fica no tenant administrado");
+		record.TenantId.Should().Be(_tenantB, "a trilha fica no tenant administrado quando ele tem LogStream");
+		record.AdministeredTenantId.Should().Be(_tenantB);
 		record.Operation.Should().Be("CreateRole");
 		record.ClientId.Should().Be(ClientId, "a aplicação é o act do pedido");
+	}
+
+	[Fact]
+	public async Task Escrita_EmTenantSemLogStream_VaiParaATrilhaDoTenantDonoDeQuemAgiu()
+	{
+		await GrantAsync(_tenantB, _admin);
+		using var admin = await TenantAdminClientAsync();
+
+		(await admin.PostAsJsonAsync($"/api/v1/tenants/{_tenantB}/roles", new { name = "sem-logstream" }))
+			.StatusCode.Should().Be(HttpStatusCode.Created);
+
+		var record = secureGate.Auditor.Records.Should().ContainSingle().Subject;
+		record.TenantId.Should().Be(_tenantA, "sem banco do LogStream, o tenant administrado não recebe a entrada (ADR-0047)");
+		record.AdministeredTenantId.Should().Be(_tenantB);
 	}
 
 	[Fact]

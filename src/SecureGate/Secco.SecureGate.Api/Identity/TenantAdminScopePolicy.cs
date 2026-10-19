@@ -32,11 +32,12 @@ internal static class TenantAdminScopePolicy
 		return !user.TwoFactorEnabled
 			&& auditor.IsConfigured
 			&& requestedScopes.Contains(SecureGateScopes.TenantAdmin, StringComparer.Ordinal)
-			&& await grants.HasAnyAsync(user.Id, cancellationToken).ConfigureAwait(false);
+			&& await grants.HasAnyAuthorityAsync(user.Id, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>
-	/// Tira o escopo de quem não pode recebê-lo AGORA: sem concessão nenhuma, sem segundo fator, ou com a
+	/// Tira o escopo de quem não pode recebê-lo AGORA: sem concessão nenhuma (de admin ou de criação, ADR-0047),
+	/// sem segundo fator, ou com a
 	/// autoridade desligada (sem identidade de auditoria). Os demais escopos passam intactos.
 	/// </summary>
 	/// <param name="user">Conta.</param>
@@ -61,7 +62,7 @@ internal static class TenantAdminScopePolicy
 
 		var keep = user.TwoFactorEnabled
 			&& auditor.IsConfigured
-			&& await grants.HasAnyAsync(user.Id, cancellationToken).ConfigureAwait(false);
+			&& await grants.HasAnyAuthorityAsync(user.Id, cancellationToken).ConfigureAwait(false);
 
 		return keep ? scopes : [.. scopes.Where(scope => scope != SecureGateScopes.TenantAdmin)];
 	}

@@ -1765,18 +1765,18 @@ Alternativas avaliadas:
 **Nos tenants que administra**, a autoridade passa a cobrir:
 
 - **ativar e desativar**, com uma trava: desativar um tenant que seja **dono de alguma conta administrativa** (com concessão de admin ou de criação) responde `409`;
-- **provisionar o banco no modo automático** (ADR-0028, só quando a automação está ligada) e **consultar o status** dos bancos.
+- **provisionar o banco no modo automático** (ADR-0028, só quando a automação está ligada) e **consultar o status** dos bancos. O provisionamento por esta autoridade é **restrito**: sem servidor, database ou login vindos do pedido — os nomes são os derivados do tenant — e sempre criando um database novo, nunca assumindo um existente. Sem isso, o admin de B apontaria o provisionamento para o database de outro tenant e ganharia um login `db_owner` dentro dele.
 
 **Ficam com o operador:** o provisionamento em modo script (devolve a senha gerada), o cadastro manual de connection string, a federação e os grupos do Entra, e os clients de tenant.
 
-**Trilha:** toda escrita com essa autoridade segue a ADR-0044 — síncrona e fail-closed, no tenant administrado. A criação é gravada no tenant recém-criado.
+**Trilha:** toda escrita com essa autoridade segue a ADR-0044 — síncrona e fail-closed. **Emenda à ADR-0044 sobre o destino:** a entrada vai para o tenant administrado quando ele tem banco do LogStream no catálogo; senão, para o tenant dono de quem agiu, com o tenant administrado na `Metadata`. Sem a emenda, um tenant recém-criado — que ainda não tem banco no LogStream — recusaria a primeira escrita dele, que é justamente provisionar o banco, e qualquer tenant sem LogStream ficaria fora do alcance do admin de tenant. A criação é gravada no tenant dono de quem criou.
 
 ### Consequências
 
 - O `secco-intranet` pode aposentar o client de máquina com `securegate:admin` nas operações de tenant, depois de adotar a custódia do token da pessoa (ADR-0046).
 - **Risco aceito:** uma pessoa com concessão de criação cria até o limite de tenants vazios. Eles não alcançam dados de ninguém e ficam visíveis ao operador.
 - A trava de desativação pode impedir o admin de desativar o próprio tenant enquanto ele for dono de contas administrativas; o operador desativa.
-- A bateria negativa é provada por mutação: sem concessão de criação não cria; limite respeitado; a concessão automática só cobre o tenant criado; desativação com conta administrativa dona recusa; provisionamento em modo script e connection string manual recusam a autoridade; federação recusa; trilha indisponível recusa a escrita.
+- A bateria negativa é provada por mutação: sem concessão de criação não cria; limite respeitado; a concessão automática só cobre o tenant criado; desativação com conta administrativa dona recusa; provisionamento em modo script, com nomes vindos do pedido ou assumindo database existente, e connection string manual recusam a autoridade; federação recusa; trilha indisponível recusa a escrita.
 - `Secco.SecureGate.Client` ganha as rotas de concessão de criação (minor).
 
 ---

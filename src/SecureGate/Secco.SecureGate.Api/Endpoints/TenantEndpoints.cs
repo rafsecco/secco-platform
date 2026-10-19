@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Requests;
 using Secco.SecureGate.Api.Tenancy;
@@ -5,6 +6,7 @@ using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Provisioning;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SharedKernel.Constants;
 
 namespace Secco.SecureGate.Api.Endpoints;
 
@@ -26,11 +28,14 @@ public static class TenantEndpoints
 
 		group.MapPost("/", async (
 				CreateTenantRequest request,
+				ClaimsPrincipal caller,
 				CreateTenantHandler handler,
 				CancellationToken cancellationToken) =>
-			(await handler.HandleAsync(new CreateTenantCommand(request.Name, request.Slug), cancellationToken))
+			(await handler.HandleAsync(
+				new CreateTenantCommand(request.Name, request.Slug, CreatorOf(caller)), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{dto.Id}", dto)))
 			.WithName("CreateTenant")
+			.AllowTenantCreator()
 			.RequirePlatformScope(scope => scope.EnterPlatform("operação de instalação: cria um tenant"))
 			.WithSummary("Cria um tenant no catálogo da plataforma (nasce ativo, sem bancos cadastrados).")
 			.Produces<TenantDto>(StatusCodes.Status201Created)
@@ -57,11 +62,13 @@ public static class TenantEndpoints
 
 		group.MapPost("/{id:guid}/activate", async (
 				Guid id,
+				ClaimsPrincipal caller,
 				SetTenantActivationHandler handler,
 				CancellationToken cancellationToken) =>
-			(await handler.HandleAsync(id, active: true, cancellationToken))
+			(await handler.HandleAsync(id, active: true, TenantAdminAuthority.IsTenantAdminCaller(caller), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ActivateTenant")
+			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Reativa um tenant — volta a ser servido pelo catálogo.")
 			.Produces(StatusCodes.Status204NoContent)
@@ -69,11 +76,13 @@ public static class TenantEndpoints
 
 		group.MapPost("/{id:guid}/deactivate", async (
 				Guid id,
+				ClaimsPrincipal caller,
 				SetTenantActivationHandler handler,
 				CancellationToken cancellationToken) =>
-			(await handler.HandleAsync(id, active: false, cancellationToken))
+			(await handler.HandleAsync(id, active: false, TenantAdminAuthority.IsTenantAdminCaller(caller), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeactivateTenant")
+			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Desativa um tenant — some do catálogo em até um TTL de cache dos produtos, e seus usuários param de renovar token.")
 			.Produces(StatusCodes.Status204NoContent)
@@ -100,15 +109,18 @@ public static class TenantEndpoints
 				Guid id,
 				string product,
 				ProvisionTenantDatabaseRequest request,
+				ClaimsPrincipal caller,
 				ProvisionTenantDatabaseHandler handler,
 				CancellationToken cancellationToken) =>
 			(await handler.HandleAsync(
 				new ProvisionTenantDatabaseCommand(
 					id, product, request.Target, request.Server,
-					request.CreateDatabase, request.DatabaseName, request.LoginName),
+					request.CreateDatabase, request.DatabaseName, request.LoginName,
+					Restricted: TenantAdminAuthority.IsTenantAdminCaller(caller)),
 				cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("ProvisionTenantDatabase")
+			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Provisiona o banco dedicado do tenant no produto: cria (ou assume) o database, cria o usuário de aplicação com db_owner APENAS nele e grava a connection string cifrada. Sem credencial privilegiada configurada, devolve o script para um DBA aplicar.")
 			.Produces<TenantDatabaseProvisioningDto>(StatusCodes.Status200OK)
@@ -123,6 +135,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(statuses => Results.Ok(statuses)))
 			.WithName("GetTenantDatabaseStatus")
+			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Estado dos bancos do tenant: o que está cadastrado e o que responde. Usa a conexão de runtime de cada tenant — nenhuma credencial privilegiada.")
 			.Produces<IReadOnlyList<TenantDatabaseStatusDto>>(StatusCodes.Status200OK)
@@ -146,4 +159,12 @@ public static class TenantEndpoints
 
 		return endpoints;
 	}
+
+	// Criação pela autoridade de admin de tenant (ADR-0047): o tenant nasce administrado por quem o criou. O
+	// filtro da rota já conferiu a concessão de criação; o operador cria sem concessão automática
+	private static Guid? CreatorOf(ClaimsPrincipal caller) =>
+		TenantAdminAuthority.IsTenantAdminCaller(caller)
+		&& Guid.TryParse(caller.FindFirstValue(SeccoClaims.Subject), out var userId)
+			? userId
+			: null;
 }

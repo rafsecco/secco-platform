@@ -3,17 +3,22 @@ namespace Secco.SecureGate.Application.TenantAdministration;
 /// <summary>Uma escrita feita com a autoridade de admin de tenant (ADR-0044).</summary>
 /// <param name="UserId">Quem agiu — o <c>sub</c> do token.</param>
 /// <param name="UserName">Snapshot legível de quem agiu (claim <c>name</c>), se houver.</param>
-/// <param name="TenantId">Tenant administrado: é onde a entrada é gravada.</param>
+/// <param name="TenantId">
+/// Onde a entrada é gravada: o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o
+/// tenant dono de quem agiu (ADR-0047).
+/// </param>
 /// <param name="ClientId">Aplicação pela qual a pessoa agiu (o <c>act</c> do pedido).</param>
 /// <param name="Operation">Nome estável da operação (o <c>operationId</c> da rota).</param>
 /// <param name="TargetUserId">Pessoa alvo, quando a rota tem uma.</param>
+/// <param name="AdministeredTenantId">Tenant sobre o qual a pessoa agiu; nulo na criação, quando ele ainda não existe.</param>
 public sealed record TenantAdminAuditRecord(
 	Guid UserId,
 	string? UserName,
 	Guid TenantId,
 	string? ClientId,
 	string Operation,
-	Guid? TargetUserId);
+	Guid? TargetUserId,
+	Guid? AdministeredTenantId = null);
 
 /// <summary>
 /// Porta de auditoria das escritas por admin de tenant (ADR-0044). Síncrona e fail-closed: a escrita

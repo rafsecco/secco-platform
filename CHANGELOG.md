@@ -12,6 +12,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SecureGate.Client (próximo minor) e SecureGate (serviço) — admin de tenant cria tenant (issue #39, ADR-0047)
+
+Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` antes das réplicas (ADR-0038).
+
+- **Concessão de criação de tenant**, gerida só pelo operador: `PUT`/`DELETE /api/v1/tenant-creators/{userId}` (idempotentes) e `GET /api/v1/tenant-creators`, com quantos tenants cada pessoa criou.
+- **`POST /api/v1/tenants` aceita a autoridade de admin de tenant** para quem tem a concessão de criação: o tenant nasce administrado por quem o criou, na mesma transação, até `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` (padrão 20; acima disso, `409`).
+- **Ativar e desativar** o tenant administrado; desativar um tenant dono de conta administrativa responde `409`.
+- **Provisionamento automático e status** do banco do tenant administrado. Pela autoridade de admin de tenant o provisionamento é restrito: só com a automação ligada, sem servidor, database ou login vindos do pedido e sempre criando um database novo (`403` fora disso).
+- **Continuam só com o operador:** provisionamento em modo script, connection string manual, federação e grupos do Entra, clients de tenant.
+- **Destino da trilha** (emenda à ADR-0044): o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o tenant dono de quem agiu, com o administrado na `Metadata`. A criação vai para o tenant dono de quem criou.
+
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.

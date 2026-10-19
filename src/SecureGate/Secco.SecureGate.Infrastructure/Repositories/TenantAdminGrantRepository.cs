@@ -79,9 +79,92 @@ internal sealed class TenantAdminGrantRepository(SecureGateDbContext context, IT
 		using (accessScope.EnterPlatform("admins de tenant: alvo protegido é admin de qualquer tenant ou operador"))
 		{
 			return await context.TenantAdminGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false)
+				|| await context.TenantCreatorGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false)
 				|| await context.Users
 					.AnyAsync(u => u.Id == userId && u.TenantId == SecureGatePlatform.TenantId, cancellationToken)
 					.ConfigureAwait(false);
+		}
+	}
+
+	public async Task<bool> HasAnyAuthorityAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		using (accessScope.EnterPlatform("admins de tenant: concessões da pessoa em qualquer tenant ou de criação"))
+		{
+			return await context.TenantAdminGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false)
+				|| await context.TenantCreatorGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	// Dado de plataforma, fora do filtro de tenant: não precisa de modo plataforma
+	public Task<bool> HasCreatorGrantAsync(Guid userId, CancellationToken cancellationToken = default) =>
+		context.TenantCreatorGrants.AnyAsync(g => g.UserId == userId, cancellationToken);
+
+	public async Task<int> CountCreatedTenantsAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		using (accessScope.EnterPlatform("admins de tenant: tenants criados pela pessoa, para o limite"))
+		{
+			return await context.TenantAdminGrants
+				.CountAsync(g => g.UserId == userId && g.CreatedTenant, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async Task<bool> OwnsAdministrativeAccountAsync(Guid tenantId, CancellationToken cancellationToken = default)
+	{
+		using (accessScope.EnterPlatform("admins de tenant: o tenant é dono de conta que administra outros"))
+		{
+			var owned = context.Users.Where(u => u.TenantId == tenantId).Select(u => u.Id);
+
+			return await context.TenantAdminGrants.AnyAsync(g => owned.Contains(g.UserId), cancellationToken).ConfigureAwait(false)
+				|| await context.TenantCreatorGrants.AnyAsync(g => owned.Contains(g.UserId), cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async Task AddCreatorGrantIfMissingAsync(TenantCreatorGrant grant, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(grant);
+
+		if (await context.TenantCreatorGrants.AnyAsync(g => g.UserId == grant.UserId, cancellationToken).ConfigureAwait(false))
+		{
+			return;
+		}
+
+		context.TenantCreatorGrants.Add(grant);
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task RemoveCreatorGrantAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		var grant = await context.TenantCreatorGrants
+			.FirstOrDefaultAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false);
+
+		if (grant is not null)
+		{
+			context.TenantCreatorGrants.Remove(grant);
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async Task<IReadOnlyList<TenantCreatorDto>> ListCreatorsAsync(CancellationToken cancellationToken = default)
+	{
+		using (accessScope.EnterPlatform("admins de tenant: quem pode criar tenant é de qualquer tenant"))
+		{
+			var rows = await context.TenantCreatorGrants.AsNoTracking()
+				.Join(context.Users.AsNoTracking(), g => g.UserId, u => u.Id, (g, u) => new { g, u })
+				.OrderBy(x => x.u.Email)
+				.Select(x => new
+				{
+					x.u.Id,
+					x.u.Email,
+					x.u.DisplayName,
+					x.u.TenantId,
+					x.g.GrantedBy,
+					x.g.CreatedAt,
+					Created = context.TenantAdminGrants.Count(a => a.UserId == x.u.Id && a.CreatedTenant),
+				})
+				.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+			return [.. rows.Select(r => new TenantCreatorDto(
+				r.Id, r.Email ?? string.Empty, r.DisplayName, r.TenantId, r.GrantedBy, r.CreatedAt, r.Created))];
 		}
 	}
 

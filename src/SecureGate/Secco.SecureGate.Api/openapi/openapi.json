@@ -2512,6 +2512,98 @@
         }
       }
     },
+    "/api/v1/tenant-creators": {
+      "get": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Lista as pessoas que podem criar tenant, com quantos cada uma já criou (ADR-0047).",
+        "operationId": "ListTenantCreators",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantCreatorDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenant-creators/{userId}": {
+      "put": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Concede à pessoa a criação de tenant — idempotente. O tenant criado nasce administrado por ela, até o limite configurado.",
+        "operationId": "GrantTenantCreator",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Revoga a criação de tenant — idempotente. A administração dos tenants já criados continua.",
+        "operationId": "RevokeTenantCreator",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/entra/groups": {
       "get": {
         "tags": [
@@ -4031,6 +4123,52 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TenantCreatorDto": {
+        "required": [
+          "userId",
+          "email",
+          "displayName",
+          "ownerTenantId",
+          "grantedBy",
+          "createdAt",
+          "createdTenants"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ownerTenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "grantedBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdTenants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
