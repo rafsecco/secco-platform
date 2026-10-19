@@ -80,6 +80,7 @@ Espelha o script `case` do workflow — atualizar aqui sempre que o workflow mud
 | `sdk-efcore/v*` | `src/SDK/Secco.SDK.EntityFrameworkCore/Secco.SDK.EntityFrameworkCore.csproj` |
 | `sdk-testing/v*` | `src/SDK/Secco.SDK.Testing/Secco.SDK.Testing.csproj` |
 | `sdk-credentials/v*` | `src/SDK/Secco.SDK.ClientCredentials/Secco.SDK.ClientCredentials.csproj` |
+| `sdk-relyingparty/v*` | `src/SDK/Secco.SDK.RelyingParty/Secco.SDK.RelyingParty.csproj` |
 | `sdk-email/v*` | `src/SDK/Secco.SDK.Email/Secco.SDK.Email.csproj` |
 | `sdk-logging/v*` | `src/SDK/Secco.SDK.Logging/Secco.SDK.Logging.csproj` |
 | `sdk-imaging/v*` | `src/SDK/Secco.SDK.Imaging/Secco.SDK.Imaging.csproj` |

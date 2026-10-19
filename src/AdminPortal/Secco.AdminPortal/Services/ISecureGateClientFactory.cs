@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using Secco.AdminPortal.Authentication;
+using Secco.SDK.RelyingParty;
 using Secco.SecureGate.Client;
 
 namespace Secco.AdminPortal.Services;
@@ -19,13 +20,13 @@ public interface ISecureGateClientFactory
 /// <inheritdoc />
 internal sealed class SecureGateClientFactory(
 	IHttpClientFactory httpClientFactory,
-	IOperatorTokenProvider tokenProvider) : ISecureGateClientFactory
+	ISeccoUserTokenProvider tokenProvider) : ISecureGateClientFactory
 {
 	public async Task<ISecureGateClient> CreateAsync(CancellationToken cancellationToken = default)
 	{
 		var http = httpClientFactory.CreateClient(AdminPortalDefaults.SecureGateHttpClient);
 
-		if (await tokenProvider.GetAccessTokenAsync().ConfigureAwait(false) is { Length: > 0 } token)
+		if (await tokenProvider.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false) is { Length: > 0 } token)
 		{
 			http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 		}
