@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-18 (ADR-0044 aceita)
+**Última atualização:** 2026-10-19 (ADR-0045 a ADR-0047 aceitas)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1658,6 +1658,126 @@ Ficam **só com o operador**: criar, ativar e desativar tenant; connection strin
 - A bateria negativa é provada por mutação: concessão em outro tenant não passa; concessão revogada não passa na requisição seguinte; operação de pessoa ou revogação de sessão sobre conta administrativa responde `403`; tenant de plataforma recusa concessão; rota não marcada recusa o escopo; client de tenant não recebe o escopo; sem concessão o escopo não sai no login nem na renovação; sem segundo fator não há code; operação de pessoa por tenant não dono responde `404`; trilha indisponível recusa a escrita.
 - `Secco.SecureGate.Client` ganha as rotas de concessão e de "meus tenants": minor.
 - **Fora desta ADR:** criar tenant e nomear admin pelo admin de tenant (o operador cria e concede no v1 — volta com evidência de uso); concessão com prazo; acesso do admin de tenant a banco, clients e federação.
+
+---
+
+## ADR-0045: Diretório de pessoas do tenant para client de produto — escopo `directory:read`
+
+**Status:** Aceita
+**Data:** 2026-10-19
+**Complementa:** ADR-0037 (client de produto vinculado a tenant) e ADR-0040 (pessoa membro de vários tenants)
+
+### Contexto
+
+A issue [#40](https://github.com/rafsecco/secco-platform/issues/40) (`adopter-demand`) aponta que um produto não tem como saber quem são as pessoas do próprio tenant sem `securegate:admin`. O `secco-intranet` lê nome, e-mail e status das pessoas para o Diretório, para o organograma e para escolher destinatários de notificação, inclusive em segundo plano, sem pessoa logada. Faz isso com um client de máquina que administra **todos** os tenants da instalação: o maior privilégio da plataforma para a operação de menor risco. A ADR-0044 não resolve, porque um funcionário comum não tem concessão de admin de tenant e o envio de notificação não tem pessoa nenhuma.
+
+Alternativas avaliadas:
+
+- **Aceitar o novo escopo em `GET /api/v1/tenants/{tenantId}/users`**, conferindo o tenant da rota contra o do token. A resposta administrativa traz dados de segurança (segundo fator, logins externos, estado de bloqueio) e amarraria o diretório à evolução da API administrativa. Descartada.
+- **Escopo também para client interativo** (o token do funcionário lista os colegas direto do front). Mais exposição sem caso real: o diretório que a pessoa vê passa pelo backend do produto. Descartada no v1.
+- **Cópia local das pessoas no produto**, alimentada por um admin. Desatualiza e duplica o cadastro de que a plataforma é dona. Descartada (recusada pelo adotante).
+
+### Decisão
+
+**Escopo `directory:read`, concedível só a client de produto de máquina** (`client_credentials`, vinculado a tenant, ADR-0037). Client interativo e client de plataforma não o recebem. O token já leva o `tenant_id` do client, contido pelo `TenantResolver`.
+
+**Rota própria, com o tenant vindo do token:** `GET /api/v1/directory/people` (paginada, `PageRequest`/`PagedResult`, máximo de 100 por página) e `GET /api/v1/directory/people/{userId}`. Não há tenant na URL, então o chamador não consegue pedir outro tenant; pessoa fora do tenant responde `404`, igual a inexistente.
+
+**Campos mínimos de diretório:** `id`, `email`, `displayName`, `isActive` e `isOwner` (dono ou membro, ADR-0040). Nada de segundo fator, logins externos, sessões, perfis ou motivo de bloqueio.
+
+**Quem aparece:** as pessoas donas do tenant e as membras com vínculo **ativo**. Vínculo suspenso não aparece. Conta desativada aparece com `isActive = false`, para o produto decidir (por exemplo, não notificar).
+
+### Consequências
+
+- O `secco-intranet` troca o client de máquina com `securegate:admin` por um client de produto do próprio tenant com `directory:read` no Diretório e nas notificações.
+- **Risco aceito:** um client com o escopo enumera as pessoas do próprio tenant — é a função pedida. O isolamento entre tenants vem do `tenant_id` do token, e o filtro e o RLS da ADR-0041 valem por baixo.
+- `Secco.SecureGate.Client` ganha as rotas de diretório (minor).
+
+---
+
+## ADR-0046: Custódia do token da pessoa para relying party — pacote `Secco.SDK.RelyingParty`
+
+**Status:** Aceita
+**Data:** 2026-10-19
+**Complementa:** ADR-0023 (relying party on-behalf-of), ADR-0032 (sessões e revogação) e ADR-0035 (estado compartilhado)
+
+### Contexto
+
+A issue [#38](https://github.com/rafsecco/secco-platform/issues/38) (`adopter-demand`) aponta que, para chamar a plataforma on-behalf-of a pessoa logada (ADR-0044), uma aplicação precisa guardar e renovar o token dela, e só o AdminPortal sabe fazer isso, com código próprio: cofre no servidor com o cookie levando só o id da sessão, renovação perto do vencimento com rotação do refresh token, sessão perdida devolvendo ao login, e uma fábrica do client com o Bearer da pessoa. São cerca de 400 linhas de código de segurança. A Intranet teria de copiá-las, e duas cópias divergem.
+
+Alternativas avaliadas:
+
+- **Copiar o código do AdminPortal para cada aplicação.** Correção feita numa cópia não chega na outra. Descartada.
+- **Access token direto no cookie (`SaveTokens = true`).** Cookie grande, e o token fica com o navegador até expirar, mesmo depois da revogação da ADR-0032. Descartada.
+- **Dentro do `Secco.SDK.AspNetCore`.** Ele arrasta Hangfire e o resto do runtime de produto; foi por isso que o `Secco.SDK.ClientCredentials` nasceu separado. Descartada.
+
+### Decisão
+
+**Pacote novo `Secco.SDK.RelyingParty`**, para aplicação com cookie + OIDC code/PKCE (ADR-0023):
+
+- **Registro junto do `AddOpenIdConnect`:** no `OnTokenValidated`, access e refresh token vão para o **cofre no servidor**; o cookie leva só o id da sessão. Cookie com sessão que não está no cofre é rejeitado e leva a novo login.
+- **Cofre sobre `IDistributedCache`** (ADR-0035: estado que todas as instâncias precisam ver). Provider em memória hoje; Redis quando houver réplicas. A porta é pública para quem quiser outro armazenamento.
+- **Provedor do token da pessoa, com renovação sob demanda:** quem pede o token recebe um válido; perto do vencimento ele é renovado com o refresh token, e o refresh rotacionado substitui o anterior no cofre. Renovação recusada (sessão revogada, ADR-0032) ou sessão ausente apagam a entrada e levam a novo login.
+- **`DelegatingHandler` que anexa o Bearer da pessoa a qualquer `HttpClient`**: serve para o `Secco.SecureGate.Client` e para os clients de outros produtos, sem a SDK depender de nenhum client.
+- **Escopos concedidos expostos**: a aplicação lê os escopos do token atual (por exemplo, se a pessoa recebeu `securegate:tenant-admin`, que a ADR-0044 filtra em silêncio) para decidir o que mostrar.
+- **O AdminPortal passa a usar o pacote** e apaga a implementação própria.
+
+### Consequências
+
+- Uma relying party nova adota a custódia com algumas linhas de composição; correção de segurança chega a todas por versão de pacote.
+- **Risco assumido:** o cofre guarda refresh tokens. Com o provider em memória, reiniciar o processo leva todos a novo login — perda tolerável. Com Redis, o Redis passa a guardar credencial e entra no backup e no controle de acesso com esse peso.
+- A sessão segue a ADR-0032: o cofre não estende sessão revogada, porque a renovação é recusada pelo SecureGate.
+
+---
+
+## ADR-0047: Admin de tenant cria tenant e cuida do ciclo de vida dele
+
+**Status:** Aceita
+**Data:** 2026-10-19
+**Complementa:** ADR-0044 (admin de tenant), ADR-0028 (provisionamento de banco) e ADR-0040
+
+### Contexto
+
+A issue [#39](https://github.com/rafsecco/secco-platform/issues/39) (`adopter-demand`) traz a evidência de uso que a ADR-0044 pediu para reabrir "criar tenant e nomear admin pelo admin de tenant". No `secco-intranet`, quem cria os tenants dos outros sistemas da empresa é o `intranet-admin`. Com a ADR-0044 ele administra pessoas, vínculos e perfis, mas criar, ativar e desativar tenant e provisionar banco seguem só com o operador, e a Intranet mantém o client de máquina com `securegate:admin` só por isso.
+
+A análise achou dois caminhos de escalada nas operações pedidas:
+
+1. **Federação.** Quem configura o `tid` da federação de B pode apontá-lo para um diretório Entra que controla, criar ali um usuário com o e-mail de uma pessoa dona em B e entrar como ela (a ADR-0026 casa por e-mail dentro do `tid` registrado). É tomada de conta, inclusive de outra conta administrativa.
+2. **Desativação.** Pela ADR-0040, tenant dono desativado bloqueia a pessoa em todos os sistemas. O admin de B que desativa B tranca qualquer admin de C que seja dono em B.
+
+Alternativas avaliadas:
+
+- **Criar tenant como parte da concessão de admin de tenant.** Toda pessoa com concessão poderia multiplicar tenants. Descartada: criar é concessão própria.
+- **A aplicação concede a admin logo depois de criar, com o client de máquina.** É a aplicação fabricando autoridade com credencial de instalação. Descartada (recusada pelo adotante).
+- **Federação pelo admin de tenant.** Tomada de conta descrita acima. Fica com o operador.
+- **Connection string manual pelo admin de tenant.** Apontar o banco de B para o banco de outro tenant quebra o isolamento da ADR-0005. Fica com o operador.
+
+### Decisão
+
+**Concessão separada "pode criar tenant"** (`tb_tenant_creator_grants`, uma por pessoa), gerida só pelo operador (`PUT`/`DELETE /api/v1/tenant-creators/{userId}`, `GET /api/v1/tenant-creators`). A autoridade usada é o mesmo escopo `securegate:tenant-admin` da ADR-0044: o escopo sai no login para quem tem concessão de admin **ou** de criação, com as mesmas exigências (segundo fator, auditoria configurada).
+
+**Criar tenant:** `POST /api/v1/tenants` aceita a autoridade de admin de tenant quando a pessoa tem a concessão de criação. Na **mesma transação**, o tenant nasce e a pessoa recebe a concessão de admin sobre ele (ADR-0044), registrada como concedida por ela mesma na criação. Contenção da autoexpansão:
+
+- **limite configurável** de tenants criados por pessoa (`SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson`, padrão 20), contado pelas concessões de admin nascidas de criação; acima dele, `409`;
+- quem cria **não nomeia outros admins** (segue da ADR-0044);
+- revogar a concessão de criação não revoga a administração dos tenants já criados — isso é ato separado do operador.
+
+**Nos tenants que administra**, a autoridade passa a cobrir:
+
+- **ativar e desativar**, com uma trava: desativar um tenant que seja **dono de alguma conta administrativa** (com concessão de admin ou de criação) responde `409`;
+- **provisionar o banco no modo automático** (ADR-0028, só quando a automação está ligada) e **consultar o status** dos bancos.
+
+**Ficam com o operador:** o provisionamento em modo script (devolve a senha gerada), o cadastro manual de connection string, a federação e os grupos do Entra, e os clients de tenant.
+
+**Trilha:** toda escrita com essa autoridade segue a ADR-0044 — síncrona e fail-closed, no tenant administrado. A criação é gravada no tenant recém-criado.
+
+### Consequências
+
+- O `secco-intranet` pode aposentar o client de máquina com `securegate:admin` nas operações de tenant, depois de adotar a custódia do token da pessoa (ADR-0046).
+- **Risco aceito:** uma pessoa com concessão de criação cria até o limite de tenants vazios. Eles não alcançam dados de ninguém e ficam visíveis ao operador.
+- A trava de desativação pode impedir o admin de desativar o próprio tenant enquanto ele for dono de contas administrativas; o operador desativa.
+- A bateria negativa é provada por mutação: sem concessão de criação não cria; limite respeitado; a concessão automática só cobre o tenant criado; desativação com conta administrativa dona recusa; provisionamento em modo script e connection string manual recusam a autoridade; federação recusa; trilha indisponível recusa a escrita.
+- `Secco.SecureGate.Client` ganha as rotas de concessão de criação (minor).
 
 ---
 
