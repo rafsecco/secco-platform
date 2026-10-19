@@ -212,7 +212,7 @@ public static class UserEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RemoveUserRole")
-			.AllowTenantAdmin()
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)

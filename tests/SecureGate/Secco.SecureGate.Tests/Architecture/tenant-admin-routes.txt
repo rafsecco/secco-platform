@@ -7,7 +7,7 @@ CreateUser | nao
 ListUsers | nao
 GetUser | nao
 AddUserRole | nao
-RemoveUserRole | nao
+RemoveUserRole | sim
 ResendUserInvite | sim
 ResetUserPassword | sim
 SetUserLocalLogin | sim
@@ -26,5 +26,5 @@ ListRoleMembers | nao
 DeleteRole | nao
 AddTenantMember | nao
 SetTenantMember | nao
-SuspendTenantMember | nao
-RemoveTenantMember | nao
+SuspendTenantMember | sim
+RemoveTenantMember | sim

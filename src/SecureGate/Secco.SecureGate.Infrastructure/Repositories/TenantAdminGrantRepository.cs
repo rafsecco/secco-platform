@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Tenants;
@@ -70,6 +71,17 @@ internal sealed class TenantAdminGrantRepository(SecureGateDbContext context, IT
 		using (accessScope.EnterPlatform("admins de tenant: concessões da pessoa em qualquer tenant"))
 		{
 			return await context.TenantAdminGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async Task<bool> IsAdministrativeAccountAsync(Guid userId, CancellationToken cancellationToken = default)
+	{
+		using (accessScope.EnterPlatform("admins de tenant: alvo protegido é admin de qualquer tenant ou operador"))
+		{
+			return await context.TenantAdminGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false)
+				|| await context.Users
+					.AnyAsync(u => u.Id == userId && u.TenantId == SecureGatePlatform.TenantId, cancellationToken)
+					.ConfigureAwait(false);
 		}
 	}
 

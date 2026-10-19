@@ -338,6 +338,48 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 			.StatusCode.Should().Be(HttpStatusCode.NotFound);
 	}
 
+	[Fact]
+	public async Task RevogarSessoesDoOperador_ComoMembroDoTenant_Responde403()
+	{
+		await GrantAsync(_tenantB, _admin);
+		await IdentitySeed.RoleAsync(secureGate, _tenantB, "compras-leitor");
+
+		// O operador incluído como membro de B: suspender o vínculo ou tirar um perfil moveria o stamp dele
+		// e derrubaria as sessões dele em todas as aplicações (ADR-0032) — em ciclo, se fosse permitido
+		var operadorPessoa = await IdentitySeed.PlatformOperatorAsync(secureGate, $"op-alvo-{Guid.NewGuid():N}@secco.test");
+		using (var operador = await OperatorAsync())
+		{
+			(await operador.PutAsync($"/api/v1/tenants/{_tenantB}/members/{operadorPessoa}", null)).IsSuccessStatusCode.Should().BeTrue();
+			(await operador.PostAsync($"/api/v1/tenants/{_tenantB}/users/{operadorPessoa}/roles/compras-leitor", null)).IsSuccessStatusCode.Should().BeTrue();
+		}
+
+		using var admin = await TenantAdminClientAsync();
+
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantB}/members/{operadorPessoa}/suspend", null))
+			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantB}/members/{operadorPessoa}"))
+			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+		(await admin.DeleteAsync($"/api/v1/tenants/{_tenantB}/users/{operadorPessoa}/roles/compras-leitor"))
+			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+		secureGate.Auditor.Records.Should().BeEmpty();
+	}
+
+	[Fact]
+	public async Task SuspenderMembroComum_Passa()
+	{
+		await GrantAsync(_tenantB, _admin);
+		var membro = await IdentitySeed.UserAsync(secureGate, _tenantC, $"membro-comum-{Guid.NewGuid():N}@secco.test");
+		using (var operador = await OperatorAsync())
+		{
+			(await operador.PutAsync($"/api/v1/tenants/{_tenantB}/members/{membro}", null)).IsSuccessStatusCode.Should().BeTrue();
+		}
+
+		using var admin = await TenantAdminClientAsync();
+
+		(await admin.PostAsync($"/api/v1/tenants/{_tenantB}/members/{membro}/suspend", null))
+			.IsSuccessStatusCode.Should().BeTrue();
+	}
+
 	// ---- Apoio ----
 
 	private static string AdminsRoute(Guid tenantId, Guid userId) => $"/api/v1/tenants/{tenantId}/admins/{userId}";

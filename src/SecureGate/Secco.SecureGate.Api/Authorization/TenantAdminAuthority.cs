@@ -16,9 +16,10 @@ namespace Secco.SecureGate.Api.Authorization;
 /// escopo <c>securegate:tenant-admin</c> não abre a rota, mesmo num grupo que o admite.
 /// </summary>
 /// <param name="ProtectsAdminTargets">
-/// Operação de pessoa: recusa quando a pessoa alvo (<c>{userId}</c>) tem concessão de admin de tenant —
-/// a credencial de um admin é assunto do operador, senão o admin só de A enfraqueceria a conta de quem
-/// administra A e B.
+/// Operação de pessoa, ou que revoga as sessões dela: recusa quando a pessoa alvo (<c>{userId}</c>) é conta
+/// administrativa — tem concessão de admin de tenant ou é operador. Senão o admin só de A enfraqueceria a
+/// conta de quem administra A e B, ou derrubaria em ciclo as sessões do operador (incluí-lo como membro e
+/// suspender o vínculo move o stamp dele, ADR-0032).
 /// </param>
 public sealed record TenantAdminAllowedMetadata(bool ProtectsAdminTargets);
 
@@ -93,7 +94,7 @@ internal static class TenantAdminAuthority
 		// Rota protegida sem alvo legível é erro de mapeamento: recusa em vez de seguir sem conferir
 		if (protectsAdminTargets
 			&& (targetUserId is not { } protectedTarget
-				|| await grants.HasAnyAsync(protectedTarget, cancellationToken).ConfigureAwait(false)))
+				|| await grants.IsAdministrativeAccountAsync(protectedTarget, cancellationToken).ConfigureAwait(false)))
 		{
 			return Forbidden();
 		}

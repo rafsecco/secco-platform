@@ -59,6 +59,15 @@ public interface ITenantAdminGrantRepository
 	Task<bool> HasAnyAsync(Guid userId, CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Indica se a pessoa é conta administrativa — tem alguma concessão de admin de tenant OU é dona no
+	/// tenant de plataforma (operadores). Contra ela, a autoridade de admin de tenant não faz operação de
+	/// pessoa nem nada que revogue as sessões dela (modo plataforma).
+	/// </summary>
+	/// <param name="userId">Pessoa alvo.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<bool> IsAdministrativeAccountAsync(Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Indica se a pessoa tem concessão SOBRE o tenant, em modo plataforma — usado na conferência de
 	/// cada requisição, que roda antes e fora do escopo do tenant da rota.
 	/// </summary>
