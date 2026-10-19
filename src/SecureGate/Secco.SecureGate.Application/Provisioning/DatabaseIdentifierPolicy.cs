@@ -23,6 +23,9 @@ public static partial class DatabaseIdentifierPolicy
 	/// <summary>Tamanho máximo aceito para um identificador.</summary>
 	public const int MaxLength = 63;
 
+	/// <summary>Bytes do hash do id do tenant no sufixo dos nomes derivados (12 caracteres hexadecimais).</summary>
+	private const int TenantSuffixBytes = 6;
+
 	/// <summary>Tamanho mínimo aceito para um identificador.</summary>
 	public const int MinLength = 3;
 
@@ -80,11 +83,11 @@ public static partial class DatabaseIdentifierPolicy
 	}
 
 	/// <summary>
-	/// Deriva o identificador de um tenant sem colisão por truncamento (ADR-0047): igual a <see cref="Derive"/>
-	/// quando cabe em <see cref="MaxLength"/>; quando não cabe, o corte ganha um sufixo com o hash do id do tenant.
-	/// Sem isso, dois slugs longos com o mesmo começo dariam o mesmo nome — e quem cria tenant poderia provisionar
-	/// antes o nome que o banco de um tenant futuro vai ter, ficando com <c>db_owner</c> nele quando o operador o
-	/// provisionasse.
+	/// Deriva o identificador de um tenant sem colisão (ADR-0047): as partes normalizadas, cortadas se preciso, e
+	/// SEMPRE um sufixo com o hash do id do tenant. Todo nome derivado termina no hash do próprio tenant, então
+	/// produzir o nome de outro tenant exige colidir o hash — nem truncamento, nem um slug que imite o sufixo de
+	/// outro, chegam lá. Sem isso, quem cria tenant poderia provisionar antes o nome que o banco de um tenant
+	/// futuro teria e ficar com <c>db_owner</c> nele quando o operador o provisionasse.
 	/// </summary>
 	/// <param name="tenantId">Tenant dono do banco — o que torna o sufixo único.</param>
 	/// <param name="parts">Partes a concatenar com sublinhado.</param>
@@ -93,16 +96,11 @@ public static partial class DatabaseIdentifierPolicy
 		ArgumentNullException.ThrowIfNull(parts);
 
 		var normalized = Normalize(parts);
-
-		if (normalized.Length <= MaxLength)
-		{
-			return normalized;
-		}
-
 		var hash = SHA256.HashData(tenantId.ToByteArray());
-		var suffix = "_" + Convert.ToHexString(hash, 0, 4).ToLower(CultureInfo.InvariantCulture);
+		var suffix = "_" + Convert.ToHexString(hash, 0, TenantSuffixBytes).ToLower(CultureInfo.InvariantCulture);
+		var room = MaxLength - suffix.Length;
 
-		return normalized[..(MaxLength - suffix.Length)].TrimEnd('_') + suffix;
+		return (normalized.Length > room ? normalized[..room] : normalized).TrimEnd('_') + suffix;
 	}
 
 	private static string Normalize(string[] parts)

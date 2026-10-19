@@ -84,10 +84,26 @@ public class DatabaseIdentifierPolicyTests
 	}
 
 	[Fact]
-	public void DeriveForTenant_NomeCurto_IgualAoDerive()
+	public void DeriveForTenant_NomeCurto_TambemLevaOSufixoDoTenant()
 	{
-		DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "logstream", "compras")
-			.Should().Be(DatabaseIdentifierPolicy.Derive("secco", "logstream", "compras"));
+		// Sempre com sufixo: um nome curto nunca reproduz o nome com sufixo de outro tenant (ADR-0047)
+		var derived = DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "logstream", "compras");
+
+		derived.Should().MatchRegex("^secco_logstream_compras_[0-9a-f]{12}$");
+		DatabaseIdentifierPolicy.IsValid(derived).Should().BeTrue();
+	}
+
+	[Fact]
+	public void DeriveForTenant_SlugQueImitaOSufixoDeOutroTenant_NaoColide()
+	{
+		var vitima = Guid.NewGuid();
+		var nomeDaVitima = DatabaseIdentifierPolicy.DeriveForTenant(vitima, "secco", "logstream", "compras");
+
+		// O atacante monta um slug que reproduz o nome inteiro da vítima, sufixo incluído
+		var slugImitador = nomeDaVitima["secco_logstream_".Length..].Replace('_', '-');
+
+		DatabaseIdentifierPolicy.DeriveForTenant(Guid.NewGuid(), "secco", "logstream", slugImitador)
+			.Should().NotBe(nomeDaVitima);
 	}
 
 	[Fact]

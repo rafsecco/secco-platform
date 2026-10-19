@@ -134,7 +134,9 @@ public sealed class ProvisionTenantDatabaseHandler(
 			: command.DatabaseName.Trim().ToLowerInvariant();
 
 		var loginName = string.IsNullOrWhiteSpace(command.LoginName)
-			? DatabaseIdentifierPolicy.DeriveForTenant(tenant.Id, databaseName, "app")
+			? string.IsNullOrWhiteSpace(command.DatabaseName)
+				? DatabaseIdentifierPolicy.DeriveForTenant(tenant.Id, "secco", product, tenant.Slug, "app")
+				: DatabaseIdentifierPolicy.DeriveForTenant(tenant.Id, databaseName, "app")
 			: command.LoginName.Trim().ToLowerInvariant();
 
 		if (!DatabaseIdentifierPolicy.IsValid(databaseName) || !DatabaseIdentifierPolicy.IsValid(loginName))
