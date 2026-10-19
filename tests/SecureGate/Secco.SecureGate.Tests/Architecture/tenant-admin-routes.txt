@@ -1,0 +1,30 @@
+# Rotas abertas à autoridade de admin de tenant (ADR-0044). Uma linha por rota marcada com .AllowTenantAdmin():
+#   operationId | protege-alvo-admin (sim/nao)
+# Rota marcada sem linha reprova; linha sem rota também. Abrir uma rota a admin de tenant é decisão de segurança:
+# ela aparece no diff desta lista.
+GetTenant | nao
+CreateUser | nao
+ListUsers | nao
+GetUser | nao
+AddUserRole | nao
+RemoveUserRole | nao
+ResendUserInvite | sim
+ResetUserPassword | sim
+SetUserLocalLogin | sim
+SetUserDisplayName | sim
+ResetUserTwoFactor | sim
+RemoveUserExternalLogin | sim
+DeactivateUser | sim
+ActivateUser | sim
+RevokeUserSessions | sim
+CreateRole | nao
+ListRoles | nao
+SetRolePermissions | nao
+RemoveUnknownRolePermissions | nao
+GetRole | nao
+ListRoleMembers | nao
+DeleteRole | nao
+AddTenantMember | nao
+SetTenantMember | nao
+SuspendTenantMember | nao
+RemoveTenantMember | nao

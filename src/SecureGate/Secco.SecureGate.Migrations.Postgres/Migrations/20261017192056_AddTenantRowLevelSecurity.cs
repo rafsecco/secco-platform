@@ -25,13 +25,14 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            TenantRowLevelSecurity.Create(migrationBuilder);
+            // Revisão fixa: num banco novo, as tabelas de revisões posteriores ainda não existem aqui
+            TenantRowLevelSecurity.Create(migrationBuilder, TenantRowLevelSecurity.RevisionAdr0041);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            TenantRowLevelSecurity.Drop(migrationBuilder);
+            TenantRowLevelSecurity.Drop(migrationBuilder, TenantRowLevelSecurity.RevisionAdr0041);
         }
     }
 }

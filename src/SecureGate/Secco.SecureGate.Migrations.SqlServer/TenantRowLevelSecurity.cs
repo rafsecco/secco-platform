@@ -4,7 +4,7 @@ namespace Secco.SecureGate.Migrations.SqlServer;
 
 /// <summary>
 /// SQL do Row-Level Security do banco de plataforma do SecureGate (ADR-0041, camada 2): funcoes de predicado
-/// <c>fn_check_*</c> e a politica <c>pol_tenant_isolation</c> nas 9 tabelas de tenant.
+/// <c>fn_check_*</c> e a politica <c>pol_tenant_isolation</c> nas tabelas de tenant (9 na revisao da ADR-0041, 10 com a da ADR-0044).
 /// <para>
 /// ATENCAO para migrations futuras: funcoes e politica sao <c>SCHEMABINDING</c>, entao alterar ou dropar
 /// colunas das tabelas protegidas (ou das referenciadas pelas funcoes) falha enquanto a politica existir.
@@ -15,7 +15,16 @@ namespace Secco.SecureGate.Migrations.SqlServer;
 /// </summary>
 public static class TenantRowLevelSecurity
 {
-    /// <summary>Remove a politica e as funcoes (ordem inversa das dependencias). Idempotente.</summary>
+    /// <summary>Revisao 1 (ADR-0041): as 9 tabelas de tenant originais. Fixa: e a que a migration da ADR-0041 aplica.</summary>
+    public const int RevisionAdr0041 = 1;
+
+    /// <summary>Revisao 2 (ADR-0044): + <c>tb_tenant_admin_grants</c>.</summary>
+    public const int RevisionAdr0044 = 2;
+
+    /// <summary>Revisao corrente da politica — a que migrations futuras recriam depois de <see cref="Drop"/>.</summary>
+    public const int CurrentRevision = RevisionAdr0044;
+
+    /// <summary>Remove a politica e as funcoes (ordem inversa das dependencias). Idempotente e igual em toda revisao.</summary>
     public static void Drop(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.Sql("DROP SECURITY POLICY IF EXISTS dbo.pol_tenant_isolation;");
@@ -24,9 +33,18 @@ public static class TenantRowLevelSecurity
         migrationBuilder.Sql("DROP FUNCTION IF EXISTS dbo.fn_check_tenant_row;");
     }
 
-    /// <summary>Cria as funcoes de predicado e a politica (FILTER e BLOCK em todas as tabelas protegidas).</summary>
-    public static void Create(MigrationBuilder migrationBuilder)
+    /// <summary>
+    /// Cria as funcoes de predicado e a politica (FILTER e BLOCK em todas as tabelas protegidas) na revisao
+    /// pedida. Migration ja aplicada chama a revisao dela, nunca a corrente: num banco novo, a tabela de uma
+    /// revisao posterior ainda nao existe quando ela roda.
+    /// </summary>
+    /// <param name="migrationBuilder">Builder da migration.</param>
+    /// <param name="revision">Revisao da politica (<see cref="RevisionAdr0041"/>, <see cref="RevisionAdr0044"/>...).</param>
+    public static void Create(MigrationBuilder migrationBuilder, int revision = CurrentRevision)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(revision, RevisionAdr0041);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(revision, CurrentRevision);
+
         // Tabela com tenant direto: o tenant da linha é o do contexto (ou o contexto é plataforma).
         migrationBuilder.Sql(@"
 CREATE FUNCTION dbo.fn_check_tenant_row(@id_tenant uniqueidentifier)
@@ -106,7 +124,13 @@ CREATE SECURITY POLICY dbo.pol_tenant_isolation
 
     ADD FILTER PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_elevation_grants,
     ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_elevation_grants AFTER INSERT,
-    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_elevation_grants AFTER UPDATE
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_elevation_grants AFTER UPDATE"
+    + (revision >= RevisionAdr0044 ? @",
+
+    ADD FILTER PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants AFTER INSERT,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants AFTER UPDATE" : string.Empty)
+    + @"
     WITH (STATE = ON, SCHEMABINDING = ON);
 ");
     }

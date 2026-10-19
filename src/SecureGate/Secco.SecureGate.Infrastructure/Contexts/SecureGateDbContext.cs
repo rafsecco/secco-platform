@@ -7,6 +7,7 @@ using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Domain.Permissions;
+using Secco.SecureGate.Domain.TenantAdministration;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
 using Secco.SecureGate.Infrastructure.Identity;
@@ -79,6 +80,9 @@ public sealed class SecureGateDbContext(
 	/// <summary>Concessões de elevação de leitura cross-tenant (tabela <c>tb_elevation_grants</c>, ADR-0031).</summary>
 	public DbSet<ElevationGrant> ElevationGrants => Set<ElevationGrant>();
 
+	/// <summary>Concessões de admin de tenant (tabela <c>tb_tenant_admin_grants</c>, ADR-0044).</summary>
+	public DbSet<TenantAdminGrant> TenantAdminGrants => Set<TenantAdminGrant>();
+
 	/// <summary>Catálogo de permissões publicado pelos produtos (tabela <c>tb_permission_catalog_entries</c>, ADR-0039).</summary>
 	public DbSet<PermissionCatalogEntry> PermissionCatalogEntries => Set<PermissionCatalogEntry>();
 
@@ -136,6 +140,7 @@ public sealed class SecureGateDbContext(
 				TenantFederation federation => federation.TenantId,
 				TenantGroupRoleMapping mapping => mapping.TenantId,
 				ElevationGrant grant => grant.TenantId,
+				TenantAdminGrant adminGrant => adminGrant.TenantId,
 				_ => (Guid?)null,
 			};
 
@@ -338,6 +343,23 @@ public sealed class SecureGateDbContext(
 			// Cascade nas duas FKs: usuário ou tenant apagado leva a concessão junto — concessão órfã
 			// apontando para ninguém é lixo com cara de privilégio. Não há múltiplos caminhos de
 			// cascade até esta tabela porque tenant → usuário é Restrict (acima).
+			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
+			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
+			grant.HasQueryFilter(TenantFilter, g => IsPlatformScope || g.TenantId == ScopedTenantId);
+		});
+
+		builder.Entity<TenantAdminGrant>(grant =>
+		{
+			grant.Property(g => g.GrantedBy).HasMaxLength(TenantAdminGrant.GrantedByMaxLength);
+
+			// Uma concessão por (tenant administrado, pessoa) — chave natural da ADR-0044 (ADR-0034)
+			grant.HasIndex(g => new { g.TenantId, g.UserId }).IsUnique();
+
+			// Pela pessoa: "que tenants ela administra" no login e na listagem
+			grant.HasIndex(g => g.UserId);
+
+			// Cascade nas duas FKs, pelo mesmo motivo da elevação: concessão apontando para ninguém é
+			// lixo com cara de privilégio.
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasQueryFilter(TenantFilter, g => IsPlatformScope || g.TenantId == ScopedTenantId);

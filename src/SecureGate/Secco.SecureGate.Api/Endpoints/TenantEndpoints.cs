@@ -22,7 +22,7 @@ public static class TenantEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants")
 			.WithTags("Tenants")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+				policy.RequireAssertion(TenantAdminAuthority.AllowsAdminOrMarkedTenantAdmin));
 
 		group.MapPost("/", async (
 				CreateTenantRequest request,
@@ -49,6 +49,7 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetTenant")
+			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Busca um tenant com os produtos que têm banco cadastrado (sem connection strings).")
 			.Produces<TenantDetailDto>(StatusCodes.Status200OK)

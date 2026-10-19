@@ -13,6 +13,13 @@ public static class SecureGateScopes
 	public const string Admin = "securegate:admin";
 
 	/// <summary>
+	/// Scope de admin de tenant (ADR-0044): administrar, on-behalf-of a pessoa logada, SÓ os tenants em
+	/// que ela tem concessão (<c>tb_tenant_admin_grants</c>), conferida a cada requisição. Concedível
+	/// apenas a client de plataforma, pela configuração; no login sai só para quem tem concessão.
+	/// </summary>
+	public const string TenantAdmin = "securegate:tenant-admin";
+
+	/// <summary>
 	/// Scope de leitura da resolução role→permissions (ADR-0021, Fase 6.4). Único para a
 	/// plataforma: permissões são configuração de acesso, não segredos — todo serviço que
 	/// usa <c>AddSeccoAuthorization()</c> o recebe; a GESTÃO segue exclusiva do admin.
@@ -36,7 +43,7 @@ public static class SecureGateScopes
 	/// <summary>
 	/// Escopos concedíveis a client de PRODUTO, vinculado a tenant (ADR-0037). Lista fechada no
 	/// código: produto novo entra aqui no mesmo PR que registra o escopo no seed de referência.
-	/// <see cref="Admin"/>, <see cref="AuthorizationRead"/>, <c>catalog:*</c> e <c>securegate</c>
+	/// <see cref="Admin"/>, <see cref="TenantAdmin"/>, <see cref="AuthorizationRead"/>, <c>catalog:*</c> e <c>securegate</c>
 	/// são de infraestrutura — atravessam tenant por construção e só existem em client de plataforma.
 	/// </summary>
 	public static readonly IReadOnlyList<string> ProductScopes = ["logstream", "notificationhub"];

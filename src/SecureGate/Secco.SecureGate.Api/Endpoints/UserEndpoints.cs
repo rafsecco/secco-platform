@@ -25,7 +25,7 @@ public static class UserEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/users")
 			.WithTags("Users")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+				policy.RequireAssertion(TenantAdminAuthority.AllowsAdminOrMarkedTenantAdmin))
 			.RequireTenantScope();
 
 		group.MapPost("/", async (
@@ -38,6 +38,7 @@ public static class UserEndpoints
 					cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{tenantId}/users/{dto.Id}", dto)))
 			.WithName("CreateUser")
+			.AllowTenantAdmin()
 			.WithSummary("Cria um usuário no tenant e envia o convite para ele definir a própria senha (ADR-0033).")
 			.Produces<UserDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -48,6 +49,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, cancellationToken))
 				.ToHttpResult(users => Results.Ok(users)))
 			.WithName("ListUsers")
+			.AllowTenantAdmin()
 			.WithSummary("Lista os usuários do tenant com seus roles (sem segredos).")
 			.Produces<IReadOnlyList<UserDto>>(StatusCodes.Status200OK);
 
@@ -59,6 +61,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ResendUserInvite")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Reenvia o convite para o usuário definir a primeira senha (ADR-0033).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -72,6 +75,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ResetUserPassword")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Envia o link de redefinição para o usuário e encerra as sessões dele na hora (ADR-0033).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -86,6 +90,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, request.Enabled, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetUserLocalLogin")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Liga ou desliga a senha local da conta; desligar apaga a senha e encerra as sessões (ADR-0033).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -100,6 +105,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(new SetDisplayNameCommand(tenantId, userId, request.DisplayName), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetUserDisplayName")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Define o nome de exibição do usuário (#30). Vazio ou nulo limpa o nome.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -113,6 +119,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ResetUserTwoFactor")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Zera o cadastro do segundo fator do usuário. Não isenta: o próximo login cadastra de novo.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -126,6 +133,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, provider, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RemoveUserExternalLogin")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Remove o vínculo com um provedor externo (idempotente). Não bloqueia acesso: a federação revincula no próximo login.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -142,6 +150,7 @@ public static class UserEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeactivateUser")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -158,6 +167,7 @@ public static class UserEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ActivateUser")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Reativa um usuário desativado ou bloqueado por tentativas.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -170,6 +180,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetUser")
+			.AllowTenantAdmin()
 			.WithSummary("Detalha o usuário: situação, perfis, permissões efetivas e logins externos (sem identificadores).")
 			.Produces<UserDetailDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -183,6 +194,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, role, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("AddUserRole")
+			.AllowTenantAdmin()
 			.WithSummary("Torna o usuário membro do perfil (idempotente). Vale no token na próxima renovação.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -200,6 +212,7 @@ public static class UserEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RemoveUserRole")
+			.AllowTenantAdmin()
 			.WithSummary("Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -214,6 +227,7 @@ public static class UserEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RevokeUserSessions")
+			.AllowTenantAdmin(protectsAdminTargets: true)
 			.WithSummary("Encerra todas as sessões do usuário: produtos recusam os tokens atuais em até um TTL de cache (ADR-0032).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);

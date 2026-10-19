@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -589,12 +589,13 @@ public sealed class PostgresParityTests(PostgresRlsFixture fixture) : IClassFixt
 		[
 			"tb_roles", "tb_role_claims", "tb_user_roles", "tb_tenant_memberships", "tb_users",
 			"tb_tenant_databases", "tb_tenant_federations", "tb_tenant_group_role_mappings", "tb_elevation_grants",
+			"tb_tenant_admin_grants",
 		];
 
 		await using var owner = new NpgsqlConnection(OwnerConnection());
 		await owner.OpenAsync();
 
-		(await StateAsync(owner)).Should().Be((10, 9, 9), "uma politica por tabela (tb_users tem duas: select e write), RLS ligado e forcado nas 9");
+		(await StateAsync(owner)).Should().Be((11, 10, 10), "uma politica por tabela (tb_users tem duas: select e write), RLS ligado e forcado nas 10 (revisao da ADR-0044)");
 
 		var drop = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
 		TenantRowLevelSecurity.Drop(drop);
@@ -604,11 +605,11 @@ public sealed class PostgresParityTests(PostgresRlsFixture fixture) : IClassFixt
 		var create = new MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
 		TenantRowLevelSecurity.Create(create);
 		await RunAsync(owner, create);
-		(await StateAsync(owner)).Should().Be((10, 9, 9));
+		(await StateAsync(owner)).Should().Be((11, 10, 10));
 
 		(await ScalarAsync(owner, "SELECT COUNT(*) FROM pg_policies WHERE policyname = ANY (@names)",
 			("@names", tables.Where(t => t != "tb_users").Select(t => $"pol_tenant_isolation_{t}")
-				.Concat(["pol_tenant_isolation_tb_users_select", "pol_tenant_isolation_tb_users_write"]).ToArray()))).Should().Be(10);
+				.Concat(["pol_tenant_isolation_tb_users_select", "pol_tenant_isolation_tb_users_write"]).ToArray()))).Should().Be(11);
 	}
 
 	private static async Task<(long Policies, long Enabled, long Forced)> StateAsync(NpgsqlConnection connection) =>

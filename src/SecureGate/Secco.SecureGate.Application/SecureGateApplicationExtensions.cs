@@ -89,6 +89,12 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<GetElevationHandler>();
 		services.AddScoped<RevokeElevationHandler>();
 
+		// Concessão de admin de tenant (ADR-0044)
+		services.AddScoped<TenantAdministration.GrantTenantAdminHandler>();
+		services.AddScoped<TenantAdministration.RevokeTenantAdminHandler>();
+		services.AddScoped<TenantAdministration.ListTenantAdminsHandler>();
+		services.AddScoped<TenantAdministration.ListAdministeredTenantsHandler>();
+
 		// Versão de sessão consultada pelos produtos (ADR-0032)
 		services.AddScoped<Sessions.GetSessionVersionHandler>();
 		services.AddScoped<Sessions.RevokeUserSessionsHandler>();

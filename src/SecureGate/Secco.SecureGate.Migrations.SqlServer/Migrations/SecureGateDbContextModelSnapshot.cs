@@ -126,6 +126,44 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                     b.ToTable("tb_permission_catalog_entries");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.TenantAdminGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_tenant_admin_grant");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("GrantedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_granted_by");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_user");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tenant_admin_grants");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("idx_tenant_admin_grants_id_fk_user");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_tenant_admin_grants_id_fk_tenant_id_fk_user");
+
+                    b.ToTable("tb_tenant_admin_grants");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -896,6 +934,23 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_elevation_grants_user");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.TenantAdminGrant", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_admin_grants_tenant");
+
+                    b.HasOne("Secco.SecureGate.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tenant_admin_grants_user");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Domain.Tenants.TenantDatabase", b =>

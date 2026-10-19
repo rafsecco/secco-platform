@@ -123,6 +123,9 @@ public static class SecureGateInfrastructureExtensions
 		// Concessão de elevação de leitura cross-tenant (ADR-0031)
 		services.AddScoped<Application.Elevation.IElevationGrantRepository, Repositories.ElevationGrantRepository>();
 
+		// Concessão de admin de tenant (ADR-0044)
+		services.AddScoped<Application.TenantAdministration.ITenantAdminGrantRepository, Repositories.TenantAdminGrantRepository>();
+
 		// Catálogo de permissões publicado pelos produtos (ADR-0039)
 		services.AddScoped<Application.Permissions.IPermissionCatalogRepository, PermissionCatalog.PermissionCatalogRepository>();
 
@@ -197,6 +200,13 @@ public static class SecureGateInfrastructureExtensions
 			serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value.IsConfigured
 				? ActivatorUtilities.CreateInstance<Elevation.LogStreamElevationAuditor>(serviceProvider)
 				: Elevation.NotConfiguredElevationAuditor.Instance);
+
+		// Admin de tenant (ADR-0044): mesma identidade de auditoria e a mesma postura da elevação —
+		// sem ela, a autoridade inteira fica desligada (fail-closed)
+		services.AddSingleton<Application.TenantAdministration.ITenantAdminAuditor>(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<Elevation.ElevationAuditOptions>>().Value.IsConfigured
+				? ActivatorUtilities.CreateInstance<TenantAdministration.LogStreamTenantAdminAuditor>(serviceProvider)
+				: TenantAdministration.NotConfiguredTenantAdminAuditor.Instance);
 
 		// Processo controlado (ADR-0038): migrations do banco de plataforma
 		services.AddScoped<ISeccoDatabaseMigrator, SecureGatePlatformMigrator>();

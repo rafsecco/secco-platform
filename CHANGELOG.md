@@ -12,6 +12,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SecureGate.Client 0.19.0 e SecureGate (serviço) — admin de tenant (issue #37, ADR-0044)
+
+Só acréscimos no client (minor). O serviço ganha uma migration e um escopo no seed de referência: rodar o `migrate` antes das réplicas, como sempre (ADR-0038).
+
+- **Concessão de admin de tenant**, gerida só pelo operador (`securegate:admin`): `PUT`/`DELETE /api/v1/tenants/{tenantId}/admins/{userId}` (idempotentes) e `GET /api/v1/tenants/{tenantId}/admins`. O tenant de plataforma responde `409`.
+- **Escopo `securegate:tenant-admin`**, só para client de plataforma (`SecureGate:PlatformClients`). Sai no login apenas para quem tem concessão, segundo fator e auditoria configurada (`SecureGate:Audit`); a renovação refaz a conferência.
+- **Rotas abertas a admin de tenant**, conferidas no cadastro a cada requisição: leitura do tenant, pessoas, vínculos, perfis e atribuição de perfil. Operação de pessoa sobre outro admin de tenant responde `403`. `GET /api/v1/tenant-admin/tenants` lista os tenants que o chamador administra.
+- **Trilha síncrona e fail-closed**: toda escrita com essa autoridade vira `AuditEntry` no LogStream do tenant administrado, com a pessoa como ator e a aplicação em `Metadata.act`; trilha indisponível responde `503` e a escrita não acontece.
+- **Para quem usa client de máquina com `securegate:admin` na área administrativa** (a Intranet): nada muda até migrar. Para migrar, peça `securegate:tenant-admin` no client de plataforma da área administrativa e chame on-behalf-of a pessoa logada; o operador concede os tenants de cada pessoa.
+
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.

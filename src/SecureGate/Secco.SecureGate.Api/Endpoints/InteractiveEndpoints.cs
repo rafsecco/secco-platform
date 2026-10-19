@@ -6,6 +6,7 @@ using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
@@ -118,12 +119,31 @@ public static class InteractiveEndpoints
 				OperatorTwoFactorPolicy.EnrollmentPath + "?returnUrl=" + Uri.EscapeDataString(destino));
 		}
 
+		// ADR-0044: admin de tenant também não recebe code sem segundo fator — mesma razão do operador,
+		// em escala menor: a conta administra outros tenants
+		var tenantAdminGrants = context.RequestServices.GetRequiredService<ITenantAdminGrantRepository>();
+		var tenantAdminAuditor = context.RequestServices.GetRequiredService<ITenantAdminAuditor>();
+
+		if (await TenantAdminScopePolicy.RequiresEnrollmentAsync(
+				user, request.GetScopes(), tenantAdminGrants, tenantAdminAuditor, context.RequestAborted))
+		{
+			var destino = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
+
+			return Results.Redirect(
+				OperatorTwoFactorPolicy.EnrollmentPath + "?returnUrl=" + Uri.EscapeDataString(destino));
+		}
+
 		// ADR-0023: o scope admin só é emitido a operadores de instalação — login de usuário
 		// comum pelo client do AdminPortal NÃO escala para admin, mesmo com o scope permitido.
 		// O nome do role é único só por tenant: exigir também o tenant de plataforma impede
 		// que um operador forjado (role com o mesmo nome) num tenant de cliente ganhe o scope
 		// admin (defesa contra colisão de nome, ADR-0020/0023/0024).
-		var granted = InstallationOperatorPolicy.FilterScopes(user, roles, request.GetScopes(), loginTenantId);
+		var granted = await TenantAdminScopePolicy.FilterScopesAsync(
+			user,
+			InstallationOperatorPolicy.FilterScopes(user, roles, request.GetScopes(), loginTenantId),
+			tenantAdminGrants,
+			tenantAdminAuditor,
+			context.RequestAborted);
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, granted, context.RequestAborted);
 
 		// Client first-party confiável (ConsentType Implicit no registro) → sem tela de consent (Fase 6.5)

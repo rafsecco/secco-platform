@@ -94,6 +94,40 @@
         }
       }
     },
+    "/api/v1/tenant-admin/tenants": {
+      "get": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Lista os tenants que a pessoa logada administra (ADR-0044).",
+        "operationId": "ListAdministeredTenants",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants": {
       "post": {
         "tags": [
@@ -2327,6 +2361,157 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/admins": {
+      "get": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Lista as pessoas com concessão de admin deste tenant (ADR-0044).",
+        "operationId": "ListTenantAdmins",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantAdminDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/admins/{userId}": {
+      "put": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Concede a autoridade de admin deste tenant à pessoa — idempotente. A pessoa pode ser de qualquer tenant; o tenant de plataforma responde 409.",
+        "operationId": "GrantTenantAdmin",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TenantAdmins"
+        ],
+        "summary": "Revoga a autoridade de admin deste tenant — idempotente; vale na próxima requisição da pessoa.",
+        "operationId": "RevokeTenantAdmin",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/entra/groups": {
       "get": {
         "tags": [
@@ -3812,6 +3997,43 @@
           }
         }
       },
+      "TenantAdminDto": {
+        "required": [
+          "userId",
+          "email",
+          "displayName",
+          "ownerTenantId",
+          "grantedBy",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ownerTenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "grantedBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "TenantDatabaseProvisioningDto": {
         "required": [
           "applied",
@@ -4189,6 +4411,9 @@
   "tags": [
     {
       "name": "Authorization"
+    },
+    {
+      "name": "TenantAdmins"
     },
     {
       "name": "Tenants"

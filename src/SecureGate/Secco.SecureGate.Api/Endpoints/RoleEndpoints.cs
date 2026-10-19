@@ -23,7 +23,7 @@ public static class RoleEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/roles")
 			.WithTags("Roles")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+				policy.RequireAssertion(TenantAdminAuthority.AllowsAdminOrMarkedTenantAdmin))
 			.RequireTenantScope();
 
 		group.MapPost("/", async (
@@ -34,6 +34,7 @@ public static class RoleEndpoints
 			(await handler.HandleAsync(new CreateRoleCommand(tenantId, request.Name), cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{tenantId}/roles", dto)))
 			.WithName("CreateRole")
+			.AllowTenantAdmin()
 			.WithSummary("Cria um role no tenant (nasce sem permissões).")
 			.Produces<RoleDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -44,6 +45,7 @@ public static class RoleEndpoints
 			(await handler.HandleAsync(tenantId, cancellationToken))
 				.ToHttpResult(roles => Results.Ok(roles)))
 			.WithName("ListRoles")
+			.AllowTenantAdmin()
 			.WithSummary("Lista os roles do tenant com suas permissões.")
 			.Produces<IReadOnlyList<RoleDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -58,6 +60,7 @@ public static class RoleEndpoints
 				new SetRolePermissionsCommand(tenantId, role, request.Permissions), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetRolePermissions")
+			.AllowTenantAdmin()
 			.WithSummary("Substitui o conjunto de permissões do role (idempotente; revogação propaga em até um TTL).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -70,6 +73,7 @@ public static class RoleEndpoints
 			(await handler.HandleAsync(tenantId, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("RemoveUnknownRolePermissions")
+			.AllowTenantAdmin()
 			.WithSummary("Remove dos perfis DESTE tenant as permissões que nenhum produto declara (idempotente; perfis reservados não são tocados).")
 			.Produces<RemovedUnknownPermissionsDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -82,6 +86,7 @@ public static class RoleEndpoints
 			(await handler.HandleAsync(tenantId, role, cancellationToken))
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetRole")
+			.AllowTenantAdmin()
 			.WithSummary("Detalha um perfil: permissões efetivas, se é reservado e quantos membros tem.")
 			.Produces<RoleDetailDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -101,6 +106,7 @@ public static class RoleEndpoints
 				cancellationToken))
 				.ToHttpResult(result => Results.Ok(result)))
 			.WithName("ListRoleMembers")
+			.AllowTenantAdmin()
 			.WithSummary("Lista, paginados, os membros do perfil com a situação de cada conta.")
 			.Produces<PagedResult<RoleMemberDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -114,6 +120,7 @@ public static class RoleEndpoints
 			(await handler.HandleAsync(tenantId, role, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeleteRole")
+			.AllowTenantAdmin()
 			.WithSummary("Exclui um perfil sem membros. Perfis reservados da plataforma não são excluíveis.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)

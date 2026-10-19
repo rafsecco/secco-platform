@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-17 (ADR-0043 aceita)
+**Última atualização:** 2026-10-18 (ADR-0044 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1601,6 +1601,63 @@ Alternativas avaliadas:
 - **Risco residual aceito:** um erro de digitação na **parte da instância** (`setor-rhh:read`) passa na validação. O produto monta esses nomes a partir das instâncias que ele conhece; quem digita à mão no AdminPortal assume o risco, que o prefixo literal e a ação fixa limitam à família certa.
 - `Secco.SharedKernel` ganha só acréscimos (minor); `Secco.SecureGate.Client` ganha o campo `isFamily` na leitura do catálogo (minor).
 - **Proibido:** placeholder fora do fim do segmento de recurso, mais de um placeholder, ou família sem prefixo literal — qualquer uma dessas formas exige ADR nova.
+
+---
+
+## ADR-0044: Admin de tenant — autoridade administrativa por concessão, on-behalf-of a pessoa
+
+**Status:** Aceita
+**Data:** 2026-10-18
+**Complementa:** ADR-0030 (dá mecanismo à hierarquia admin de instalação × admin de tenant) e ADR-0040
+
+### Contexto
+
+A issue [#37](https://github.com/rafsecco/secco-platform/issues/37) (`adopter-demand`) aponta que toda a API administrativa do SecureGate exige `securegate:admin`, escopo **de instalação**, que só sai num token de pessoa quando ela é operador de instalação (ADR-0040). No `secco-intranet`, quem administra os tenants dos outros sistemas da empresa é o `intranet-admin`, pessoa do tenant da Intranet e não operador. Sem alternativa, a Intranet administra com um client de máquina com `securegate:admin`. Quem compromete a Intranet, ou acha um bug de autorização numa tela dela, administra **todos** os tenants da instalação, e a trilha da plataforma registra "a Intranet fez", não a pessoa.
+
+A ADR-0030 descreveu a direção (modelo `cluster-admin`/`namespace-admin`) sem mecanismo. A ADR-0040 separou as operações de pessoa (só pelo tenant dono) das de vínculo (por qualquer tenant de que a pessoa é membro), dizendo que esse é "o contrato que a área administrativa por tenant vai herdar". A ADR-0041 classificou cada rota administrativa como de tenant (escopo do tenant da rota) ou de plataforma.
+
+Alternativas avaliadas:
+
+- **Perfil num tenant concede administração de outros** (ex.: `tenant-admin:compras` como permissão de um perfil da Intranet). Autoridade sobre o tenant B nasceria de um perfil no tenant A, que o admin de A edita: é a escalada por perfil homônimo que a ADR-0031 e a ADR-0040 já fecharam. Descartada.
+- **Lista de tenants administrados no token** (claim). O token cresce com os tenants, e revogar só vale quando ele expira. O SecureGate é o próprio servidor de recurso e tem o cadastro à mão. Descartada.
+- **Área administrativa só para operador de instalação.** Muda quem administra os sistemas da empresa (recusado pelo adotante). Descartada.
+- **Dar `installation-operator` ao `intranet-admin`.** Poder sobre a instalação inteira para uma pessoa de tenant. Descartada.
+- **Admin de tenant cria tenant e nomeia outros admins.** A autoridade se expandiria sozinha, e uma conta comprometida se perpetuaria criando admins. Fica fora do v1 (ver Consequências).
+
+### Decisão
+
+**A autoridade é uma concessão explícita, guardada na plataforma.** Tabela `tb_tenant_admin_grants`: pessoa, tenant administrado, `sub` de quem concedeu, data. Uma linha por par (pessoa, tenant): administrar vários tenants é ter várias linhas, sem conceito de grupo. Gerida **só pelo operador de instalação** (`securegate:admin`): `PUT /api/v1/tenants/{tenantId}/admins/{userId}` concede (idempotente, ADR-0034), `DELETE` revoga, `GET /api/v1/tenants/{tenantId}/admins` lista. Regras da concessão:
+
+- o **tenant de plataforma nunca é administrável** por esta autoridade (`409`) — senão autoridade de tenant viraria de instalação;
+- a pessoa precisa existir e o tenant precisa existir; a pessoa **não** precisa ser membro do tenant que administra;
+- admin de tenant não concede nem revoga concessão, nem a própria.
+
+**Escopo novo `securegate:tenant-admin`, só para client de plataforma.** Concedível apenas por `SecureGate:PlatformClients` (ADR-0037), como o `securegate:admin`; nunca a client de produto ou de tenant — um tenant não fabrica a própria credencial administrativa. No login e em toda renovação o escopo só sai se a pessoa tiver ao menos uma concessão ativa; senão é filtrado em silêncio, como o de operador. **Segundo fator obrigatório** para quem recebe o escopo, no `/connect/authorize` antes do code, como o operador (entrega D). O token não muda de forma: `tenant_id` continua o do login (ADR-0040), e não lista os tenants administrados.
+
+**A autorização é conferida no cadastro a cada requisição.** Uma rota aceita a autoridade de admin de tenant só se estiver marcada como tal; nela, o chamador passa se tiver `securegate:admin` (como hoje) **ou** se tiver `securegate:tenant-admin` **e** existir a concessão (`sub` do token, tenant da rota) **e** a conta e o tenant dono dela continuarem ativos. Revogar a concessão vale na próxima requisição. Recusa responde `403` sem dizer se o tenant existe.
+
+**Negado por padrão, rota por rota.** A marcação é explícita no mapeamento, e um teste de arquitetura confere o conjunto contra uma lista versionada, como a allowlist da ADR-0041. Entram no v1:
+
+- leitura do tenant;
+- pessoas do tenant (ADR-0040: operações de pessoa continuam só pelo tenant dono — `404` pelos outros), **exceto sobre quem tem concessão de admin de tenant**: convite, reset de senha e de segundo fator, login local, nome, desvínculo de login externo, ativação e encerramento de sessões de um admin de tenant respondem `403` a esta autoridade e ficam com o operador. Sem isso, o admin só do tenant A enfraqueceria a conta de um admin de A e de B — zerando o segundo fator dele, por exemplo — e ganharia caminho para B;
+- vínculos;
+- perfis, permissões dos perfis, limpeza de órfãs, atribuição e remoção de perfil;
+- `GET /api/v1/tenant-admin/tenants`, nova: os tenants que o chamador administra.
+
+Ficam **só com o operador**: criar, ativar e desativar tenant; connection string e provisionamento de banco (ADR-0028); clients de tenant (ADR-0037); federação e grupos do Entra (ADR-0026/0036); concessões de elevação (ADR-0031) e de admin de tenant; catálogo de permissões (ADR-0039).
+
+**Toda escrita feita com essa autoridade é auditada de forma síncrona e fail-closed.** O registro vai para o LogStream, no **tenant administrado**, pela identidade de auditoria da instalação (ADR-0031), com a pessoa como ator, a ação, o recurso, e em `Metadata` a aplicação (`client_id` do token, o `act` do pedido) e a autoridade usada. Falha ao gravar recusa a operação **antes** de ela acontecer; sem identidade de auditoria configurada (`SecureGate:Audit`), o escopo nunca é emitido e as rotas recusam a autoridade. Escrita feita com `securegate:admin` segue como hoje.
+
+### Consequências
+
+- A Intranet pode trocar o client de máquina pelo token da pessoa: um comprometimento dela passa a alcançar só os tenants que a pessoa logada administra, e a trilha da plataforma guarda a pessoa e a aplicação.
+- **O client de máquina com `securegate:admin` não muda**: segue sendo credencial de instalação. Migrar a área administrativa para o token da pessoa é decisão do adotante, recomendada por esta ADR.
+- **Riscos residuais aceitos:** incluir membro por e-mail revela ao admin de tenant se um e-mail existe na instalação (`404` × `409`); o admin de tenant pode dar perfis do tenant dele a qualquer pessoa da instalação — o efeito fica contido no tenant administrado.
+- **Escrita administrativa por admin de tenant depende do LogStream no ar.** É a mesma consequência assumida para a elevação.
+- **Emenda à ADR-0031:** a identidade de auditoria passa a escrever também no tenant administrado, além do tenant de quem elevou.
+- A bateria negativa é provada por mutação: concessão em outro tenant não passa; concessão revogada não passa na requisição seguinte; operação de pessoa sobre outro admin de tenant responde `403`; tenant de plataforma recusa concessão; rota não marcada recusa o escopo; client de tenant não recebe o escopo; sem concessão o escopo não sai no login nem na renovação; sem segundo fator não há code; operação de pessoa por tenant não dono responde `404`; trilha indisponível recusa a escrita.
+- `Secco.SecureGate.Client` ganha as rotas de concessão e de "meus tenants": minor.
+- **Fora desta ADR:** criar tenant e nomear admin pelo admin de tenant (o operador cria e concede no v1 — volta com evidência de uso); concessão com prazo; acesso do admin de tenant a banco, clients e federação.
 
 ---
 

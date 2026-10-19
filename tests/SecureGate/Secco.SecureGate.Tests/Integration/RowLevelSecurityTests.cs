@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Elevation;
+using Secco.SecureGate.Domain.TenantAdministration;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -46,6 +47,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		new("tb_tenant_federations", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 		new("tb_tenant_group_role_mappings", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 		new("tb_elevation_grants", "id_fk_tenant = @a", "id_fk_tenant = @b"),
+		new("tb_tenant_admin_grants", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 	];
 
 	public async Task InitializeAsync()
@@ -84,6 +86,9 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		context.ElevationGrants.AddRange(
 			new ElevationGrant(person, tenantA, "teste", null, DateTimeOffset.UtcNow),
 			new ElevationGrant(ownerOfB, tenantB, "teste", null, DateTimeOffset.UtcNow));
+		context.TenantAdminGrants.AddRange(
+			new TenantAdminGrant(person, tenantA, "teste", DateTimeOffset.UtcNow),
+			new TenantAdminGrant(ownerOfB, tenantB, "teste", DateTimeOffset.UtcNow));
 		await context.SaveChangesAsync();
 
 		_s = new Seed(tenantA, tenantB, tenantC, roleA.Id, roleB.Id, person, ownerOfB, withoutGrant);
@@ -166,7 +171,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		return await command.ExecuteScalarAsync() as string;
 	}
 
-	// ---- SQL cru nas 9 tabelas ----
+	// ---- SQL cru nas tabelas protegidas ----
 
 	[Fact]
 	public async Task EscopoDeA_EmCadaTabela_VeSoLinhasDeA()
@@ -377,6 +382,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		["tb_tenant_federations"] = "INSERT INTO tb_tenant_federations (id_pk_tenant_federation, id_fk_tenant, ds_provider, directory_id, fl_enabled, dt_created_at, dt_updated_at) VALUES (NEWID(), @c, N'entra', NEWID(), 1, SYSDATETIMEOFFSET(), SYSDATETIMEOFFSET())",
 		["tb_tenant_group_role_mappings"] = "INSERT INTO tb_tenant_group_role_mappings (id_pk_tenant_group_role_mapping, id_fk_tenant, entra_group_id, ds_entra_group_display_name, id_fk_role, dt_created_at) VALUES (NEWID(), @b, NEWID(), N'intruso', @roleB, SYSDATETIMEOFFSET())",
 		["tb_elevation_grants"] = "INSERT INTO tb_elevation_grants (id_pk_elevation_grant, id_fk_user, id_fk_tenant, ds_granted_by, dt_created_at) VALUES (NEWID(), @withoutGrant, @c, N'teste', SYSDATETIMEOFFSET())",
+		["tb_tenant_admin_grants"] = "INSERT INTO tb_tenant_admin_grants (id_pk_tenant_admin_grant, id_fk_user, id_fk_tenant, ds_granted_by, dt_created_at) VALUES (NEWID(), @person, @c, N'teste', SYSDATETIMEOFFSET())",
 	};
 
 	/// <summary>UPDATE em escopo A que move uma linha DE A para fora do escopo (tenant C ou perfil de B).</summary>
@@ -391,6 +397,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		["tb_tenant_federations"] = "UPDATE tb_tenant_federations SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 		["tb_tenant_group_role_mappings"] = "UPDATE tb_tenant_group_role_mappings SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 		["tb_elevation_grants"] = "UPDATE tb_elevation_grants SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_tenant_admin_grants"] = "UPDATE tb_tenant_admin_grants SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 	};
 
 	public static TheoryData<string> ProtectedTableNames => new(Tables.Select(t => t.Table));

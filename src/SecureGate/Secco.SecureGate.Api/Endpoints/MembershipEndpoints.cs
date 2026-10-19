@@ -23,7 +23,7 @@ public static class MembershipEndpoints
 		var group = endpoints.MapGroup("/api/v1/tenants/{tenantId:guid}/members")
 			.WithTags("Members")
 			.RequireAuthorization(policy =>
-				policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)))
+				policy.RequireAssertion(TenantAdminAuthority.AllowsAdminOrMarkedTenantAdmin))
 			.RequireTenantScope();
 
 		group.MapPost("/", async (
@@ -34,6 +34,7 @@ public static class MembershipEndpoints
 			(await handler.HandleAsync(tenantId, request.Email, cancellationToken))
 				.ToHttpResult(dto => Results.Created($"/api/v1/tenants/{tenantId}/users/{dto.UserId}", dto)))
 			.WithName("AddTenantMember")
+			.AllowTenantAdmin()
 			.WithSummary("Inclui no tenant uma pessoa que já tem conta, pelo e-mail (ADR-0040). Duplicata responde 409.")
 			.Produces<TenantMemberDto>(StatusCodes.Status201Created)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -48,6 +49,7 @@ public static class MembershipEndpoints
 			(await handler.HandleAsync(tenantId, userId, cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetTenantMember")
+			.AllowTenantAdmin()
 			.WithSummary("Inclui a pessoa no tenant ou reativa o vínculo suspenso (idempotente).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -64,6 +66,7 @@ public static class MembershipEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SuspendTenantMember")
+			.AllowTenantAdmin()
 			.WithSummary("Suspende o vínculo (idempotente): a pessoa deixa de receber token para o tenant e as sessões dela são encerradas.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -80,6 +83,7 @@ public static class MembershipEndpoints
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RemoveTenantMember")
+			.AllowTenantAdmin()
 			.WithSummary("Remove o vínculo e os perfis da pessoa NESTE tenant (idempotente) e encerra as sessões dela.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)

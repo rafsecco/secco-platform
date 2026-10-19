@@ -533,6 +533,26 @@ public static class SecureGateErrors
 			Error.Validation("SecureGate.Elevation.GrantedByRequired", "O chamador autenticado não carrega a claim 'sub'.");
 	}
 
+	/// <summary>Erros da concessão de admin de tenant (ADR-0044).</summary>
+	public static class TenantAdmins
+	{
+		/// <summary>
+		/// O tenant de plataforma não é administrável por esta autoridade: a concessão sobre ele
+		/// transformaria autoridade de tenant em autoridade de instalação.
+		/// </summary>
+		public static readonly Error PlatformTenantNotAdministrable =
+			Error.Conflict("SecureGate.TenantAdmin.PlatformTenantNotAdministrable",
+				"O tenant de plataforma não admite admin de tenant: quem o administra é o operador de instalação.");
+
+		/// <summary>Pessoa não encontrada na instalação.</summary>
+		public static readonly Error UserNotFound =
+			Error.NotFound("SecureGate.TenantAdmin.UserNotFound", "Pessoa não encontrada.");
+
+		/// <summary>Claim <c>sub</c> ausente no chamador autenticado (defesa em profundidade, ADR-0020).</summary>
+		public static readonly Error GrantedByRequired =
+			Error.Validation("SecureGate.TenantAdmin.GrantedByRequired", "O chamador autenticado não carrega a claim 'sub'.");
+	}
+
 	/// <summary>Erros do ciclo de credencial (ADR-0033).</summary>
 	public static class Credentials
 	{

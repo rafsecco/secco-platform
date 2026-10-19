@@ -14,3 +14,9 @@ src/SecureGate/Secco.SecureGate.Infrastructure/Seeding/TenantDatabaseReEncryptio
 src/SecureGate/Secco.SecureGate.Infrastructure/Sessions/SessionRevoker.cs | revogação de sessões: a pessoa atravessa tenants e pode já não ser membro
 src/SecureGate/Secco.SecureGate.Infrastructure/Users/UserAccountService.cs | inclusão de membro: pessoa achada por e-mail, dona em outro tenant
 src/SecureGate/Secco.SecureGate.Infrastructure/Users/UserAccountService.cs | regra de vínculo: tenant dono de pessoa que pode não ser membro da rota
+src/SecureGate/Secco.SecureGate.Api/Authorization/TenantAdminAuthority.cs | admin de tenant: estado da conta de quem age, dona de qualquer tenant
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: listar os admins, que podem ser donos de outro tenant
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: a pessoa concedida existe em qualquer tenant
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: a pessoa tem alguma concessão (login e alvo protegido)
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: concessão sobre o tenant da rota, conferida fora do escopo dele
+src/SecureGate/Secco.SecureGate.Infrastructure/Repositories/TenantAdminGrantRepository.cs | admins de tenant: os tenants que a pessoa administra

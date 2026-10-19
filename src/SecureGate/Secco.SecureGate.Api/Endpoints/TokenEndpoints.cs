@@ -11,6 +11,7 @@ using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Elevation;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Elevation;
+using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
@@ -163,7 +164,13 @@ public static class TokenEndpoints
 		}
 
 		var roles = await loginTenants.GetRolesAsync(user.Id, loginTenantId, context.RequestAborted);
-		var scopes = InstallationOperatorPolicy.FilterScopes(user, roles, stored!.GetScopes(), loginTenantId);
+		// ADR-0044: concessão revogada ou segundo fator desligado tiram o escopo de admin de tenant na renovação
+		var scopes = await TenantAdminScopePolicy.FilterScopesAsync(
+			user,
+			InstallationOperatorPolicy.FilterScopes(user, roles, stored!.GetScopes(), loginTenantId),
+			context.RequestServices.GetRequiredService<ITenantAdminGrantRepository>(),
+			context.RequestServices.GetRequiredService<ITenantAdminAuditor>(),
+			context.RequestAborted);
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
 		var principal = OidcPrincipalBuilder.ForUser(user, roles, scopes, resources, loginTenantId);
 

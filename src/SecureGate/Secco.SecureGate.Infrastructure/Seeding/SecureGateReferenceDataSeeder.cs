@@ -80,6 +80,13 @@ public sealed class SecureGateReferenceDataSeeder(
 			SecureGateResource,
 			cancellationToken).ConfigureAwait(false);
 
+		// ADR-0044: admin de tenant on-behalf-of a pessoa — concedível só a client de plataforma
+		await UpsertScopeAsync(
+			SecureGateScopes.TenantAdmin,
+			"Administração dos tenants em que a pessoa tem concessão",
+			SecureGateResource,
+			cancellationToken).ConfigureAwait(false);
+
 		// Fase 6.4 (ADR-0021): resolução role→permissions — scope único de plataforma
 		await UpsertScopeAsync(
 			SecureGateScopes.AuthorizationRead,

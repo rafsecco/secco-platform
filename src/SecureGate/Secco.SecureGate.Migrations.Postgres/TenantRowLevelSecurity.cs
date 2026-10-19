@@ -26,6 +26,12 @@ public static class TenantRowLevelSecurity
         ("tb_elevation_grants", "id_fk_tenant"),
     ];
 
+    // Revisao 2 (ADR-0044): tabelas com tenant direto acrescentadas depois da ADR-0041
+    private static readonly (string Table, string Column)[] DirectTenantTablesAdr0044 =
+    [
+        ("tb_tenant_admin_grants", "id_fk_tenant"),
+    ];
+
     // Atribuição e permissão: seguem o tenant do perfil referenciado
     private static readonly (string Table, string Column)[] RoleBoundTables =
     [
@@ -39,15 +45,33 @@ public static class TenantRowLevelSecurity
         "tb_tenant_databases", "tb_tenant_federations", "tb_tenant_group_role_mappings", "tb_elevation_grants",
     ];
 
-    public static void Create(MigrationBuilder migrationBuilder)
+    /// <summary>Revisao 1 (ADR-0041): as 9 tabelas de tenant originais. Fixa: e a que a migration da ADR-0041 aplica.</summary>
+    public const int RevisionAdr0041 = 1;
+
+    /// <summary>Revisao 2 (ADR-0044): + <c>tb_tenant_admin_grants</c>.</summary>
+    public const int RevisionAdr0044 = 2;
+
+    /// <summary>Revisao corrente — a que migrations futuras recriam depois de <see cref="Drop"/>.</summary>
+    public const int CurrentRevision = RevisionAdr0044;
+
+    /// <summary>
+    /// Cria as politicas na revisao pedida. Migration ja aplicada chama a revisao dela, nunca a corrente:
+    /// num banco novo, a tabela de uma revisao posterior ainda nao existe quando ela roda.
+    /// </summary>
+    /// <param name="migrationBuilder">Builder da migration.</param>
+    /// <param name="revision">Revisao da politica.</param>
+    public static void Create(MigrationBuilder migrationBuilder, int revision = CurrentRevision)
     {
-        foreach (var table in AllTables)
+        ArgumentOutOfRangeException.ThrowIfLessThan(revision, RevisionAdr0041);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(revision, CurrentRevision);
+
+        foreach (var table in TablesOf(revision))
         {
             migrationBuilder.Sql($"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;");
             migrationBuilder.Sql($"ALTER TABLE {table} FORCE ROW LEVEL SECURITY;");
         }
 
-        foreach (var (table, column) in DirectTenantTables)
+        foreach (var (table, column) in DirectTablesOf(revision))
         {
             var predicate = $"{Mode} = 'platform' OR ({Mode} = 'tenant' AND {column} = {Tenant})";
 
@@ -76,10 +100,15 @@ public static class TenantRowLevelSecurity
             $"CREATE POLICY pol_tenant_isolation_tb_users_write ON tb_users FOR ALL USING ({userWritePredicate}) WITH CHECK ({userWritePredicate});");
     }
 
-    /// <summary>Remove as politicas e desabilita o RLS das tabelas protegidas. Idempotente.</summary>
-    public static void Drop(MigrationBuilder migrationBuilder)
+    /// <summary>Remove as politicas e desabilita o RLS das tabelas protegidas na revisao pedida. Idempotente.</summary>
+    /// <param name="migrationBuilder">Builder da migration.</param>
+    /// <param name="revision">Revisao da politica (as tabelas dela precisam existir).</param>
+    public static void Drop(MigrationBuilder migrationBuilder, int revision = CurrentRevision)
     {
-        foreach (var table in AllTables)
+        ArgumentOutOfRangeException.ThrowIfLessThan(revision, RevisionAdr0041);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(revision, CurrentRevision);
+
+        foreach (var table in TablesOf(revision))
         {
             migrationBuilder.Sql($"DROP POLICY IF EXISTS pol_tenant_isolation_{table} ON {table};");
             migrationBuilder.Sql($"DROP POLICY IF EXISTS pol_tenant_isolation_{table}_select ON {table};");
@@ -88,4 +117,10 @@ public static class TenantRowLevelSecurity
             migrationBuilder.Sql($"ALTER TABLE {table} DISABLE ROW LEVEL SECURITY;");
         }
     }
+
+    private static IEnumerable<string> TablesOf(int revision) =>
+        revision >= RevisionAdr0044 ? AllTables.Concat(DirectTenantTablesAdr0044.Select(t => t.Table)) : AllTables;
+
+    private static IEnumerable<(string Table, string Column)> DirectTablesOf(int revision) =>
+        revision >= RevisionAdr0044 ? DirectTenantTables.Concat(DirectTenantTablesAdr0044) : DirectTenantTables;
 }
