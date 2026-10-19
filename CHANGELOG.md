@@ -12,16 +12,6 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Secco.SecureGate.Client 0.19.0 e SecureGate (serviço) — admin de tenant (issue #37, ADR-0044)
-
-Só acréscimos no client (minor). O serviço ganha uma migration e um escopo no seed de referência: rodar o `migrate` antes das réplicas, como sempre (ADR-0038).
-
-- **Concessão de admin de tenant**, gerida só pelo operador (`securegate:admin`): `PUT`/`DELETE /api/v1/tenants/{tenantId}/admins/{userId}` (idempotentes) e `GET /api/v1/tenants/{tenantId}/admins`. O tenant de plataforma responde `409`.
-- **Escopo `securegate:tenant-admin`**, só para client de plataforma (`SecureGate:PlatformClients`). Sai no login apenas para quem tem concessão, segundo fator e auditoria configurada (`SecureGate:Audit`); a renovação refaz a conferência.
-- **Rotas abertas a admin de tenant**, conferidas no cadastro a cada requisição: leitura do tenant, pessoas, vínculos, perfis e atribuição de perfil. Operação de pessoa, e o que revoga sessões (suspender/remover vínculo, remover perfil), sobre conta administrativa — admin de tenant ou operador — responde `403`. `GET /api/v1/tenant-admin/tenants` lista os tenants que o chamador administra.
-- **Trilha síncrona e fail-closed**: toda escrita com essa autoridade vira `AuditEntry` no LogStream do tenant administrado, com a pessoa como ator e a aplicação em `Metadata.act`; trilha indisponível responde `503` e a escrita não acontece.
-- **Para quem usa client de máquina com `securegate:admin` na área administrativa** (a Intranet): nada muda até migrar. Para migrar, peça `securegate:tenant-admin` no client de plataforma da área administrativa e chame on-behalf-of a pessoa logada; o operador concede os tenants de cada pessoa.
-
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.
@@ -54,6 +44,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.7.1 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.7.0 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.19.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.7.0 — 2026-10-18
 
@@ -145,6 +139,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.4 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.9.3 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.19.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.3 — 2026-10-18
 
@@ -320,6 +318,16 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.19.0 — 2026-10-19
+
+Admin de tenant on-behalf-of a pessoa (issue #37, ADR-0044). Só acréscimos no client (minor). O serviço ganha uma migration e um escopo no seed de referência: rodar o `migrate` antes das réplicas, como sempre (ADR-0038).
+
+- **Concessão de admin de tenant**, gerida só pelo operador (`securegate:admin`): `PUT`/`DELETE /api/v1/tenants/{tenantId}/admins/{userId}` (idempotentes) e `GET /api/v1/tenants/{tenantId}/admins`. O tenant de plataforma responde `409`.
+- **Escopo `securegate:tenant-admin`**, só para client de plataforma (`SecureGate:PlatformClients`). Sai no login apenas para quem tem concessão, segundo fator e auditoria configurada (`SecureGate:Audit`); a renovação refaz a conferência.
+- **Rotas abertas a admin de tenant**, conferidas no cadastro a cada requisição: leitura do tenant, pessoas, vínculos, perfis e atribuição de perfil. Operação de pessoa, e o que revoga sessões (suspender/remover vínculo, remover perfil), sobre conta administrativa — admin de tenant ou operador — responde `403`. `GET /api/v1/tenant-admin/tenants` lista os tenants que o chamador administra.
+- **Trilha síncrona e fail-closed**: toda escrita com essa autoridade vira `AuditEntry` no LogStream do tenant administrado, com a pessoa como ator e a aplicação em `Metadata.act`; trilha indisponível responde `503` e a escrita não acontece.
+- **Para quem usa client de máquina com `securegate:admin` na área administrativa** (a Intranet): nada muda até migrar. Para migrar, peça `securegate:tenant-admin` no client de plataforma da área administrativa e chame on-behalf-of a pessoa logada; o operador concede os tenants de cada pessoa.
+
 #### 0.18.0 — 2026-10-18
 
 Famílias de permissão (issue #36, ADR-0043), só acréscimos: `PermissionDefinitionDto.IsFamily` na leitura do catálogo. O SecureGate passa a aceitar no `SetRolePermissions` a permissão que casa com uma família publicada, e ela nunca é órfã (`unknownPermissions`, limpeza por tenant). Ao excluir a instância, o produto dono remove a permissão dos perfis.
@@ -459,6 +467,10 @@ Famílias de permissão (issue #36, ADR-0043), só acréscimos: `PermissionDefin
 | 0.1.0 | 2026-07-14 |
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.15 — 2026-10-19
+
+Patch **sem mudança funcional**: o diff desde a 0.1.14 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.19.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.14 — 2026-10-18
 
