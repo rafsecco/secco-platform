@@ -28,8 +28,8 @@ Só acréscimos no client. O serviço ganha uma migration: rodar o `migrate` ant
 
 - **Concessão de criação de tenant**, gerida só pelo operador: `PUT`/`DELETE /api/v1/tenant-creators/{userId}` (idempotentes) e `GET /api/v1/tenant-creators`, com quantos tenants cada pessoa criou.
 - **`POST /api/v1/tenants` aceita a autoridade de admin de tenant** para quem tem a concessão de criação: o tenant nasce administrado por quem o criou, na mesma transação, até `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` (padrão 20; acima disso, `409`).
-- **Ativar e desativar** o tenant administrado; desativar um tenant dono de conta administrativa responde `409`.
-- **Provisionamento automático e status** do banco do tenant administrado. Pela autoridade de admin de tenant o provisionamento é restrito: só com a automação ligada, sem servidor, database ou login vindos do pedido e sempre criando um database novo (`403` fora disso).
+- **Desativar** o tenant administrado; desativar um tenant dono de conta administrativa responde `409`. Reativar continua só com o operador.
+- **Provisionamento automático e status** do banco do tenant administrado. Pela autoridade de admin de tenant o provisionamento é restrito: só com a automação ligada, só para os produtos da plataforma, sem alvo, servidor, database ou login vindos do pedido (`403` fora disso), e com criação estrita — database ou login já existentes abortam antes de criar qualquer coisa.
 - **Continuam só com o operador:** provisionamento em modo script, connection string manual, federação e grupos do Entra, clients de tenant.
 - **Destino da trilha** (emenda à ADR-0044): o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o tenant dono de quem agiu, com o administrado na `Metadata`. A criação vai para o tenant dono de quem criou.
 

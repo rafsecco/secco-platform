@@ -111,10 +111,14 @@ public sealed class ProvisionTenantDatabaseHandler(
 		// nome dele, deixaria o admin de um tenant ganhar db_owner no banco de outro
 		if (command.Restricted)
 		{
+			// Produto da lista fechada e alvo padrão: sem isso o produto escolhido no pedido mudaria o nome derivado
+			// (produto e slug se juntam com '_') até colidir com o database de outro tenant
 			if (!command.CreateDatabase
+				|| !string.IsNullOrWhiteSpace(command.Target)
 				|| !string.IsNullOrWhiteSpace(command.Server)
 				|| !string.IsNullOrWhiteSpace(command.DatabaseName)
-				|| !string.IsNullOrWhiteSpace(command.LoginName))
+				|| !string.IsNullOrWhiteSpace(command.LoginName)
+				|| !SecureGateScopes.ProductScopes.Contains(product, StringComparer.Ordinal))
 			{
 				return Result.Failure<TenantDatabaseProvisioningDto>(SecureGateErrors.TenantAdmins.ProvisioningOverridesNotAllowed);
 			}
@@ -144,7 +148,8 @@ public sealed class ProvisionTenantDatabaseHandler(
 			databaseName,
 			loginName,
 			TenantDatabaseSecretGenerator.GeneratePassword(),
-			command.CreateDatabase);
+			command.CreateDatabase,
+			RequireNew: command.Restricted);
 
 		var connectionString = provisioner.BuildTenantConnectionString(plan);
 

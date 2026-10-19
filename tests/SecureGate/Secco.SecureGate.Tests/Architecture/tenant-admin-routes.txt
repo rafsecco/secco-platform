@@ -4,7 +4,6 @@
 # ela aparece no diff desta lista.
 GetTenant | nao
 CreateTenant | criacao
-ActivateTenant | nao
 DeactivateTenant | nao
 ProvisionTenantDatabase | nao
 GetTenantDatabaseStatus | nao

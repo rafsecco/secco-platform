@@ -571,8 +571,9 @@ public static class SecureGateErrors
 				"Sem provisionamento automático configurado, só o operador da instalação provisiona (o script carrega a senha).");
 
 		/// <summary>
-		/// Provisionamento restrito (ADR-0047): sem servidor, database ou login vindos do pedido, e sempre criando
-		/// um database novo — senão o admin de um tenant assumiria o database de outro.
+		/// Provisionamento restrito (ADR-0047): sem alvo, servidor, database ou login vindos do pedido, só para os
+		/// produtos da plataforma, e sempre criando um database novo — senão o admin de um tenant assumiria o
+		/// database de outro.
 		/// </summary>
 		public static readonly Error ProvisioningOverridesNotAllowed =
 			Error.Forbidden("SecureGate.TenantAdmin.ProvisioningOverridesNotAllowed",

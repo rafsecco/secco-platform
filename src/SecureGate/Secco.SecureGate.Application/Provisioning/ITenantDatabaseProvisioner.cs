@@ -9,12 +9,18 @@ namespace Secco.SecureGate.Application.Provisioning;
 /// <c>true</c> cria o database; <c>false</c> assume que ele já existe e só cria login, usuário e
 /// concessão — os dois cenários de adoção que a issue #3 descreve, com privilégios diferentes.
 /// </param>
+/// <param name="RequireNew">
+/// Criação estrita (ADR-0047): o database e o login não podem existir — nada é assumido. Usado pelo
+/// provisionamento restrito do admin de tenant, em que um nome derivado que colidisse com o banco de outro tenant
+/// daria a ele um <c>db_owner</c> lá.
+/// </param>
 public sealed record TenantDatabaseProvisioningPlan(
 	string Server,
 	string DatabaseName,
 	string LoginName,
 	string Password,
-	bool CreateDatabase);
+	bool CreateDatabase,
+	bool RequireNew = false);
 
 /// <summary>Resultado de uma tentativa de execução automática.</summary>
 /// <param name="Succeeded">Indica se a execução concluiu.</param>

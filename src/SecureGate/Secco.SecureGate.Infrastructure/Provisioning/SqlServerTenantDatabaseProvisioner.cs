@@ -21,6 +21,9 @@ namespace Secco.SecureGate.Infrastructure.Provisioning;
 /// </remarks>
 internal sealed class SqlServerTenantDatabaseProvisioner : ITenantDatabaseProvisioner
 {
+	/// <summary>Número do erro lançado pela guarda da criação estrita (faixa de usuário do SQL Server).</summary>
+	internal const int RequireNewViolation = 51000;
+
 	/// <inheritdoc />
 	public string Provider => SecureGateDatabaseProviderNames.SqlServer;
 
@@ -42,6 +45,18 @@ internal sealed class SqlServerTenantDatabaseProvisioner : ITenantDatabaseProvis
 		script.AppendLine("-- O usuário criado recebe db_owner NO PRÓPRIO BANCO e nada no servidor:");
 		script.AppendLine("-- é o que transforma o isolamento entre tenants de convenção em garantia.");
 		script.AppendLine();
+
+		if (plan.RequireNew)
+		{
+			// Criação estrita (ADR-0047): aborta ANTES de criar qualquer coisa se o database ou o login existirem —
+			// o restante do script assume o que já existe, e assumir aqui seria entrar no banco de outro tenant
+			script.AppendLine(CultureInfo.InvariantCulture,
+				$"IF DB_ID(N'{databaseLiteral}') IS NOT NULL OR EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'{loginLiteral}')");
+			script.AppendLine(CultureInfo.InvariantCulture,
+				$"    THROW {RequireNewViolation}, N'O database ou o login já existe; o provisionamento restrito só cria.', 1;");
+			script.AppendLine("GO");
+			script.AppendLine();
+		}
 
 		if (plan.CreateDatabase)
 		{
@@ -137,6 +152,7 @@ internal sealed class SqlServerTenantDatabaseProvisioner : ITenantDatabaseProvis
 		262 or 15247 => "a credencial de provisionamento não tem permissão para esta operação",
 		1801 => "o database já existe no servidor",
 		15025 => "o login já existe no servidor",
+		RequireNewViolation => "o database ou o login já existe — o provisionamento restrito só cria, nunca assume",
 		4060 => "banco de destino inexistente ou inacessível para este login",
 		53 or -1 or 10060 or 10061 => "servidor de banco inacessível",
 		_ => "erro do servidor de banco ao aplicar o provisionamento",

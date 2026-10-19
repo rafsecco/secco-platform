@@ -68,7 +68,6 @@ public static class TenantEndpoints
 			(await handler.HandleAsync(id, active: true, TenantAdminAuthority.IsTenantAdminCaller(caller), cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ActivateTenant")
-			.AllowTenantAdmin()
 			.RequireTenantScope("id")
 			.WithSummary("Reativa um tenant — volta a ser servido pelo catálogo.")
 			.Produces(StatusCodes.Status204NoContent)

@@ -3,7 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Infrastructure.Contexts;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -171,14 +174,16 @@ public class TenantCreatorAuthorityTests(TenantAdminSecureGateApiFactory secureG
 	// ---- Ciclo de vida ----
 
 	[Fact]
-	public async Task Desativar_TenantAdministradoSemContaAdministrativa_Passa_EReativa()
+	public async Task Desativar_TenantAdministradoSemContaAdministrativa_Passa_MasReativarESoDoOperador()
 	{
 		var tenant = await IdentitySeed.TenantAsync(secureGate);
 		await GrantAdminAsync(tenant, _creator);
 		using var admin = await TenantAdminClientAsync();
 
 		(await admin.PostAsync($"/api/v1/tenants/{tenant}/deactivate", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
-		(await admin.PostAsync($"/api/v1/tenants/{tenant}/activate", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		// Reativar desfaria uma suspensão feita pelo operador: fica com ele
+		(await admin.PostAsync($"/api/v1/tenants/{tenant}/activate", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 	}
 
 	[Fact]
@@ -217,6 +222,7 @@ public class TenantCreatorAuthorityTests(TenantAdminSecureGateApiFactory secureG
 	[InlineData("{\"createDatabase\":true,\"databaseName\":\"banco_de_outro\"}")]
 	[InlineData("{\"createDatabase\":true,\"loginName\":\"login_de_outro\"}")]
 	[InlineData("{\"createDatabase\":true,\"server\":\"outro-servidor\"}")]
+	[InlineData("{\"createDatabase\":true,\"target\":\"default\"}")]
 	public async Task Provisionamento_ComNomesDoPedidoOuAssumindoDatabase_Responde403(string body)
 	{
 		var tenant = await IdentitySeed.TenantAsync(secureGate);
@@ -230,7 +236,61 @@ public class TenantCreatorAuthorityTests(TenantAdminSecureGateApiFactory secureG
 		response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "o admin de um tenant não escolhe nem assume o database de outro");
 	}
 
+	[Fact]
+	public async Task Provisionamento_DeProdutoForaDaLista_Responde403()
+	{
+		var tenant = await IdentitySeed.TenantAsync(secureGate);
+		await GrantAdminAsync(tenant, _creator);
+		using var admin = await TenantAdminClientAsync();
+
+		// Produto livre mudaria o nome derivado ("secco_<produto>_<slug>") até colidir com o banco de outro tenant
+		var response = await admin.PostAsJsonAsync(
+			$"/api/v1/tenants/{tenant}/databases/logstream-x/provisioning", new { createDatabase = true });
+
+		response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+	}
+
+	[Fact]
+	public async Task Provisionamento_ComDatabaseJaExistente_NaoAssume()
+	{
+		var tenant = await IdentitySeed.TenantAsync(secureGate);
+		await GrantAdminAsync(tenant, _creator);
+
+		// O database com o nome derivado já existe (outro tenant, ou alguém criou à mão): o restrito não entra nele
+		await CreateDatabaseAsync(await DerivedDatabaseNameAsync(tenant, "logstream"));
+		using var admin = await TenantAdminClientAsync();
+
+		var response = await admin.PostAsJsonAsync(
+			$"/api/v1/tenants/{tenant}/databases/logstream/provisioning", new { createDatabase = true });
+
+		response.IsSuccessStatusCode.Should().BeFalse("o provisionamento restrito só cria, nunca assume");
+		(await admin.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{tenant}", Json))
+			.GetProperty("products").EnumerateArray().Should().BeEmpty("nada foi gravado no catálogo");
+	}
+
 	// ---- Apoio ----
+
+	private async Task<string> DerivedDatabaseNameAsync(Guid tenantId, string product)
+	{
+		using var scope = secureGate.Services.CreatePlatformScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+		var slug = (await context.Tenants.SingleAsync(t => t.Id == tenantId)).Slug;
+
+		return Secco.SecureGate.Application.Provisioning.DatabaseIdentifierPolicy.Derive("secco", product, slug);
+	}
+
+	private async Task CreateDatabaseAsync(string name)
+	{
+		var admin = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(secureGate.GetPlatformConnectionString())
+		{
+			InitialCatalog = "master",
+		};
+		await using var connection = new Microsoft.Data.SqlClient.SqlConnection(admin.ConnectionString);
+		await connection.OpenAsync();
+		await using var command = connection.CreateCommand();
+		command.CommandText = $"CREATE DATABASE [{name}]";
+		await command.ExecuteNonQueryAsync();
+	}
 
 	private static object NewTenant() => new { name = "Sistema criado", slug = $"t-{Guid.NewGuid():N}" };
 
