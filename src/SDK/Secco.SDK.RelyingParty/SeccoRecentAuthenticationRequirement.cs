@@ -117,8 +117,11 @@ internal sealed class SeccoRecentAuthenticationResultHandler(
 
 			// Só o caminho local da própria requisição. Um caminho que comece com "//" ou "/\\" seria lido pelo navegador
 			// como outro host depois do callback do OIDC (redirecionamento aberto): nesse caso, volta à raiz
-			var path = context.Request.PathBase.Add(context.Request.Path).Value ?? "/";
-			var returnUrl = IsLocal(path) ? path + context.Request.QueryString : "/";
+			// A forma ESCAPADA é a que vai ao navegador, então é ela que se confere: o navegador descarta tabulação e
+			// quebra de linha, e "/\t/host" crua viraria "//host"
+			var candidate = context.Request.PathBase.Add(context.Request.Path).ToUriComponent()
+				+ context.Request.QueryString.ToUriComponent();
+			var returnUrl = IsLocal(candidate) ? candidate : "/";
 
 			return context.ChallengeAsync(options.Value.OpenIdConnectScheme, new OpenIdConnectChallengeProperties
 			{
@@ -131,8 +134,11 @@ internal sealed class SeccoRecentAuthenticationResultHandler(
 		return inner.HandleAsync(next, context, policy, authorizeResult);
 	}
 
+	// Mesmas regras do IsLocalUrl do ASP.NET Core: começa com uma barra só, sem "\" logo depois, e sem caractere de
+	// controle ou espaço em lugar nenhum (o navegador os descarta e a URL vira outra)
 	internal static bool IsLocal(string path) =>
 		path.StartsWith('/')
 		&& !path.StartsWith("//", StringComparison.Ordinal)
-		&& !path.StartsWith("/\\", StringComparison.Ordinal);
+		&& !path.StartsWith("/\\", StringComparison.Ordinal)
+		&& !path.Any(c => char.IsControl(c) || char.IsWhiteSpace(c));
 }

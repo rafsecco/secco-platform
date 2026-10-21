@@ -207,6 +207,9 @@ public class SeccoRecentAuthenticationTests
 	[InlineData("//evil.test/admin", false)]
 	[InlineData(@"/\evil.test/admin", false)]
 	[InlineData("evil.test/admin", false)]
+	[InlineData("/\t/evil.test/admin", false)]
+	[InlineData("/\n/evil.test/admin", false)]
+	[InlineData("/ /evil.test/admin", false)]
 	public void VoltaDoDesafio_SoParaCaminhoLocal(string path, bool local)
 	{
 		// "//host" e "/\host" o navegador lê como outro domínio depois do callback do OIDC (redirecionamento aberto)
