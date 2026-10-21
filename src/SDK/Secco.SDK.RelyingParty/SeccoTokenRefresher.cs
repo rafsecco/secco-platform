@@ -24,29 +24,13 @@ internal sealed class SeccoTokenRefresher(
 
 	public async Task<SeccoUserSession?> RefreshAsync(SeccoUserSession current, CancellationToken cancellationToken = default)
 	{
-		var oidc = oidcOptions.Get(options.Value.OpenIdConnectScheme);
-		var configuration = oidc.Configuration
-			?? await (oidc.ConfigurationManager ?? throw new InvalidOperationException(
-				"O esquema OpenID Connect não tem ConfigurationManager; configure Authority ou MetadataAddress."))
-				.GetConfigurationAsync(cancellationToken).ConfigureAwait(false);
-
 		var form = new Dictionary<string, string>
 		{
 			["grant_type"] = "refresh_token",
 			["refresh_token"] = current.RefreshToken,
 		};
 
-		if (!string.IsNullOrEmpty(oidc.ClientId))
-		{
-			form["client_id"] = oidc.ClientId;
-		}
-
-		if (!string.IsNullOrEmpty(oidc.ClientSecret))
-		{
-			form["client_secret"] = oidc.ClientSecret;
-		}
-
-		using var response = await oidc.Backchannel.PostAsync(configuration.TokenEndpoint, new FormUrlEncodedContent(form), cancellationToken)
+		using var response = await SeccoTokenEndpoint.PostAsync(oidcOptions, options.Value, form, cancellationToken)
 			.ConfigureAwait(false);
 
 		// Recusa do emissor (invalid_grant: sessão revogada, refresh já usado): a pessoa precisa de novo login
@@ -80,6 +64,9 @@ internal sealed class SeccoTokenRefresher(
 		var scopes = SeccoUserSession.ScopesOf(
 			accessToken, root.TryGetProperty("scope", out var scope) ? scope.GetString() : null);
 
-		return new SeccoUserSession(accessToken, refreshToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn), scopes);
+		// O instante e os métodos de autenticação também vêm do token novo (ADR-0050); os tokens trocados
+		// são preservados pelo provedor, que é quem grava a sessão sob a trava
+		return new SeccoUserSession(accessToken, refreshToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn), scopes)
+			.WithAuthenticationOf(accessToken);
 	}
 }
