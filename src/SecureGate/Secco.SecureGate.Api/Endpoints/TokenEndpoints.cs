@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
@@ -9,6 +10,8 @@ using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.Elevation;
+using Secco.SecureGate.Application.InstallationOperators;
+using Secco.SecureGate.Application.Sessions;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Application.TenantAdministration;
@@ -55,7 +58,11 @@ public static class TokenEndpoints
 
 			if (request.IsTokenExchangeGrantType())
 			{
-				return await HandleElevationAsync(context, request, scopeManager, userManager, signInManager);
+				// Dois destinos de troca, pelo escopo pedido: securegate:admin é o operador designado (ADR-0049);
+				// qualquer outro segue a política da elevação (ADR-0031), que recusa o que não for o escopo dela
+				return request.GetScopes() is [SecureGateScopes.Admin]
+					? await HandleDesignatedOperatorAsync(context, request, scopeManager, userManager, signInManager)
+					: await HandleElevationAsync(context, request, scopeManager, userManager, signInManager);
 			}
 
 			return UnsupportedGrant("Grant type não suportado.");
@@ -172,7 +179,10 @@ public static class TokenEndpoints
 			context.RequestServices.GetRequiredService<ITenantAdminAuditor>(),
 			context.RequestAborted);
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, scopes, context.RequestAborted);
-		var principal = OidcPrincipalBuilder.ForUser(user, roles, scopes, resources, loginTenantId);
+		// auth_time e amr vêm do token anterior: renovar não é autenticar de novo (ADR-0049)
+		var principal = OidcPrincipalBuilder.ForUser(
+			user, roles, scopes, resources, loginTenantId,
+			OidcPrincipalBuilder.AuthenticatedAt(stored), OidcPrincipalBuilder.MethodsOf(stored));
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}
@@ -304,6 +314,98 @@ public static class TokenEndpoints
 
 		return Results.SignIn(
 			OidcPrincipalBuilder.ForElevation(user, resources, lifetime),
+			properties: null,
+			OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+	}
+
+	/// <summary>
+	/// Troca por OPERADOR DESIGNADO (ADR-0049): a pessoa que a instalação designou na configuração troca o próprio
+	/// token por um token de operador curto, sem tenant e sem refresh — desde que tenha se autenticado há pouco e com
+	/// segundo fator. Toda recusa é a mesma resposta da elevação: não diz quem é designado nem o que faltou.
+	/// </summary>
+	private static async Task<IResult> HandleDesignatedOperatorAsync(
+		HttpContext context,
+		OpenIddictRequest request,
+		IOpenIddictScopeManager scopeManager,
+		UserManager<User> userManager,
+		SignInManager<User> signInManager)
+	{
+		var services = context.RequestServices;
+		var auditor = services.GetRequiredService<ITenantAdminAuditor>();
+
+		// Sem trilha, sem autoridade — checado antes de qualquer consulta, para não servir de oráculo
+		if (!auditor.IsConfigured
+			|| !string.Equals(request.SubjectTokenType, AccessTokenType, StringComparison.Ordinal))
+		{
+			return ElevationRefused();
+		}
+
+		var subject = (await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)).Principal;
+
+		// Token trocado não troca de novo: nem elevação vira operador, nem operador renova o próprio TTL
+		if (subject is null || subject.HasClaim(claim => claim.Type == SecureGatePlatform.TokenExchangeClaim))
+		{
+			return ElevationRefused();
+		}
+
+		var user = subject.GetClaim(Claims.Subject) is { } subjectId && Guid.TryParse(subjectId, out var userId)
+			? await userManager.FindByIdAsync(userId.ToString())
+			: null;
+
+		if (user is null
+			|| !await AccountStateGuard.CanReceiveTokensAsync(
+				user,
+				userManager,
+				signInManager,
+				services.GetRequiredService<ITenantRepository>(),
+				context.RequestAborted))
+		{
+			return ElevationRefused();
+		}
+
+		var options = services.GetRequiredService<IOptionsMonitor<InstallationOperatorOptions>>().CurrentValue;
+		var now = services.GetRequiredKeyedService<TimeProvider>(InstallationOperatorOptions.ClockKey).GetUtcNow();
+		var authenticatedAt = OidcPrincipalBuilder.AuthenticatedAt(subject);
+
+		// Designação da instalação, segundo fator cadastrado, e autenticação desta sessão recente E com segundo
+		// fator: um cookie roubado sozinho gera token comum, nunca token de operador
+		// A sessão do token de entrada ainda vale (ADR-0032): sem isto, um token tirado antes de "encerrar sessões"
+		// ainda viraria token de operador durante os minutos de vida dele
+		if (!services.GetRequiredService<IInstallationOperatorDesignations>().IsDesignated(user.Id)
+			|| subject.GetClaim(SeccoClaims.SessionVersion) != SessionVersion.From(user.SecurityStamp)
+			|| !user.TwoFactorEnabled
+			|| !OidcPrincipalBuilder.MethodsOf(subject).Contains("mfa", StringComparer.Ordinal)
+			|| authenticatedAt is null
+			|| now - authenticatedAt.Value > options.EffectiveRecentAuthentication)
+		{
+			return ElevationRefused();
+		}
+
+		var lifetime = options.EffectiveTokenLifetime;
+
+		// Auditoria ANTES da emissão, no tenant dono da pessoa: falhou, não emite
+		var recorded = await auditor.RecordAsync(
+			new TenantAdminAuditRecord(
+				user.Id,
+				string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName,
+				user.TenantId,
+				request.ClientId,
+				"DesignatedOperatorTokenIssued",
+				TargetUserId: null,
+				AdministeredTenantId: null,
+				Authority: SecureGateScopes.Admin),
+			context.RequestAborted);
+
+		if (!recorded)
+		{
+			return ElevationRefused();
+		}
+
+		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(
+			scopeManager, [SecureGateScopes.Admin], context.RequestAborted);
+
+		return Results.SignIn(
+			OidcPrincipalBuilder.ForDesignatedOperator(user, resources, lifetime),
 			properties: null,
 			OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 	}

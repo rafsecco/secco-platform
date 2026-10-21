@@ -53,6 +53,7 @@ public static class FederatedLoginEndpoints
 
 		// Sessão do Identity — daqui em diante o fluxo é o mesmo do login por senha:
 		// /connect/authorize retoma e o SecureGate emite os tokens da plataforma (ADR-0026)
+		FreshAuthentication.Mark(context);
 		await signInManager.SignInAsync(result.Value, isPersistent: false);
 
 		// Só destinos locais — sem open redirect (ADR-0020)

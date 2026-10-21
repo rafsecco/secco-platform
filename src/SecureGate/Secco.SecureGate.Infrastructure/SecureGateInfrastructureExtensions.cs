@@ -127,6 +127,13 @@ public static class SecureGateInfrastructureExtensions
 		// Concessão de admin de tenant (ADR-0044)
 		services.AddScoped<Application.TenantAdministration.ITenantAdminGrantRepository, Repositories.TenantAdminGrantRepository>();
 
+		// Operadores da instalação por designação (ADR-0049): só configuração, relida a cada consulta
+		services.AddOptions<Application.InstallationOperators.InstallationOperatorOptions>()
+			.BindConfiguration(Application.InstallationOperators.InstallationOperatorOptions.SectionKey);
+		services.TryAddSingleton<Application.InstallationOperators.IInstallationOperatorDesignations,
+			InstallationOperators.ConfiguredInstallationOperatorDesignations>();
+		services.TryAddKeyedSingleton(Application.InstallationOperators.InstallationOperatorOptions.ClockKey, TimeProvider.System);
+
 		// Limite de tenants criados por pessoa (ADR-0047). A Application recebe o POCO; o limite efetivo
 		// (faixa válida) é aplicado no próprio tipo.
 		services.AddOptions<Application.TenantAdministration.TenantAdminOptions>()

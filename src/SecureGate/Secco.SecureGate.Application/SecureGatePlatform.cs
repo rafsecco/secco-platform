@@ -129,4 +129,17 @@ public static class SecureGatePlatform
 
 	/// <summary>Valor de <see cref="TokenExchangeClaim"/> para a capacidade de elevação (ADR-0031).</summary>
 	public const string ElevationCapability = "elevation";
+
+	/// <summary>
+	/// Valor de <see cref="TokenExchangeClaim"/> para o token de operador designado (ADR-0049): o middleware o
+	/// reconhece por esta marca para reconferir a designação e auditar cada escrita.
+	/// </summary>
+	public const string DesignatedOperatorCapability = "designated-operator";
+
+	/// <summary>
+	/// Claim do COOKIE de login com o instante da autenticação (segundos Unix), gravada só nas telas de login e
+	/// preservada na renovação do cookie (ADR-0049). Vira o <c>auth_time</c> do token — o <c>IssuedUtc</c> do
+	/// cookie não serve, porque a expiração deslizante o renova sem nova autenticação.
+	/// </summary>
+	public const string AuthenticationTimeCookieClaim = "secco_auth_time";
 }

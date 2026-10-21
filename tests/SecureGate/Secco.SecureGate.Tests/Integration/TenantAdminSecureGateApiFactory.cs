@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Secco.SecureGate.Application.InstallationOperators;
 using Secco.SecureGate.Application.TenantAdministration;
 using Xunit;
 
@@ -17,6 +18,12 @@ public sealed class TenantAdminSecureGateApiFactory : SelfIssuedAuthSecureGateAp
 
 	/// <summary>Auditor controlável, compartilhado pela coleção (os testes dela rodam em sequência).</summary>
 	public FakeTenantAdminAuditor Auditor { get; } = new();
+
+	/// <summary>Designações de operador controláveis (ADR-0049): vazias por padrão, como numa instalação sem designação.</summary>
+	public FakeDesignations Designations { get; } = new();
+
+	/// <summary>Relógio da janela de autenticação recente (ADR-0049), adiantável para simular autenticação antiga.</summary>
+	public ShiftedClock DesignationClock { get; } = new();
 
 	/// <inheritdoc />
 	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
@@ -44,6 +51,9 @@ public sealed class TenantAdminSecureGateApiFactory : SelfIssuedAuthSecureGateAp
 
 		services.RemoveAll<ITenantAdminAuditor>();
 		services.AddSingleton<ITenantAdminAuditor>(Auditor);
+		services.RemoveAll<IInstallationOperatorDesignations>();
+		services.AddSingleton<IInstallationOperatorDesignations>(Designations);
+		services.AddKeyedSingleton<TimeProvider>(InstallationOperatorOptions.ClockKey, DesignationClock);
 	}
 }
 
@@ -93,6 +103,71 @@ public sealed class FakeTenantAdminAuditor : ITenantAdminAuditor
 
 		return Task.FromResult(Accept);
 	}
+}
+
+/// <summary>Designações de operador mutáveis pelo teste (ADR-0049).</summary>
+public sealed class FakeDesignations : IInstallationOperatorDesignations
+{
+	private readonly HashSet<Guid> _accounts = [];
+	private readonly Lock _gate = new();
+
+	/// <inheritdoc />
+	public IReadOnlyCollection<Guid> Current
+	{
+		get
+		{
+			lock (_gate)
+			{
+				return [.. _accounts];
+			}
+		}
+	}
+
+	/// <inheritdoc />
+	public bool IsDesignated(Guid userId)
+	{
+		lock (_gate)
+		{
+			return _accounts.Contains(userId);
+		}
+	}
+
+	/// <summary>Designa a conta.</summary>
+	public void Designate(Guid userId)
+	{
+		lock (_gate)
+		{
+			_accounts.Add(userId);
+		}
+	}
+
+	/// <summary>Tira a designação da conta.</summary>
+	public void Revoke(Guid userId)
+	{
+		lock (_gate)
+		{
+			_accounts.Remove(userId);
+		}
+	}
+
+	/// <summary>Volta ao estado sem designação.</summary>
+	public void Reset()
+	{
+		lock (_gate)
+		{
+			_accounts.Clear();
+		}
+	}
+}
+
+/// <summary>Relógio do sistema com deslocamento controlável.</summary>
+public sealed class ShiftedClock : TimeProvider
+{
+	/// <summary>Deslocamento aplicado ao relógio do sistema.</summary>
+	public TimeSpan Offset { get; set; }
+
+	/// <inheritdoc />
+	public override DateTimeOffset GetUtcNow() => base.GetUtcNow() + Offset;
 }
 
 /// <summary>Collection dos testes de admin de tenant: container e API próprios, auditor controlável.</summary>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Application.Credentials;
 using Secco.SecureGate.Infrastructure.Identity;
 
@@ -78,6 +79,9 @@ public sealed class TwoFactorLoginModel(
 		}
 
 		var code = Input.Code.Replace(" ", string.Empty, StringComparison.Ordinal);
+
+		// Autenticação nova, com segundo fator: o cookie grava o instante e o Identity grava amr=mfa (ADR-0049)
+		FreshAuthentication.Mark(HttpContext);
 
 		// lockoutOnFailure é padrão nos dois métodos: tentativa errada conta para o bloqueio.
 		var result = Input.IsRecoveryCode

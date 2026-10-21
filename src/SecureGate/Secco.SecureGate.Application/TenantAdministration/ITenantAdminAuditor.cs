@@ -11,6 +11,10 @@ namespace Secco.SecureGate.Application.TenantAdministration;
 /// <param name="Operation">Nome estável da operação (o <c>operationId</c> da rota).</param>
 /// <param name="TargetUserId">Pessoa alvo, quando a rota tem uma.</param>
 /// <param name="AdministeredTenantId">Tenant sobre o qual a pessoa agiu; nulo na criação, quando ele ainda não existe.</param>
+/// <param name="Authority">
+/// Autoridade usada: <see cref="SecureGateScopes.TenantAdmin"/> (ADR-0044) ou <see cref="SecureGateScopes.Admin"/> por
+/// operador designado (ADR-0049). Decide o prefixo da ação na trilha.
+/// </param>
 public sealed record TenantAdminAuditRecord(
 	Guid UserId,
 	string? UserName,
@@ -18,7 +22,8 @@ public sealed record TenantAdminAuditRecord(
 	string? ClientId,
 	string Operation,
 	Guid? TargetUserId,
-	Guid? AdministeredTenantId = null);
+	Guid? AdministeredTenantId = null,
+	string Authority = SecureGateScopes.TenantAdmin);
 
 /// <summary>
 /// Porta de auditoria das escritas por admin de tenant (ADR-0044). Síncrona e fail-closed: a escrita

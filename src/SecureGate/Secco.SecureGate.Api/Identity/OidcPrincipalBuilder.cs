@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
@@ -24,12 +25,19 @@ internal static class OidcPrincipalBuilder
 	/// <param name="scopes">Scopes concedidos na requisição.</param>
 	/// <param name="resources">Audiences derivadas dos scopes de produto (o que os produtos validam).</param>
 	/// <param name="loginTenantId">Tenant do login: é o <c>tenant_id</c> do token (ADR-0040).</param>
+	/// <param name="authenticatedAt">
+	/// Instante da autenticação da sessão (<c>auth_time</c>, ADR-0049) — o do cookie no authorize, o do token
+	/// anterior na renovação. Nunca o instante desta emissão.
+	/// </param>
+	/// <param name="methods">Métodos da autenticação (<c>amr</c>), como <c>mfa</c>.</param>
 	public static ClaimsPrincipal ForUser(
 		User user,
 		IEnumerable<string> roles,
 		IEnumerable<string> scopes,
 		IEnumerable<string> resources,
-		Guid loginTenantId)
+		Guid loginTenantId,
+		DateTimeOffset? authenticatedAt = null,
+		IEnumerable<string>? methods = null)
 	{
 		var roleList = roles as IReadOnlyList<string> ?? [.. roles];
 
@@ -61,6 +69,16 @@ internal static class OidcPrincipalBuilder
 		identity.SetClaim(Claims.Name, string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName);
 		identity.SetClaims(SeccoClaims.Role, [.. roleList]);
 		identity.SetClaim(SeccoClaims.SessionVersion, SessionVersion.From(user.SecurityStamp));
+
+		if (authenticatedAt is { } authTime)
+		{
+			identity.AddClaim(new Claim(
+				Claims.AuthenticationTime,
+				authTime.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+				ClaimValueTypes.Integer64));
+		}
+
+		identity.SetClaims(Claims.AuthenticationMethodReference, [.. (methods ?? []).Distinct(StringComparer.Ordinal)]);
 
 		identity.SetScopes(scopes);
 		identity.SetResources(resources);
@@ -116,6 +134,48 @@ internal static class OidcPrincipalBuilder
 		return new ClaimsPrincipal(identity);
 	}
 
+	/// <summary>
+	/// Constrói o principal do token de OPERADOR DESIGNADO (ADR-0049): a pessoa real, sem <c>tenant_id</c> (o operador
+	/// é tenant-less, ADR-0024), só o escopo <c>securegate:admin</c>, nenhum papel, sem refresh e marcado — o
+	/// middleware o reconhece pela marca para reconferir a designação e auditar cada escrita.
+	/// </summary>
+	/// <param name="user">Pessoa designada.</param>
+	/// <param name="resources">Audiences do escopo.</param>
+	/// <param name="lifetime">TTL já limitado pelo teto.</param>
+	public static ClaimsPrincipal ForDesignatedOperator(User user, IEnumerable<string> resources, TimeSpan lifetime)
+	{
+		ArgumentNullException.ThrowIfNull(user);
+
+		var identity = new ClaimsIdentity(
+			TokenValidationParameters.DefaultAuthenticationType, Claims.Name, SeccoClaims.Role);
+
+		identity.SetClaim(Claims.Subject, user.Id.ToString());
+		identity.SetClaim(Claims.Name, string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName);
+		identity.SetClaim(SecureGatePlatform.TokenExchangeClaim, SecureGatePlatform.DesignatedOperatorCapability);
+
+		// Revogar a sessão da pessoa derruba também o token de operador (ADR-0032)
+		identity.SetClaim(SeccoClaims.SessionVersion, SessionVersion.From(user.SecurityStamp));
+
+		identity.SetScopes([SecureGateScopes.Admin]);
+		identity.SetResources(resources);
+		identity.SetAccessTokenLifetime(lifetime);
+		identity.SetDestinations(static _ => [Destinations.AccessToken]);
+
+		return new ClaimsPrincipal(identity);
+	}
+
+	/// <summary>Instante da autenticação (<c>auth_time</c>) de um principal emitido pelo próprio SecureGate.</summary>
+	/// <param name="principal">Principal do code ou do refresh token.</param>
+	public static DateTimeOffset? AuthenticatedAt(ClaimsPrincipal? principal) =>
+		long.TryParse(principal?.GetClaim(Claims.AuthenticationTime), NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
+			? DateTimeOffset.FromUnixTimeSeconds(seconds)
+			: null;
+
+	/// <summary>Métodos de autenticação (<c>amr</c>) de um principal emitido pelo próprio SecureGate.</summary>
+	/// <param name="principal">Principal do code ou do refresh token.</param>
+	public static IReadOnlyList<string> MethodsOf(ClaimsPrincipal? principal) =>
+		principal is null ? [] : [.. principal.GetClaims(Claims.AuthenticationMethodReference)];
+
 	/// <summary>Resolve as audiences (resources) dos scopes de produto via scope manager.</summary>
 	/// <param name="scopeManager">Gerenciador de scopes do OpenIddict.</param>
 	/// <param name="scopes">Scopes concedidos.</param>
@@ -139,6 +199,13 @@ internal static class OidcPrincipalBuilder
 	{
 		// sver nos dois: o access token para os produtos, o id_token para as aplicações de cookie (ADR-0032)
 		if (claim.Type == SeccoClaims.SessionVersion)
+		{
+			return [Destinations.AccessToken, Destinations.IdentityToken];
+		}
+
+		// auth_time e amr nos dois: o id_token é onde o OIDC os define, e a troca de operador designado os lê do
+		// access token (ADR-0049)
+		if (claim.Type is Claims.AuthenticationTime or Claims.AuthenticationMethodReference)
 		{
 			return [Destinations.AccessToken, Destinations.IdentityToken];
 		}

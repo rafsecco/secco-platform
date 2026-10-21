@@ -75,6 +75,9 @@ public static class SecureGateIdentityExtensions
 				options.ExpireTimeSpan = TimeSpan.FromHours(1);
 				options.SlidingExpiration = true;
 				options.Cookie.Name = "secco.securegate.auth";
+
+				// Instante da autenticação, gravado só pelas telas de login e preservado nas renovações (ADR-0049)
+				options.Events.OnSigningIn = FreshAuthentication.OnSigningInAsync;
 				// O fluxo de autorização é same-site (login e authorize no mesmo host)
 				options.Cookie.SameSite = SameSiteMode.Lax;
 				options.Cookie.HttpOnly = true;

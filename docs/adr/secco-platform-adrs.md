@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-21 (ADR-0048 aceita)
+**Última atualização:** 2026-10-21 (ADR-0049 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1817,6 +1817,65 @@ Alternativas avaliadas:
 - **Risco aceito:** o admin de tenant lê o catálogo de toda a instalação, e com ele quais produtos existem. Nomes e descrições de permissões não são segredo (ADR-0021).
 - A bateria negativa é provada por mutação: catálogo sem concessão recusa; client interativo criado, alterado, rotacionado ou revogado pela autoridade recusa; client de outro tenant recusa.
 - `Secco.SecureGate.Client` não muda de forma: as rotas já existem.
+
+---
+
+## ADR-0049: Operador da instalação por designação — conta de outro tenant, por troca curta com reautenticação
+
+**Status:** Aceita
+**Data:** 2026-10-21
+**Complementa:** ADR-0030 (instalação soberana), ADR-0040 (operador decidido pelo tenant do login), ADR-0031 (troca de token) e ADR-0044/0048 (admin de tenant)
+
+### Contexto
+
+A issue [#43](https://github.com/rafsecco/secco-platform/issues/43) (`adopter-demand`) traz o último uso do client de máquina com `securegate:admin` no `secco-intranet`. Quando a instalação escolhe a Intranet como centralizador da configuração dos serviços da plataforma, quem administra a instalação **é** o `intranet-admin`. As ADR-0044 a 0048 deram a ele quase tudo, mas algumas operações ficaram com o operador por motivos que valem contra um admin de **tenant**: federação Entra, reativação de tenant, provisionamento em modo script, connection string manual e clients de login. E nenhuma pessoa da Intranet pode ser operadora: pela ADR-0040, `securegate:admin` só sai quando o tenant do login é o de plataforma **e** a conta é dele; uma conta do tenant de plataforma, por sua vez, não entra na Intranet, cuja tenancy recusa um tenant sem banco dela.
+
+O pedido difere do workaround recusado pela ADR-0044 ("dar `installation-operator` ao `intranet-admin`"): lá seria a aplicação se promovendo; aqui é **a instalação que decide**, por configuração, quem a opera — a soberania da ADR-0030.
+
+A análise achou que a plataforma não tinha como exigir "autenticou-se agora, com segundo fator": os tokens não carregavam `auth_time` nem `amr`, o `/connect/authorize` ignorava `max_age` e `prompt=login`, e o `IssuedUtc` do cookie de login se renova sozinho pela expiração deslizante.
+
+Alternativas avaliadas:
+
+- **Escopo de operador no token comum da pessoa, com `tenant_id`** (opção "b" da issue). A sessão comum — horas, com refresh — passaria a carregar poder de instalação, exatamente o que o risco de sessão sequestrada teme; e o token de operador com tenant reabriria a regra "claim × header" do LogStream (ADR-0024). Descartada.
+- **Designação por API, concedida por um operador.** Um operador designado designaria outros, e a autoridade se perpetuaria fora do controle de quem configura a instalação. Descartada: a configuração é a única fonte.
+- **Designação por e-mail.** O dono troca o próprio e-mail (ADR-0033); a designação não pode seguir um endereço. Descartada: é por id da conta.
+- **Só token curto, sem reautenticação.** Um cookie roubado geraria token de operador. Descartada.
+- **Segundo login na Intranet com conta de operador** (plano B do adotante). Duas contas por pessoa, e o `prompt=login` trocaria a conta da sessão do SecureGate no navegador, fazendo o SSO dos outros sistemas entrar como operador. Fica como plano do adotante, não da plataforma.
+
+### Decisão
+
+**Designação declarativa.** `SecureGate:InstallationOperators:Accounts` lista os ids das contas que a instalação designa operadoras. Nenhuma API designa ninguém; tirar a conta da lista revoga na requisição seguinte, porque a designação é relida a cada consulta. Sem designação, nada muda.
+
+**Poder de operador como ato: troca curta.** O login da pessoa segue exatamente como hoje (tenant da Intranet, perfis da Intranet). Para operar, a aplicação troca o token da pessoa (RFC 8693, mesmo endpoint da elevação da ADR-0031, pedindo o escopo `securegate:admin`) por um **token de operador designado**:
+
+- `sub` real, **sem `tenant_id`** (operador tenant-less, ADR-0024), **só** o escopo `securegate:admin`, nenhum papel;
+- TTL de `SecureGate:InstallationOperators:TokenLifetimeMinutes` (padrão 10), com **teto de 15 minutos** — a configuração aperta, nunca afrouxa;
+- **sem refresh**, e não troca de novo (nem elevação vira operador, nem operador renova o próprio TTL);
+- marcado (`token_exchange = designated-operator`) e com `sver` — revogar a sessão da pessoa o derruba (ADR-0032).
+
+A troca exige, todas: conta designada, conta em dia (bloqueio, desativação, tenant dono ativo), **versão de sessão do token de entrada igual à da conta** (`sver`, ADR-0032 — um token tirado antes de uma troca de senha ou de segundo fator não serve), **segundo fator cadastrado**, e a sessão de onde veio o token **autenticada com segundo fator** (`amr` contém `mfa`) **há no máximo** `RecentAuthenticationMinutes` (padrão 10, teto 15). Toda recusa é a mesma resposta da elevação, sem dizer o que faltou.
+
+**Reautenticação recente na plataforma.** O SecureGate passa a:
+
+- gravar no cookie de login o instante da autenticação — só as telas de login (senha, segundo fator, federado) o gravam; renovações do cookie o preservam;
+- emitir `auth_time` e `amr` no access token e no id_token; a renovação preserva os da sessão (renovar não é autenticar de novo);
+- respeitar `prompt=login` e `max_age` no `/connect/authorize`: a sessão do SecureGate sai, a pessoa autentica de novo, e a requisição volta sem o pedido de reautenticação (`prompt=none` junto responde `login_required`).
+
+A aplicação pede a reautenticação antes da área de operação; um cookie roubado, sozinho, gera token comum, nunca token de operador.
+
+**Cada requisição com o token de operador designado é conferida e cada escrita é auditada.** Um middleware — e não filtro de rota, porque o token abre todas as rotas de operador e nenhuma pode escapar — reconfere designação e conta a cada requisição e grava cada escrita na trilha **antes** de ela acontecer, síncrona e fail-closed (`503` e nada acontece), com a pessoa como ator, a aplicação como `act` e a ação prefixada `operador-designado.`. Destino: o tenant da rota quando ele tem banco do LogStream no catálogo; senão, o tenant dono da pessoa (mesma regra da ADR-0047). A troca também vai à trilha, no tenant dono, antes da emissão. Sem identidade de auditoria configurada, a troca é recusada.
+
+**A conta designada é conta administrativa** (ADR-0044): quem administra o tenant dono dela não reseta senha ou segundo fator, não desativa, não mexe em sessões nem em logins externos; e esse tenant não pode ser desativado pela autoridade de admin de tenant.
+
+### Consequências
+
+- O `secco-intranet` pode aposentar o client de máquina com `securegate:admin` por completo: as operações de operador passam a ser feitas on-behalf-of a pessoa designada, com reautenticação antes, token curto e trilha de cada escrita.
+- **Risco residual aceito:** quem tiver senha, segundo fator **e** sessão da pessoa designada opera a instalação — é a definição de operador. A defesa é o poder ser um ato curto, reautenticado e auditado, não um estado permanente na aplicação.
+- **Designação com login federado:** o `amr` do Entra não atravessa a federação (ADR-0026), então a conta designada precisa autenticar com o segundo fator do SecureGate para trocar.
+- **Revogar exige mudar a configuração.** Com provedor de configuração recarregável, vale na requisição seguinte; sem ele, no próximo reinício — e o token já emitido morre em até 15 minutos de qualquer forma.
+- `auth_time` e `amr` passam a existir em todo token de pessoa — informação padrão do OIDC, útil a qualquer aplicação que queira exigir reautenticação.
+- A bateria negativa é provada por mutação: sem designação, versão de sessão antiga, sem segundo fator cadastrado, sessão sem `amr=mfa`, autenticação antiga, designação retirada, escrita sem trilha, trilha recusada, conta designada exposta ao admin de tenant, `prompt=login`/`max_age` ignorados, renovação perdendo o `auth_time`, token de operador com tenant. A recusa de re-troca é defesa em profundidade: o token de operador não carrega `amr`, então a exigência de segundo fator já o recusa antes.
+- Sem contrato HTTP novo: a troca usa o endpoint de token do OIDC.
 
 ---
 

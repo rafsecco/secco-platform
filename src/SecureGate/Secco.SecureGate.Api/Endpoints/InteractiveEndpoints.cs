@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using Secco.SecureGate.Api.Identity;
@@ -88,6 +89,33 @@ public static class InteractiveEndpoints
 				[IdentityConstants.ApplicationScheme]);
 		}
 
+		// Reautenticação pedida pela aplicação (ADR-0049): prompt=login, ou max_age mais curto que a idade da
+		// autenticação desta sessão. A sessão do SecureGate sai e a pessoa autentica de novo — senha e, se ela
+		// tiver, segundo fator. A volta tira o "login" do prompt; senão o pedido nunca terminaria.
+		var authenticatedAt = FreshAuthentication.AuthenticatedAt(authentication.Principal);
+		var tooOld = request.MaxAge is { } maxAge
+			&& (authenticatedAt is null || DateTimeOffset.UtcNow - authenticatedAt.Value > TimeSpan.FromSeconds(maxAge));
+
+		if (request.HasPromptValue(PromptValues.Login) || tooOld)
+		{
+			if (request.HasPromptValue(PromptValues.None))
+			{
+				return Results.Forbid(
+					authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme],
+					properties: new AuthenticationProperties(new Dictionary<string, string?>
+					{
+						[OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.LoginRequired,
+						[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "A aplicação pediu nova autenticação.",
+					}));
+			}
+
+			await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+
+			return Results.Challenge(
+				new AuthenticationProperties { RedirectUri = WithoutLoginPrompt(context, request) },
+				[IdentityConstants.ApplicationScheme]);
+		}
+
 		// ADR-0040: o tenant do login vem do registro do client, nunca de parâmetro. Sem vínculo ativo
 		// (ou com o tenant do login inativo) a pessoa não entra NESTA aplicação, mas a sessão dela segue
 		// valendo nas outras — por isso access_denied ao redirect_uri e nada de SignOut.
@@ -147,9 +175,28 @@ public static class InteractiveEndpoints
 		var resources = await OidcPrincipalBuilder.ResolveResourcesAsync(scopeManager, granted, context.RequestAborted);
 
 		// Client first-party confiável (ConsentType Implicit no registro) → sem tela de consent (Fase 6.5)
-		var principal = OidcPrincipalBuilder.ForUser(user, roles, granted, resources, loginTenantId);
+		var principal = OidcPrincipalBuilder.ForUser(
+			user, roles, granted, resources, loginTenantId,
+			authenticatedAt, FreshAuthentication.MethodsOf(authentication.Principal));
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+	}
+
+	// A mesma requisição de autorização, sem o "login" no prompt e sem max_age: a autenticação nova já atende
+	private static string WithoutLoginPrompt(HttpContext context, OpenIddictRequest request)
+	{
+		var query = QueryHelpers.ParseQuery(context.Request.QueryString.Value)
+			.Where(pair => pair.Key is not (Parameters.Prompt or Parameters.MaxAge))
+			.ToDictionary(pair => pair.Key, pair => (string?)pair.Value.ToString(), StringComparer.Ordinal);
+
+		var prompt = string.Join(' ', request.GetPromptValues().Where(value => value != PromptValues.Login));
+
+		if (prompt.Length > 0)
+		{
+			query[Parameters.Prompt] = prompt;
+		}
+
+		return QueryHelpers.AddQueryString(context.Request.PathBase + context.Request.Path, query);
 	}
 
 	private static async Task<IResult> UserInfo(HttpContext context)

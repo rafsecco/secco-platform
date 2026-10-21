@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
+using Secco.SecureGate.Api.Authorization;
 using Secco.SecureGate.Api.Endpoints;
 using Secco.SecureGate.Api.Extensions;
 using Secco.SecureGate.Api.Tenancy;
@@ -62,6 +63,9 @@ builder.Services.AddSecureGateEntraFederation(builder.Configuration, builder.Env
 var app = builder.Build();
 
 app.UseSeccoPlatform();
+
+// Operador designado (ADR-0049): reconfere a designação e audita cada escrita, em qualquer rota
+app.UseMiddleware<DesignatedOperatorGuard>();
 app.MapSeccoPlatform();
 app.MapRazorPages();
 

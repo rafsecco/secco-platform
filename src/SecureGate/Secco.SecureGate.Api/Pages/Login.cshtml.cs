@@ -102,6 +102,9 @@ public sealed class LoginModel(
 			return Page();
 		}
 
+		// Autenticação nova: o cookie grava o instante dela (ADR-0049)
+		FreshAuthentication.Mark(HttpContext);
+
 		// lockoutOnFailure: alimenta o bloqueio contra força bruta (ADR-0020)
 		var result = await signInManager.PasswordSignInAsync(
 			Input.Email, Input.Password, isPersistent: false, lockoutOnFailure: true);

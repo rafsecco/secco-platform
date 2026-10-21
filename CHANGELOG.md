@@ -12,6 +12,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — operador da instalação por designação (issue #43, ADR-0049)
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda — a troca usa o endpoint de token do OIDC.
+
+- **Designação declarativa** em `SecureGate:InstallationOperators:Accounts` (ids de conta). Sem designação, nada muda; tirar a conta da lista revoga na requisição seguinte.
+- **Troca por token de operador** (RFC 8693, escopo `securegate:admin`): sem `tenant_id`, só esse escopo, sem refresh, TTL padrão 10 minutos com teto de 15 (`TokenLifetimeMinutes`). Exige conta designada e em dia, versão de sessão atual, segundo fator cadastrado e a sessão autenticada com segundo fator há no máximo `RecentAuthenticationMinutes` (padrão 10, teto 15).
+- **Reautenticação recente:** os tokens de pessoa passam a carregar `auth_time` e `amr`, a renovação os preserva, e o `/connect/authorize` respeita `prompt=login` e `max_age`.
+- **Cada requisição com o token de operador designado** reconfere designação e conta, e cada escrita vai à trilha antes de acontecer (`operador-designado.<operação>`, síncrona e fail-closed).
+- **A conta designada é conta administrativa:** o admin de tenant não toca a credencial dela nem desativa o tenant dono.
+- **Para a Intranet:** designar o `intranet-admin` na configuração do SecureGate, permitir ao client de plataforma da Intranet a troca de token e o escopo `securegate:admin`, pedir `prompt=login` (ou `max_age`) antes da área de operação e trocar o token da pessoa a cada operação. O client de máquina com `securegate:admin` pode ser aposentado.
+
 ### SecureGate (serviço) — admin de tenant lê o catálogo e gere clients de máquina (issues #41 e #42, ADR-0048)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda — as rotas já existiam e passam a aceitar a autoridade de admin de tenant.

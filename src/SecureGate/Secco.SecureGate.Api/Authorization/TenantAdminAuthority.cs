@@ -235,7 +235,7 @@ internal static class TenantAdminAuthority
 
 	// Destino da trilha (ADR-0047): o tenant administrado só recebe a entrada se tiver banco do LogStream no
 	// catálogo — senão a primeira escrita de um tenant novo, que é provisionar o banco, nunca passaria
-	private static async Task<bool> HasAuditDatabaseAsync(IServiceProvider services, Guid tenantId, CancellationToken cancellationToken)
+	internal static async Task<bool> HasAuditDatabaseAsync(IServiceProvider services, Guid tenantId, CancellationToken cancellationToken)
 	{
 		using (services.GetRequiredService<ITenantAccessScope>().EnterTenant(tenantId))
 		{
@@ -246,7 +246,7 @@ internal static class TenantAdminAuthority
 
 	// Estado ATUAL da conta (ADR-0032): o token pode ter sido emitido antes de a conta ser desativada. Devolve o
 	// tenant dono da conta, ou nulo se ela não pode mais agir
-	private static async Task<Guid?> ResolveOwnerTenantAsync(IServiceProvider services, Guid userId, CancellationToken cancellationToken)
+	internal static async Task<Guid?> ResolveOwnerTenantAsync(IServiceProvider services, Guid userId, CancellationToken cancellationToken)
 	{
 		using (services.GetRequiredService<ITenantAccessScope>()
 			.EnterPlatform("admin de tenant: estado da conta de quem age, dona de qualquer tenant"))
@@ -266,7 +266,7 @@ internal static class TenantAdminAuthority
 		}
 	}
 
-	private static bool TryGetRouteGuid(HttpContext httpContext, out Guid value, params string[] names)
+	internal static bool TryGetRouteGuid(HttpContext httpContext, out Guid value, params string[] names)
 	{
 		foreach (var name in names)
 		{

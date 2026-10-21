@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.InstallationOperators;
 using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Tenants;
@@ -13,7 +14,8 @@ namespace Secco.SecureGate.Infrastructure.Repositories;
 /// ou atravessam tenants entram no modo plataforma aqui dentro, cada uma com o próprio motivo
 /// (ADR-0041): a pessoa pode ser dona de outro tenant e nem ser membro do administrado.
 /// </summary>
-internal sealed class TenantAdminGrantRepository(SecureGateDbContext context, ITenantAccessScope accessScope)
+internal sealed class TenantAdminGrantRepository(
+	SecureGateDbContext context, ITenantAccessScope accessScope, IInstallationOperatorDesignations designations)
 	: ITenantAdminGrantRepository
 {
 	public Task<bool> ExistsAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
@@ -76,6 +78,12 @@ internal sealed class TenantAdminGrantRepository(SecureGateDbContext context, IT
 
 	public async Task<bool> IsAdministrativeAccountAsync(Guid userId, CancellationToken cancellationToken = default)
 	{
+		// Operador designado (ADR-0049): quem administra o tenant dono dele não toca a conta que opera a instalação
+		if (designations.IsDesignated(userId))
+		{
+			return true;
+		}
+
 		using (accessScope.EnterPlatform("admins de tenant: alvo protegido é admin de qualquer tenant ou operador"))
 		{
 			return await context.TenantAdminGrants.AnyAsync(g => g.UserId == userId, cancellationToken).ConfigureAwait(false)
@@ -113,8 +121,11 @@ internal sealed class TenantAdminGrantRepository(SecureGateDbContext context, IT
 		using (accessScope.EnterPlatform("admins de tenant: o tenant é dono de conta que administra outros"))
 		{
 			var owned = context.Users.Where(u => u.TenantId == tenantId).Select(u => u.Id);
+			var designated = designations.Current.ToList();
 
-			return await context.TenantAdminGrants.AnyAsync(g => owned.Contains(g.UserId), cancellationToken).ConfigureAwait(false)
+			return (designated.Count > 0
+					&& await owned.AnyAsync(id => designated.Contains(id), cancellationToken).ConfigureAwait(false))
+				|| await context.TenantAdminGrants.AnyAsync(g => owned.Contains(g.UserId), cancellationToken).ConfigureAwait(false)
 				|| await context.TenantCreatorGrants.AnyAsync(g => owned.Contains(g.UserId), cancellationToken).ConfigureAwait(false);
 		}
 	}

@@ -22,6 +22,9 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 	/// <summary>Prefixo das ações desta trilha.</summary>
 	public const string ActionPrefix = "admin-de-tenant.";
 
+	/// <summary>Prefixo das ações do operador designado (ADR-0049).</summary>
+	public const string DesignatedOperatorActionPrefix = "operador-designado.";
+
 	/// <inheritdoc />
 	public bool IsConfigured => true;
 
@@ -43,12 +46,12 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 					ActorId = record.UserId.ToString(),
 					ActorType = ActorType.User,
 					ActorName = record.UserName,
-					Action = ActionPrefix + record.Operation,
+					Action = (record.Authority == SecureGateScopes.Admin ? DesignatedOperatorActionPrefix : ActionPrefix) + record.Operation,
 					ResourceType = record.TargetUserId is null ? "tenant" : "user",
 					ResourceId = (record.TargetUserId ?? record.TenantId).ToString(),
 					Metadata = JsonSerializer.Serialize(new
 					{
-						authority = SecureGateScopes.TenantAdmin,
+						authority = record.Authority,
 						act = record.ClientId,
 						tenantId = record.AdministeredTenantId,
 					}),
