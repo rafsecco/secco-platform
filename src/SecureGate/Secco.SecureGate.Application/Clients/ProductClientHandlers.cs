@@ -8,9 +8,20 @@ public sealed class CreateProductClientHandler(
 	ITenantRepository tenants, ProductClientAccessValidator validator, IProductClientStore store)
 {
 	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="command">Comando.</param>
+	/// <param name="byTenantAdmin">Pela autoridade de admin de tenant: só client de máquina (ADR-0048).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
 	public async Task<Result<CreatedProductClientDto>> HandleAsync(
-		Guid tenantId, ProductClientCommand command, CancellationToken cancellationToken = default)
+		Guid tenantId, ProductClientCommand command, bool byTenantAdmin = false, CancellationToken cancellationToken = default)
 	{
+		ArgumentNullException.ThrowIfNull(command);
+
+		if (byTenantAdmin && command.Type == ProductClientRules.AuthorizationCodeType)
+		{
+			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Clients.InteractiveRequiresOperator);
+		}
+
 		if (await tenants.GetByIdAsync(tenantId, cancellationToken).ConfigureAwait(false) is not { } tenant)
 		{
 			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Tenants.NotFound);
@@ -74,12 +85,30 @@ public sealed class GetProductClientHandler(IProductClientStore store)
 public sealed class UpdateProductClientHandler(ProductClientAccessValidator validator, IProductClientStore store)
 {
 	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="clientId">Client da rota.</param>
+	/// <param name="command">Comando.</param>
+	/// <param name="byTenantAdmin">Pela autoridade de admin de tenant: só client de máquina (ADR-0048).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
 	public async Task<Result> HandleAsync(
-		Guid tenantId, string clientId, ProductClientCommand command, CancellationToken cancellationToken = default)
+		Guid tenantId, string clientId, ProductClientCommand command, bool byTenantAdmin = false,
+		CancellationToken cancellationToken = default)
 	{
+		ArgumentNullException.ThrowIfNull(command);
+
+		var existing = await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false);
+
+		// Alterar um client de login (redirect URI) é tão perigoso quanto criá-lo (ADR-0048)
+		if (byTenantAdmin
+			&& (command.Type == ProductClientRules.AuthorizationCodeType
+				|| existing?.Type == ProductClientRules.AuthorizationCodeType))
+		{
+			return Result.Failure(SecureGateErrors.Clients.InteractiveRequiresOperator);
+		}
+
 		// O tipo é imutável (ADR-0040): trocar máquina por interativo é outro client. Tipo omitido
 		// vale client_credentials, então também não converte um interativo.
-		if (await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false) is { } existing
+		if (existing is not null
 			&& (command.Type ?? ProductClientRules.ClientCredentialsType) != (existing.Type ?? ProductClientRules.ClientCredentialsType))
 		{
 			return Result.Failure(SecureGateErrors.Clients.TypeImmutable);
@@ -110,9 +139,18 @@ public sealed class UpdateProductClientHandler(ProductClientAccessValidator vali
 public sealed class RotateProductClientSecretHandler(IProductClientStore store)
 {
 	/// <summary>Executa o caso de uso.</summary>
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="clientId">Client da rota.</param>
+	/// <param name="byTenantAdmin">Pela autoridade de admin de tenant: só client de máquina (ADR-0048).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
 	public async Task<Result<ProductClientSecretDto>> HandleAsync(
-		Guid tenantId, string clientId, CancellationToken cancellationToken = default)
+		Guid tenantId, string clientId, bool byTenantAdmin = false, CancellationToken cancellationToken = default)
 	{
+		if (byTenantAdmin && await ProductClientTenantAdminGuard.IsInteractiveAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false))
+		{
+			return Result.Failure<ProductClientSecretDto>(SecureGateErrors.Clients.InteractiveRequiresOperator);
+		}
+
 		var secret = ProductClientRules.NewSecret();
 
 		return await store.RotateSecretAsync(tenantId, clientId, secret, cancellationToken).ConfigureAwait(false)
@@ -125,8 +163,30 @@ public sealed class RotateProductClientSecretHandler(IProductClientStore store)
 public sealed class DeleteProductClientHandler(IProductClientStore store)
 {
 	/// <summary>Executa o caso de uso.</summary>
-	public async Task<Result> HandleAsync(Guid tenantId, string clientId, CancellationToken cancellationToken = default) =>
-		await store.DeleteAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false)
+	/// <param name="tenantId">Tenant da rota.</param>
+	/// <param name="clientId">Client da rota.</param>
+	/// <param name="byTenantAdmin">Pela autoridade de admin de tenant: só client de máquina (ADR-0048).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	public async Task<Result> HandleAsync(
+		Guid tenantId, string clientId, bool byTenantAdmin = false, CancellationToken cancellationToken = default)
+	{
+		if (byTenantAdmin && await ProductClientTenantAdminGuard.IsInteractiveAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false))
+		{
+			return Result.Failure(SecureGateErrors.Clients.InteractiveRequiresOperator);
+		}
+
+		return await store.DeleteAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false)
 			? Result.Success()
 			: Result.Failure(SecureGateErrors.Clients.NotFound);
+	}
+}
+
+/// <summary>Client de login fica com o operador (ADR-0048): a autoridade de admin de tenant só mexe em máquina.</summary>
+internal static class ProductClientTenantAdminGuard
+{
+	/// <summary>Indica se o client existe e é interativo (<c>authorization_code</c>).</summary>
+	public static async Task<bool> IsInteractiveAsync(
+		IProductClientStore store, Guid tenantId, string clientId, CancellationToken cancellationToken) =>
+		(await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false))?.Type
+			== ProductClientRules.AuthorizationCodeType;
 }

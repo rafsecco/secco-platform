@@ -24,7 +24,10 @@ namespace Secco.SecureGate.Api.Authorization;
 /// <param name="CreatesTenant">
 /// A rota cria tenant (ADR-0047): não há tenant na rota, e a autoridade vem da concessão de criação.
 /// </param>
-public sealed record TenantAdminAllowedMetadata(bool ProtectsAdminTargets, bool CreatesTenant = false);
+/// <param name="AnyGrant">
+/// Leitura sem tenant na rota (ADR-0048, catálogo de permissões): basta alguma concessão, de admin ou de criação.
+/// </param>
+public sealed record TenantAdminAllowedMetadata(bool ProtectsAdminTargets, bool CreatesTenant = false, bool AnyGrant = false);
 
 /// <summary>
 /// Autoridade de admin de tenant (ADR-0044/0047): negada por padrão, aberta rota a rota, conferida no
@@ -78,6 +81,21 @@ internal static class TenantAdminAuthority
 			.WithMetadata(new TenantAdminAllowedMetadata(ProtectsAdminTargets: false, CreatesTenant: true))
 			.AddEndpointFilter(async (context, next) =>
 				await AuthorizeCreationAsync(context.HttpContext).ConfigureAwait(false) ?? await next(context));
+	}
+
+	/// <summary>
+	/// Abre uma LEITURA sem tenant na rota a quem tem alguma autoridade de admin de tenant (ADR-0048). Só
+	/// <c>GET</c>: escrita sem tenant na rota não tem onde ser conferida nem auditada.
+	/// </summary>
+	/// <param name="builder">Rota.</param>
+	public static RouteHandlerBuilder AllowAnyTenantAdmin(this RouteHandlerBuilder builder)
+	{
+		ArgumentNullException.ThrowIfNull(builder);
+
+		return builder
+			.WithMetadata(new TenantAdminAllowedMetadata(ProtectsAdminTargets: false, AnyGrant: true))
+			.AddEndpointFilter(async (context, next) =>
+				await AuthorizeAnyGrantAsync(context.HttpContext).ConfigureAwait(false) ?? await next(context));
 	}
 
 	/// <summary>Recusa padrão: não diz se o tenant existe nem por que a autoridade não vale.</summary>
@@ -135,6 +153,28 @@ internal static class TenantAdminAuthority
 			: ownerTenantId;
 
 		return await AuditAsync(httpContext, auditor, userId, destination, tenantId, targetUserId).ConfigureAwait(false);
+	}
+
+	private static async Task<IResult?> AuthorizeAnyGrantAsync(HttpContext httpContext)
+	{
+		var principal = httpContext.User;
+
+		if (!IsTenantAdminCaller(principal))
+		{
+			return null;
+		}
+
+		var services = httpContext.RequestServices;
+		var cancellationToken = httpContext.RequestAborted;
+
+		return !HttpMethods.IsGet(httpContext.Request.Method)
+			|| !services.GetRequiredService<ITenantAdminAuditor>().IsConfigured
+			|| !Guid.TryParse(principal.FindFirstValue(SeccoClaims.Subject), out var userId)
+			|| !await services.GetRequiredService<ITenantAdminGrantRepository>()
+				.HasAnyAuthorityAsync(userId, cancellationToken).ConfigureAwait(false)
+			|| await ResolveOwnerTenantAsync(services, userId, cancellationToken).ConfigureAwait(false) is null
+				? Forbidden()
+				: null;
 	}
 
 	private static async Task<IResult?> AuthorizeCreationAsync(HttpContext httpContext)

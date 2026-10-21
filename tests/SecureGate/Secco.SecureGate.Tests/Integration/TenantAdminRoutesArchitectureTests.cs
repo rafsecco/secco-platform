@@ -24,7 +24,7 @@ public class TenantAdminRoutesArchitectureTests(SecureGateApiFactory factory)
 				Name: endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName,
 				Allowed: endpoint.Metadata.GetMetadata<TenantAdminAllowedMetadata>()))
 			.Where(x => x.Allowed is not null)
-			.Select(x => $"{x.Name} | {(x.Allowed!.CreatesTenant ? "criacao" : x.Allowed.ProtectsAdminTargets ? "sim" : "nao")}")
+			.Select(x => $"{x.Name} | {(x.Allowed!.CreatesTenant ? "criacao" : x.Allowed.AnyGrant ? "qualquer" : x.Allowed.ProtectsAdminTargets ? "sim" : "nao")}")
 			.Order(StringComparer.Ordinal)
 			.ToList();
 

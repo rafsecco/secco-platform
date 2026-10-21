@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-19 (ADR-0045 a ADR-0047 aceitas)
+**Última atualização:** 2026-10-21 (ADR-0048 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1778,6 +1778,45 @@ Alternativas avaliadas:
 - A trava de desativação pode impedir o admin de desativar o próprio tenant enquanto ele for dono de contas administrativas; o operador desativa. Um tenant desativado pelo admin de tenant só volta pelo operador.
 - A bateria negativa é provada por mutação: sem concessão de criação não cria; limite respeitado; a concessão automática só cobre o tenant criado; desativação com conta administrativa dona recusa; reativação recusa a autoridade; provisionamento em modo script, com nomes, alvo ou produto vindos do pedido, ou sobre database ou login já existentes, e connection string manual recusam a autoridade; federação recusa; trilha indisponível recusa a escrita.
 - `Secco.SecureGate.Client` ganha as rotas de concessão de criação (minor).
+
+---
+
+## ADR-0048: Admin de tenant lê o catálogo de permissões e gere clients de máquina do tenant
+
+**Status:** Aceita
+**Data:** 2026-10-21
+**Complementa:** ADR-0044 (admin de tenant), ADR-0037 (clients de produto) e ADR-0039 (catálogo de permissões)
+
+### Contexto
+
+As issues [#41](https://github.com/rafsecco/secco-platform/issues/41) e [#42](https://github.com/rafsecco/secco-platform/issues/42) (`adopter-demand`) vêm do mesmo passo do `secco-intranet`: aposentar o client de máquina com `securegate:admin` depois de adotar as ADR-0044, 0046 e 0047. Restavam duas operações que a ADR-0044 deixou com o operador:
+
+1. **Ler o catálogo de permissões** (ADR-0039). O admin de tenant já grava as permissões dos perfis (`SetRolePermissions`), mas não lê o que existe para gravar; a tela de perfil monta as caixas por produto a partir do catálogo.
+2. **Gerir os clients do tenant** (ADR-0037): os de máquina, para o sistema gravar log e notificar, e os de login, para o SSO dos funcionários no sistema (ADR-0040).
+
+A análise do client de login achou um caminho de impersonação. Quem controla a redirect URI de um client interativo do tenant B recebe o code de **qualquer pessoa com vínculo em B** — inclusive membros que pertencem a outros tenants, outros admins e operadores que sejam membros — e, pelo SSO com consentimento implícito, sem tela nenhuma. Com o code e o secret do client, o admin de B obtém token e refresh **em nome da pessoa** nos produtos de B. É o "acessar como" da issue #6, sem nenhuma das regras dela e sem a pessoa saber. O PKCE não protege, porque quem monta o fluxo é o próprio atacante. Alterar a redirect URI de um client interativo existente tem o mesmo efeito.
+
+Alternativas avaliadas:
+
+- **Novo escopo de leitura do catálogo.** Mais um escopo para o client de plataforma pedir, sem ganho: quem lê é a mesma pessoa que já grava. Descartada.
+- **Catálogo filtrado pelos produtos com banco no tenant administrado.** Não protege nada — o catálogo não é segredo — e quebra a tela de um tenant ainda sem banco. Descartada.
+- **Clients de login com redirect URI restrita a hosts aprovados pelo operador.** Contém o desvio do code a aplicações da empresa, mas é configuração e superfície novas sem pedido real. Fica para quando houver evidência.
+
+### Decisão
+
+**Leitura do catálogo de permissões pela autoridade de admin de tenant.** `ListPermissionCatalog` e `GetPermissionCatalog` passam a aceitar `securegate:tenant-admin`, o catálogo inteiro, para quem tem **alguma** concessão (de admin de qualquer tenant ou de criação, ADR-0047) com a conta em dia. São rotas sem tenant: a conferência é a da pessoa, não a de um tenant. Leitura não vai à trilha. Publicar o catálogo continua com cada produto (`permissions:<produto>`).
+
+**Clients de máquina do tenant pela autoridade de admin de tenant.** Nos tenants que administra, a pessoa lista e detalha todos os clients, e cria, altera, rotaciona o secret e revoga os de tipo `client_credentials`. O efeito fica contido no tenant: o token do client sai com o `tenant_id` dele, só escopos de produto (lista fechada, ADR-0037) e perfis do próprio tenant. Toda escrita é auditada como na ADR-0044; o secret nunca vai à trilha.
+
+**Clients de login continuam com o operador.** Pela autoridade de admin de tenant, criar um client `authorization_code` e alterar, rotacionar ou revogar um client interativo existente respondem `403`. Listar e detalhar continuam abertos.
+
+### Consequências
+
+- O `secco-intranet` pode aposentar o client de máquina com `securegate:admin` na tela de perfis e nas credenciais de máquina dos sistemas que o `intranet-admin` administra. As credenciais de login (SSO) de um sistema novo seguem pedidas ao operador.
+- **Risco aceito:** um client de máquina criado pelo admin de tenant **continua valendo depois que a concessão dele é revogada** — como os perfis que ele deu. O operador vê os clients do tenant e os revoga.
+- **Risco aceito:** o admin de tenant lê o catálogo de toda a instalação, e com ele quais produtos existem. Nomes e descrições de permissões não são segredo (ADR-0021).
+- A bateria negativa é provada por mutação: catálogo sem concessão recusa; client interativo criado, alterado, rotacionado ou revogado pela autoridade recusa; client de outro tenant recusa.
+- `Secco.SecureGate.Client` não muda de forma: as rotas já existem.
 
 ---
 

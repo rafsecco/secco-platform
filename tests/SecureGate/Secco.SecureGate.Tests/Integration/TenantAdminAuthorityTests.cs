@@ -197,10 +197,10 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 	[InlineData("GET", "/api/v1/tenants")]
 	[InlineData("PUT", "/api/v1/tenants/{b}/databases/logstream")]
 	[InlineData("PUT", "/api/v1/tenants/{b}/federation")]
-	[InlineData("GET", "/api/v1/tenants/{b}/clients")]
+	[InlineData("GET", "/api/v1/tenant-creators")]
 	[InlineData("GET", "/api/v1/tenants/{b}/entra/group-role-mappings")]
 	[InlineData("GET", "/api/v1/tenants/{b}/admins")]
-	[InlineData("GET", "/api/v1/permission-catalog")]
+	[InlineData("GET", "/api/v1/tenants/{b}/entra/groups")]
 	public async Task RotaNaoMarcada_RecusaAAutoridade_MesmoNoTenantAdministrado(string method, string route)
 	{
 		await GrantAsync(_tenantB, _admin);

@@ -9,7 +9,7 @@ namespace Secco.SecureGate.Api.Endpoints;
 /// <summary>
 /// Catálogo de permissões publicado pelos produtos (<c>/api/v1/permission-catalog</c>, ADR-0039).
 /// A publicação (<c>PUT</c>) exige o scope <c>permissions:&lt;produto&gt;</c> do produto da rota;
-/// a leitura exige <c>securegate:admin</c>. Publicar nunca toca perfil.
+/// a leitura exige <c>securegate:admin</c> ou a autoridade de admin de tenant (ADR-0048). Publicar nunca toca perfil.
 /// </summary>
 public static class PermissionCatalogEndpoints
 {
@@ -37,7 +37,7 @@ public static class PermissionCatalogEndpoints
 			.ProducesProblem(StatusCodes.Status400BadRequest);
 
 		var admin = group.MapGroup("/").RequireAuthorization(policy =>
-			policy.RequireAssertion(context => ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)));
+			policy.RequireAssertion(TenantAdminAuthority.AllowsAdminOrMarkedTenantAdmin));
 
 		admin.MapGet("/", async (
 				ListPermissionCatalogHandler handler,
@@ -45,6 +45,7 @@ public static class PermissionCatalogEndpoints
 			(await handler.HandleAsync(cancellationToken))
 				.ToHttpResult(catalog => Results.Ok(catalog)))
 			.WithName("ListPermissionCatalog")
+			.AllowAnyTenantAdmin()
 			.WithSummary("Lista o catálogo de permissões de todos os produtos, com as colisões de nome visíveis.")
 			.Produces<IReadOnlyList<ProductPermissionCatalogDto>>(StatusCodes.Status200OK);
 
@@ -55,6 +56,7 @@ public static class PermissionCatalogEndpoints
 			(await handler.HandleAsync(product, cancellationToken))
 				.ToHttpResult(catalog => Results.Ok(catalog)))
 			.WithName("GetPermissionCatalog")
+			.AllowAnyTenantAdmin()
 			.WithSummary("Lê o catálogo de permissões de um produto (404 se ele nunca publicou).")
 			.Produces<ProductPermissionCatalogDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);

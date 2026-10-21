@@ -176,6 +176,14 @@ public static class SecureGateErrors
 	/// <summary>Erros de client de produto (ADR-0037).</summary>
 	public static class Clients
 	{
+		/// <summary>
+		/// Client de login (interativo) pela autoridade de admin de tenant (ADR-0048): quem controla a redirect URI
+		/// recebe o code de qualquer membro do tenant e entraria como ele nos produtos — fica com o operador.
+		/// </summary>
+		public static readonly Error InteractiveRequiresOperator =
+			Error.Forbidden("SecureGate.Client.InteractiveRequiresOperator",
+				"Client de login só é criado ou alterado pelo operador da instalação.");
+
 		/// <summary>Client não encontrado neste tenant — também para client de outro tenant ou de plataforma.</summary>
 		public static readonly Error NotFound =
 			Error.NotFound("SecureGate.Client.NotFound", "Client não encontrado neste tenant.");

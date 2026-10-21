@@ -12,6 +12,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — admin de tenant lê o catálogo e gere clients de máquina (issues #41 e #42, ADR-0048)
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda — as rotas já existiam e passam a aceitar a autoridade de admin de tenant.
+
+- **Catálogo de permissões:** `GET /api/v1/permission-catalog` e `GET /api/v1/permission-catalog/{product}` aceitam `securegate:tenant-admin` de quem tem alguma concessão (de admin ou de criação), o catálogo inteiro. Leitura não vai à trilha; publicar continua com cada produto.
+- **Clients de máquina do tenant:** nos tenants que administra, a pessoa lista e detalha todos os clients e cria, altera, rotaciona e revoga os `client_credentials`, com trilha como na ADR-0044.
+- **Clients de login continuam com o operador:** criar `authorization_code`, ou alterar, rotacionar e revogar um interativo, responde `403` à autoridade de admin de tenant — quem controla a redirect URI receberia o code de qualquer membro do tenant.
+- **Para a Intranet:** a tela de perfis e as credenciais de máquina dos sistemas administrados podem sair do client com `securegate:admin`; as credenciais de login (SSO) seguem pedidas ao operador.
+
 ### SecureGate (serviço) — isolamento de tenant no banco (issue #32, ADR-0041) — ação necessária
 
 Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HTTP nem client muda.
