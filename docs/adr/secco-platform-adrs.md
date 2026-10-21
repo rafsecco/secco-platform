@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-21 (ADR-0049 aceita)
+**Última atualização:** 2026-10-21 (ADR-0050 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -1876,6 +1876,42 @@ A aplicação pede a reautenticação antes da área de operação; um cookie ro
 - `auth_time` e `amr` passam a existir em todo token de pessoa — informação padrão do OIDC, útil a qualquer aplicação que queira exigir reautenticação.
 - A bateria negativa é provada por mutação: sem designação, versão de sessão antiga, sem segundo fator cadastrado, sessão sem `amr=mfa`, autenticação antiga, designação retirada, escrita sem trilha, trilha recusada, conta designada exposta ao admin de tenant, `prompt=login`/`max_age` ignorados, renovação perdendo o `auth_time`, token de operador com tenant. A recusa de re-troca é defesa em profundidade: o token de operador não carrega `amr`, então a exigência de segundo fator já o recusa antes.
 - Sem contrato HTTP novo: a troca usa o endpoint de token do OIDC.
+
+---
+
+## ADR-0050: Relying party exige autenticação recente e troca o token da pessoa — extensão do `Secco.SDK.RelyingParty`
+
+**Status:** Aceita
+**Data:** 2026-10-21
+**Complementa:** ADR-0046 (custódia do token da pessoa), ADR-0049 (operador designado) e ADR-0031 (elevação)
+
+### Contexto
+
+A issue [#44](https://github.com/rafsecco/secco-platform/issues/44) (`adopter-demand`) aponta o passo que duas ADRs já pedem a uma relying party e que o `Secco.SDK.RelyingParty` não cobre: **exigir autenticação recente** (a ADR-0049 condiciona a troca de operador a uma autenticação com segundo fator dos últimos minutos, e espera que a aplicação peça `prompt=login`/`max_age` antes da área de operação) e **trocar o token da pessoa por um token curto** (RFC 8693, ADR-0031 e ADR-0049). Sem o pacote, cada aplicação implementaria o desafio de reautenticação, a chamada de troca, a guarda do token curto no servidor e o tratamento da recusa genérica — código de segurança que a ADR-0046 existe para não ser copiado. A Intranet precisaria disso duas vezes (modo centralizador e leitor de logs).
+
+Alternativas avaliadas:
+
+- **Uma API por capacidade** (`GetOperatorTokenAsync`, `GetElevatedTokenAsync`). Duplicaria o mesmo mecanismo; o SecureGate já decide a troca pelo escopo pedido. Descartada: uma API por escopo.
+- **Token trocado no cookie.** O mesmo motivo da ADR-0046: o token ficaria com o navegador até vencer. Descartada.
+- **Política de autenticação recente lendo a claim do cookie.** O cookie da aplicação reflete o id_token do login; a fonte de verdade é o access token custodiado, que a renovação mantém coerente. Descartada.
+- **Troca automática em segundo plano** (renovar o token curto sozinho perto do vencimento). Poder de operador não pode nascer sem uma ação da pessoa. Descartada.
+
+### Decisão
+
+O `Secco.SDK.RelyingParty` ganha três peças, sem mudança no SecureGate:
+
+**Exigir autenticação recente.** Um requisito de autorização (`RequireSeccoRecentAuthentication(maxAge, requireMfa: true)`) confere o `auth_time` e o `amr` do access token da sessão no cofre. Quando a autenticação é mais antiga que `maxAge` (ou não se sabe quando foi), o pacote desafia o esquema OIDC com `prompt=login` e `max_age`, voltando à mesma URL. Quando a autenticação é recente mas não tem `mfa`, a resposta é `403` — desafiar de novo levaria uma conta sem segundo fator a um laço de login. Vale para MVC, Razor Pages e APIs mínimas (middleware de autorização).
+
+**Token trocado por escopo.** `ISeccoExchangedTokenProvider.GetAsync(scope)` faz a troca RFC 8693 no endpoint de token, com o access token atual da pessoa como `subject_token`, e guarda o token curto **no cofre da sessão**, nunca no cookie, até perto do vencimento. A renovação do token da pessoa preserva os tokens trocados; encerrar a sessão os descarta. O resultado diz se o token foi emitido ou recusado; como a recusa da plataforma é genérica de propósito, quem decide pedir reautenticação é a aplicação. A mesma API serve à elevação (`logstream`) e ao operador designado (`securegate:admin`).
+
+**Anexar o token trocado.** `IHttpClientBuilder.AddSeccoExchangedToken(scope)` anexa o token trocado; sem token, lança uma exceção específica de reautenticação, que a aplicação trata redirecionando — nunca segue sem autorização nem com o token comum da pessoa.
+
+### Consequências
+
+- A Intranet e qualquer produto com elevação ou operação designada usam a troca sem escrever código de segurança próprio; correções chegam por versão de pacote.
+- **Risco assumido:** o cofre passa a guardar também tokens curtos de alto privilégio. O peso é o mesmo da ADR-0046 (o cofre já guarda refresh tokens) e o TTL deles é de minutos.
+- A troca só acontece quando a aplicação pede — e a política de autenticação recente é o que faz a pessoa estar de fato presente quando ela acontece.
+- `Secco.SDK.RelyingParty` 0.2.0, só acréscimos.
 
 ---
 
