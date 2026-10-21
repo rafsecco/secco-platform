@@ -821,7 +821,7 @@ Ou seja: as duas ferramentas **não** são equivalentes por ambas aceitarem HTTP
 
 ## ADR-0030: Soberania da instalação — fronteira entre console de operação e portal do adotante
 
-**Status:** Aceita
+**Status:** Aceita — parcialmente substituída pela ADR-0051 (papel do AdminPortal e da Intranet como console)
 **Data:** 2026-09-12
 
 ### Contexto
@@ -1606,7 +1606,7 @@ Alternativas avaliadas:
 
 ## ADR-0044: Admin de tenant — autoridade administrativa por concessão, on-behalf-of a pessoa
 
-**Status:** Aceita
+**Status:** Aceita — congelada pela ADR-0051
 **Data:** 2026-10-18
 **Complementa:** ADR-0030 (dá mecanismo à hierarquia admin de instalação × admin de tenant) e ADR-0040
 
@@ -1732,7 +1732,7 @@ Alternativas avaliadas:
 
 ## ADR-0047: Admin de tenant cria tenant e cuida do ciclo de vida dele
 
-**Status:** Aceita
+**Status:** Aceita — congelada pela ADR-0051
 **Data:** 2026-10-19
 **Complementa:** ADR-0044 (admin de tenant), ADR-0028 (provisionamento de banco) e ADR-0040
 
@@ -1783,7 +1783,7 @@ Alternativas avaliadas:
 
 ## ADR-0048: Admin de tenant lê o catálogo de permissões e gere clients de máquina do tenant
 
-**Status:** Aceita
+**Status:** Aceita — congelada pela ADR-0051
 **Data:** 2026-10-21
 **Complementa:** ADR-0044 (admin de tenant), ADR-0037 (clients de produto) e ADR-0039 (catálogo de permissões)
 
@@ -1822,7 +1822,7 @@ Alternativas avaliadas:
 
 ## ADR-0049: Operador da instalação por designação — conta de outro tenant, por troca curta com reautenticação
 
-**Status:** Aceita
+**Status:** Aceita — congelada pela ADR-0051
 **Data:** 2026-10-21
 **Complementa:** ADR-0030 (instalação soberana), ADR-0040 (operador decidido pelo tenant do login), ADR-0031 (troca de token) e ADR-0044/0048 (admin de tenant)
 
@@ -1881,7 +1881,7 @@ A aplicação pede a reautenticação antes da área de operação; um cookie ro
 
 ## ADR-0050: Relying party exige autenticação recente e troca o token da pessoa — extensão do `Secco.SDK.RelyingParty`
 
-**Status:** Aceita
+**Status:** Aceita — congelada pela ADR-0051
 **Data:** 2026-10-21
 **Complementa:** ADR-0046 (custódia do token da pessoa), ADR-0049 (operador designado) e ADR-0031 (elevação)
 
@@ -1912,6 +1912,42 @@ O `Secco.SDK.RelyingParty` ganha três peças, sem mudança no SecureGate:
 - **Risco assumido:** o cofre passa a guardar também tokens curtos de alto privilégio. O peso é o mesmo da ADR-0046 (o cofre já guarda refresh tokens) e o TTL deles é de minutos.
 - A troca só acontece quando a aplicação pede — e a política de autenticação recente é o que faz a pessoa estar de fato presente quando ela acontece.
 - `Secco.SDK.RelyingParty` 0.2.0, só acréscimos.
+
+---
+
+## ADR-0051: Administração da instalação só pelo AdminPortal — produto-portal administra só o próprio tenant
+
+**Status:** Aceita
+**Data:** 2026-10-21
+**Substitui parcialmente:** ADR-0030 (o papel do AdminPortal e da Intranet como console; o resto da ADR-0030 segue valendo)
+**Congela:** ADR-0044, ADR-0047, ADR-0048, ADR-0049 e ADR-0050 (seguem Aceitas e entregues, sem consumidor planejado)
+
+### Contexto
+
+A ADR-0030 fez da Intranet o "portal completo" de quem a usa, incluindo a operação cross-tenant, e reduziu o AdminPortal a console mínimo para quem adota sem a Intranet. Para que a Intranet administrasse os outros tenants da empresa sem um client de máquina com `securegate:admin`, a plataforma construiu em sequência a autoridade de admin de tenant on-behalf-of (ADR-0044), a criação de tenant por essa autoridade (ADR-0047), a leitura do catálogo e a gestão de clients de máquina (ADR-0048), o operador por designação (ADR-0049) e a troca de token com reautenticação no SDK (ADR-0050). Cada uma exigiu concessão explícita, trilha síncrona fail-closed, lista versionada de rotas e bateria de mutação. As issues #45 (segundo fator por nível) e #46 (operador designado por perfil) continuavam a mesma trilha, e do lado da Intranet ainda faltavam o leitor de logs por elevação, a área on-behalf-of e o modo centralizador.
+
+O dono do produto avaliou que o custo não se paga: a cada passo, a Intranet precisava de uma capacidade nova da plataforma, e a superfície de segurança crescia para servir a uma tela que o AdminPortal já tinha em boa parte.
+
+Alternativas avaliadas:
+
+- **Seguir com a centralização na Intranet** (ADR-0030 como está). Descartada pelo custo descrito acima.
+- **Um SecureGate por sistema**, cada produto isolado na própria instância. Perde o SSO entre os sistemas da empresa e o desligamento de pessoa num lugar só: quem sai precisaria ser desativado em N emissores, e a federação com o Entra só barra login novo — as sessões já abertas em cada instância seguem vivas até o refresh expirar, porque a guarda de conta (`AccountStateGuard`) confere o estado local. Descartada para identidade.
+- **Remover o que foi entregue nas ADR-0044 a 0050.** Está testado e fica inerte sem concessão ou configuração; arrancar custa mais que congelar. Descartada por ora, com condição de revisão (abaixo).
+
+### Decisão
+
+- **O `Secco.AdminPortal` é o console de operação da instalação**, com ou sem Intranet. Criar e desativar tenant, provisionar banco, federação, clients e vínculos entre tenants são do operador da instalação, por ele.
+- **Produto-portal (a Intranet ou outro) administra só o próprio tenant**: perfis, pessoas e configuração dele. Não cria nem administra outros tenants.
+- **O SecureGate continua compartilhado por instalação** — é ele que dá SSO entre os sistemas da empresa e desligamento de pessoa num lugar só (ADR-0040).
+- **LogStream e NotificationHub podem rodar uma instância por sistema** quando conveniente. "Duplicar" significa subir outra instância da mesma imagem ou pacote — **nunca copiar código de produto** para dentro de outro sistema, o que multiplicaria cada correção de segurança.
+- **As ADR-0044, 0047, 0048, 0049 e 0050 ficam congeladas**: continuam valendo para quem as configurar, mas não recebem novas capacidades. As issues #45 e #46 são encerradas sem implementação.
+
+### Consequências
+
+- **Risco assumido (ADR-0020):** a superfície das ADRs congeladas continua no código e nas rotas. Está inerte — sem concessão (`tb_tenant_admin_grants`, `tb_tenant_creator_grants`) ou sem `SecureGate:InstallationOperators:Accounts`, nada é emitido —, mas é código que precisa continuar correto e coberto pelas baterias de mutação existentes. **Condição de revisão:** se nenhum adotante configurar essas capacidades até a próxima revisão geral, abrir ADR de remoção.
+- **O AdminPortal herda trabalho:** hoje ele lista tenants e gere usuários, perfis e banco por connection string manual, mas não cria tenant, não ativa/desativa, não provisiona banco (ADR-0028), não configura federação (ADR-0026), não gere clients (ADR-0037) nem vínculos (ADR-0040). Essas telas entram no backlog; a API para todas já existe sob `securegate:admin`.
+- **A duplicação de telas aceita pela ADR-0030 diminui**: a Intranet deixa de replicar a operação cross-tenant.
+- A elevação explícita para ler log cross-tenant (ADR-0031) e a hierarquia da ADR-0030 (operador de instalação × admin de tenant) seguem intactas.
 
 ---
 

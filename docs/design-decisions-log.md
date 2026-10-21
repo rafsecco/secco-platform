@@ -1834,3 +1834,16 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - Um bitmap intermediário do tamanho do recorte dobrava o pico de memória. Cada variante passou a ser desenhada direto da fonte decodificada, com uma transformação combinada; o pico ficou em torno da fonte decodificada mais a maior variante.
 - Só 3 das 8 orientações EXIF eram testadas; virou uma teoria nas 8, com imagem de 4 cores em quadrantes.
 - Mutação: 6 invariantes, todas detectadas (limite de pixels, orientação ignorada, ampliação permitida, limite do recorte, fundo branco do JPEG, vaga de concorrência não liberada).
+
+## Fim da centralização de tenants na Intranet (ADR-0051, 2026-10-21)
+
+**A pergunta.** Continuar transformando a Intranet no console dos outros tenants da empresa, ou recuar? Cada passo dessa trilha pedia uma capacidade nova da plataforma (ADR-0044, 0047, 0048, 0049, 0050), e as issues #45 e #46 já pediam mais duas. O dono do produto avaliou que o custo não se paga.
+
+**O que se separou.** "Centralizar" misturava duas decisões. Compartilhar o SecureGate entre os sistemas da empresa compra SSO e desligamento de pessoa num lugar só, e custa pouco. Fazer da Intranet o console de administração é que gerava a cadeia de ADRs. A primeira ficou, a segunda saiu.
+
+**Alternativas descartadas.**
+- *Um SecureGate por sistema:* perde SSO e obriga desativar quem sai em N emissores. A federação Entra só barra login novo; sessões abertas seguem até o refresh expirar, porque o `AccountStateGuard` confere o estado local.
+- *Remover as ADR-0044 a 0050:* estão testadas e ficam inertes sem concessão ou configuração. Congeladas, com ADR de remoção se ninguém as configurar até a próxima revisão geral.
+- *Copiar o código do LogStream ou do SecureGate para dentro de cada sistema:* cada correção de segurança seria feita N vezes. "Duplicar" passa a significar só subir outra instância da mesma imagem.
+
+**#45 e #46.** O trabalho em andamento das duas (ADR-0051/0052 em rascunho e código) foi guardado num `git stash`, não commitado; a numeração 0051 foi reaproveitada por esta decisão.
