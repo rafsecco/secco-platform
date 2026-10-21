@@ -200,4 +200,16 @@ public class SeccoRecentAuthenticationTests
 
 		act.Should().Throw<ArgumentOutOfRangeException>();
 	}
+
+	[Theory]
+	[InlineData("/app/admin", true)]
+	[InlineData("/", true)]
+	[InlineData("//evil.test/admin", false)]
+	[InlineData(@"/\evil.test/admin", false)]
+	[InlineData("evil.test/admin", false)]
+	public void VoltaDoDesafio_SoParaCaminhoLocal(string path, bool local)
+	{
+		// "//host" e "/\host" o navegador lê como outro domínio depois do callback do OIDC (redirecionamento aberto)
+		SeccoRecentAuthenticationResultHandler.IsLocal(path).Should().Be(local);
+	}
 }

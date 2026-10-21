@@ -12,6 +12,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Secco.SDK.RelyingParty 0.2.0 — autenticação recente e token trocado (issue #44, ADR-0050)
+
+Só acréscimos. Nada muda para quem só usa a custódia do token (0.1.0).
+
+- **`policy.RequireSeccoRecentAuthentication(maxAge, requireMfa: true)`:** confere `auth_time` e `amr` do access token custodiado. Autenticação antiga ou desconhecida → desafio OIDC com `prompt=login` e `max_age`, voltando à mesma URL (só caminho local; `//host` volta à raiz). Recente sem `mfa` → `403`, sem novo desafio. Vale para MVC, Razor Pages e APIs mínimas.
+- **`ISeccoExchangedTokenProvider.GetAsync(scope)`:** troca RFC 8693 do token da pessoa por um token curto do escopo pedido (`securegate:admin` para o operador designado, ADR-0049; `logstream` para a elevação, ADR-0031), guardado no cofre da sessão até vencer e preservado na renovação. Devolve emitido, recusado (genérico, de propósito) ou sem sessão.
+- **`IHttpClientBuilder.AddSeccoExchangedToken(scope)`:** anexa o token trocado; sem ele, lança `SeccoReauthenticationRequiredException` — nunca segue com o token comum da pessoa.
+- **`ISeccoUserAuthentication`:** instante e métodos da autenticação da sessão.
+- Registre um `IAuthorizationMiddlewareResultHandler` próprio **antes** de `AddSeccoRelyingPartyTokens()`: o pacote o decora.
+
 ### SecureGate (serviço) — operador da instalação por designação (issue #43, ADR-0049)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda — a troca usa o endpoint de token do OIDC.

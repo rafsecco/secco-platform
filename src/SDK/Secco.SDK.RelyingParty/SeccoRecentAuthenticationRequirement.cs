@@ -115,8 +115,10 @@ internal sealed class SeccoRecentAuthenticationResultHandler(
 			// explícita, o framework não preenche FailedRequirements
 			var maxAge = policy.Requirements.OfType<SeccoRecentAuthenticationRequirement>().Min(r => r.MaxAge);
 
-			// Só o caminho local da própria requisição: nada vindo do cliente como destino
-			var returnUrl = context.Request.PathBase.Add(context.Request.Path) + context.Request.QueryString;
+			// Só o caminho local da própria requisição. Um caminho que comece com "//" ou "/\\" seria lido pelo navegador
+			// como outro host depois do callback do OIDC (redirecionamento aberto): nesse caso, volta à raiz
+			var path = context.Request.PathBase.Add(context.Request.Path).Value ?? "/";
+			var returnUrl = IsLocal(path) ? path + context.Request.QueryString : "/";
 
 			return context.ChallengeAsync(options.Value.OpenIdConnectScheme, new OpenIdConnectChallengeProperties
 			{
@@ -128,4 +130,9 @@ internal sealed class SeccoRecentAuthenticationResultHandler(
 
 		return inner.HandleAsync(next, context, policy, authorizeResult);
 	}
+
+	internal static bool IsLocal(string path) =>
+		path.StartsWith('/')
+		&& !path.StartsWith("//", StringComparison.Ordinal)
+		&& !path.StartsWith("/\\", StringComparison.Ordinal);
 }
