@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -42,8 +43,16 @@ public static class SeccoRelyingPartyExtensions
 		services.TryAddScoped<ISeccoUserContext, HttpContextSeccoUserContext>();
 		services.TryAddSingleton<ISeccoUserSessionStore, DistributedSeccoUserSessionStore>();
 		services.TryAddScoped<ISeccoTokenRefresher, SeccoTokenRefresher>();
-		services.TryAddScoped<ISeccoUserTokenProvider, SeccoUserTokenProvider>();
+		services.TryAddScoped<SeccoUserTokenProvider>();
+		services.TryAddScoped<ISeccoUserTokenProvider>(sp => sp.GetRequiredService<SeccoUserTokenProvider>());
+		services.TryAddScoped<ISeccoUserAuthentication>(sp => sp.GetRequiredService<SeccoUserTokenProvider>());
+		services.TryAddScoped<ISeccoSessionResolver>(sp => sp.GetRequiredService<SeccoUserTokenProvider>());
+		services.TryAddScoped<ISeccoExchangedTokenProvider, SeccoExchangedTokenProvider>();
 		services.TryAddTransient<SeccoUserTokenHandler>();
+
+		// Autenticação recente (ADR-0050): o requisito e o desafio com prompt=login/max_age
+		services.TryAddEnumerable(ServiceDescriptor.Scoped<IAuthorizationHandler, SeccoRecentAuthenticationHandler>());
+		DecorateAuthorizationResultHandler(services);
 
 		// Os esquemas vêm das opções, resolvidas na hora de configurar o esquema
 		services.AddSingleton<IPostConfigureOptions<CookieAuthenticationOptions>, CookieValidationConfigurator>();
@@ -64,6 +73,55 @@ public static class SeccoRelyingPartyExtensions
 		builder.Services.TryAddTransient<SeccoUserTokenHandler>();
 		return builder.AddHttpMessageHandler<SeccoUserTokenHandler>();
 	}
+
+	/// <summary>
+	/// Anexa o token trocado do escopo (RFC 8693, ADR-0050) às requisições do <c>HttpClient</c>; sem token lança
+	/// <see cref="SeccoReauthenticationRequiredException"/>, nunca recai no token comum da pessoa. Ver as
+	/// ressalvas de escopo em <see cref="SeccoExchangedTokenHandler"/>.
+	/// </summary>
+	/// <param name="builder">Builder do <c>HttpClient</c> nomeado ou tipado.</param>
+	/// <param name="scope">Um único escopo a trocar (por exemplo, <c>securegate:admin</c>).</param>
+	public static IHttpClientBuilder AddSeccoExchangedToken(this IHttpClientBuilder builder, string scope)
+	{
+		ArgumentNullException.ThrowIfNull(builder);
+		ArgumentException.ThrowIfNullOrWhiteSpace(scope);
+
+		return builder.AddHttpMessageHandler(sp =>
+			new SeccoExchangedTokenHandler(sp.GetRequiredService<ISeccoExchangedTokenProvider>(), scope));
+	}
+
+	/// <summary>
+	/// Decora o <see cref="IAuthorizationMiddlewareResultHandler"/> já registrado (o da aplicação, ou o padrão
+	/// do framework, garantido por <c>AddAuthorization</c>). A decoração enxerga o que está registrado NESTE momento: um handler que a aplicação
+	/// registre depois substitui o decorador — chame <c>AddSeccoRelyingPartyTokens</c> depois dele.
+	/// </summary>
+	private static void DecorateAuthorizationResultHandler(IServiceCollection services)
+	{
+		if (services.Any(d => d.ServiceType == typeof(DecoratorMarker)))
+		{
+			return;
+		}
+
+		services.AddSingleton<DecoratorMarker>();
+
+		// Garante o registro padrão (o tipo do handler padrão é interno ao framework); idempotente
+		services.AddAuthorization();
+
+		var existing = services.Last(d => d.ServiceType == typeof(IAuthorizationMiddlewareResultHandler) && !d.IsKeyedService);
+
+		services.Remove(existing);
+
+		services.Add(new ServiceDescriptor(
+			typeof(IAuthorizationMiddlewareResultHandler),
+			sp => new SeccoRecentAuthenticationResultHandler(
+				(IAuthorizationMiddlewareResultHandler)(existing.ImplementationInstance
+					?? existing.ImplementationFactory?.Invoke(sp)
+					?? ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!)),
+				sp.GetRequiredService<IOptions<SeccoRelyingPartyOptions>>()),
+			existing.Lifetime));
+	}
+
+	private sealed class DecoratorMarker;
 
 	private sealed class CookieValidationConfigurator(IOptions<SeccoRelyingPartyOptions> options)
 		: IPostConfigureOptions<CookieAuthenticationOptions>
@@ -136,7 +194,7 @@ public static class SeccoRelyingPartyExtensions
 						tokens.AccessToken,
 						tokens.RefreshToken,
 						DateTimeOffset.UtcNow.AddSeconds(expiresIn),
-						SeccoUserSession.ScopesOf(tokens.AccessToken, tokens.Scope)),
+						SeccoUserSession.ScopesOf(tokens.AccessToken, tokens.Scope)).WithAuthenticationOf(tokens.AccessToken),
 					context.HttpContext.RequestAborted).ConfigureAwait(false);
 
 				identity.AddClaim(new Claim(claimType, sessionId));

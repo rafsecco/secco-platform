@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace Secco.SDK.RelyingParty;
@@ -16,8 +17,60 @@ public sealed record SeccoUserSession(
 	DateTimeOffset ExpiresAt,
 	IReadOnlyList<string> Scopes)
 {
+	/// <summary>
+	/// Instante da autenticação da pessoa (claim <c>auth_time</c> do access token); <c>null</c> quando o token
+	/// é opaco ou não traz a claim — quem decide por ela trata a ausência como autenticação não comprovada.
+	/// </summary>
+	public DateTimeOffset? AuthenticatedAt { get; init; }
+
+	/// <summary>Métodos de autenticação (claim <c>amr</c> do access token, por exemplo <c>pwd</c>, <c>mfa</c>); vazio se desconhecidos.</summary>
+	public IReadOnlyList<string> AuthenticationMethods { get; init; } = [];
+
+	/// <summary>
+	/// Tokens curtos obtidos por troca (RFC 8693, ADR-0050), por escopo. Vivem no cofre, nunca no cookie, e
+	/// sobrevivem à renovação do token da pessoa.
+	/// </summary>
+	public IReadOnlyDictionary<string, SeccoExchangedToken> ExchangedTokens { get; init; } =
+		new Dictionary<string, SeccoExchangedToken>();
+
 	/// <inheritdoc />
 	public override string ToString() => nameof(SeccoUserSession);
+
+	/// <summary>
+	/// Copia a sessão com <see cref="AuthenticatedAt"/> e <see cref="AuthenticationMethods"/> lidos do access
+	/// token. Só leitura do payload, sem validar (mesma ressalva de <see cref="ScopesOf"/>); token opaco ou
+	/// ilegível deixa os dois vazios — fail-closed.
+	/// </summary>
+	/// <param name="accessToken">Access token recém-emitido.</param>
+	internal SeccoUserSession WithAuthenticationOf(string accessToken)
+	{
+		var handler = new JsonWebTokenHandler();
+
+		if (!handler.CanReadToken(accessToken))
+		{
+			return this with { AuthenticatedAt = null, AuthenticationMethods = [] };
+		}
+
+		var claims = handler.ReadJsonWebToken(accessToken).Claims.ToList();
+
+		DateTimeOffset? authenticatedAt = null;
+
+		if (claims.FirstOrDefault(claim => claim.Type == "auth_time") is { } authTime
+			&& long.TryParse(authTime.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
+			&& seconds is >= 0 and <= 253402300799)
+		{
+			authenticatedAt = DateTimeOffset.FromUnixTimeSeconds(seconds);
+		}
+
+		var methods = claims
+			.Where(claim => claim.Type == "amr")
+			.Select(claim => claim.Value)
+			.Where(value => !string.IsNullOrWhiteSpace(value))
+			.Distinct(StringComparer.Ordinal)
+			.ToList();
+
+		return this with { AuthenticatedAt = authenticatedAt, AuthenticationMethods = methods };
+	}
 
 	/// <summary>
 	/// Escopos do access token: a claim <c>scope</c> do próprio token quando ele é um JWT legível, e só senão o
