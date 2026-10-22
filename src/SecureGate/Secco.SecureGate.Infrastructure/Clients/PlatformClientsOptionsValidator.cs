@@ -65,6 +65,11 @@ internal sealed partial class PlatformClientsOptionsValidator(IHostEnvironment e
 				failures.Add($"{at}:Scopes não pode conter '{SecureGateScopes.DirectoryRead}': só client de produto vinculado a tenant o recebe (ADR-0045).");
 			}
 
+			if (client.Scopes.Contains(SecureGateScopes.TenantManage, StringComparer.Ordinal))
+			{
+				failures.Add($"{at}:Scopes não pode conter '{SecureGateScopes.TenantManage}': só client de produto vinculado a tenant o recebe (ADR-0052).");
+			}
+
 			if (client.Type == PlatformClientType.AuthorizationCode)
 			{
 				if (client.RedirectUris.Count == 0)

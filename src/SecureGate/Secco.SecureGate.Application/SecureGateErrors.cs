@@ -253,6 +253,19 @@ public static class SecureGateErrors
 				"Client authorization_code não aceita papéis: a pessoa leva os próprios perfis.");
 
 		/// <summary>Client interativo no tenant de plataforma daria token de operador por um client criado pela API.</summary>
+		/// <summary>
+		/// Client com <c>securegate:tenant-manage</c> (ADR-0052): só o operador concede, altera, rotaciona ou exclui —
+		/// senão a autoridade de admin de tenant fabricaria, ou receberia pelo secret, uma credencial com outro alcance.
+		/// </summary>
+		public static readonly Error TenantManageRequiresOperator =
+			Error.Forbidden("SecureGate.Client.TenantManageRequiresOperator",
+				"Client com gestão do tenant só é criado ou alterado pelo operador da instalação.");
+
+		/// <summary>O tenant de plataforma não recebe client com gestão do tenant (ADR-0052).</summary>
+		public static readonly Error TenantManageNotOnPlatformTenant =
+			Error.Validation("SecureGate.Client.TenantManageNotOnPlatformTenant",
+				"O tenant de plataforma não aceita client com gestão do tenant.");
+
 		public static readonly Error InteractiveInPlatformTenant =
 			Error.Conflict("SecureGate.Client.InteractiveInPlatformTenant",
 				"O tenant de plataforma não aceita client interativo pela API; os clients interativos da plataforma vêm da configuração.");

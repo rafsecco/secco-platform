@@ -126,4 +126,98 @@ public class ProductClientHandlersTests
 
 		result.Error.Should().Be(SecureGateErrors.Clients.NotFound);
 	}
+
+	// ADR-0052: gestão do próprio tenant por máquina — só o operador concede, altera, rotaciona ou exclui
+
+	private const string ManagedClientId = "cli_mmmmmmmmmmmmmmmm";
+
+	private void GivenExistingTenantManageClient() =>
+		_store.GetAsync(TenantId, ManagedClientId, Arg.Any<CancellationToken>()).Returns(new ProductClientDto(
+			ManagedClientId, "Intranet", [SecureGateScopes.TenantManage], [], DateTimeOffset.UtcNow,
+			ProductClientRules.ClientCredentialsType));
+
+	[Fact]
+	public async Task Create_TenantManagePorAdminDeTenant_RecusaRequerOperador()
+	{
+		var result = await Create().HandleAsync(TenantId,
+			new ProductClientCommand("Intranet", [SecureGateScopes.TenantManage], []), byTenantAdmin: true);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		await _store.DidNotReceiveWithAnyArgs().CreateAsync(default, default!, default!, default!, default);
+	}
+
+	[Fact]
+	public async Task Create_TenantManagePeloOperador_Cria()
+	{
+		var result = await Create().HandleAsync(TenantId,
+			new ProductClientCommand("Intranet", [SecureGateScopes.TenantManage, SecureGateScopes.DirectoryRead], []));
+
+		result.IsSuccess.Should().BeTrue();
+		result.Value.Scopes.Should().Contain(SecureGateScopes.TenantManage);
+	}
+
+	[Fact]
+	public async Task Create_TenantManageNoTenantDePlataforma_Recusa()
+	{
+		_tenants.GetByIdAsync(SecureGatePlatform.TenantId, Arg.Any<CancellationToken>()).Returns(new Tenant("I", "instalacao"));
+
+		var result = await Create().HandleAsync(SecureGatePlatform.TenantId,
+			new ProductClientCommand("Intranet", [SecureGateScopes.TenantManage], []));
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageNotOnPlatformTenant);
+	}
+
+	[Fact]
+	public async Task Create_InterativoComTenantManage_Recusa()
+	{
+		var result = await Create().HandleAsync(TenantId, new ProductClientCommand(
+			"Intranet", [SecureGateScopes.TenantManage], [], ProductClientRules.AuthorizationCodeType,
+			["https://intranet.example.com/signin-oidc"]));
+
+		result.Error.Should().Be(SecureGateErrors.Clients.ScopeNotAllowed);
+	}
+
+	[Fact]
+	public async Task Update_ClientComTenantManagePorAdminDeTenant_Recusa()
+	{
+		GivenExistingTenantManageClient();
+
+		var result = await new UpdateProductClientHandler(new ProductClientAccessValidator(_roles), _store)
+			.HandleAsync(TenantId, ManagedClientId, new ProductClientCommand("Intranet", ["logstream"], []), byTenantAdmin: true);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		await _store.DidNotReceiveWithAnyArgs().UpdateAsync(default, default!, default!, default);
+	}
+
+	[Fact]
+	public async Task Update_AcrescentandoTenantManagePorAdminDeTenant_Recusa()
+	{
+		var result = await new UpdateProductClientHandler(new ProductClientAccessValidator(_roles), _store)
+			.HandleAsync(TenantId, "cli_aaaaaaaaaaaaaaaa",
+				new ProductClientCommand("Sistema", [SecureGateScopes.TenantManage], []), byTenantAdmin: true);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageRequiresOperator);
+	}
+
+	[Fact]
+	public async Task Rotate_ClientComTenantManagePorAdminDeTenant_Recusa()
+	{
+		GivenExistingTenantManageClient();
+
+		var result = await new RotateProductClientSecretHandler(_store).HandleAsync(TenantId, ManagedClientId, byTenantAdmin: true);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		await _store.DidNotReceiveWithAnyArgs().RotateSecretAsync(default, default!, default!, default);
+	}
+
+	[Fact]
+	public async Task Delete_ClientComTenantManagePorAdminDeTenant_Recusa()
+	{
+		GivenExistingTenantManageClient();
+
+		var result = await new DeleteProductClientHandler(_store).HandleAsync(TenantId, ManagedClientId, byTenantAdmin: true);
+
+		result.Error.Should().Be(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		await _store.DidNotReceiveWithAnyArgs().DeleteAsync(default, default!, default);
+	}
 }

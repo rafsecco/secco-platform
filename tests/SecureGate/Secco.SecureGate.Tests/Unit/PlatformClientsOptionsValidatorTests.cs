@@ -39,16 +39,18 @@ public class PlatformClientsOptionsValidatorTests
 	public void Validate_ClientIdInvalido_Falha(string clientId) =>
 		Validator(Environments.Production).Validate(null, With(Machine(clientId))).Failed.Should().BeTrue();
 
-	[Fact]
-	public void Validate_EscopoDeDiretorio_Falha()
+	[Theory]
+	[InlineData("directory:read")]
+	[InlineData("securegate:tenant-manage")]
+	public void Validate_EscopoSoDeClientDeProduto_Falha(string scope)
 	{
 		var client = Machine();
-		client.Scopes = ["directory:read"];
+		client.Scopes = [scope];
 
 		var result = Validator(Environments.Production).Validate(null, With(client));
 
 		result.Failed.Should().BeTrue();
-		result.FailureMessage.Should().Contain("directory:read");
+		result.FailureMessage.Should().Contain(scope);
 	}
 
 	[Fact]

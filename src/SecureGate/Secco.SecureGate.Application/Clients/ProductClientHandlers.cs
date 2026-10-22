@@ -22,6 +22,11 @@ public sealed class CreateProductClientHandler(
 			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Clients.InteractiveRequiresOperator);
 		}
 
+		if (byTenantAdmin && ProductClientTenantAdminGuard.GrantsTenantManage(command.Scopes))
+		{
+			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		}
+
 		if (await tenants.GetByIdAsync(tenantId, cancellationToken).ConfigureAwait(false) is not { } tenant)
 		{
 			return Result.Failure<CreatedProductClientDto>(SecureGateErrors.Tenants.NotFound);
@@ -106,6 +111,14 @@ public sealed class UpdateProductClientHandler(ProductClientAccessValidator vali
 			return Result.Failure(SecureGateErrors.Clients.InteractiveRequiresOperator);
 		}
 
+		// ADR-0052: nem acrescentar a gestão do tenant, nem mexer em client que já a tem
+		if (byTenantAdmin
+			&& (ProductClientTenantAdminGuard.GrantsTenantManage(command.Scopes)
+				|| ProductClientTenantAdminGuard.GrantsTenantManage(existing?.Scopes)))
+		{
+			return Result.Failure(SecureGateErrors.Clients.TenantManageRequiresOperator);
+		}
+
 		// O tipo é imutável (ADR-0040): trocar máquina por interativo é outro client. Tipo omitido
 		// vale client_credentials, então também não converte um interativo.
 		if (existing is not null
@@ -146,9 +159,11 @@ public sealed class RotateProductClientSecretHandler(IProductClientStore store)
 	public async Task<Result<ProductClientSecretDto>> HandleAsync(
 		Guid tenantId, string clientId, bool byTenantAdmin = false, CancellationToken cancellationToken = default)
 	{
-		if (byTenantAdmin && await ProductClientTenantAdminGuard.IsInteractiveAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false))
+		if (byTenantAdmin
+			&& await ProductClientTenantAdminGuard.OperatorOnlyAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false)
+				is { } operatorOnly)
 		{
-			return Result.Failure<ProductClientSecretDto>(SecureGateErrors.Clients.InteractiveRequiresOperator);
+			return Result.Failure<ProductClientSecretDto>(operatorOnly);
 		}
 
 		var secret = ProductClientRules.NewSecret();
@@ -170,9 +185,11 @@ public sealed class DeleteProductClientHandler(IProductClientStore store)
 	public async Task<Result> HandleAsync(
 		Guid tenantId, string clientId, bool byTenantAdmin = false, CancellationToken cancellationToken = default)
 	{
-		if (byTenantAdmin && await ProductClientTenantAdminGuard.IsInteractiveAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false))
+		if (byTenantAdmin
+			&& await ProductClientTenantAdminGuard.OperatorOnlyAsync(store, tenantId, clientId, cancellationToken).ConfigureAwait(false)
+				is { } operatorOnly)
 		{
-			return Result.Failure(SecureGateErrors.Clients.InteractiveRequiresOperator);
+			return Result.Failure(operatorOnly);
 		}
 
 		return await store.DeleteAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false)
@@ -181,12 +198,26 @@ public sealed class DeleteProductClientHandler(IProductClientStore store)
 	}
 }
 
-/// <summary>Client de login fica com o operador (ADR-0048): a autoridade de admin de tenant só mexe em máquina.</summary>
+/// <summary>
+/// Client de login fica com o operador (ADR-0048), e client com gestão do tenant também (ADR-0052): a autoridade
+/// de admin de tenant só mexe em máquina comum.
+/// </summary>
 internal static class ProductClientTenantAdminGuard
 {
-	/// <summary>Indica se o client existe e é interativo (<c>authorization_code</c>).</summary>
-	public static async Task<bool> IsInteractiveAsync(
+	/// <summary>Indica se a lista de escopos concede a gestão do tenant.</summary>
+	public static bool GrantsTenantManage(IReadOnlyList<string>? scopes) =>
+		scopes?.Contains(SecureGateScopes.TenantManage, StringComparer.Ordinal) == true;
+
+	/// <summary>
+	/// Erro quando só o operador pode mexer no client: interativo, ou com gestão do tenant — rotacionar entregaria o
+	/// secret dele a quem não poderia tê-lo criado. Nulo quando o client não existe ou é máquina comum.
+	/// </summary>
+	public static async Task<Error?> OperatorOnlyAsync(
 		IProductClientStore store, Guid tenantId, string clientId, CancellationToken cancellationToken) =>
-		(await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false))?.Type
-			== ProductClientRules.AuthorizationCodeType;
+		await store.GetAsync(tenantId, clientId, cancellationToken).ConfigureAwait(false) switch
+		{
+			{ Type: ProductClientRules.AuthorizationCodeType } => SecureGateErrors.Clients.InteractiveRequiresOperator,
+			{ } client when GrantsTenantManage(client.Scopes) => SecureGateErrors.Clients.TenantManageRequiresOperator,
+			_ => null,
+		};
 }

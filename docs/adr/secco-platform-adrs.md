@@ -1951,6 +1951,46 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0052: Gestão do próprio tenant por client de máquina — escopo `securegate:tenant-manage`
+
+**Status:** Aceita
+**Data:** 2026-10-21
+**Complementa:** ADR-0037 (client de produto vinculado a tenant) e ADR-0045 (escopo só de client de produto). Reusa o mecanismo de rotas abertas uma a uma e a trilha da ADR-0044, congelada pela ADR-0051, sem reabri-la.
+
+### Contexto
+
+Com a ADR-0051, a Intranet administra só o próprio tenant: cria perfis de setor, lista pessoas, atribui e retira perfis, desativa contas e encerra sessões. Faz isso com um client de plataforma (sem tenant) que tem `securegate:admin`, escopo que alcança a instalação inteira. Quem roubar esse secret cria tenant, lê e altera pessoas de todos os tenants e gera script de banco com senha. É o achado mais previsível do pentest planejado.
+
+Alternativas avaliadas:
+
+- **On-behalf-of a pessoa** (ADR-0044). Pronta, e a trilha registraria a pessoa. Exige segundo fator de todo `intranet-admin`, que era exatamente o que a issue #45 queria tornar opcional e foi descartado pela ADR-0051. Escolhê-la reabriria a trilha congelada. Descartada.
+- **Aceitar o novo escopo em todas as rotas que já aceitam admin de tenant.** Incluiria criação e desativação de tenant, provisionamento, clients e vínculos — operações que a ADR-0051 deixou com o operador. Descartada: lista própria, menor.
+- **Manter `securegate:admin` e compensar com monitoramento.** Não reduz o alcance do secret. Descartada.
+
+### Decisão
+
+**Escopo `securegate:tenant-manage`, só de client de produto `client_credentials`** vinculado a tenant (ADR-0037), no molde do `directory:read` (ADR-0045). Client interativo e client de plataforma não o recebem (a configuração de `SecureGate:PlatformClients` com ele derruba o startup). Nunca no tenant de plataforma.
+
+**Só o operador concede.** Criar, alterar, rotacionar ou excluir client com esse escopo pela autoridade de admin de tenant (ADR-0044/0048) responde `403`. Rotacionar está incluído porque entregaria o secret a quem não poderia ter criado o client.
+
+**Rotas abertas uma a uma, por marca própria** (`.AllowTenantManage()`) com lista versionada imposta por teste de arquitetura (`tests/SecureGate/.../Architecture/tenant-manage-routes.txt`): `GetTenant`, `ListUsers`, `GetUser`, `AddUserRole`, `RemoveUserRole`, `SetUserDisplayName`, `DeactivateUser`, `ActivateUser`, `RevokeUserSessions`, `CreateRole`, `ListRoles`, `GetRole`, `SetRolePermissions`, `DeleteRole`. Fora, de propósito: criação/desativação de tenant, provisionamento, federação, clients, vínculos, convite, senha, segundo fator e login externo.
+
+**Conferência por requisição:** tenant da rota igual ao `tenant_id` do token; tenant de plataforma recusado; nas rotas sobre uma pessoa que mudam o acesso dela (retirar perfil, nome, desativar/reativar, encerrar sessões), conta administrativa como alvo recusada — a mesma proteção da ADR-0044. A recusa é a resposta genérica da ADR-0044, que não diz se o tenant existe. O isolamento por baixo (ADR-0041, escopo de acesso e RLS) segue valendo.
+
+**Trilha síncrona e fail-closed** no LogStream do próprio tenant, pelo mesmo caminho da ADR-0044, com o client como ator (`ActorType.Client`) e ação `gestao-do-tenant.<operationId>`. Sem auditoria configurada, escrita com o escopo recusa e leitura segue; gravação falhou, `503` e nada é escrito. Motivo: a trilha da própria Intranet não vê quem usa o secret roubado direto contra o SecureGate.
+
+**Pacote:** `Secco.SecureGate.Client` ganha `AddSecureGateTenantManagementClient()`, que registra o client tipado pedindo o escopo novo com a credencial da subseção `Secco:SecureGate:TenantManagement`.
+
+### Consequências
+
+- A Intranet troca `securegate:admin` por um client de produto do próprio tenant. O secret dela passa a alcançar pessoas e perfis de um tenant, não a instalação.
+- **Federação do tenant sai da Intranet** e fica só com o operador, pelo AdminPortal, que ganha a seção. Apontar o login de um tenant para outro diretório Entra é a operação de maior risco do conjunto.
+- **Risco aceito:** depois de rotacionar ou revogar o client, ou de desativar o tenant, um token já emitido vale até expirar (5 minutos por padrão), igual a todo token de máquina (ADR-0032/0037). A emissão de token novo já recusa tenant desativado.
+- **Risco aceito:** a trilha registra a máquina, não a pessoa que agiu na Intranet; quem foi a pessoa continua na auditoria da própria Intranet.
+- Quebra no adotante: criar o client de produto e configurar a subseção antes de subir a versão que deixa de usar `securegate:admin`.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto

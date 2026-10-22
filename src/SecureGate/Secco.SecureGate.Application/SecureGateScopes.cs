@@ -33,6 +33,13 @@ public static class SecureGateScopes
 	/// </summary>
 	public const string DirectoryRead = "directory:read";
 
+	/// <summary>
+	/// Gestão do PRÓPRIO tenant do token por máquina (ADR-0052): um conjunto fechado de rotas administrativas
+	/// (pessoas e perfis), só no tenant do <c>tenant_id</c>. Concedível apenas a client de produto
+	/// <c>client_credentials</c> vinculado a tenant, nunca no tenant de plataforma, e só pelo operador.
+	/// </summary>
+	public const string TenantManage = "securegate:tenant-manage";
+
 	/// <summary>Prefixo dos scopes de leitura de catálogo por produto (<c>catalog:&lt;produto&gt;</c>).</summary>
 	public const string CatalogPrefix = "catalog:";
 
@@ -57,9 +64,9 @@ public static class SecureGateScopes
 
 	/// <summary>
 	/// Escopos concedíveis SÓ a client de produto <c>client_credentials</c> (ADR-0045): máquina do tenant,
-	/// nunca uma aplicação em nome de pessoa.
+	/// nunca uma aplicação em nome de pessoa. <see cref="TenantManage"/> (ADR-0052) entra aqui pelo mesmo motivo.
 	/// </summary>
-	public static readonly IReadOnlyList<string> ClientCredentialsOnlyProductScopes = [DirectoryRead];
+	public static readonly IReadOnlyList<string> ClientCredentialsOnlyProductScopes = [DirectoryRead, TenantManage];
 
 	/// <summary>Indica se o escopo pode ser concedido a client de produto (comparação exata, ordinal).</summary>
 	/// <param name="scope">Escopo candidato.</param>

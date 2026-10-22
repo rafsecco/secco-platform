@@ -67,6 +67,22 @@ public class ProductClientTokenTests(SecureGateApiFactory factory) : IAsyncLifet
 	}
 
 	[Fact]
+	public async Task ClientCredentials_ComGestaoDoTenant_TokenSaiComTenantIdEEscopo()
+	{
+		// ADR-0052: o alcance do escopo vem do tenant_id do vínculo — sem ele, a conferência das rotas não tem âncora
+		var clientId = NewClientId();
+		await factory.CreateProductClientAsync(
+			_tenantId, clientId, Secret, roles: null, Secco.SecureGate.Application.SecureGateScopes.TenantManage);
+
+		var response = await RequestTokenAsync(clientId, Secco.SecureGate.Application.SecureGateScopes.TenantManage);
+
+		response.StatusCode.Should().Be(HttpStatusCode.OK);
+		var token = await ReadTokenAsync(response);
+		token.GetClaim("tenant_id").Value.Should().Be(_tenantId.ToString());
+		token.GetClaim("scope").Value.Should().Contain(Secco.SecureGate.Application.SecureGateScopes.TenantManage);
+	}
+
+	[Fact]
 	public async Task ClientCredentials_ClientDeProdutoSemScope_TokenSaiComTenantId()
 	{
 		var clientId = NewClientId();

@@ -72,6 +72,12 @@ public sealed class ProductClientAccessValidator(IRoleRepository roles, IRedirec
 			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.ScopeNotAllowed);
 		}
 
+		// ADR-0052: a gestão do tenant nunca alcança o tenant de plataforma, onde mora o operador
+		if (tenantId == SecureGatePlatform.TenantId && scopes.Contains(SecureGateScopes.TenantManage, StringComparer.Ordinal))
+		{
+			return Result.Failure<ProductClientAccess>(SecureGateErrors.Clients.TenantManageNotOnPlatformTenant);
+		}
+
 		var requestedRoles = (command.Roles ?? []).Select(role => role?.Trim() ?? string.Empty).ToList();
 
 		if (requestedRoles.Count > ProductClientRules.MaxRoles
