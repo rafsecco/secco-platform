@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-21 (ADR-0050 aceita)
+**Última atualização:** 2026-10-22 (ADR-0054 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -2023,6 +2023,48 @@ Alternativas avaliadas:
 - Nenhum código muda hoje: nenhum produto grava delegação de pessoa por pessoa.
 - Consulta por delegação, enquanto não houver coluna, é por conteúdo do `Metadata` — sem índice. Aceito: não há consumidor.
 - A trilha da gestão por máquina (ADR-0052) continua registrando só o client; a pessoa por trás segue na auditoria do próprio produto, porque não há token da pessoa no caminho.
+
+---
+
+## ADR-0054: Trilha da gestão do próprio tenant guardada no SecureGate — o LogStream deixa de ser dependência
+
+**Status:** Aceita
+**Data:** 2026-10-22
+**Emenda:** ADR-0052 (trilha síncrona e fail-closed "no LogStream do próprio tenant")
+
+### Contexto
+
+A issue [#48](https://github.com/rafsecco/secco-platform/issues/48) (`adopter-demand`) mostra que a ADR-0052 tornou o LogStream obrigatório para quem administra o próprio tenant. Toda escrita com `securegate:tenant-manage` grava antes no LogStream do tenant: sem `SecureGate:Audit` configurado responde `403`, e sem banco do LogStream para o tenant responde `503`. Para o dono do produto, LogStream e NotificationHub são opcionais, e a ADR-0051 os trata assim. Uma instalação só com SecureGate e Intranet não conseguia criar um setor.
+
+O motivo da trilha continua válido: o produto não vê quem usa um secret roubado direto contra o SecureGate. A trilha não pode sair nem virar falha-aberta. O que muda é onde ela mora.
+
+Alternativas avaliadas:
+
+- **Trilha falha-aberta sem LogStream.** Perde a proteção contra o secret roubado. Descartada.
+- **Local só quando o tenant não tem LogStream.** A trilha de uma mesma autoridade ficaria em dois lugares conforme o tenant, e quem investiga teria de saber onde procurar. Descartada.
+- **Local mais cópia de melhor esforço no LogStream.** Duas fontes que podem divergir, e a cópia não daria garantia nenhuma. Descartada.
+- **Gravar a trilha na mesma transação da operação.** É a garantia mais forte, mas as escritas passam por `UserManager`, pelo revogador de sessões (OpenIddict) e por mais de um `SaveChanges`. Seria preciso refazer todos os handlers. Descartada: "auditar antes" já garante que nada acontece sem registro.
+- **Mover também as trilhas das ADR-0044/0047/0049.** Estão congeladas pela ADR-0051 e seguem como estão. Descartada.
+
+### Decisão
+
+**A trilha da gestão do próprio tenant por máquina passa a ser gravada no banco do SecureGate**, numa tabela de auditoria de autoridade, como fonte de verdade única, sem cópia no LogStream.
+
+- **Formato do `AuditEntry` do LogStream:** tenant, tipo de ator (sempre `client` aqui) e id do ator, nome do ator, ação (`gestao-do-tenant.<operationId>`), tipo e id do recurso, `Metadata` em JSON (`authority`, `act` e o tenant administrado; a chave `onBehalfOf` da ADR-0053, quando vier) e o instante do **servidor**.
+- **Síncrona e fail-closed, antes da operação:** o registro é gravado e confirmado antes de o handler rodar. Gravação falhou: `503` e nada é escrito. Uma tentativa que falha depois do registro fica na trilha, como já acontecia no LogStream.
+- **Não depende de `SecureGate:Audit` nem do LogStream.** A autoridade `tenant-manage` funciona numa instalação só com o SecureGate.
+- **Dado de tenant:** filtro `"Tenant"` do EF e Row-Level Security nos dois engines (ADR-0041), como as outras tabelas de tenant. Sem endpoint de alteração nem de exclusão.
+- **Leitura só pelo operador:** `GET /api/v1/tenants/{tenantId}/audit-entries`, paginado, com `securegate:admin`, do mais recente para o mais antigo. O client com `tenant-manage` não lê a própria trilha: ela existe contra ele. O AdminPortal mostra a trilha na página do tenant.
+- **Retenção opcional:** `SecureGate:Audit:RetentionDays`. Sem valor, a trilha não expira, como a auditoria do LogStream. Com valor, um serviço de fundo apaga, em lotes, o que passou da janela pelo instante do servidor. A limpeza é idempotente, então várias instâncias podem rodá-la.
+
+### Consequências
+
+- LogStream e NotificationHub voltam a ser opcionais para quem administra o próprio tenant. Para a Intranet, o SecureGate volta a ser a única dependência dura.
+- **Risco assumido:** a credencial de runtime do SecureGate pode apagar a trilha direto no banco. Antes, quem tinha essa credencial não alcançava a trilha, que estava no LogStream. A separação perdida é real. Uma credencial de runtime sem `DELETE` nessa tabela (a limpeza da retenção rodaria com outra identidade) fica para uma ADR própria, se a ameaça justificar.
+- Os admins do tenant não veem essa trilha no LogStream deles; só o operador a lê. A autoria da pessoa continua na auditoria do próprio produto (ADR-0052).
+- As trilhas das ADR-0031, 0044, 0047 e 0049 continuam no LogStream.
+- Contrato novo: `Secco.SecureGate.Client` ganha a leitura da trilha.
+- **Bateria negativa provada por mutação: 10 de 10 detectadas.** Cobre: escrita sem trilha, gravação que não acontece, falha de gravação virando sucesso, gravação sem ator, máquina gravada como pessoa, leitura pela máquina, leitura pelo admin de tenant, corte da retenção invertido, retenção fora da faixa aceita e ordem da leitura.
 
 ---
 
