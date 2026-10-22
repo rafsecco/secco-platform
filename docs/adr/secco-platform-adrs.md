@@ -1992,6 +1992,40 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0053: Delegação na trilha de auditoria — chave `onBehalfOf` no `Metadata`, sem coluna nova
+
+**Status:** Aceita
+**Data:** 2026-10-22
+**Complementa:** recurso `AuditEntry` do LogStream (issues #2 e #6) e ADR-0020
+
+### Contexto
+
+O "acessar como" (issue #6) exige que a trilha separe **quem agiu** de **em nome de quem**: o token representado leva o `sub` da pessoa e a claim `act` de quem representa (RFC 8693), e a trilha precisa contar a mesma história. O `AuditEntry` não tem campo para "em nome de quem". O backlog registrava a decisão sobre uma coluna `OnBehalfOfId` como urgente, "antes de a trilha ganhar volume", porque acrescentar coluna a tabela com anos de retenção seria caro.
+
+Revisto, o argumento não se sustenta: acrescentar coluna anulável é barato no SQL Server e no PostgreSQL, sem reescrever a tabela. O custo real de adiar é outro — **história partida**: sem convenção, cada produto grava a delegação com uma chave própria no `Metadata`, e toda consulta "o que foi feito em nome de X" teria de conhecer todas elas para sempre. O "acessar como" segue sem demanda (ADR-0051).
+
+Há ainda um risco que a coluna, sozinha, não resolve: um "em nome de" **declarado pelo chamador** é só a palavra dele. Na gestão do tenant por máquina (ADR-0052), a Intranet poderia informar a pessoa por trás da ação — e quem roubasse o secret informaria o nome que quisesse.
+
+Alternativas avaliadas:
+
+- **Coluna `OnBehalfOfId` agora**, sem consumidor: migration nos dois engines, contrato e client novos para um campo vazio. Descartada (YAGNI); entra junto com o recurso que a preencher.
+- **Nada agora.** Cada produto inventaria sua chave. Descartada.
+
+### Decisão
+
+- **A delegação vai no `Metadata` da `AuditEntry`, sob a chave fixa `onBehalfOf`**, com o identificador (`sub`) da pessoa representada. `ActorId`/`ActorType` continuam sendo **quem de fato agiu**.
+- **`onBehalfOf` só nasce de claim de token assinado** — o `sub` de um token cujo `act` identifica o ator. Nunca de campo do payload, header ou parâmetro informado pelo chamador. Sem token representado, a chave não aparece.
+- **`act` no `Metadata` continua significando outra coisa:** a aplicação pela qual alguém agiu (ADR-0044). Não se confunde com `onBehalfOf`.
+- Quando o "acessar como" for desenhado, a ADR dele decide se `onBehalfOf` vira coluna (filtrável, indexada). Os registros anteriores já estarão na chave fixa, então a migração é uma cópia, não uma arqueologia.
+
+### Consequências
+
+- Nenhum código muda hoje: nenhum produto grava delegação de pessoa por pessoa.
+- Consulta por delegação, enquanto não houver coluna, é por conteúdo do `Metadata` — sem índice. Aceito: não há consumidor.
+- A trilha da gestão por máquina (ADR-0052) continua registrando só o client; a pessoa por trás segue na auditoria do próprio produto, porque não há token da pessoa no caminho.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
