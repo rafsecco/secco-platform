@@ -32,6 +32,15 @@ public interface ITenantAdminService
 	Task UpsertDatabaseAsync(
 		Guid tenantId, string product, string connectionString, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Configura a federação Entra ID do tenant (PUT idempotente, ADR-0026). Federação é só do operador (ADR-0052).
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="directoryId">Diretório Entra (<c>tid</c>) do tenant.</param>
+	/// <param name="enabled">Se o login federado fica habilitado.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SetFederationAsync(Guid tenantId, Guid directoryId, bool enabled, CancellationToken cancellationToken = default);
+
 	/// <summary>Lista as pessoas com concessão de admin do tenant (ADR-0044).</summary>
 	/// <param name="tenantId">Tenant administrado.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>

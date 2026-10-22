@@ -7,13 +7,21 @@ namespace Secco.AdminPortal.Services;
 /// <param name="IsActive">Tenant ativo no catálogo.</param>
 /// <param name="CreatedAt">Momento da criação.</param>
 /// <param name="Products">Produtos com banco cadastrado.</param>
+/// <param name="Federation">Federação Entra ID do tenant; nula quando não há (ADR-0026).</param>
 public sealed record TenantDetail(
 	Guid Id,
 	string Name,
 	string Slug,
 	bool IsActive,
 	DateTimeOffset CreatedAt,
-	IReadOnlyList<string> Products);
+	IReadOnlyList<string> Products,
+	TenantFederationSummary? Federation = null);
+
+/// <summary>Federação Entra ID de um tenant (ADR-0026); sem segredo algum.</summary>
+/// <param name="DirectoryId">Diretório (<c>tid</c>) registrado.</param>
+/// <param name="IsEnabled">Login federado habilitado.</param>
+/// <param name="UpdatedAt">Última alteração.</param>
+public sealed record TenantFederationSummary(Guid DirectoryId, bool IsEnabled, DateTimeOffset? UpdatedAt);
 
 /// <summary>Usuário na listagem do tenant.</summary>
 /// <param name="Id">Identificador.</param>

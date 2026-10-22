@@ -44,6 +44,9 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 **Criar tenant (ADR-0051)**
 - Formulário **Novo tenant** (nome + slug) na lista `/tenants`, via `POST /api/v1/tenants` on-behalf-of o operador; leva à página do tenant criado. Nasce ativo, sem bancos e sem admin de tenant. Validação e slug repetido (`409`) vêm do SecureGate.
 
+**Federação (ADR-0026, ADR-0052)**
+- Seção **Federação (Entra ID)** na página do tenant: mostra directory id, situação e última alteração, e configura via o PUT idempotente do SecureGate (directory id + habilitada). Federação é só do operador (ADR-0052): o admin de tenant não tem esta rota.
+
 ## Configuração (`Secco:SecureGate`)
 
 | Chave | Uso |

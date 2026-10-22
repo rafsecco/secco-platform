@@ -32,7 +32,21 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 		var tenant = await client.GetTenantAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
 		return new TenantDetail(
-			tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt, [.. tenant.Products]);
+			tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt, [.. tenant.Products],
+			tenant.Federation is null
+				? null
+				: new TenantFederationSummary(
+					tenant.Federation.DirectoryId, tenant.Federation.IsEnabled, tenant.Federation.UpdatedAt));
+	}
+
+	public async Task SetFederationAsync(
+		Guid tenantId, Guid directoryId, bool enabled, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		await client.UpsertTenantFederationAsync(
+			tenantId, new UpsertTenantFederationRequest { DirectoryId = directoryId, Enabled = enabled }, cancellationToken)
+			.ConfigureAwait(false);
 	}
 
 	public async Task UpsertDatabaseAsync(

@@ -108,4 +108,51 @@ public class TenantAdminGrantServiceTests
 
 		(await act.Should().ThrowAsync<ApiException>()).Which.StatusCode.Should().Be(409);
 	}
+
+	[Fact]
+	public async Task ObterTenant_ProjetaFederacao()
+	{
+		var (factory, client) = BuildFactory();
+		var directory = Guid.NewGuid();
+		var updatedAt = new DateTimeOffset(2026, 10, 21, 9, 0, 0, TimeSpan.Zero);
+		client.GetTenantAsync(TenantA, Arg.Any<CancellationToken>()).Returns(new TenantDetailDto
+		{
+			Id = TenantA, Name = "Intranet", Slug = "intranet", IsActive = true,
+			Products = new List<string>(),
+			Federation = new TenantFederationDto { DirectoryId = directory, IsEnabled = true, UpdatedAt = updatedAt },
+		});
+
+		var tenant = await new SecureGateTenantAdminService(factory).GetTenantAsync(TenantA);
+
+		tenant.Federation.Should().Be(new TenantFederationSummary(directory, true, updatedAt));
+	}
+
+	[Fact]
+	public async Task ObterTenant_SemFederacao_FederacaoNula()
+	{
+		var (factory, client) = BuildFactory();
+		client.GetTenantAsync(TenantA, Arg.Any<CancellationToken>()).Returns(new TenantDetailDto
+		{
+			Id = TenantA, Name = "Intranet", Slug = "intranet", IsActive = true,
+			Products = new List<string>(),
+		});
+
+		var tenant = await new SecureGateTenantAdminService(factory).GetTenantAsync(TenantA);
+
+		tenant.Federation.Should().BeNull();
+	}
+
+	[Fact]
+	public async Task DefinirFederacao_EnviaDirectoryIdEHabilitada()
+	{
+		var (factory, client) = BuildFactory();
+		var directory = Guid.NewGuid();
+
+		await new SecureGateTenantAdminService(factory).SetFederationAsync(TenantA, directory, false);
+
+		await client.Received(1).UpsertTenantFederationAsync(
+			TenantA,
+			Arg.Is<UpsertTenantFederationRequest>(request => request.DirectoryId == directory && request.Enabled == false),
+			Arg.Any<CancellationToken>());
+	}
 }

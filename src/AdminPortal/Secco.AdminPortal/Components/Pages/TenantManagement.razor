@@ -282,6 +282,30 @@ else
             <button @onclick="UpsertDatabaseAsync" disabled="@_busy">Salvar banco</button>
         </div>
     </section>
+
+    @* Federação é só do operador (ADR-0026, ADR-0052): o admin de tenant não tem esta rota. *@
+    <section>
+        <h2>Federação (Entra ID)</h2>
+        @if (_tenant.Federation is null)
+        {
+            <p>Nenhuma federação configurada.</p>
+        }
+        else
+        {
+            <dl>
+                <dt>Directory id</dt><dd>@_tenant.Federation.DirectoryId</dd>
+                <dt>Situação</dt><dd>@(_tenant.Federation.IsEnabled ? "Habilitada" : "Desabilitada")</dd>
+                <dt>Atualizada em</dt><dd>@(_tenant.Federation.UpdatedAt?.ToString("g") ?? "-")</dd>
+            </dl>
+        }
+
+        <div class="form-card">
+            <h3>Configurar federação</h3>
+            <label>Directory id (tid)<input type="text" @bind="_federationDirectoryId" autocomplete="off" /></label>
+            <label><input type="checkbox" @bind="_federationEnabled" /> Habilitada</label>
+            <button @onclick="SaveFederationAsync" disabled="@_busy">Salvar federação</button>
+        </div>
+    </section>
 }
 
 @code {
@@ -310,6 +334,8 @@ else
     private string _newRoleName = string.Empty;
     private string _newDbProduct = string.Empty;
     private string _newDbConnectionString = string.Empty;
+    private string _federationDirectoryId = string.Empty;
+    private bool _federationEnabled = true;
 
     private sealed record PendingMemberAction(string Message, Func<Task> Action);
 
@@ -511,6 +537,22 @@ else
             _newDbProduct = _newDbConnectionString = string.Empty;
             _tenant = await TenantAdminService.GetTenantAsync(TenantId); // atualiza os Products
             _message = "Banco salvo.";
+        });
+    }
+
+    private async Task SaveFederationAsync()
+    {
+        if (!Guid.TryParse(_federationDirectoryId?.Trim(), out var directoryId) || directoryId == Guid.Empty)
+        {
+            SetError("Informe um directory id válido (GUID).");
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            await TenantAdminService.SetFederationAsync(TenantId, directoryId, _federationEnabled);
+            _tenant = await TenantAdminService.GetTenantAsync(TenantId);
+            _message = "Federação salva.";
         });
     }
 
