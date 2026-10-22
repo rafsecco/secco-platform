@@ -93,6 +93,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.4 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff desde a 0.7.3 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.22.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.3 — 2026-10-22
 
 Patch **sem mudança funcional**: o diff desde a 0.7.2 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.21.0 sai deste commit e o referencia por `ProjectReference`.
@@ -588,6 +592,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.18 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff desde a 0.1.17 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.22.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.17 — 2026-10-22
 
