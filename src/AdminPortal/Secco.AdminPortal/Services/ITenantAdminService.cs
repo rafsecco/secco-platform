@@ -7,6 +7,15 @@ public interface ITenantAdminService
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<IReadOnlyList<TenantSummary>> ListTenantsAsync(CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Cria um tenant no catálogo (nasce ativo, sem bancos). Pelo operador, sem concessão de admin para
+	/// ninguém (ADR-0051). Nome e slug são validados pelo SecureGate; slug repetido responde 409.
+	/// </summary>
+	/// <param name="name">Nome de exibição.</param>
+	/// <param name="slug">Identificador curto único (kebab-case).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<TenantSummary> CreateTenantAsync(string name, string slug, CancellationToken cancellationToken = default);
+
 	/// <summary>Busca o detalhe de um tenant (cabeçalho da tela de gestão).</summary>
 	/// <param name="tenantId">Identificador do tenant.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>

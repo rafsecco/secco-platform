@@ -17,6 +17,15 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 		];
 	}
 
+	public async Task<TenantSummary> CreateTenantAsync(string name, string slug, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+		var tenant = await client.CreateTenantAsync(new CreateTenantRequest { Name = name, Slug = slug }, cancellationToken)
+			.ConfigureAwait(false);
+
+		return new TenantSummary(tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt);
+	}
+
 	public async Task<TenantDetail> GetTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
 	{
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);

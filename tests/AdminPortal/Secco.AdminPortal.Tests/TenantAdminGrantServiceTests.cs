@@ -67,6 +67,24 @@ public class TenantAdminGrantServiceTests
 	}
 
 	[Fact]
+	public async Task CriarTenant_EnviaNomeESlugEProjetaOCriado()
+	{
+		var (factory, client) = BuildFactory();
+		var createdAt = new DateTimeOffset(2026, 10, 21, 12, 0, 0, TimeSpan.Zero);
+		client.CreateTenantAsync(Arg.Any<CreateTenantRequest>(), Arg.Any<CancellationToken>()).Returns(new TenantDto
+		{
+			Id = TenantB, Name = "Compras", Slug = "compras", IsActive = true, CreatedAt = createdAt,
+		});
+
+		var created = await new SecureGateTenantAdminService(factory).CreateTenantAsync("Compras", "compras");
+
+		created.Should().Be(new TenantSummary(TenantB, "Compras", "compras", true, createdAt));
+		await client.Received(1).CreateTenantAsync(
+			Arg.Is<CreateTenantRequest>(request => request.Name == "Compras" && request.Slug == "compras"),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
 	public async Task ConcederERevogar_ChamamAsRotasDoTenantEDaPessoa()
 	{
 		var (factory, client) = BuildFactory();

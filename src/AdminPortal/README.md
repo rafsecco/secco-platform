@@ -4,6 +4,8 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 > **Papel redefinido em 2026-09-04** ([issue #4](https://github.com/rafsecco/secco-platform/issues/4)): este é o **console mínimo para quem adota a plataforma sem um portal próprio**. Cada instalação da plataforma é soberana — a empresa que adota pode ter o próprio portal (é o caso do `secco-intranet`, que será o portal completo de quem o usa) e, nesse caso, o AdminPortal deixa de ser o caminho principal. Ele existe porque a promessa da plataforma é que **SecureGate e LogStream sejam adotáveis isoladamente**: quem implanta só o SecureGate ainda precisa administrá-lo. A duplicação de telas com um portal de adotante é consciente e é o preço dessa promessa.
 >
+> **Revisto em 2026-10-21 (ADR-0051):** a centralização na Intranet foi abandonada. O AdminPortal é *o* console de operação da instalação, com ou sem portal de adotante; um portal como a Intranet administra só o próprio tenant.
+>
 > No mesmo movimento, o vocabulário: o papel passou a ser `installation-operator` — **operador desta instalação**, não operador da Secco (ADR-0030). O seed de referência converge o nome antigo renomeando a linha no lugar, o que preserva o `Id` do papel e, com ele, as atribuições de usuário.
 
 ## Arquitetura (ADR-0023)
@@ -38,6 +40,9 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - Seção **Admins do tenant** na página do tenant: quem administra o tenant on-behalf-of si mesmo (a pessoa pode ser de qualquer tenant), com revogação confirmada.
 - Seção **Administração de tenants** na página da pessoa: os tenants que ela administra (revogar) e a concessão de um novo. Não há rota "por pessoa" para o operador: o portal consulta os admins de cada tenant do catálogo.
 - As duas seções são independentes do resto da página: um SecureGate anterior à ADR-0044 mostra o erro só nelas.
+
+**Criar tenant (ADR-0051)**
+- Formulário **Novo tenant** (nome + slug) na lista `/tenants`, via `POST /api/v1/tenants` on-behalf-of o operador; leva à página do tenant criado. Nasce ativo, sem bancos e sem admin de tenant. Validação e slug repetido (`409`) vêm do SecureGate.
 
 ## Configuração (`Secco:SecureGate`)
 

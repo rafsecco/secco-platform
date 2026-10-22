@@ -1,7 +1,9 @@
 @page "/tenants"
 @attribute [Authorize(Policy = AdminPortalDefaults.OperatorPolicy)]
 @inject ITenantAdminService TenantAdminService
+@inject NavigationManager Navigation
 @inject ILogger<Tenants> Logger
+@using Secco.SecureGate.Client
 
 <PageTitle>Tenants — Secco AdminPortal</PageTitle>
 
@@ -46,9 +48,29 @@ else
     </table>
 }
 
+@if (_tenants is not null)
+{
+    @* ADR-0051: criar tenant é do operador, por aqui. Nasce ativo e sem bancos; perfis, pessoas e
+       bancos se configuram na página do tenant, para onde a criação leva. *@
+    <div class="form-card">
+        <h3>Novo tenant</h3>
+        @if (_createError is not null)
+        {
+            <p class="error" role="alert">@_createError</p>
+        }
+        <label>Nome<input type="text" @bind="_newName" placeholder="ex.: Compras" /></label>
+        <label>Slug<input type="text" @bind="_newSlug" placeholder="ex.: compras" autocomplete="off" /></label>
+        <button @onclick="CreateTenantAsync" disabled="@_busy">Criar tenant</button>
+    </div>
+}
+
 @code {
     private IReadOnlyList<TenantSummary>? _tenants;
     private string? _error;
+    private string? _createError;
+    private string _newName = string.Empty;
+    private string _newSlug = string.Empty;
+    private bool _busy;
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,6 +83,37 @@ else
             // O detalhe fica no log; o usuário vê mensagem genérica (ADR-0020)
             Logger.LogError(exception, "Falha ao listar tenants no SecureGate.");
             _error = "Não foi possível carregar os tenants. Tente novamente.";
+        }
+    }
+
+    private async Task CreateTenantAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newSlug))
+        {
+            _createError = "Informe o nome e o slug.";
+            return;
+        }
+
+        _busy = true;
+        _createError = null;
+        try
+        {
+            var tenant = await TenantAdminService.CreateTenantAsync(_newName.Trim(), _newSlug.Trim());
+            Navigation.NavigateTo($"tenants/{tenant.Id}");
+        }
+        catch (ApiException exception)
+        {
+            // Nome/slug inválido (400) ou slug em uso (409): a mensagem do SecureGate diz qual
+            _createError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Falha ao criar tenant no SecureGate.");
+            _createError = "Falha inesperada. Tente novamente.";
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 }
