@@ -23,10 +23,6 @@ Não é pacote: muda o serviço SecureGate. Contrato novo (só acréscimo), com 
 - **Fica no LogStream:** as trilhas da elevação (ADR-0031), do admin de tenant (ADR-0044/0047) e do operador designado (ADR-0049).
 - **Para a Intranet:** nada a configurar. Uma instalação só com SecureGate passa a criar setores e gerir perfis. A trilha dessa gestão sai do LogStream do tenant e passa a ser lida pelo operador no AdminPortal.
 
-### Secco.SecureGate.Client 0.22.0 — leitura da trilha de autoridade (ADR-0054)
-
-Só acréscimo: `ListTenantAuditEntriesAsync(tenantId, page, size)` devolve as entradas da trilha guardada no SecureGate. Exige `securegate:admin`.
-
 ### SecureGate (serviço) — membros de perfil na gestão do próprio tenant (issue #47, ADR-0052)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.
@@ -385,6 +381,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.22.0 — 2026-10-22
+
+Leitura da trilha de autoridade (issue #48, ADR-0054). Só acréscimo: `ListTenantAuditEntriesAsync(tenantId, page, size)` devolve as entradas da trilha guardada no SecureGate. Exige `securegate:admin`.
 
 #### 0.21.0 — 2026-10-22
 

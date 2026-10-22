@@ -40,7 +40,7 @@ Versões publicadas atuais:
 | `Secco.SDK.AspNetCore` | 0.9.6 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
 | `Secco.SDK.EntityFrameworkCore` | 0.6.0 | `SeccoDbContext`, nomenclatura de banco por convention (ADR-0017) e cifragem de segredo em repouso (ADR-0025) |
 | `Secco.SDK.Testing` | 0.1.1 | Base das factories de teste de integração (ADR-0027); marcado `DevelopmentDependency` |
-| `Secco.SecureGate.Client` | 0.21.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
+| `Secco.SecureGate.Client` | 0.22.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
 | `Secco.LogStream.Client` | 0.4.0 | Client do LogStream |
 | `Secco.SDK.RelyingParty` | 0.2.1 | Custódia do token da pessoa para relying party on-behalf-of (cofre no servidor, renovação, handler de Bearer) |
 | `Secco.SDK.ClientCredentials` | 0.1.17 | Client credentials OAuth 2 entre produtos; os clients de produto o usam sozinhos |
