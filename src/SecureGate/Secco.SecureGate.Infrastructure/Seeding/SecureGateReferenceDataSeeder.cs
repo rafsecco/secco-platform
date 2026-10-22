@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using Secco.SDK.EntityFrameworkCore.Seeding;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Permissions;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -20,7 +22,8 @@ namespace Secco.SecureGate.Infrastructure.Seeding;
 public sealed class SecureGateReferenceDataSeeder(
 	IOpenIddictScopeManager scopeManager,
 	SecureGateDbContext context,
-	ITenantAccessScope accessScope) : IReferenceDataSeeder
+	ITenantAccessScope accessScope,
+	IOptions<PermissionCatalogOptions> permissionCatalog) : IReferenceDataSeeder
 {
 	/// <summary>
 	/// Nome de exibição ANTIGO do tenant de plataforma (issue #4/2026-09) — sugeria que a
@@ -45,9 +48,6 @@ public sealed class SecureGateReferenceDataSeeder(
 	/// <summary>Produtos multi-tenant com catálogo servido pelo SecureGate (ADR-0005).</summary>
 	private static readonly IReadOnlyList<string> CatalogProducts = ["logstream"];
 
-	/// <summary>Produtos que publicam catálogo de permissões no SecureGate (ADR-0039).</summary>
-	private static readonly IReadOnlyList<string> PermissionCatalogProducts = ["logstream", "notificationhub"];
-
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
 	{
 		foreach (var (scopeName, resource) in ProductScopes)
@@ -65,7 +65,10 @@ public sealed class SecureGateReferenceDataSeeder(
 				cancellationToken).ConfigureAwait(false);
 		}
 
-		foreach (var product in PermissionCatalogProducts)
+		// ADR-0039: os da plataforma e os adotantes que a instalação declara (issue #49), já validados na subida
+		foreach (var product in PermissionCatalogProducts.Platform
+			.Concat(permissionCatalog.Value.Products)
+			.Distinct(StringComparer.Ordinal))
 		{
 			await UpsertScopeAsync(
 				SecureGateScopes.PermissionsFor(product),

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,25 @@ public class PlatformClientReconciliationTests(PlatformClientsSecureGateApiFacto
 		(await TokenAsync(PlatformClientsSecureGateApiFactory.MachineId,
 			PlatformClientsSecureGateApiFactory.MachineSecret, "catalog:logstream"))
 			.StatusCode.Should().Be(HttpStatusCode.OK);
+	}
+
+	[Fact]
+	public async Task ProdutoAdotanteDeclarado_ClientPublicaOCatalogoDele_ENaoODeOutro()
+	{
+		var token = await TokenAsync(PlatformClientsSecureGateApiFactory.MachineId,
+			PlatformClientsSecureGateApiFactory.MachineSecret, "permissions:" + PlatformClientsSecureGateApiFactory.AdopterProduct);
+		token.StatusCode.Should().Be(HttpStatusCode.OK, "o escopo foi registrado pela lista da instalação e o client subiu");
+
+		// A API desta suíte valida o token HS256 de teste; o mesmo escopo, emitido por ele, publica
+		var client = factory.CreateClient();
+		client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+			"Bearer", factory.CreateTokenWithScopes("permissions:" + PlatformClientsSecureGateApiFactory.AdopterProduct));
+		var body = new { permissions = new[] { new { name = "diretorio:read", description = "Ler o diretório" } } };
+
+		(await client.PutAsJsonAsync($"/api/v1/permission-catalog/{PlatformClientsSecureGateApiFactory.AdopterProduct}", body))
+			.StatusCode.Should().Be(HttpStatusCode.NoContent);
+		(await client.PutAsJsonAsync("/api/v1/permission-catalog/logstream", body))
+			.StatusCode.Should().Be(HttpStatusCode.Forbidden, "o escopo vale só para o catálogo do próprio produto");
 	}
 
 	[Fact]

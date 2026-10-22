@@ -239,6 +239,12 @@ public static class SecureGateInfrastructureExtensions
 
 		// Seeding (ADR-0019): scopes de produto (referência) + tenant/client demo (DEV)
 		services.AddScoped<IReferenceDataSeeder, SecureGateReferenceDataSeeder>();
+
+		// Produtos adotantes com catálogo de permissões (issue #49, ADR-0039): validados em toda subida
+		services.AddOptions<PermissionCatalogOptions>()
+			.BindConfiguration(PermissionCatalogOptions.SectionKey)
+			.ValidateOnStart();
+		services.TryAddSingleton<IValidateOptions<PermissionCatalogOptions>, PermissionCatalogOptionsValidator>();
 		services.AddScoped<IDevelopmentDataSeeder, SecureGateDevelopmentDataSeeder>();
 
 		// Convergência da cifragem do catálogo (ADR-0025): re-cifra legado/chave aposentada

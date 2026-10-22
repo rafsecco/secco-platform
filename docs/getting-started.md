@@ -229,6 +229,7 @@ services.AddSeccoReferenceSeeder((serviceProvider, cancellationToken) =>
 ```
 
 - O client do produto, declarado em `SecureGate:PlatformClients` (seção 6), precisa do escopo **`permissions:meuproduto`**. Sem ele, o `migrate` falha com `403`. Esse escopo só vale para o catálogo daquele produto.
+- O SecureGate só registra esse escopo para os produtos da plataforma e para os que a instalação declara em **`SecureGate:PermissionCatalog:Products`** (`["meuproduto"]`). O nome é kebab-case minúsculo, com até 50 caracteres, e precisa ser o mesmo da rota de publicação. Sem a declaração, o SecureGate não sobe com o client pedindo `permissions:meuproduto`. Tirar o produto da lista não apaga o escopo.
 - Sem a seção `Secco:SecureGate` (produto isolado em DEV), a publicação é pulada.
 - Com o SecureGate fora do ar, o `migrate` falha e o deploy do produto para. É de propósito: sem catálogo, as permissões novas daquela versão não poderiam ser atribuídas.
 - Publicar substitui o catálogo daquele produto e **nunca mexe em perfil**. Uma permissão que saiu do catálogo continua nos perfis, mas aparece como `unknownPermissions` no detalhe do perfil. O admin a remove pelo próprio perfil ou com `POST /api/v1/tenants/{id}/roles/remove-unknown-permissions`, que limpa só aquele tenant.

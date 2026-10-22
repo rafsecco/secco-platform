@@ -7,6 +7,7 @@ public sealed class PlatformClientsSecureGateApiFactory : SecureGateApiFactory
 	public const string MachineSecret = "maquina-de-plataforma-secret-32-chars!";
 	public const string PortalId = "secco-teste-portal";
 	public const string PortalSecret = "portal-de-plataforma-secret-32-chars!!";
+	public const string AdopterProduct = "intranet";
 
 	/// <inheritdoc />
 	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
@@ -19,6 +20,11 @@ public sealed class PlatformClientsSecureGateApiFactory : SecureGateApiFactory
 		settings["SecureGate:PlatformClients:0:ClientSecret"] = MachineSecret;
 		settings["SecureGate:PlatformClients:0:Scopes:0"] = "catalog:logstream";
 		settings["SecureGate:PlatformClients:0:Roles:0"] = "leitor";
+
+		// Produto adotante com catálogo de permissões (issue #49): o escopo nasce da lista da instalação
+		settings["SecureGate:PermissionCatalog:Products:0"] = AdopterProduct;
+		settings["SecureGate:PermissionCatalog:Products:1"] = "logstream";
+		settings["SecureGate:PlatformClients:0:Scopes:1"] = "permissions:" + AdopterProduct;
 
 		settings["SecureGate:PlatformClients:1:ClientId"] = PortalId;
 		settings["SecureGate:PlatformClients:1:Type"] = "AuthorizationCode";

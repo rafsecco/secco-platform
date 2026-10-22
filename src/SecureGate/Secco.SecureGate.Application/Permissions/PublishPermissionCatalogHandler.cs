@@ -26,7 +26,7 @@ public sealed class PublishPermissionCatalogHandler(IPermissionCatalogRepository
 		var product = command.Product ?? string.Empty;
 
 		// Sem normalização de caixa: o produto da rota é comparado ordinal com o escopo (ADR-0039)
-		if (!TenantInputRules.IsValidSlug(product, PermissionCatalogEntry.ProductMaxLength))
+		if (!PermissionCatalogProducts.IsValidName(product))
 		{
 			return Result.Failure(SecureGateErrors.PermissionCatalog.ProductInvalid);
 		}

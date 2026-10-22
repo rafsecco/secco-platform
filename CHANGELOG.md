@@ -12,6 +12,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — catálogo de permissões de produto adotante (issue #49, ADR-0039)
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.
+
+- **`SecureGate:PermissionCatalog:Products`** declara os produtos adotantes que publicam catálogo de permissões. O seed de referência registra `permissions:<produto>` para cada um, ao lado de `permissions:logstream` e `permissions:notificationhub`. Antes, essa lista era fixa em código, e um client de plataforma pedindo `permissions:intranet` derrubava a subida.
+- O nome segue a regra da rota de publicação (kebab-case minúsculo, até 50 caracteres). Nome inválido derruba a subida. Produto da plataforma na lista é ignorado. Tirar um produto da lista não apaga o escopo.
+- **Para a Intranet:** declarar `"SecureGate": { "PermissionCatalog": { "Products": ["intranet"] } }` e rodar o `migrate` do SecureGate antes de dar `permissions:intranet` ao client de plataforma dela.
+
 ### SecureGate (serviço) — trilha da gestão do próprio tenant no SecureGate (issue #48, ADR-0054)
 
 Não é pacote: muda o serviço SecureGate. Contrato novo (só acréscimo), com client na seção abaixo.
