@@ -1847,3 +1847,17 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - *Copiar o código do LogStream ou do SecureGate para dentro de cada sistema:* cada correção de segurança seria feita N vezes. "Duplicar" passa a significar só subir outra instância da mesma imagem.
 
 **#45 e #46.** O trabalho em andamento das duas (ADR-0051/0052 em rascunho e código) foi guardado num `git stash`, não commitado; a numeração 0051 foi reaproveitada por esta decisão.
+
+## Gestão do próprio tenant por máquina (ADR-0052, 2026-10-21)
+
+**A pergunta.** Com a centralização abandonada (ADR-0051), como a Intranet administra o próprio tenant sem `securegate:admin`, que alcança a instalação inteira?
+
+**Escolha:** escopo novo de client de produto, preso ao tenant do token, com lista fechada de rotas. Descartados: on-behalf-of da pessoa (ADR-0044) — exigiria segundo fator de todo `intranet-admin`, o que a #45 queria evitar e foi descartado; e reusar todas as rotas já abertas a admin de tenant — incluiria criar tenant, provisionar, clients e vínculos, que ficaram com o operador.
+
+**Decisões do dono:** federação só com o operador (AdminPortal), por ser a operação de maior risco; trilha síncrona fail-closed, porque só ela vê o uso direto de um secret roubado.
+
+**Achados da implementação:**
+- Sem guarda própria, um admin de tenant (ADR-0044) poderia **rotacionar** o secret do client da Intranet e receber a credencial. Criar, alterar, rotacionar e excluir client com o escopo ficaram só com o operador.
+- A recusa do tenant de plataforma só é alcançável com client gravado direto no banco (a API não o cria); a mutação sobreviveu até entrar um teste que simula essa gravação.
+- Client só com `logstream` recebe `401` no SecureGate (audiência errada), não `403`: o teste negativo precisou de um escopo com a audiência do próprio SecureGate para exercitar a autorização.
+- Mutação: 10 de 10; a segunda camada do filtro da `AllowTenantAdmin` só é detectável junto com a policy, por desenho.

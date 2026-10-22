@@ -76,6 +76,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.3 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff desde a 0.7.2 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.21.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.2 — 2026-10-19
 
 Patch **sem mudança funcional**: o diff desde a 0.7.1 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.20.0 sai deste commit e o referencia por `ProjectReference`.
@@ -174,6 +178,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.6 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` desde a 0.9.5 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.21.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.5 — 2026-10-19
 
@@ -357,7 +365,7 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
-#### 0.21.0 — 2026-10-21
+#### 0.21.0 — 2026-10-22
 
 Só acréscimo: `AddSecureGateTenantManagementClient()` (ADR-0052) registra o `ISecureGateClient` com o scope `securegate:tenant-manage` e a credencial da subseção `Secco:SecureGate:TenantManagement`. Configuração parcial — inclusive a seção pai completa sem a subseção — falha no primeiro uso, nunca vira client sem autenticação.
 
@@ -559,6 +567,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.17 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff desde a 0.1.16 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.21.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.16 — 2026-10-19
 
