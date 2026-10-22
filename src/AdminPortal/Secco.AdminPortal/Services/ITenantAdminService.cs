@@ -65,4 +65,15 @@ public interface ITenantAdminService
 	/// <param name="userId">Pessoa.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task RevokeAdminAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Lê, paginada e do mais recente para o mais antigo, a trilha de autoridade do tenant (ADR-0054): o que as
+	/// aplicações com <c>securegate:tenant-manage</c> escreveram nele. Só o operador lê.
+	/// </summary>
+	/// <param name="tenantId">Tenant administrado.</param>
+	/// <param name="page">Página (1-based).</param>
+	/// <param name="size">Itens por página.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<AuthorityTrailPage> ListAuthorityTrailAsync(
+		Guid tenantId, int page, int size, CancellationToken cancellationToken = default);
 }

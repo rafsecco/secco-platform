@@ -106,6 +106,16 @@ public class TenantAdminAuthorityTests(TenantAdminSecureGateApiFactory secureGat
 			.Should().Be(HttpStatusCode.Forbidden, "admin de tenant não nomeia outro admin");
 	}
 
+	[Fact]
+	public async Task LeituraDaTrilhaDeAutoridade_ComAutoridadeDeAdminDeTenant_Responde403()
+	{
+		// ADR-0054: a trilha da gestão por máquina é lida só pelo operador — admin de tenant não a abre
+		await GrantAsync(_tenantB, _admin);
+		using var admin = await TenantAdminClientAsync();
+
+		(await admin.GetAsync($"/api/v1/tenants/{_tenantB}/audit-entries")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+	}
+
 	// ---- Emissão do escopo ----
 
 	[Fact]

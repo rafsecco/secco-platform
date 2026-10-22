@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Secco.SecureGate.Application.InstallationOperators;
 using Secco.SecureGate.Application.TenantAdministration;
+using Secco.SecureGate.Infrastructure.TenantAdministration;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
@@ -18,6 +19,12 @@ public sealed class TenantAdminSecureGateApiFactory : SelfIssuedAuthSecureGateAp
 
 	/// <summary>Auditor controlável, compartilhado pela coleção (os testes dela rodam em sequência).</summary>
 	public FakeTenantAdminAuditor Auditor { get; } = new();
+
+	/// <summary>
+	/// Quando verdadeiro, a trilha local da gestão por máquina (ADR-0054) recusa o registro — simula falha de gravação
+	/// no banco do SecureGate, para provar o 503 sem escrita.
+	/// </summary>
+	public bool FailTenantManageAudit { get; set; }
 
 	/// <summary>Designações de operador controláveis (ADR-0049): vazias por padrão, como numa instalação sem designação.</summary>
 	public FakeDesignations Designations { get; } = new();
@@ -51,6 +58,11 @@ public sealed class TenantAdminSecureGateApiFactory : SelfIssuedAuthSecureGateAp
 
 		services.RemoveAll<ITenantAdminAuditor>();
 		services.AddSingleton<ITenantAdminAuditor>(Auditor);
+
+		// Trilha local da gestão por máquina (ADR-0054): a real, embrulhada para o teste poder fazê-la falhar
+		services.RemoveAll<ITenantManageAuditor>();
+		services.AddScoped<ITenantManageAuditor>(serviceProvider => new FaultableTenantManageAuditor(
+			ActivatorUtilities.CreateInstance<DatabaseTenantManageAuditor>(serviceProvider), () => FailTenantManageAudit));
 		services.RemoveAll<IInstallationOperatorDesignations>();
 		services.AddSingleton<IInstallationOperatorDesignations>(Designations);
 		services.AddKeyedSingleton<TimeProvider>(InstallationOperatorOptions.ClockKey, DesignationClock);
@@ -103,6 +115,14 @@ public sealed class FakeTenantAdminAuditor : ITenantAdminAuditor
 
 		return Task.FromResult(Accept);
 	}
+}
+
+/// <summary>Trilha local real (ADR-0054) com uma chave de falha, para provar o fail-closed.</summary>
+public sealed class FaultableTenantManageAuditor(ITenantManageAuditor inner, Func<bool> shouldFail) : ITenantManageAuditor
+{
+	/// <inheritdoc />
+	public Task<bool> RecordAsync(TenantManageAuditRecord record, CancellationToken cancellationToken = default) =>
+		shouldFail() ? Task.FromResult(false) : inner.RecordAsync(record, cancellationToken);
 }
 
 /// <summary>Designações de operador mutáveis pelo teste (ADR-0049).</summary>

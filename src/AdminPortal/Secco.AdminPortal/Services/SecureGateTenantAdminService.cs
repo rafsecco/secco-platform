@@ -103,4 +103,21 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 
 		await client.RevokeTenantAdminAsync(tenantId, userId, cancellationToken).ConfigureAwait(false);
 	}
+
+	public async Task<AuthorityTrailPage> ListAuthorityTrailAsync(
+		Guid tenantId, int page, int size, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+		var result = await client.ListTenantAuditEntriesAsync(tenantId, page, size, cancellationToken).ConfigureAwait(false);
+
+		return new AuthorityTrailPage(
+			[
+				.. result.Items.Select(entry => new AuthorityTrailEntry(
+					entry.Id, entry.ActorType, entry.ActorId, entry.Action, entry.ResourceType, entry.ResourceId, entry.OccurredAt))
+			],
+			result.Page,
+			result.Size,
+			result.TotalCount,
+			result.TotalPages);
+	}
 }

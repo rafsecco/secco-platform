@@ -3,7 +3,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Domain.TenantAdministration;
+using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SharedKernel.Constants;
 using Xunit;
 
@@ -12,7 +16,7 @@ namespace Secco.SecureGate.Tests.Integration;
 /// <summary>
 /// Gestão do próprio tenant por máquina (ADR-0052), ponta a ponta com token real: o client de produto com
 /// <c>securegate:tenant-manage</c> alcança só as rotas da lista, só no tenant do próprio token, nunca uma conta
-/// administrativa, e toda escrita passa antes pela trilha.
+/// administrativa, e toda escrita passa antes pela trilha local do SecureGate (ADR-0054).
 /// </summary>
 [Collection(TenantAdminApiCollectionDefinition.Name)]
 public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGate) : IAsyncLifetime
@@ -35,6 +39,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		await secureGate.EnsureDatabaseMigratedAsync();
 		await secureGate.CreateClientAsync(OperatorClientId, OperatorSecret, SecureGateScopes.Admin);
 		secureGate.Auditor.Reset();
+		secureGate.FailTenantManageAudit = false;
 
 		_tenantA = await IdentitySeed.TenantAsync(secureGate);
 		_tenantB = await IdentitySeed.TenantAsync(secureGate);
@@ -46,6 +51,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 	public Task DisposeAsync()
 	{
 		secureGate.Auditor.Reset();
+		secureGate.FailTenantManageAudit = false;
 
 		return Task.CompletedTask;
 	}
@@ -70,7 +76,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 			(await machine.GetAsync(route)).StatusCode.Should().Be(HttpStatusCode.OK, route);
 		}
 
-		secureGate.Auditor.Records.Should().BeEmpty("leitura não vai à trilha");
+		(await EntriesAsync(_tenantA)).Should().BeEmpty("leitura não vai à trilha");
 	}
 
 	[Fact]
@@ -93,18 +99,22 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		(await machine.PostAsync($"{users}/sessions/revoke", null)).IsSuccessStatusCode.Should().BeTrue("RevokeUserSessions");
 		(await machine.DeleteAsync($"{roles}/{newRole}")).IsSuccessStatusCode.Should().BeTrue("DeleteRole");
 
-		var records = secureGate.Auditor.Records;
-		records.Select(record => record.Operation).Should().Equal(
+		var records = await EntriesAsync(_tenantA);
+		records.Select(record => record.Action.Replace("gestao-do-tenant.", string.Empty, StringComparison.Ordinal)).Should().Equal(
 			"CreateRole", "SetRolePermissions", "AddUserRole", "RemoveUserRole", "SetUserDisplayName",
 			"DeactivateUser", "ActivateUser", "RevokeUserSessions", "DeleteRole");
 		records.Should().AllSatisfy(record =>
 		{
-			record.Authority.Should().Be(SecureGateScopes.TenantManage);
-			record.UserId.Should().BeNull("quem agiu é a máquina");
-			record.ClientId.Should().Be(_machineClientId);
+			record.ActorType.Should().Be("client", "quem agiu é a máquina");
+			record.ActorId.Should().Be(_machineClientId);
 			record.TenantId.Should().Be(_tenantA, "a trilha vai sempre para o próprio tenant");
-			record.AdministeredTenantId.Should().Be(_tenantA);
+			record.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(2), "o instante é o do servidor");
+			using var metadata = JsonDocument.Parse(record.Metadata!);
+			metadata.RootElement.GetProperty("authority").GetString().Should().Be(SecureGateScopes.TenantManage);
+			metadata.RootElement.GetProperty("act").GetString().Should().Be(_machineClientId);
+			metadata.RootElement.GetProperty("tenantId").GetGuid().Should().Be(_tenantA);
 		});
+		secureGate.Auditor.Records.Should().BeEmpty("a gestão por máquina não grava mais no LogStream (ADR-0054)");
 	}
 
 	// ---- Âncora: só o tenant do token ----
@@ -119,7 +129,8 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		(await machine.PostAsJsonAsync($"/api/v1/tenants/{_tenantB}/roles", new { name = "intruso" }))
 			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-		secureGate.Auditor.Records.Should().BeEmpty();
+		(await EntriesAsync(_tenantA)).Should().BeEmpty();
+		(await EntriesAsync(_tenantB)).Should().BeEmpty();
 		(await RoleExistsAsync(_tenantB, "intruso")).Should().BeFalse();
 	}
 
@@ -178,7 +189,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		(await machine.PostAsync($"{user}/activate", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 		(await machine.PostAsync($"{user}/sessions/revoke", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
-		secureGate.Auditor.Records.Should().BeEmpty();
+		(await EntriesAsync(_tenantA)).Should().BeEmpty();
 	}
 
 	// ---- Só as rotas da lista ----
@@ -204,7 +215,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		(await machine.PostAsync($"{tenant}/users/{_person}/password-reset", null))
 			.StatusCode.Should().Be(HttpStatusCode.Forbidden, "ResetUserPassword");
 
-		secureGate.Auditor.Records.Should().BeEmpty();
+		(await EntriesAsync(_tenantA)).Should().BeEmpty();
 	}
 
 	[Fact]
@@ -220,28 +231,34 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 	// ---- Trilha fail-closed ----
 
 	[Fact]
-	public async Task SemAuditoriaConfigurada_EscritaRecusa403_LeituraFunciona()
+	public async Task SemAuditoriaDoLogStreamConfigurada_EscritaFunciona_EGravaALocal()
 	{
+		// ADR-0054: a gestão por máquina não depende de SecureGate:Audit nem do LogStream
 		secureGate.Auditor.IsConfigured = false;
 		using var machine = await MachineAsync(_machineClientId, SecureGateScopes.TenantManage);
 
 		(await machine.GetAsync($"/api/v1/tenants/{_tenantA}/roles")).StatusCode.Should().Be(HttpStatusCode.OK);
-		(await machine.PostAsJsonAsync($"/api/v1/tenants/{_tenantA}/roles", new { name = "sem-trilha" }))
-			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+		(await machine.PostAsJsonAsync($"/api/v1/tenants/{_tenantA}/roles", new { name = "sem-logstream" }))
+			.IsSuccessStatusCode.Should().BeTrue();
 
-		(await RoleExistsAsync(_tenantA, "sem-trilha")).Should().BeFalse();
+		(await RoleExistsAsync(_tenantA, "sem-logstream")).Should().BeTrue();
+		var entry = (await EntriesAsync(_tenantA)).Should().ContainSingle().Subject;
+		entry.Action.Should().Be("gestao-do-tenant.CreateRole");
+		entry.ActorId.Should().Be(_machineClientId);
+		secureGate.Auditor.Records.Should().BeEmpty();
 	}
 
 	[Fact]
 	public async Task TrilhaRecusada_Responde503_ENadaEEscrito()
 	{
-		secureGate.Auditor.Accept = false;
+		secureGate.FailTenantManageAudit = true;
 		using var machine = await MachineAsync(_machineClientId, SecureGateScopes.TenantManage);
 
 		(await machine.PostAsJsonAsync($"/api/v1/tenants/{_tenantA}/roles", new { name = "trilha-fora" }))
 			.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
 
 		(await RoleExistsAsync(_tenantA, "trilha-fora")).Should().BeFalse();
+		(await EntriesAsync(_tenantA)).Should().BeEmpty();
 	}
 
 	// ---- Apoio ----
@@ -276,6 +293,17 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 			new AuthenticationHeaderValue("Bearer", payload.RootElement.GetProperty("access_token").GetString());
 
 		return bearer;
+	}
+
+	private async Task<IReadOnlyList<AuthorityAuditEntry>> EntriesAsync(Guid tenantId)
+	{
+		using var scope = secureGate.Services.CreatePlatformScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+
+		return await context.AuthorityAuditEntries.AsNoTracking()
+			.Where(entry => entry.TenantId == tenantId)
+			.OrderBy(entry => entry.CreatedAt).ThenBy(entry => entry.Id)
+			.ToListAsync();
 	}
 
 	private async Task<bool> RoleExistsAsync(Guid tenantId, string name)

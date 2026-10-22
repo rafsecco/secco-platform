@@ -19,12 +19,12 @@ namespace Secco.SecureGate.Infrastructure;
 /// </summary>
 public static class SecureGateRuntimeCredentialCheck
 {
-	/// <summary>Tabelas protegidas pela ADR-0041 (as 9 da rodada 1).</summary>
+	/// <summary>Tabelas protegidas pela ADR-0041 (as 9 da rodada 1, mais as das ADR-0044 e ADR-0054).</summary>
 	private static readonly string[] ProtectedTables =
 	[
 		"tb_roles", "tb_role_claims", "tb_user_roles", "tb_tenant_memberships", "tb_users",
 		"tb_tenant_databases", "tb_tenant_federations", "tb_tenant_group_role_mappings",
-		"tb_elevation_grants",
+		"tb_elevation_grants", "tb_tenant_admin_grants", "tb_authority_audit_entries",
 	];
 
 	// Consultas fixas, sem nenhum valor externo (ADR-0020). Cada coluna é um motivo de reprovação.

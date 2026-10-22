@@ -5,54 +5,101 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.TenantAdministration;
+using Secco.SecureGate.Domain.TenantAdministration;
 using Secco.SecureGate.Infrastructure.Elevation;
+using Secco.SecureGate.Infrastructure.Tenancy;
 using Secco.SecureGate.Infrastructure.TenantAdministration;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Unit;
 
 /// <summary>
-/// Trilha da gestão do tenant por máquina (ADR-0052) no LogStream: o ator é o client, não uma pessoa, e a ação
-/// tem prefixo próprio — senão a trilha confundiria a máquina com um admin de tenant.
+/// Trilha da gestão do tenant por máquina (ADR-0052/0054): grava no banco do SecureGate como client, no escopo do
+/// tenant, com a Metadata montada pelo servidor; a trilha do admin de tenant (ADR-0044) segue no LogStream.
 /// </summary>
 public class TenantManageAuditTrailTests
 {
 	private static readonly Guid Tenant = Guid.CreateVersion7();
 
 	[Fact]
-	public async Task GestaoDoTenant_GravaComoClient_ComPrefixoProprio()
+	public async Task GestaoDoTenant_GravaLocalComoClient_NoEscopoDoTenant_ComInstanteDoServidor()
 	{
-		var handler = new RecordingHandler();
-		var record = new TenantAdminAuditRecord(
-			UserId: null, UserName: null, Tenant, ClientId: "cli_intranet0000000", Operation: "CreateRole",
-			TargetUserId: null, AdministeredTenantId: Tenant, Authority: SecureGateScopes.TenantManage);
+		var scope = TenantAccessScope.Detached();
+		var repository = Substitute.For<IAuthorityAuditRepository>();
+		AuthorityAuditEntry? saved = null;
+		TenantAccessMode? modeAtWrite = null;
+		Guid? tenantAtWrite = null;
+		repository.AddAsync(Arg.Do<AuthorityAuditEntry>(entry => saved = entry), Arg.Any<CancellationToken>())
+			.Returns(_ =>
+			{
+				modeAtWrite = scope.Mode;
+				tenantAtWrite = scope.TenantId;
 
-		var accepted = await CreateAuditor(handler).RecordAsync(record);
+				return Task.CompletedTask;
+			});
+		var now = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+		var auditor = new DatabaseTenantManageAuditor(
+			repository, scope, new FixedClock(now), NullLogger<DatabaseTenantManageAuditor>.Instance);
+		var target = Guid.CreateVersion7();
+
+		var accepted = await auditor.RecordAsync(new TenantManageAuditRecord(Tenant, "cli_intranet0000000", "AddUserRole", target));
 
 		accepted.Should().BeTrue();
-		handler.Request!.Headers.GetValues("X-Tenant-Id").Should().Equal(Tenant.ToString());
-		using var body = JsonDocument.Parse(handler.Body!);
-		body.RootElement.GetProperty("actorId").GetString().Should().Be("cli_intranet0000000");
-		IsClient(body.RootElement.GetProperty("actorType")).Should().BeTrue("quem agiu é a máquina");
-		body.RootElement.GetProperty("action").GetString()
-			.Should().Be(LogStreamTenantAdminAuditor.TenantManageActionPrefix + "CreateRole");
+		modeAtWrite.Should().Be(TenantAccessMode.Tenant, "a gravação roda no escopo do tenant, nunca em modo plataforma");
+		tenantAtWrite.Should().Be(Tenant);
+		scope.Mode.Should().Be(TenantAccessMode.None, "o escopo volta ao que era");
+		saved.Should().NotBeNull();
+		saved!.TenantId.Should().Be(Tenant);
+		saved.ActorType.Should().Be("client");
+		saved.ActorId.Should().Be("cli_intranet0000000");
+		saved.Action.Should().Be("gestao-do-tenant.AddUserRole");
+		saved.ResourceType.Should().Be("user");
+		saved.ResourceId.Should().Be(target.ToString());
+		saved.CreatedAt.Should().Be(now);
+		using var metadata = JsonDocument.Parse(saved.Metadata!);
+		metadata.RootElement.GetProperty("authority").GetString().Should().Be(SecureGateScopes.TenantManage);
+		metadata.RootElement.GetProperty("act").GetString().Should().Be("cli_intranet0000000");
+		metadata.RootElement.GetProperty("tenantId").GetGuid().Should().Be(Tenant);
 	}
 
 	[Fact]
 	public async Task GestaoDoTenant_SemClient_NaoGravaEDevolveFalse()
 	{
-		var handler = new RecordingHandler();
-		var record = new TenantAdminAuditRecord(
-			UserId: null, UserName: null, Tenant, ClientId: null, Operation: "CreateRole",
-			TargetUserId: null, AdministeredTenantId: Tenant, Authority: SecureGateScopes.TenantManage);
+		var repository = Substitute.For<IAuthorityAuditRepository>();
+		var auditor = CreateDatabaseAuditor(repository);
 
-		(await CreateAuditor(handler).RecordAsync(record)).Should().BeFalse("sem ator não há registro, e sem registro não há escrita");
-		handler.Request.Should().BeNull();
+		(await auditor.RecordAsync(new TenantManageAuditRecord(Tenant, null, "CreateRole", null)))
+			.Should().BeFalse("sem ator não há registro, e sem registro não há escrita");
+		await repository.DidNotReceive().AddAsync(Arg.Any<AuthorityAuditEntry>(), Arg.Any<CancellationToken>());
 	}
 
 	[Fact]
-	public async Task AdminDeTenant_ContinuaGravandoAPessoa()
+	public async Task GestaoDoTenant_FalhaDeGravacao_DevolveFalse_SemLancar()
+	{
+		var repository = Substitute.For<IAuthorityAuditRepository>();
+		repository.AddAsync(Arg.Any<AuthorityAuditEntry>(), Arg.Any<CancellationToken>())
+			.Returns(Task.FromException(new InvalidOperationException("Server=segredo;Password=x")));
+
+		(await CreateDatabaseAuditor(repository).RecordAsync(new TenantManageAuditRecord(Tenant, "cli_x", "CreateRole", null)))
+			.Should().BeFalse();
+	}
+
+	[Fact]
+	public async Task GestaoDoTenant_ClientAcimaDoLimite_NaoGrava_EDevolveFalse()
+	{
+		var repository = Substitute.For<IAuthorityAuditRepository>();
+
+		var accepted = await CreateDatabaseAuditor(repository).RecordAsync(
+			new TenantManageAuditRecord(Tenant, new string('c', AuthorityAuditEntry.ActorIdMaxLength + 1), "CreateRole", null));
+
+		accepted.Should().BeFalse("o limite de tamanho do domínio vale: entrada inválida não é gravada");
+		await repository.DidNotReceive().AddAsync(Arg.Any<AuthorityAuditEntry>(), Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task AdminDeTenant_ContinuaGravandoAPessoaNoLogStream()
 	{
 		var handler = new RecordingHandler();
 		var person = Guid.CreateVersion7();
@@ -71,6 +118,9 @@ public class TenantManageAuditTrailTests
 		? string.Equals(actorType.GetString(), "client", StringComparison.OrdinalIgnoreCase)
 		: actorType.GetInt32() == 1;
 
+	private static DatabaseTenantManageAuditor CreateDatabaseAuditor(IAuthorityAuditRepository repository) => new(
+		repository, TenantAccessScope.Detached(), TimeProvider.System, NullLogger<DatabaseTenantManageAuditor>.Instance);
+
 	private static LogStreamTenantAdminAuditor CreateAuditor(HttpMessageHandler handler)
 	{
 		var factory = Substitute.For<IHttpClientFactory>();
@@ -78,6 +128,11 @@ public class TenantManageAuditTrailTests
 			.Returns(_ => new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("https://logstream.test") });
 
 		return new LogStreamTenantAdminAuditor(factory, NullLogger<LogStreamTenantAdminAuditor>.Instance);
+	}
+
+	private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+	{
+		public override DateTimeOffset GetUtcNow() => now;
 	}
 
 	private sealed class RecordingHandler : HttpMessageHandler

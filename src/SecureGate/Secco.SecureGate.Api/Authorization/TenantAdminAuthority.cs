@@ -249,8 +249,8 @@ internal static class TenantAdminAuthority
 			.ConfigureAwait(false);
 	}
 
-	// ADR-0052. Ordem fixa: âncora (tenant do token = tenant da rota, nunca o de plataforma), alvo administrativo,
-	// leitura livre, escrita só com trilha aceita. Destino da trilha: sempre o próprio tenant
+	// ADR-0052/0054. Ordem fixa: âncora (tenant do token = tenant da rota, nunca o de plataforma), alvo administrativo,
+	// leitura livre, escrita só com trilha aceita. A trilha é gravada no banco do SecureGate, no próprio tenant
 	private static async Task<IResult?> AuthorizeTenantManageAsync(HttpContext httpContext, bool protectsAdminTargets)
 	{
 		var principal = httpContext.User;
@@ -286,12 +286,17 @@ internal static class TenantAdminAuthority
 			return null;
 		}
 
-		var auditor = services.GetRequiredService<ITenantAdminAuditor>();
+		// ADR-0054: a trilha da máquina mora no banco do SecureGate, então não depende de SecureGate:Audit nem do
+		// LogStream. Cliente que agiu = o do token; tenant e operação vêm do token e da rota, nunca do pedido
+		var operation = httpContext.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? "desconhecida";
+		var clientId = principal.FindFirstValue("client_id") ?? principal.FindFirstValue("azp")
+			?? principal.FindFirstValue(SeccoClaims.Subject);
 
-		return auditor.IsConfigured
-			? await AuditAsync(httpContext, auditor, userId: null, tenantId, tenantId, targetUserId, SecureGateScopes.TenantManage)
-				.ConfigureAwait(false)
-			: Forbidden();
+		var recorded = await services.GetRequiredService<ITenantManageAuditor>()
+			.RecordAsync(new TenantManageAuditRecord(tenantId, clientId, operation, targetUserId), cancellationToken)
+			.ConfigureAwait(false);
+
+		return recorded ? null : AuditUnavailable();
 	}
 
 	private static async Task<IResult?> AuditAsync(
@@ -300,15 +305,11 @@ internal static class TenantAdminAuthority
 		Guid? userId,
 		Guid destinationTenantId,
 		Guid? administeredTenantId,
-		Guid? targetUserId,
-		string authority = SecureGateScopes.TenantAdmin)
+		Guid? targetUserId)
 	{
 		var principal = httpContext.User;
 		var operation = httpContext.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? "desconhecida";
-
-		// Token de client_credentials leva o client no sub quando não traz client_id/azp
-		var clientId = principal.FindFirstValue("client_id") ?? principal.FindFirstValue("azp")
-			?? (authority == SecureGateScopes.TenantManage ? principal.FindFirstValue(SeccoClaims.Subject) : null);
+		var clientId = principal.FindFirstValue("client_id") ?? principal.FindFirstValue("azp");
 
 		var recorded = await auditor.RecordAsync(
 			new TenantAdminAuditRecord(
@@ -318,16 +319,16 @@ internal static class TenantAdminAuthority
 				clientId,
 				operation,
 				targetUserId,
-				administeredTenantId,
-				authority),
+				administeredTenantId),
 			httpContext.RequestAborted).ConfigureAwait(false);
 
-		return recorded
-			? null
-			: Results.Problem(
-				statusCode: StatusCodes.Status503ServiceUnavailable,
-				title: "Trilha de auditoria indisponível: a operação não foi feita.");
+		return recorded ? null : AuditUnavailable();
 	}
+
+	private static IResult AuditUnavailable() =>
+		Results.Problem(
+			statusCode: StatusCodes.Status503ServiceUnavailable,
+			title: "Trilha de auditoria indisponível: a operação não foi feita.");
 
 	// Destino da trilha (ADR-0047): o tenant administrado só recebe a entrada se tiver banco do LogStream no
 	// catálogo — senão a primeira escrita de um tenant novo, que é provisionar o banco, nunca passaria

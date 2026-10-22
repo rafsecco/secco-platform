@@ -174,3 +174,29 @@ public sealed record TenantAdminSummary(
 	Guid OwnerTenantId,
 	string GrantedBy,
 	DateTimeOffset GrantedAt);
+
+/// <summary>Entrada da trilha de autoridade do tenant, guardada no SecureGate (ADR-0054).</summary>
+/// <param name="Id">Identificador da entrada.</param>
+/// <param name="ActorType">Tipo do ator (<c>client</c> na gestão por máquina).</param>
+/// <param name="ActorId">Identificador do ator — o client id.</param>
+/// <param name="Action">Ação registrada (<c>gestao-do-tenant.&lt;operação&gt;</c>).</param>
+/// <param name="ResourceType">Tipo do recurso afetado.</param>
+/// <param name="ResourceId">Identificador do recurso afetado.</param>
+/// <param name="OccurredAt">Instante em que o SecureGate gravou a entrada.</param>
+public sealed record AuthorityTrailEntry(
+	Guid Id,
+	string ActorType,
+	string ActorId,
+	string Action,
+	string ResourceType,
+	string ResourceId,
+	DateTimeOffset OccurredAt);
+
+/// <summary>Página da trilha de autoridade, do mais recente para o mais antigo.</summary>
+/// <param name="Items">Entradas da página.</param>
+/// <param name="Page">Página atual (1-based).</param>
+/// <param name="Size">Itens por página.</param>
+/// <param name="TotalCount">Total de entradas do tenant.</param>
+/// <param name="TotalPages">Total de páginas.</param>
+public sealed record AuthorityTrailPage(
+	IReadOnlyList<AuthorityTrailEntry> Items, int Page, int Size, long TotalCount, int TotalPages);

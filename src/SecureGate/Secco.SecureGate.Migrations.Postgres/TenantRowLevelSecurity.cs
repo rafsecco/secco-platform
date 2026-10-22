@@ -32,17 +32,17 @@ public static class TenantRowLevelSecurity
         ("tb_tenant_admin_grants", "id_fk_tenant"),
     ];
 
+    // Revisao 3 (ADR-0054): tabelas com tenant direto acrescentadas depois da ADR-0044
+    private static readonly (string Table, string Column)[] DirectTenantTablesAdr0054 =
+    [
+        ("tb_authority_audit_entries", "id_fk_tenant"),
+    ];
+
     // Atribuição e permissão: seguem o tenant do perfil referenciado
     private static readonly (string Table, string Column)[] RoleBoundTables =
     [
         ("tb_role_claims", "id_fk_role"),
         ("tb_user_roles", "id_pfk_role"),
-    ];
-
-    private static readonly string[] AllTables =
-    [
-        "tb_roles", "tb_role_claims", "tb_user_roles", "tb_tenant_memberships", "tb_users",
-        "tb_tenant_databases", "tb_tenant_federations", "tb_tenant_group_role_mappings", "tb_elevation_grants",
     ];
 
     /// <summary>Revisao 1 (ADR-0041): as 9 tabelas de tenant originais. Fixa: e a que a migration da ADR-0041 aplica.</summary>
@@ -51,8 +51,11 @@ public static class TenantRowLevelSecurity
     /// <summary>Revisao 2 (ADR-0044): + <c>tb_tenant_admin_grants</c>.</summary>
     public const int RevisionAdr0044 = 2;
 
+    /// <summary>Revisao 3 (ADR-0054): + <c>tb_authority_audit_entries</c>.</summary>
+    public const int RevisionAdr0054 = 3;
+
     /// <summary>Revisao corrente — a que migrations futuras recriam depois de <see cref="Drop"/>.</summary>
-    public const int CurrentRevision = RevisionAdr0044;
+    public const int CurrentRevision = RevisionAdr0054;
 
     /// <summary>
     /// Cria as politicas na revisao pedida. Migration ja aplicada chama a revisao dela, nunca a corrente:
@@ -119,8 +122,24 @@ public static class TenantRowLevelSecurity
     }
 
     private static IEnumerable<string> TablesOf(int revision) =>
-        revision >= RevisionAdr0044 ? AllTables.Concat(DirectTenantTablesAdr0044.Select(t => t.Table)) : AllTables;
+        DirectTablesOf(revision).Select(t => t.Table)
+            .Concat(RoleBoundTables.Select(t => t.Table))
+            .Append("tb_users");
 
-    private static IEnumerable<(string Table, string Column)> DirectTablesOf(int revision) =>
-        revision >= RevisionAdr0044 ? DirectTenantTables.Concat(DirectTenantTablesAdr0044) : DirectTenantTables;
+    private static IEnumerable<(string Table, string Column)> DirectTablesOf(int revision)
+    {
+        IEnumerable<(string Table, string Column)> tables = DirectTenantTables;
+
+        if (revision >= RevisionAdr0044)
+        {
+            tables = tables.Concat(DirectTenantTablesAdr0044);
+        }
+
+        if (revision >= RevisionAdr0054)
+        {
+            tables = tables.Concat(DirectTenantTablesAdr0054);
+        }
+
+        return tables;
+    }
 }

@@ -22,7 +22,7 @@ public class TenantRowLevelSecurityHelperTests(SecureGateApiFactory factory) : I
 	[
 		"tb_roles", "tb_role_claims", "tb_user_roles", "tb_tenant_memberships", "tb_users",
 		"tb_tenant_databases", "tb_tenant_federations", "tb_tenant_group_role_mappings", "tb_elevation_grants",
-		"tb_tenant_admin_grants",
+		"tb_tenant_admin_grants", "tb_authority_audit_entries",
 	];
 
 	private static readonly string[] PredicateKinds = ["BLOCK|AFTER INSERT", "BLOCK|AFTER UPDATE", "FILTER|NULL"];

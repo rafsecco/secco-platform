@@ -83,6 +83,9 @@ public sealed class SecureGateDbContext(
 	/// <summary>Concessões de admin de tenant (tabela <c>tb_tenant_admin_grants</c>, ADR-0044).</summary>
 	public DbSet<TenantAdminGrant> TenantAdminGrants => Set<TenantAdminGrant>();
 
+	/// <summary>Trilha de autoridade guardada no SecureGate (tabela <c>tb_authority_audit_entries</c>, ADR-0054).</summary>
+	public DbSet<AuthorityAuditEntry> AuthorityAuditEntries => Set<AuthorityAuditEntry>();
+
 	/// <summary>Concessões de criação de tenant (tabela <c>tb_tenant_creator_grants</c>, ADR-0047).</summary>
 	public DbSet<TenantCreatorGrant> TenantCreatorGrants => Set<TenantCreatorGrant>();
 
@@ -144,6 +147,7 @@ public sealed class SecureGateDbContext(
 				TenantGroupRoleMapping mapping => mapping.TenantId,
 				ElevationGrant grant => grant.TenantId,
 				TenantAdminGrant adminGrant => adminGrant.TenantId,
+				AuthorityAuditEntry auditEntry => auditEntry.TenantId,
 				_ => (Guid?)null,
 			};
 
@@ -366,6 +370,26 @@ public sealed class SecureGateDbContext(
 			grant.HasOne<User>().WithMany().HasForeignKey(g => g.UserId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasOne<Tenant>().WithMany().HasForeignKey(g => g.TenantId).OnDelete(DeleteBehavior.Cascade);
 			grant.HasQueryFilter(TenantFilter, g => IsPlatformScope || g.TenantId == ScopedTenantId);
+		});
+
+		// Trilha de autoridade (ADR-0054): dado de tenant — o administrado —, isolado como as demais tabelas de tenant
+		builder.Entity<AuthorityAuditEntry>(entry =>
+		{
+			entry.Property(e => e.ActorType).HasMaxLength(AuthorityAuditEntry.ActorTypeMaxLength);
+			entry.Property(e => e.ActorId).HasMaxLength(AuthorityAuditEntry.ActorIdMaxLength);
+			entry.Property(e => e.ActorName).HasMaxLength(AuthorityAuditEntry.ActorNameMaxLength);
+			entry.Property(e => e.Action).HasMaxLength(AuthorityAuditEntry.ActionMaxLength);
+			entry.Property(e => e.ResourceType).HasMaxLength(AuthorityAuditEntry.ResourceTypeMaxLength);
+			entry.Property(e => e.ResourceId).HasMaxLength(AuthorityAuditEntry.ResourceIdMaxLength);
+			entry.Property(e => e.Metadata).HasMaxLength(AuthorityAuditEntry.MetadataMaxLength);
+
+			// A leitura é "do tenant, do mais recente para o mais antigo"; a retenção corta só pelo instante
+			entry.HasIndex(e => new { e.TenantId, e.CreatedAt }).IsDescending(false, true);
+			entry.HasIndex(e => e.CreatedAt);
+
+			// Restrict: apagar o tenant nunca leva a trilha junto — ela existe para sobreviver a quem agiu
+			entry.HasOne<Tenant>().WithMany().HasForeignKey(e => e.TenantId).OnDelete(DeleteBehavior.Restrict);
+			entry.HasQueryFilter(TenantFilter, e => IsPlatformScope || e.TenantId == ScopedTenantId);
 		});
 
 		// Fora do filtro (ADR-0041): a concessão de criação é dado de plataforma — autoridade de instalação,

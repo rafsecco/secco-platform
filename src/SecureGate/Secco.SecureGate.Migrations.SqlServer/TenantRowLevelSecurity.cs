@@ -4,7 +4,7 @@ namespace Secco.SecureGate.Migrations.SqlServer;
 
 /// <summary>
 /// SQL do Row-Level Security do banco de plataforma do SecureGate (ADR-0041, camada 2): funcoes de predicado
-/// <c>fn_check_*</c> e a politica <c>pol_tenant_isolation</c> nas tabelas de tenant (9 na revisao da ADR-0041, 10 com a da ADR-0044).
+/// <c>fn_check_*</c> e a politica <c>pol_tenant_isolation</c> nas tabelas de tenant (9 na revisao da ADR-0041, 10 com a da ADR-0044, 11 com a da ADR-0054).
 /// <para>
 /// ATENCAO para migrations futuras: funcoes e politica sao <c>SCHEMABINDING</c>, entao alterar ou dropar
 /// colunas das tabelas protegidas (ou das referenciadas pelas funcoes) falha enquanto a politica existir.
@@ -21,8 +21,11 @@ public static class TenantRowLevelSecurity
     /// <summary>Revisao 2 (ADR-0044): + <c>tb_tenant_admin_grants</c>.</summary>
     public const int RevisionAdr0044 = 2;
 
+    /// <summary>Revisao 3 (ADR-0054): + <c>tb_authority_audit_entries</c>.</summary>
+    public const int RevisionAdr0054 = 3;
+
     /// <summary>Revisao corrente da politica — a que migrations futuras recriam depois de <see cref="Drop"/>.</summary>
-    public const int CurrentRevision = RevisionAdr0044;
+    public const int CurrentRevision = RevisionAdr0054;
 
     /// <summary>Remove a politica e as funcoes (ordem inversa das dependencias). Idempotente e igual em toda revisao.</summary>
     public static void Drop(MigrationBuilder migrationBuilder)
@@ -39,7 +42,7 @@ public static class TenantRowLevelSecurity
     /// revisao posterior ainda nao existe quando ela roda.
     /// </summary>
     /// <param name="migrationBuilder">Builder da migration.</param>
-    /// <param name="revision">Revisao da politica (<see cref="RevisionAdr0041"/>, <see cref="RevisionAdr0044"/>...).</param>
+    /// <param name="revision">Revisao da politica (<see cref="RevisionAdr0041"/>, <see cref="RevisionAdr0044"/>, <see cref="RevisionAdr0054"/>...).</param>
     public static void Create(MigrationBuilder migrationBuilder, int revision = CurrentRevision)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(revision, RevisionAdr0041);
@@ -130,6 +133,11 @@ CREATE SECURITY POLICY dbo.pol_tenant_isolation
     ADD FILTER PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants,
     ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants AFTER INSERT,
     ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_tenant_admin_grants AFTER UPDATE" : string.Empty)
+    + (revision >= RevisionAdr0054 ? @",
+
+    ADD FILTER PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_authority_audit_entries,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_authority_audit_entries AFTER INSERT,
+    ADD BLOCK  PREDICATE dbo.fn_check_tenant_row(id_fk_tenant) ON dbo.tb_authority_audit_entries AFTER UPDATE" : string.Empty)
     + @"
     WITH (STATE = ON, SCHEMABINDING = ON);
 ");

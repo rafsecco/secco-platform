@@ -2713,6 +2713,72 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/audit-entries": {
+      "get": {
+        "tags": [
+          "AuthorityAudit"
+        ],
+        "summary": "Lista, paginadas e do mais recente para o mais antigo, as entradas da trilha de autoridade do tenant (ADR-0054). Só o operador lê.",
+        "operationId": "ListTenantAuditEntries",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResultOfAuthorityAuditEntryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/entra/groups": {
       "get": {
         "tags": [
@@ -3294,6 +3360,57 @@
           }
         }
       },
+      "AuthorityAuditEntryDto": {
+        "required": [
+          "id",
+          "actorType",
+          "actorId",
+          "actorName",
+          "action",
+          "resourceType",
+          "resourceId",
+          "metadata",
+          "occurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actorType": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "actorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "action": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CatalogTenantDto": {
         "required": [
           "tenantId",
@@ -3640,6 +3757,69 @@
             "format": "date-time"
           }
         }
+      },
+      "PagedResultOfAuthorityAuditEntryDto": {
+        "required": [
+          "items",
+          "page",
+          "size",
+          "totalCount"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorityAuditEntryDto"
+            },
+            "description": "Itens da página atual."
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Número da página atual (1-based).",
+            "format": "int32"
+          },
+          "size": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Itens por página solicitados (a última página pode conter menos).",
+            "format": "int32"
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Total de itens existentes na consulta, em todas as páginas.",
+            "format": "int64"
+          },
+          "totalPages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Total de páginas; zero quando a consulta não tem itens.",
+            "format": "int32"
+          },
+          "hasPreviousPage": {
+            "type": "boolean",
+            "description": "Indica se existe página anterior a esta."
+          },
+          "hasNextPage": {
+            "type": "boolean",
+            "description": "Indica se existe página posterior a esta."
+          }
+        },
+        "description": "Página de resultados de uma listagem (ADR-0003): itens da página atual\nmais os metadados de paginação necessários para navegação."
       },
       "PagedResultOfDirectoryPersonDto": {
         "required": [
@@ -4779,6 +4959,9 @@
     },
     {
       "name": "Elevation"
+    },
+    {
+      "name": "AuthorityAudit"
     },
     {
       "name": "Federation"

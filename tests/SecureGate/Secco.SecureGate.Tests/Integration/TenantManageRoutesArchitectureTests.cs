@@ -47,6 +47,16 @@ public class TenantManageRoutesArchitectureTests(SecureGateApiFactory factory)
 			.Should().NotContain(allowed => allowed != null && (allowed.CreatesTenant || allowed.AnyGrant));
 	}
 
+	[Fact]
+	public void LeituraDaTrilhaDeAutoridade_NaoEstaAbertaAAdminDeTenantNemAGestaoPorMaquina()
+	{
+		var endpoint = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+			.Single(e => e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "ListTenantAuditEntries");
+
+		endpoint.Metadata.GetMetadata<TenantManageAllowedMetadata>().Should().BeNull("a trilha existe contra a máquina (ADR-0054)");
+		endpoint.Metadata.GetMetadata<TenantAdminAllowedMetadata>().Should().BeNull("só o operador lê a trilha (ADR-0054)");
+	}
+
 	private static string RepositoryRoot()
 	{
 		var directory = new DirectoryInfo(AppContext.BaseDirectory);

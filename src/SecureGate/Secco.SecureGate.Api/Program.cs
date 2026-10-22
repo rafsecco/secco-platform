@@ -85,6 +85,7 @@ app.MapMembershipEndpoints();
 app.MapDirectoryEndpoints();
 app.MapElevationGrantEndpoints();
 app.MapTenantAdminEndpoints();
+app.MapAuthorityAuditEndpoints();
 app.MapEntraGroupsEndpoints();
 app.MapProductClientEndpoints();
 

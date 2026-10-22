@@ -48,6 +48,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		new("tb_tenant_group_role_mappings", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 		new("tb_elevation_grants", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 		new("tb_tenant_admin_grants", "id_fk_tenant = @a", "id_fk_tenant = @b"),
+		new("tb_authority_audit_entries", "id_fk_tenant = @a", "id_fk_tenant = @b"),
 	];
 
 	public async Task InitializeAsync()
@@ -89,6 +90,9 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		context.TenantAdminGrants.AddRange(
 			new TenantAdminGrant(person, tenantA, "teste", DateTimeOffset.UtcNow),
 			new TenantAdminGrant(ownerOfB, tenantB, "teste", DateTimeOffset.UtcNow));
+		context.AuthorityAuditEntries.AddRange(
+			new AuthorityAuditEntry(tenantA, "client", "cli-a", null, "gestao-do-tenant.CreateRole", "tenant", tenantA.ToString(), null, DateTimeOffset.UtcNow),
+			new AuthorityAuditEntry(tenantB, "client", "cli-b", null, "gestao-do-tenant.CreateRole", "tenant", tenantB.ToString(), null, DateTimeOffset.UtcNow));
 		await context.SaveChangesAsync();
 
 		_s = new Seed(tenantA, tenantB, tenantC, roleA.Id, roleB.Id, person, ownerOfB, withoutGrant);
@@ -383,6 +387,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		["tb_tenant_group_role_mappings"] = "INSERT INTO tb_tenant_group_role_mappings (id_pk_tenant_group_role_mapping, id_fk_tenant, entra_group_id, ds_entra_group_display_name, id_fk_role, dt_created_at) VALUES (NEWID(), @b, NEWID(), N'intruso', @roleB, SYSDATETIMEOFFSET())",
 		["tb_elevation_grants"] = "INSERT INTO tb_elevation_grants (id_pk_elevation_grant, id_fk_user, id_fk_tenant, ds_granted_by, dt_created_at) VALUES (NEWID(), @withoutGrant, @c, N'teste', SYSDATETIMEOFFSET())",
 		["tb_tenant_admin_grants"] = "INSERT INTO tb_tenant_admin_grants (id_pk_tenant_admin_grant, id_fk_user, id_fk_tenant, ds_granted_by, dt_created_at) VALUES (NEWID(), @person, @c, N'teste', SYSDATETIMEOFFSET())",
+		["tb_authority_audit_entries"] = "INSERT INTO tb_authority_audit_entries (id_pk_authority_audit_entry, id_fk_tenant, ds_actor_type, ds_actor_id, ds_action, ds_resource_type, ds_resource_id, dt_created_at) VALUES (NEWID(), @c, N'client', N'intruso', N'x', N'tenant', N'x', SYSDATETIMEOFFSET())",
 	};
 
 	/// <summary>UPDATE em escopo A que move uma linha DE A para fora do escopo (tenant C ou perfil de B).</summary>
@@ -398,6 +403,7 @@ public class RowLevelSecurityTests(SecureGateApiFactory factory) : IAsyncLifetim
 		["tb_tenant_group_role_mappings"] = "UPDATE tb_tenant_group_role_mappings SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 		["tb_elevation_grants"] = "UPDATE tb_elevation_grants SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 		["tb_tenant_admin_grants"] = "UPDATE tb_tenant_admin_grants SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
+		["tb_authority_audit_entries"] = "UPDATE tb_authority_audit_entries SET id_fk_tenant = @c WHERE id_fk_tenant = @a",
 	};
 
 	public static TheoryData<string> ProtectedTableNames => new(Tables.Select(t => t.Table));

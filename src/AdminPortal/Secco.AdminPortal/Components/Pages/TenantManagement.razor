@@ -217,6 +217,48 @@ else
     </section>
 
     <section>
+        <h2>Trilha</h2>
+        <p class="muted">
+            O que as aplicações com gestão do próprio tenant (<code>securegate:tenant-manage</code>) escreveram neste
+            tenant, registrado pelo SecureGate antes de cada operação (ADR-0054). Só o operador lê.
+        </p>
+        @if (_trailError is not null)
+        {
+            <p class="error" role="alert">@_trailError</p>
+        }
+        else if (_trail is null)
+        {
+            <p>Carregando…</p>
+        }
+        else if (_trail.Items.Count == 0)
+        {
+            <p>Nenhuma operação registrada.</p>
+        }
+        else
+        {
+            <table class="grid">
+                <thead><tr><th>Quando</th><th>Aplicação</th><th>Operação</th><th>Recurso</th></tr></thead>
+                <tbody>
+                    @foreach (var entry in _trail.Items)
+                    {
+                        <tr>
+                            <td>@entry.OccurredAt.ToLocalTime().ToString("g")</td>
+                            <td>@entry.ActorId</td>
+                            <td>@entry.Action</td>
+                            <td class="muted">@entry.ResourceType @entry.ResourceId</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="pager">
+                <button @onclick="PreviousTrailAsync" disabled="@(_busy || _trail.Page <= 1)">‹ Anterior</button>
+                <span>Página @_trail.Page de @Math.Max(_trail.TotalPages, 1) · @_trail.TotalCount registros</span>
+                <button @onclick="NextTrailAsync" disabled="@(_busy || _trail.Page >= _trail.TotalPages)">Próxima ›</button>
+            </div>
+        }
+    </section>
+
+    <section>
         <h2>Perfis</h2>
         @if (_roles is null)
         {
@@ -315,6 +357,10 @@ else
     private TenantDetail? _tenant;
     private IReadOnlyList<TenantAdminSummary>? _admins;
     private string? _adminsError;
+    private const int TrailPageSize = 25;
+    private AuthorityTrailPage? _trail;
+    private string? _trailError;
+    private int _trailPage = 1;
     private PendingMemberAction? _pendingAdmin;
     private IReadOnlyList<UserSummary>? _users;
     private IReadOnlyList<RoleSummary>? _roles;
@@ -350,6 +396,7 @@ else
             await ReloadUsersAsync();
             await ReloadRolesAsync();
             await ReloadAdminsAsync();
+            await ReloadTrailAsync();
         }
         catch (Exception exception)
         {
@@ -374,6 +421,34 @@ else
         {
             _adminsError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
         }
+    }
+
+    // Seção à parte, como a dos admins: a trilha falhar não derruba a página do tenant
+    private async Task ReloadTrailAsync()
+    {
+        try
+        {
+            _trail = await TenantAdminService.ListAuthorityTrailAsync(TenantId, _trailPage, TrailPageSize);
+            _trailError = null;
+        }
+        catch (ApiException exception)
+        {
+            _trailError = ApiErrorFormatter.Describe(exception.StatusCode, exception.Response);
+        }
+    }
+
+    private Task PreviousTrailAsync()
+    {
+        _trailPage = Math.Max(1, _trailPage - 1);
+
+        return ReloadTrailAsync();
+    }
+
+    private Task NextTrailAsync()
+    {
+        _trailPage++;
+
+        return ReloadTrailAsync();
     }
 
     private void AskRevokeAdmin(TenantAdminSummary admin) =>

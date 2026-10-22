@@ -12,6 +12,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — trilha da gestão do próprio tenant no SecureGate (issue #48, ADR-0054)
+
+Não é pacote: muda o serviço SecureGate. Contrato novo (só acréscimo), com client na seção abaixo.
+
+- **O LogStream deixa de ser dependência da gestão do próprio tenant.** As escritas com `securegate:tenant-manage` gravam a trilha no banco do próprio SecureGate (`tb_authority_audit_entries`), síncrona e fail-closed, antes da operação: gravação falhou, `503` e nada é escrito. Não exigem mais `SecureGate:Audit` nem banco do LogStream para o tenant. Sem cópia no LogStream.
+- **Formato do `AuditEntry`:** ator `client`, ação `gestao-do-tenant.<operationId>`, recurso e `Metadata` montada pelo servidor (`authority`, `act`, `tenantId`) e instante do servidor. Dado de tenant, com filtro e Row-Level Security nos dois engines (revisão 3 do helper de RLS, 11 tabelas).
+- **Leitura só pelo operador:** `GET /api/v1/tenants/{tenantId}/audit-entries` (paginado, do mais recente, `securegate:admin`). O client com `tenant-manage` e o admin de tenant recebem `403`. O AdminPortal mostra a trilha na página do tenant.
+- **Retenção opcional:** `SecureGate:Audit:RetentionDays` (1 a 3650). Sem valor, não expira. Fora da faixa, é ignorada com aviso e nada é apagado. A limpeza corta pelo instante do servidor, de hora em hora e em lotes.
+- **Fica no LogStream:** as trilhas da elevação (ADR-0031), do admin de tenant (ADR-0044/0047) e do operador designado (ADR-0049).
+- **Para a Intranet:** nada a configurar. Uma instalação só com SecureGate passa a criar setores e gerir perfis. A trilha dessa gestão sai do LogStream do tenant e passa a ser lida pelo operador no AdminPortal.
+
+### Secco.SecureGate.Client 0.22.0 — leitura da trilha de autoridade (ADR-0054)
+
+Só acréscimo: `ListTenantAuditEntriesAsync(tenantId, page, size)` devolve as entradas da trilha guardada no SecureGate. Exige `securegate:admin`.
+
 ### SecureGate (serviço) — membros de perfil na gestão do próprio tenant (issue #47, ADR-0052)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.

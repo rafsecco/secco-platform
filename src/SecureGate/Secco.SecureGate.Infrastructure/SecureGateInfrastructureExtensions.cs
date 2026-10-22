@@ -223,6 +223,17 @@ public static class SecureGateInfrastructureExtensions
 				? ActivatorUtilities.CreateInstance<TenantAdministration.LogStreamTenantAdminAuditor>(serviceProvider)
 				: TenantAdministration.NotConfiguredTenantAdminAuditor.Instance);
 
+		// Trilha da gestão do próprio tenant por máquina (ADR-0054): guardada no banco do SecureGate, sem depender
+		// do LogStream nem de SecureGate:Audit
+		services.TryAddSingleton(TimeProvider.System);
+		services.AddScoped<Application.TenantAdministration.IAuthorityAuditRepository, TenantAdministration.AuthorityAuditRepository>();
+		services.AddScoped<Application.TenantAdministration.ITenantManageAuditor, TenantAdministration.DatabaseTenantManageAuditor>();
+
+		// Retenção opt-in (SecureGate:Audit:RetentionDays): sem valor, a trilha não expira
+		services.AddOptions<Application.TenantAdministration.AuthorityAuditOptions>()
+			.BindConfiguration(Application.TenantAdministration.AuthorityAuditOptions.SectionKey);
+		services.AddHostedService<TenantAdministration.AuthorityAuditRetentionService>();
+
 		// Processo controlado (ADR-0038): migrations do banco de plataforma
 		services.AddScoped<ISeccoDatabaseMigrator, SecureGatePlatformMigrator>();
 

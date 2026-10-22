@@ -126,6 +126,74 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                     b.ToTable("tb_permission_catalog_entries");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.AuthorityAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_pk_authority_audit_entry");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_action");
+
+                    b.Property<string>("ActorId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_actor_id");
+
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_actor_name");
+
+                    b.Property<string>("ActorType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("ds_actor_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("dt_created_at");
+
+                    b.Property<string>("Metadata")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)")
+                        .HasColumnName("ds_metadata");
+
+                    b.Property<string>("ResourceId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("ds_resource_id");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("ds_resource_type");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id_fk_tenant");
+
+                    b.HasKey("Id")
+                        .HasName("pk_authority_audit_entries");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("idx_authority_audit_entries_dt_created_at");
+
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("idx_authority_audit_entries_id_fk_tenant_dt_created_at");
+
+                    b.ToTable("tb_authority_audit_entries");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.TenantAdminGrant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -969,6 +1037,16 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_elevation_grants_user");
+                });
+
+            modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.AuthorityAuditEntry", b =>
+                {
+                    b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_authority_audit_entries_tenant");
                 });
 
             modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.TenantAdminGrant", b =>
