@@ -22,7 +22,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 | Produto | Descrição | Pacote / status |
 |---|---|---|
 | [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.7.4** |
-| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.9.6** |
+| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.9.7** |
 | [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding e cifragem de segredo em repouso (ADR-0025) | `Secco.SDK.EntityFrameworkCore` **0.6.0** |
 | [Secco.SDK.RelyingParty](src/SDK/Secco.SDK.RelyingParty/README.md) | Custódia do token da pessoa para relying party on-behalf-of (cofre no servidor, renovação, handler de Bearer) | `Secco.SDK.RelyingParty` **0.2.1** |
 | [Secco.SDK.ClientCredentials](src/SDK/Secco.SDK.ClientCredentials/README.md) | Client credentials OAuth 2 entre produtos (token de máquina, pacote fino) | `Secco.SDK.ClientCredentials` **0.1.18** |

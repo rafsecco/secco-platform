@@ -200,6 +200,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.SDK.AspNetCore
 
+#### 0.9.7 — 2026-10-22
+
+Patch **sem mudança funcional**: o diff desde a 0.9.6 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.22.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.9.6 — 2026-10-22
 
 Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` desde a 0.9.5 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.21.0 sai deste commit e o referencia por `ProjectReference`.

@@ -37,7 +37,7 @@ Versões publicadas atuais:
 | Pacote | Versão | Para quê |
 |---|---|---|
 | `Secco.SharedKernel` | 0.7.4 | `Result<T>`, paginação, entidades base, claims/permissions |
-| `Secco.SDK.AspNetCore` | 0.9.6 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
+| `Secco.SDK.AspNetCore` | 0.9.7 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs) |
 | `Secco.SDK.EntityFrameworkCore` | 0.6.0 | `SeccoDbContext`, nomenclatura de banco por convention (ADR-0017) e cifragem de segredo em repouso (ADR-0025) |
 | `Secco.SDK.Testing` | 0.1.1 | Base das factories de teste de integração (ADR-0027); marcado `DevelopmentDependency` |
 | `Secco.SecureGate.Client` | 0.22.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
