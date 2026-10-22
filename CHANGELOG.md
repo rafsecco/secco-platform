@@ -12,6 +12,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — gestão do próprio tenant por máquina (ADR-0052) — ação necessária para a Intranet
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP muda; o client ganha só um registro de DI (0.21.0).
+
+- **Escopo `securegate:tenant-manage`**, só para client de produto `client_credentials` vinculado a tenant, nunca no tenant de plataforma. Client de plataforma com ele na configuração não sobe; client interativo recebe `400`.
+- **Só o operador concede:** criar, alterar, rotacionar ou excluir client com o escopo pela autoridade de admin de tenant responde `403`.
+- **Rotas alcançadas, só no tenant do `tenant_id` do token:** `GetTenant`, `ListUsers`, `GetUser`, `AddUserRole`, `RemoveUserRole`, `SetUserDisplayName`, `DeactivateUser`, `ActivateUser`, `RevokeUserSessions`, `CreateRole`, `ListRoles`, `GetRole`, `SetRolePermissions`, `DeleteRole`. Conta administrativa nunca é alvo. Federação, clients, vínculos, convite, senha e segundo fator ficam com o operador.
+- **Toda escrita vai à trilha do LogStream do próprio tenant antes de acontecer** (`gestao-do-tenant.<operação>`, ator = client). Sem a auditoria do SecureGate configurada (`SecureGate:Audit`), a escrita com o escopo responde `403`.
+- **Para a Intranet:** o operador cria no tenant dela um client de produto com `securegate:tenant-manage` (e `directory:read`); a Intranet passa a usar `AddSecureGateTenantManagementClient()` com a subseção `Secco:SecureGate:TenantManagement`, e o client de plataforma dela perde `securegate:admin`.
+- **AdminPortal:** o operador cria tenant e configura a federação Entra do tenant pela página dele (ADR-0051/0052).
+
 ### SecureGate (serviço) — operador da instalação por designação (issue #43, ADR-0049)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda — a troca usa o endpoint de token do OIDC.
@@ -345,6 +356,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.21.0 — 2026-10-21
+
+Só acréscimo: `AddSecureGateTenantManagementClient()` (ADR-0052) registra o `ISecureGateClient` com o scope `securegate:tenant-manage` e a credencial da subseção `Secco:SecureGate:TenantManagement`. Configuração parcial — inclusive a seção pai completa sem a subseção — falha no primeiro uso, nunca vira client sem autenticação.
 
 #### 0.20.0 — 2026-10-19
 

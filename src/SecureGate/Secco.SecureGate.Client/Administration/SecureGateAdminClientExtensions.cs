@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SDK.ClientCredentials;
 using Secco.SecureGate.Client.Catalog;
@@ -70,5 +71,95 @@ public static class SecureGateAdminClientExtensions
 			});
 
 		return services;
+	}
+
+	/// <summary>Scope da gestão do próprio tenant por máquina (ADR-0052). Literal pelo mesmo motivo de <see cref="AdminScope"/>.</summary>
+	private const string TenantManageScope = "securegate:tenant-manage";
+
+	/// <summary>
+	/// Registra o <see cref="ISecureGateClient"/> autenticado com o scope <c>securegate:tenant-manage</c> (ADR-0052): o
+	/// client alcança só pessoas e perfis do tenant do próprio token, nunca a instalação. Credencial de um client de
+	/// PRODUTO, criado pelo operador no tenant da aplicação, na subseção <c>Secco:SecureGate:TenantManagement</c>; a URL
+	/// base vem de <c>Secco:SecureGate:BaseUrl</c>. Mesma composição lazy de <see cref="AddSecureGateAdminClient"/> —
+	/// configuração parcial falha no primeiro uso, nunca vira client sem autenticação — e é alternativa a ele: os dois
+	/// registram o mesmo <see cref="ISecureGateClient"/>, então a aplicação chama um só.
+	/// </summary>
+	/// <param name="services">Coleção de serviços da aplicação.</param>
+	public static IServiceCollection AddSecureGateTenantManagementClient(this IServiceCollection services)
+	{
+		ArgumentNullException.ThrowIfNull(services);
+
+		services.AddSecureGateClientCredentialsOptions();
+
+		// Store próprio, como no administrativo: um store por recurso/scope (least privilege)
+		var tokenStore = new SeccoAccessTokenStore();
+
+		services.AddHttpClient<ISecureGateClient, SecureGateClient>()
+			.ConfigureHttpClient((serviceProvider, client) =>
+			{
+				var platform = serviceProvider.GetRequiredService<SecureGateClientCredentialsOptions>();
+
+				if (!string.IsNullOrWhiteSpace(platform.BaseUrl))
+				{
+					client.BaseAddress = new Uri(platform.BaseUrl, UriKind.Absolute);
+				}
+			})
+			.ConfigureAdditionalHttpMessageHandlers((handlers, serviceProvider) =>
+			{
+				var baseUrl = serviceProvider.GetRequiredService<SecureGateClientCredentialsOptions>().BaseUrl;
+				var tenantManagement = new SecureGateTenantManagementOptions();
+				serviceProvider.GetRequiredService<IConfiguration>()
+					.GetSection(SecureGateTenantManagementOptions.SectionKey)
+					.Bind(tenantManagement);
+
+				if (string.IsNullOrWhiteSpace(baseUrl)
+					&& string.IsNullOrWhiteSpace(tenantManagement.ClientId)
+					&& string.IsNullOrWhiteSpace(tenantManagement.ClientSecret))
+				{
+					return;
+				}
+
+				// Fail-fast: com qualquer chave presente, todas são obrigatórias — inclusive com a seção pai completa
+				// para o client de plataforma, a subseção faltando não pode virar client sem autenticação
+				ValidateTenantManagement(baseUrl, tenantManagement);
+
+				handlers.Add(new SeccoClientCredentialsHandler(
+					baseUrl!, tenantManagement.ClientId!, tenantManagement.ClientSecret!, TenantManageScope, tokenStore));
+			});
+
+		return services;
+	}
+
+	private static void ValidateTenantManagement(string? baseUrl, SecureGateTenantManagementOptions options)
+	{
+		var missing = new List<string>();
+
+		if (string.IsNullOrWhiteSpace(baseUrl))
+		{
+			missing.Add($"{SecureGateClientCredentialsOptions.SectionKey}:BaseUrl");
+		}
+
+		if (string.IsNullOrWhiteSpace(options.ClientId))
+		{
+			missing.Add($"{SecureGateTenantManagementOptions.SectionKey}:ClientId");
+		}
+
+		if (string.IsNullOrWhiteSpace(options.ClientSecret))
+		{
+			missing.Add($"{SecureGateTenantManagementOptions.SectionKey}:ClientSecret");
+		}
+
+		if (missing.Count > 0)
+		{
+			throw new InvalidOperationException(
+				$"Gestão do tenant no SecureGate parcialmente configurada — faltam: {string.Join(", ", missing)}.");
+		}
+
+		if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri)
+			|| (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+		{
+			throw new InvalidOperationException(
+				$"'{SecureGateClientCredentialsOptions.SectionKey}:BaseUrl' deve ser uma URL http(s) absoluta.");
+		}
 	}
 }
