@@ -1,5 +1,7 @@
 # Administração do próprio tenant por client de máquina — design
 
+> **Implementada em 2026-10-22** — ADR-0052; SecureGate `3798855`/`873b0a9`, client `d4aa692` (`Secco.SecureGate.Client` 0.21.0), AdminPortal `93e6af7`, Intranet `b5840a7`.
+
 **Data:** 2026-10-21 · **Origem:** ADR-0051 (fim da centralização) deixou a Intranet administrando o próprio tenant com o client de plataforma que tem `securegate:admin` · **ADR a escrever:** ADR-0052
 
 ## Intenção
