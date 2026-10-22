@@ -12,6 +12,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — membros de perfil na gestão do próprio tenant (issue #47, ADR-0052)
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.
+
+- **`ListRoleMembers`** (`GET /api/v1/tenants/{tenantId}/roles/{role}/members`) passa a aceitar `securegate:tenant-manage`, com as mesmas regras das outras leituras do escopo: só no tenant do token, sem trilha. Ficou de fora da lista da ADR-0052 por esquecimento: sem ela, a tela de perfil da Intranet e a regra do último `intranet-admin` recebiam `403`.
+
 ### SecureGate (serviço) — gestão do próprio tenant por máquina (ADR-0052) — ação necessária para a Intranet
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP muda; o client ganha só um registro de DI (0.21.0).

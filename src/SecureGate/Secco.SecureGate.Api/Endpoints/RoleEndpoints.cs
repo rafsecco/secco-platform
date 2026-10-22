@@ -111,6 +111,7 @@ public static class RoleEndpoints
 				.ToHttpResult(result => Results.Ok(result)))
 			.WithName("ListRoleMembers")
 			.AllowTenantAdmin()
+			.AllowTenantManage()
 			.WithSummary("Lista, paginados, os membros do perfil com a situação de cada conta.")
 			.Produces<PagedResult<RoleMemberDto>>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status400BadRequest)

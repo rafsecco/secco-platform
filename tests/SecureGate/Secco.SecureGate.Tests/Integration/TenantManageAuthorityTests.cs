@@ -64,6 +64,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 			$"/api/v1/tenants/{_tenantA}/users/{_person}",
 			$"/api/v1/tenants/{_tenantA}/roles",
 			$"/api/v1/tenants/{_tenantA}/roles/{Role}",
+			$"/api/v1/tenants/{_tenantA}/roles/{Role}/members",
 		})
 		{
 			(await machine.GetAsync(route)).StatusCode.Should().Be(HttpStatusCode.OK, route);
@@ -114,6 +115,7 @@ public class TenantManageAuthorityTests(TenantAdminSecureGateApiFactory secureGa
 		using var machine = await MachineAsync(_machineClientId, SecureGateScopes.TenantManage);
 
 		(await machine.GetAsync($"/api/v1/tenants/{_tenantB}/users")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+		(await machine.GetAsync($"/api/v1/tenants/{_tenantB}/roles/{Role}/members")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
 		(await machine.PostAsJsonAsync($"/api/v1/tenants/{_tenantB}/roles", new { name = "intruso" }))
 			.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 

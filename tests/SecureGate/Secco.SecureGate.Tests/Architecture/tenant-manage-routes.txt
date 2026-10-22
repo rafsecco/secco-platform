@@ -14,5 +14,6 @@ RevokeUserSessions | sim
 CreateRole | nao
 ListRoles | nao
 GetRole | nao
+ListRoleMembers | nao
 SetRolePermissions | nao
 DeleteRole | nao
