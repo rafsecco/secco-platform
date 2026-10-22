@@ -30,6 +30,13 @@ namespace Secco.SecureGate.Api.Authorization;
 public sealed record TenantAdminAllowedMetadata(bool ProtectsAdminTargets, bool CreatesTenant = false, bool AnyGrant = false);
 
 /// <summary>
+/// Marca uma rota como aceitando a gestão do próprio tenant por máquina (ADR-0052). Sem esta marca, o escopo
+/// <c>securegate:tenant-manage</c> não abre a rota, mesmo num grupo que o admite.
+/// </summary>
+/// <param name="ProtectsAdminTargets">Mesmo sentido de <see cref="TenantAdminAllowedMetadata.ProtectsAdminTargets"/>.</param>
+public sealed record TenantManageAllowedMetadata(bool ProtectsAdminTargets);
+
+/// <summary>
 /// Autoridade de admin de tenant (ADR-0044/0047): negada por padrão, aberta rota a rota, conferida no
 /// cadastro a cada requisição e auditada de forma síncrona e fail-closed antes de toda escrita.
 /// </summary>
@@ -44,19 +51,46 @@ internal static class TenantAdminAuthority
 	/// <summary>
 	/// Policy dos grupos administrativos que têm rotas abertas a admin de tenant: o operador
 	/// (<c>securegate:admin</c>) passa como sempre; <c>securegate:tenant-admin</c> só passa em rota
-	/// MARCADA — rota nova num destes grupos nasce fechada a ele.
+	/// MARCADA — rota nova num destes grupos nasce fechada a ele —, e <c>securegate:tenant-manage</c> só em rota
+	/// com a marca dele (ADR-0052).
 	/// </summary>
 	/// <param name="context">Contexto da autorização (o recurso é o <see cref="HttpContext"/>).</param>
 	public static bool AllowsAdminOrMarkedTenantAdmin(AuthorizationHandlerContext context) =>
 		ScopeAuthorization.HasScope(context.User, SecureGateScopes.Admin)
-		|| (ScopeAuthorization.HasScope(context.User, SecureGateScopes.TenantAdmin)
-			&& context.Resource is HttpContext httpContext
-			&& httpContext.GetEndpoint()?.Metadata.GetMetadata<TenantAdminAllowedMetadata>() is not null);
+		|| (context.Resource is HttpContext httpContext
+			&& ((ScopeAuthorization.HasScope(context.User, SecureGateScopes.TenantAdmin)
+					&& httpContext.GetEndpoint()?.Metadata.GetMetadata<TenantAdminAllowedMetadata>() is not null)
+				|| (ScopeAuthorization.HasScope(context.User, SecureGateScopes.TenantManage)
+					&& httpContext.GetEndpoint()?.Metadata.GetMetadata<TenantManageAllowedMetadata>() is not null)));
 
-	/// <summary>Indica se quem chama age com a autoridade de admin de tenant, e não como operador.</summary>
+	/// <summary>
+	/// Indica se quem chama NÃO é o operador — admin de tenant ou máquina da gestão do tenant. Os handlers usam isto
+	/// para restringir: quem não é operador nunca recebe o que só o operador pode.
+	/// </summary>
 	/// <param name="caller">Principal da requisição.</param>
 	public static bool IsTenantAdminCaller(ClaimsPrincipal caller) =>
 		!ScopeAuthorization.HasScope(caller, SecureGateScopes.Admin);
+
+	/// <summary>Indica se quem chama é a máquina da gestão do próprio tenant (ADR-0052).</summary>
+	/// <param name="caller">Principal da requisição.</param>
+	public static bool IsTenantManageCaller(ClaimsPrincipal caller) =>
+		ScopeAuthorization.HasScope(caller, SecureGateScopes.TenantManage)
+		&& !ScopeAuthorization.HasScope(caller, SecureGateScopes.Admin)
+		&& !ScopeAuthorization.HasScope(caller, SecureGateScopes.TenantAdmin);
+
+	/// <summary>Abre a rota à gestão do próprio tenant por máquina (ADR-0052): marca + filtro que confere e audita.</summary>
+	/// <param name="builder">Rota.</param>
+	/// <param name="protectsAdminTargets">Ver <see cref="TenantManageAllowedMetadata.ProtectsAdminTargets"/>.</param>
+	public static RouteHandlerBuilder AllowTenantManage(this RouteHandlerBuilder builder, bool protectsAdminTargets = false)
+	{
+		ArgumentNullException.ThrowIfNull(builder);
+
+		return builder
+			.WithMetadata(new TenantManageAllowedMetadata(protectsAdminTargets))
+			.AddEndpointFilter(async (context, next) =>
+				await AuthorizeTenantManageAsync(context.HttpContext, protectsAdminTargets).ConfigureAwait(false)
+					?? await next(context));
+	}
 
 	/// <summary>Abre a rota à autoridade de admin de tenant: marca + filtro que confere e audita.</summary>
 	/// <param name="builder">Rota.</param>
@@ -113,6 +147,13 @@ internal static class TenantAdminAuthority
 			return null;
 		}
 
+		// A máquina da gestão do tenant é conferida pelo filtro dela (ADR-0052), e só em rota com a marca dela;
+		// a policy já a barra sem a marca — isto é a segunda camada
+		if (IsTenantManageCaller(principal))
+		{
+			return httpContext.GetEndpoint()?.Metadata.GetMetadata<TenantManageAllowedMetadata>() is null ? Forbidden() : null;
+		}
+
 		var services = httpContext.RequestServices;
 		var auditor = services.GetRequiredService<ITenantAdminAuditor>();
 
@@ -167,7 +208,9 @@ internal static class TenantAdminAuthority
 		var services = httpContext.RequestServices;
 		var cancellationToken = httpContext.RequestAborted;
 
-		return !HttpMethods.IsGet(httpContext.Request.Method)
+		// A máquina da gestão do tenant (ADR-0052) não tem concessão: nunca passa aqui
+		return IsTenantManageCaller(principal)
+			|| !HttpMethods.IsGet(httpContext.Request.Method)
 			|| !services.GetRequiredService<ITenantAdminAuditor>().IsConfigured
 			|| !Guid.TryParse(principal.FindFirstValue(SeccoClaims.Subject), out var userId)
 			|| !await services.GetRequiredService<ITenantAdminGrantRepository>()
@@ -190,7 +233,9 @@ internal static class TenantAdminAuthority
 		var auditor = services.GetRequiredService<ITenantAdminAuditor>();
 		var cancellationToken = httpContext.RequestAborted;
 
-		if (!auditor.IsConfigured
+		// A máquina da gestão do tenant (ADR-0052) nunca cria tenant
+		if (IsTenantManageCaller(principal)
+			|| !auditor.IsConfigured
 			|| !Guid.TryParse(principal.FindFirstValue(SeccoClaims.Subject), out var userId)
 			|| !await services.GetRequiredService<ITenantAdminGrantRepository>()
 				.HasCreatorGrantAsync(userId, cancellationToken).ConfigureAwait(false)
@@ -204,26 +249,77 @@ internal static class TenantAdminAuthority
 			.ConfigureAwait(false);
 	}
 
+	// ADR-0052. Ordem fixa: âncora (tenant do token = tenant da rota, nunca o de plataforma), alvo administrativo,
+	// leitura livre, escrita só com trilha aceita. Destino da trilha: sempre o próprio tenant
+	private static async Task<IResult?> AuthorizeTenantManageAsync(HttpContext httpContext, bool protectsAdminTargets)
+	{
+		var principal = httpContext.User;
+
+		if (!IsTenantManageCaller(principal))
+		{
+			return null;
+		}
+
+		if (!Guid.TryParse(principal.FindFirstValue(SeccoClaims.TenantId), out var tokenTenantId)
+			|| !TryGetRouteGuid(httpContext, out var tenantId, "tenantId", "id")
+			|| tenantId != tokenTenantId
+			|| tenantId == SecureGatePlatform.TenantId)
+		{
+			return Forbidden();
+		}
+
+		var services = httpContext.RequestServices;
+		var cancellationToken = httpContext.RequestAborted;
+		Guid? targetUserId = TryGetRouteGuid(httpContext, out var target, "userId") ? target : null;
+
+		// Rota protegida sem alvo legível é erro de mapeamento: recusa em vez de seguir sem conferir
+		if (protectsAdminTargets
+			&& (targetUserId is not { } protectedTarget
+				|| await services.GetRequiredService<ITenantAdminGrantRepository>()
+					.IsAdministrativeAccountAsync(protectedTarget, cancellationToken).ConfigureAwait(false)))
+		{
+			return Forbidden();
+		}
+
+		if (HttpMethods.IsGet(httpContext.Request.Method))
+		{
+			return null;
+		}
+
+		var auditor = services.GetRequiredService<ITenantAdminAuditor>();
+
+		return auditor.IsConfigured
+			? await AuditAsync(httpContext, auditor, userId: null, tenantId, tenantId, targetUserId, SecureGateScopes.TenantManage)
+				.ConfigureAwait(false)
+			: Forbidden();
+	}
+
 	private static async Task<IResult?> AuditAsync(
 		HttpContext httpContext,
 		ITenantAdminAuditor auditor,
-		Guid userId,
+		Guid? userId,
 		Guid destinationTenantId,
 		Guid? administeredTenantId,
-		Guid? targetUserId)
+		Guid? targetUserId,
+		string authority = SecureGateScopes.TenantAdmin)
 	{
 		var principal = httpContext.User;
 		var operation = httpContext.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName ?? "desconhecida";
+
+		// Token de client_credentials leva o client no sub quando não traz client_id/azp
+		var clientId = principal.FindFirstValue("client_id") ?? principal.FindFirstValue("azp")
+			?? (authority == SecureGateScopes.TenantManage ? principal.FindFirstValue(SeccoClaims.Subject) : null);
 
 		var recorded = await auditor.RecordAsync(
 			new TenantAdminAuditRecord(
 				userId,
 				principal.FindFirstValue("name"),
 				destinationTenantId,
-				principal.FindFirstValue("client_id") ?? principal.FindFirstValue("azp"),
+				clientId,
 				operation,
 				targetUserId,
-				administeredTenantId),
+				administeredTenantId,
+				authority),
 			httpContext.RequestAborted).ConfigureAwait(false);
 
 		return recorded

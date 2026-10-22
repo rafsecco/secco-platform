@@ -1988,6 +1988,7 @@ Alternativas avaliadas:
 - **Risco aceito:** depois de rotacionar ou revogar o client, ou de desativar o tenant, um token já emitido vale até expirar (5 minutos por padrão), igual a todo token de máquina (ADR-0032/0037). A emissão de token novo já recusa tenant desativado.
 - **Risco aceito:** a trilha registra a máquina, não a pessoa que agiu na Intranet; quem foi a pessoa continua na auditoria da própria Intranet.
 - Quebra no adotante: criar o client de produto e configurar a subseção antes de subir a versão que deixa de usar `securegate:admin`.
+- **Bateria negativa provada por mutação: 10 de 10 detectadas** — âncora tenant da rota × token; tenant de plataforma (com client gravado direto no banco, que a API nunca cria); alvo administrativo; policy sem a marca; policy e segunda camada juntas; escrita sem trilha; máquina gravada como pessoa; admin de tenant rotacionando, e criando, client com o escopo; escopo aceito no tenant de plataforma. A segunda camada do filtro da `AllowTenantAdmin` só é detectável junto com a policy, por desenho.
 
 ---
 

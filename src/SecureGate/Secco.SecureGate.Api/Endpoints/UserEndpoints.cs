@@ -50,6 +50,7 @@ public static class UserEndpoints
 				.ToHttpResult(users => Results.Ok(users)))
 			.WithName("ListUsers")
 			.AllowTenantAdmin()
+			.AllowTenantManage()
 			.WithSummary("Lista os usuários do tenant com seus roles (sem segredos).")
 			.Produces<IReadOnlyList<UserDto>>(StatusCodes.Status200OK);
 
@@ -106,6 +107,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("SetUserDisplayName")
 			.AllowTenantAdmin(protectsAdminTargets: true)
+			.AllowTenantManage(protectsAdminTargets: true)
 			.WithSummary("Define o nome de exibição do usuário (#30). Vazio ou nulo limpa o nome.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -151,6 +153,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("DeactivateUser")
 			.AllowTenantAdmin(protectsAdminTargets: true)
+			.AllowTenantManage(protectsAdminTargets: true)
 			.WithSummary("Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
@@ -168,6 +171,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("ActivateUser")
 			.AllowTenantAdmin(protectsAdminTargets: true)
+			.AllowTenantManage(protectsAdminTargets: true)
 			.WithSummary("Reativa um usuário desativado ou bloqueado por tentativas.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -181,6 +185,7 @@ public static class UserEndpoints
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetUser")
 			.AllowTenantAdmin()
+			.AllowTenantManage()
 			.WithSummary("Detalha o usuário: situação, perfis, permissões efetivas e logins externos (sem identificadores).")
 			.Produces<UserDetailDto>(StatusCodes.Status200OK)
 			.ProducesProblem(StatusCodes.Status404NotFound);
@@ -195,6 +200,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("AddUserRole")
 			.AllowTenantAdmin()
+			.AllowTenantManage()
 			.WithSummary("Torna o usuário membro do perfil (idempotente). Vale no token na próxima renovação.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -213,6 +219,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RemoveUserRole")
 			.AllowTenantAdmin(protectsAdminTargets: true)
+			.AllowTenantManage(protectsAdminTargets: true)
 			.WithSummary("Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
@@ -228,6 +235,7 @@ public static class UserEndpoints
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("RevokeUserSessions")
 			.AllowTenantAdmin(protectsAdminTargets: true)
+			.AllowTenantManage(protectsAdminTargets: true)
 			.WithSummary("Encerra todas as sessões do usuário: produtos recusam os tokens atuais em até um TTL de cache (ADR-0032).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);

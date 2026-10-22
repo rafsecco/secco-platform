@@ -1,7 +1,10 @@
 namespace Secco.SecureGate.Application.TenantAdministration;
 
 /// <summary>Uma escrita feita com a autoridade de admin de tenant (ADR-0044).</summary>
-/// <param name="UserId">Quem agiu — o <c>sub</c> do token.</param>
+/// <param name="UserId">
+/// Pessoa que agiu — o <c>sub</c> do token. Nulo quando quem agiu é máquina, na gestão do tenant (ADR-0052): aí o ator
+/// é o <paramref name="ClientId"/>.
+/// </param>
 /// <param name="UserName">Snapshot legível de quem agiu (claim <c>name</c>), se houver.</param>
 /// <param name="TenantId">
 /// Onde a entrada é gravada: o tenant administrado quando ele tem banco do LogStream no catálogo; senão, o
@@ -12,11 +15,12 @@ namespace Secco.SecureGate.Application.TenantAdministration;
 /// <param name="TargetUserId">Pessoa alvo, quando a rota tem uma.</param>
 /// <param name="AdministeredTenantId">Tenant sobre o qual a pessoa agiu; nulo na criação, quando ele ainda não existe.</param>
 /// <param name="Authority">
-/// Autoridade usada: <see cref="SecureGateScopes.TenantAdmin"/> (ADR-0044) ou <see cref="SecureGateScopes.Admin"/> por
-/// operador designado (ADR-0049). Decide o prefixo da ação na trilha.
+/// Autoridade usada: <see cref="SecureGateScopes.TenantAdmin"/> (ADR-0044), <see cref="SecureGateScopes.Admin"/> por
+/// operador designado (ADR-0049) ou <see cref="SecureGateScopes.TenantManage"/> por máquina (ADR-0052). Decide o
+/// prefixo da ação e o tipo de ator na trilha.
 /// </param>
 public sealed record TenantAdminAuditRecord(
-	Guid UserId,
+	Guid? UserId,
 	string? UserName,
 	Guid TenantId,
 	string? ClientId,

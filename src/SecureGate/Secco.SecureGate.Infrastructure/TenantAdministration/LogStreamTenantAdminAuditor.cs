@@ -25,6 +25,9 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 	/// <summary>Prefixo das ações do operador designado (ADR-0049).</summary>
 	public const string DesignatedOperatorActionPrefix = "operador-designado.";
 
+	/// <summary>Prefixo das ações da gestão do tenant por máquina (ADR-0052).</summary>
+	public const string TenantManageActionPrefix = "gestao-do-tenant.";
+
 	/// <inheritdoc />
 	public bool IsConfigured => true;
 
@@ -40,13 +43,28 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 			// O destino já vem decidido no registro (ADR-0047); o administrado segue na Metadata
 			http.DefaultRequestHeaders.Add(SeccoHeaders.TenantId, record.TenantId.ToString());
 
+			// Máquina (ADR-0052) entra como client; sem ator identificado não há registro, e sem registro não há escrita
+			var byClient = record.Authority == SecureGateScopes.TenantManage;
+			var actorId = ActorOf(record);
+
+			if (string.IsNullOrEmpty(actorId))
+			{
+				LogAuditFailed(logger, "?", record.Operation, "SemAtor");
+				return false;
+			}
+
 			await new LogStreamClient(http).CreateAuditEntryAsync(
 				new CreateAuditEntryRequest
 				{
-					ActorId = record.UserId.ToString(),
-					ActorType = ActorType.User,
+					ActorId = actorId,
+					ActorType = byClient ? ActorType.Client : ActorType.User,
 					ActorName = record.UserName,
-					Action = (record.Authority == SecureGateScopes.Admin ? DesignatedOperatorActionPrefix : ActionPrefix) + record.Operation,
+					Action = record.Authority switch
+					{
+						SecureGateScopes.Admin => DesignatedOperatorActionPrefix,
+						SecureGateScopes.TenantManage => TenantManageActionPrefix,
+						_ => ActionPrefix,
+					} + record.Operation,
 					ResourceType = record.TargetUserId is null ? "tenant" : "user",
 					ResourceId = (record.TargetUserId ?? record.TenantId).ToString(),
 					Metadata = JsonSerializer.Serialize(new
@@ -69,7 +87,7 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 #pragma warning restore CA1031
 		{
 			// Só o TIPO da exceção (ADR-0020): a mensagem pode trazer trecho de resposta ou URL
-			LogAuditFailed(logger, record.UserId, record.Operation, exception.GetType().Name);
+			LogAuditFailed(logger, ActorOf(record) ?? "?", record.Operation, exception.GetType().Name);
 
 			return false;
 		}
@@ -78,8 +96,11 @@ internal sealed partial class LogStreamTenantAdminAuditor(
 	[LoggerMessage(
 		EventId = 3201,
 		Level = LogLevel.Warning,
-		Message = "Auditoria de admin de tenant falhou para {UserId} em {Operation} ({ExceptionType}); a escrita foi recusada.")]
-	private static partial void LogAuditFailed(ILogger logger, Guid userId, string operation, string exceptionType);
+		Message = "Auditoria de admin de tenant falhou para {Actor} em {Operation} ({ExceptionType}); a escrita foi recusada.")]
+	private static partial void LogAuditFailed(ILogger logger, string actor, string operation, string exceptionType);
+
+	private static string? ActorOf(TenantAdminAuditRecord record) =>
+		record.Authority == SecureGateScopes.TenantManage ? record.ClientId : record.UserId?.ToString();
 }
 
 /// <summary>

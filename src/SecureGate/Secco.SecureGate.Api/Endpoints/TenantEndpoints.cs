@@ -55,6 +55,7 @@ public static class TenantEndpoints
 				.ToHttpResult(dto => Results.Ok(dto)))
 			.WithName("GetTenant")
 			.AllowTenantAdmin()
+			.AllowTenantManage()
 			.RequireTenantScope("id")
 			.WithSummary("Busca um tenant com os produtos que têm banco cadastrado (sem connection strings).")
 			.Produces<TenantDetailDto>(StatusCodes.Status200OK)

@@ -1,0 +1,18 @@
+# Rotas abertas à gestão do próprio tenant por máquina (ADR-0052). Uma linha por rota marcada com .AllowTenantManage():
+#   operationId | protege-alvo-admin (sim/nao)
+# Rota marcada sem linha reprova; linha sem rota também. Abrir uma rota a este escopo é decisão de segurança:
+# ela aparece no diff desta lista. Nada de tenant, banco, federação, clients, vínculos ou credencial de pessoa.
+GetTenant | nao
+ListUsers | nao
+GetUser | nao
+AddUserRole | nao
+RemoveUserRole | sim
+SetUserDisplayName | sim
+DeactivateUser | sim
+ActivateUser | sim
+RevokeUserSessions | sim
+CreateRole | nao
+ListRoles | nao
+GetRole | nao
+SetRolePermissions | nao
+DeleteRole | nao
