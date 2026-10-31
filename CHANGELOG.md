@@ -12,6 +12,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — reconciliação grupo do Entra → perfil (issue #28, ADR-0055 entrega A)
+
+Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.
+
+- **O mapeamento grupo → perfil passa a valer.** No login federado, o SecureGate pergunta ao Graph a quais grupos mapeados a pessoa pertence (pertinência transitiva). Depois acrescenta os perfis que faltam, com origem `Directory`, e retira os de origem `Directory` que nenhum grupo justifica mais. Atribuição `Manual` nunca é tocada. O mesmo vale num **ciclo periódico** (`SecureGate:DirectorySync:IntervalHours`, padrão 24, faixa 1 a 168) para todas as contas do tenant vinculadas ao diretório.
+- **Retirar perfil revoga as sessões** da pessoa (ADR-0032) e nunca deixa um perfil sem membro ativo. Remover um mapeamento agora retira o perfil de quem o tinha por ele, no próximo ciclo.
+- **Fail-closed:** leitura do Graph com erro ou incompleta não muda nada naquele tenant. No login, a pessoa entra com os perfis que já tinha; o Graph tem 15 s para responder.
+- **Freio de massa:** um ciclo que retiraria mais que `SecureGate:DirectorySync:MaxRemovalRatio` (padrão 0.10) das atribuições `Directory` do tenant, e mais que `MinRemovalsBeforeBrake` (padrão 5), é abortado e vai à trilha.
+- **Trilha:** cada mudança, retirada barrada, ciclo abortado e falha de leitura do ciclo vai à trilha de autoridade do SecureGate (ADR-0054), com ator `directory`. A falha de leitura no login fica só no log, para uma queda do Graph não escrever uma linha por login.
+- **Uma instância por vez:** o ciclo usa um lease no banco de plataforma (`tb_background_leases`), em SQL Server e em Postgres. Só roda com `SecureGate:EntraId` configurado.
+- **Consentimento:** usa o `GroupMember.Read.All` já pedido pela ADR-0036. Ainda precisa ser confirmado contra um tenant Entra real.
+
 ### SecureGate (serviço) — catálogo de permissões de produto adotante (issue #49, ADR-0039)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.

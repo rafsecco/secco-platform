@@ -366,6 +366,24 @@ public static class SecureGateErrors
 				"SecureGate.Federation.DirectoryUnavailable",
 				"O diretório do cliente não respondeu. Tente novamente em instantes.");
 
+		/// <summary>
+		/// O Graph não achou o grupo ou o usuário consultado (ADR-0055) — grupo apagado no diretório e ainda mapeado,
+		/// por exemplo. Distinto de indisponibilidade para a trilha dizer ao operador o que consertar.
+		/// </summary>
+		public static readonly Error DirectoryObjectNotFound =
+			Error.NotFound(
+				"SecureGate.Federation.DirectoryObjectNotFound",
+				"O grupo ou o usuário consultado não existe no diretório do cliente.");
+
+		/// <summary>
+		/// A resposta do Graph veio malformada ou não fechou a paginação dentro do limite (ADR-0055): leitura
+		/// incompleta nunca é tratada como sucesso.
+		/// </summary>
+		public static readonly Error DirectoryReadIncomplete =
+			Error.Unavailable(
+				"SecureGate.Federation.DirectoryReadIncomplete",
+				"A leitura do diretório do cliente veio incompleta.");
+
 		/// <summary>Termo de busca inválido (acima do limite ou com caractere de controle, ADR-0036).</summary>
 		public static readonly Error SearchTermInvalid =
 			Error.Validation(

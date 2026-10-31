@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Federation;
 using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Results;
@@ -17,10 +18,11 @@ namespace Secco.SecureGate.Api.Identity;
 public sealed class EntraSignInProcessor(
 	UserManager<User> userManager,
 	ITenantRepository tenantRepository,
+	DirectoryRoleReconciler reconciler,
 	ILogger<EntraSignInProcessor> logger)
 {
 	/// <summary>Nome do provider persistido em <c>tb_user_logins</c>.</summary>
-	public const string LoginProvider = "EntraId";
+	public const string LoginProvider = DirectoryLinkKey.Provider;
 
 	private const string DisplayName = "Microsoft Entra ID";
 
@@ -46,7 +48,7 @@ public sealed class EntraSignInProcessor(
 			return Result.Failure<User>(SecureGateErrors.Federation.SignInRejected);
 		}
 
-		var providerKey = $"{directoryId:D}:{objectId:D}";
+		var providerKey = DirectoryLinkKey.Build(directoryId, objectId);
 		var user = await userManager.FindByLoginAsync(LoginProvider, providerKey).ConfigureAwait(false);
 		var firstFederatedLogin = user is null;
 
@@ -108,7 +110,40 @@ public sealed class EntraSignInProcessor(
 			}
 		}
 
+		await ReconcileRolesAsync(user, directoryId, objectId, cancellationToken).ConfigureAwait(false);
+
 		return Result.Success(user);
+	}
+
+	/// <summary>
+	/// Reconciliação de perfis da conta com os grupos mapeados do diretório (ADR-0055). Roda DEPOIS de a identidade
+	/// estar provada e a conta liberada, e nunca derruba o login: falha do Graph (ou da própria reconciliação) não
+	/// muda nada e o login segue com os perfis que a conta já tinha. Sem mapeamento no tenant, nenhuma chamada.
+	/// </summary>
+	private async Task ReconcileRolesAsync(User user, Guid directoryId, Guid objectId, CancellationToken cancellationToken)
+	{
+		try
+		{
+			var result = await reconciler
+				.ReconcileLoginAsync(user.TenantId, directoryId, user.Id, objectId, cancellationToken)
+				.ConfigureAwait(false);
+
+			if (result.Outcome is DirectorySyncOutcome.ReadFailed or DirectorySyncOutcome.AbortedByBrake)
+			{
+				EntraSignInProcessorLog.ReconciliationSkipped(logger, user.TenantId, result.Outcome, result.ErrorCode ?? "-");
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+#pragma warning disable CA1031 // A reconciliação é melhor esforço no login: o login nunca depende dela
+		catch (Exception exception)
+#pragma warning restore CA1031
+		{
+			// Só o TIPO da exceção (ADR-0020): a mensagem pode trazer trecho de SQL ou de resposta do Graph
+			EntraSignInProcessorLog.ReconciliationFailed(logger, user.TenantId, exception.GetType().Name);
+		}
 	}
 }
 
@@ -156,4 +191,16 @@ internal static partial class EntraSignInProcessorLog
 		Level = LogLevel.Warning,
 		Message = "Login federado recusado: falha ao vincular login externo (tenant {TenantId}, oid {ObjectId}).")]
 	public static partial void LinkFailed(ILogger logger, Guid tenantId, Guid objectId);
+
+	[LoggerMessage(
+		EventId = 8,
+		Level = LogLevel.Warning,
+		Message = "Login federado seguiu sem reconciliar perfis (tenant {TenantId}): {Outcome}, {ErrorCode}.")]
+	public static partial void ReconciliationSkipped(ILogger logger, Guid tenantId, DirectorySyncOutcome outcome, string errorCode);
+
+	[LoggerMessage(
+		EventId = 9,
+		Level = LogLevel.Warning,
+		Message = "Login federado seguiu sem reconciliar perfis (tenant {TenantId}): falha {ExceptionType}.")]
+	public static partial void ReconciliationFailed(ILogger logger, Guid tenantId, string exceptionType);
 }

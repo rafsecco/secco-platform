@@ -32,4 +32,33 @@ public interface IEntraGroupDirectory
 		string? pageToken,
 		int pageSize,
 		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Ids (object id) dos USUÁRIOS que pertencem ao grupo, de forma transitiva (grupo aninhado conta) — a leitura
+	/// do ciclo de reconciliação (ADR-0055). Percorre a paginação INTEIRA: ou devolve a lista completa, ou falha.
+	/// Resposta parcial nunca vira sucesso — uma lista truncada retiraria perfis de quem ficou fora dela.
+	/// </summary>
+	/// <param name="directoryId">Directory id do Entra ID do tenant.</param>
+	/// <param name="groupId">Id do grupo (Guid; nunca texto livre em URL).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns>
+	/// Os object ids, sem repetição. Falha com <see cref="ErrorType.Forbidden"/> (sem consentimento),
+	/// <see cref="ErrorType.NotFound"/> (grupo inexistente) ou <see cref="ErrorType.Unavailable"/> (indisponível ou
+	/// leitura incompleta).
+	/// </returns>
+	Task<Result<IReadOnlyList<Guid>>> GetGroupMemberIdsAsync(
+		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// A quais dos grupos informados o usuário pertence, de forma transitiva — a leitura do login federado
+	/// (ADR-0055). Consulta o Graph em lotes de 20 (o limite do <c>checkMemberGroups</c>); se qualquer lote falhar,
+	/// a resposta inteira falha — nada parcial.
+	/// </summary>
+	/// <param name="directoryId">Directory id do Entra ID do tenant.</param>
+	/// <param name="objectId">Object id (<c>oid</c>) do usuário no diretório.</param>
+	/// <param name="groupIds">Grupos a conferir (os mapeados do tenant).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns>O subconjunto de <paramref name="groupIds"/> a que o usuário pertence.</returns>
+	Task<Result<IReadOnlySet<Guid>>> CheckMemberGroupsAsync(
+		Guid directoryId, Guid objectId, IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken = default);
 }

@@ -109,6 +109,9 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 	/// <summary>Base pública dos links de credencial nos testes (ADR-0033: nunca vem do header Host).</summary>
 	public const string PublicBaseUrl = "https://id.testes.local";
 
+	/// <summary>Diretório (Microsoft Graph) falso, compartilhado pela suíte — cada teste programa os próprios grupos.</summary>
+	public FakeEntraGroupDirectory Graph { get; } = new();
+
 	/// <summary>E-mails que a aplicação tentou enviar — nenhum sai de verdade em teste.</summary>
 	public FakeEmailSender Emails { get; } = new();
 
@@ -119,6 +122,9 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 
 		// Registrado DEPOIS do AddSeccoEmail da aplicação: a última inscrição vence na resolução.
 		services.AddScoped<Secco.SDK.Email.ISeccoEmailSender>(_ => Emails);
+
+		// Graph falso (ADR-0055): nenhum teste fala com a Microsoft. O que cada grupo contém é programado pelo teste.
+		services.AddScoped<Secco.SecureGate.Application.Federation.IEntraGroupDirectory>(_ => Graph);
 	}
 
 	/// <summary>Aplica migrations + seed de referência (scopes) — a base garante a chamada única.</summary>

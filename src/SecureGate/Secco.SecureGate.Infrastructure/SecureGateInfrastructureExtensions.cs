@@ -270,6 +270,19 @@ public static class SecureGateInfrastructureExtensions
 		// Mapeamento grupo→perfil (issue #28, ADR-0036)
 		services.AddScoped<Application.Federation.IGroupRoleMappingRepository, GroupRoleMappingRepository>();
 
+		// Reconciliação de perfis com o diretório (ADR-0055, entrega A): persistência, trilha local, lease e ciclo.
+		// As opções são POCO na Application; o BindConfiguration e a validação por faixa (valor ruim cai no
+		// padrão, com aviso) ficam aqui.
+		services.AddOptions<Application.Federation.DirectorySyncOptions>()
+			.BindConfiguration(Application.Federation.DirectorySyncOptions.SectionKey);
+		services.TryAddSingleton(serviceProvider =>
+			serviceProvider.GetRequiredService<IOptions<Application.Federation.DirectorySyncOptions>>().Value);
+		services.AddScoped<Application.Federation.IDirectoryRoleStore, DirectoryRoleStore>();
+		services.AddScoped<Application.Federation.IDirectorySyncTenantSource, DirectorySyncTenantSource>();
+		services.AddScoped<Application.Federation.IDirectorySyncAuditor, TenantAdministration.DatabaseDirectorySyncAuditor>();
+		services.AddScoped<Application.Scheduling.IBackgroundLeaseStore, Scheduling.BackgroundLeaseStore>();
+		services.AddHostedService<DirectorySyncService>();
+
 		// Vínculo pessoa ↔ tenant (ADR-0040)
 		services.AddScoped<Application.Tenants.ITenantMembershipRepository, Tenants.TenantMembershipRepository>();
 

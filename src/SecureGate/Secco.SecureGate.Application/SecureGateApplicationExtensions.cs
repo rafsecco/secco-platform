@@ -117,6 +117,9 @@ public static class SecureGateApplicationExtensions
 		services.AddScoped<Federation.ListGroupRoleMappingsHandler>();
 		services.AddScoped<Federation.DeleteGroupRoleMappingHandler>();
 
+		// Reconciliação de perfis com o diretório (ADR-0055, entrega A): usada pelo login federado e pelo ciclo
+		services.AddScoped<Federation.DirectoryRoleReconciler>();
+
 		return services;
 	}
 }

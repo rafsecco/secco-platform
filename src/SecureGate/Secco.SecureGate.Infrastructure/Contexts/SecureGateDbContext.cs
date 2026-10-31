@@ -7,6 +7,7 @@ using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Domain.Elevation;
 using Secco.SecureGate.Domain.Permissions;
+using Secco.SecureGate.Domain.Scheduling;
 using Secco.SecureGate.Domain.TenantAdministration;
 using Secco.SecureGate.Domain.Tenants;
 using Secco.SecureGate.Infrastructure.Cryptography;
@@ -91,6 +92,9 @@ public sealed class SecureGateDbContext(
 
 	/// <summary>Catálogo de permissões publicado pelos produtos (tabela <c>tb_permission_catalog_entries</c>, ADR-0039).</summary>
 	public DbSet<PermissionCatalogEntry> PermissionCatalogEntries => Set<PermissionCatalogEntry>();
+
+	/// <summary>Leases de tarefas periódicas (tabela <c>tb_background_leases</c>, ADR-0055).</summary>
+	public DbSet<BackgroundLease> BackgroundLeases => Set<BackgroundLease>();
 
 	/// <summary>
 	/// Chaves de Data Protection (ADR-0033). Ficam no banco porque os tokens de convite e de
@@ -413,6 +417,15 @@ public sealed class SecureGateDbContext(
 			// Identidade natural (ADR-0039): um nome por produto; o mesmo nome em produtos
 			// diferentes é colisão visível, não erro. Sem FK: é dado de plataforma, sem tenant.
 			entry.HasIndex(e => new { e.Product, e.Name }).IsUnique();
+		});
+
+		// Fora do filtro (ADR-0041): o lease de tarefa periódica é dado de plataforma, sem tenant (ADR-0055).
+		// Uma linha por tarefa: o índice único é o que decide a corrida da primeira tomada.
+		builder.Entity<BackgroundLease>(lease =>
+		{
+			lease.Property(l => l.Name).HasMaxLength(BackgroundLease.NameMaxLength);
+			lease.Property(l => l.Owner).HasMaxLength(BackgroundLease.OwnerMaxLength);
+			lease.HasIndex(l => l.Name).IsUnique();
 		});
 
 		// Fora do filtro (ADR-0041): DataProtectionKey é dado de plataforma, sem tenant (ADR-0033).

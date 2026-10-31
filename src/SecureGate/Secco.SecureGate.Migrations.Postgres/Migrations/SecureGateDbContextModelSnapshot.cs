@@ -126,6 +126,39 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.ToTable("tb_permission_catalog_entries");
                 });
 
+            modelBuilder.Entity("Secco.SecureGate.Domain.Scheduling.BackgroundLease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_pk_background_lease");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dt_expires_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("ds_name");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("ds_owner");
+
+                    b.HasKey("Id")
+                        .HasName("pk_background_leases");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("uk_background_leases_ds_name");
+
+                    b.ToTable("tb_background_leases");
+                });
+
             modelBuilder.Entity("Secco.SecureGate.Domain.TenantAdministration.AuthorityAuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
