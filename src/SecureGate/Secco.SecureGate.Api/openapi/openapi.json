@@ -1654,7 +1654,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.",
+        "summary": "Desativa um usuário: impede novo login e encerra as sessões dele na hora (ADR-0032).",
         "operationId": "DeactivateUser",
         "parameters": [
           {
@@ -1863,7 +1863,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.",
+        "summary": "Retira o usuário do perfil (idempotente) e encerra as sessões dele na hora (ADR-0032).",
         "operationId": "RemoveUserRole",
         "parameters": [
           {

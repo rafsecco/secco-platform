@@ -154,7 +154,7 @@ public static class UserEndpoints
 			.WithName("DeactivateUser")
 			.AllowTenantAdmin(protectsAdminTargets: true)
 			.AllowTenantManage(protectsAdminTargets: true)
-			.WithSummary("Desativa um usuário: impede novo login e encerra a sessão na próxima renovação de token.")
+			.WithSummary("Desativa um usuário: impede novo login e encerra as sessões dele na hora (ADR-0032).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound)
 			.ProducesProblem(StatusCodes.Status409Conflict);
@@ -220,7 +220,7 @@ public static class UserEndpoints
 			.WithName("RemoveUserRole")
 			.AllowTenantAdmin(protectsAdminTargets: true)
 			.AllowTenantManage(protectsAdminTargets: true)
-			.WithSummary("Retira o usuário do perfil (idempotente). Vale no token na próxima renovação.")
+			.WithSummary("Retira o usuário do perfil (idempotente) e encerra as sessões dele na hora (ADR-0032).")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound)

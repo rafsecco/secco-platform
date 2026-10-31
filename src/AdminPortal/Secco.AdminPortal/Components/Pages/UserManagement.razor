@@ -247,7 +247,7 @@ else
         @if (_user.Status == "Active")
         {
             <button @onclick="AskDeactivate" disabled="@_busy">Desativar</button>
-            <p class="muted">Impede novo login e encerra a sessão na próxima renovação de token.</p>
+            <p class="muted">Impede novo login e encerra as sessões abertas na hora.</p>
         }
         else
         {
@@ -399,11 +399,11 @@ else
         {
             await UserAdminService.RemoveRoleAsync(TenantId, UserId, role);
             await ReloadAsync();
-            _message = $"Perfil {role} removido. Vale na próxima renovação de token do usuário.";
+            _message = $"Perfil {role} removido. As sessões do usuário foram encerradas.";
         });
 
     private void AskDeactivate() =>
-        _pending = new PendingAction("Desativar esta conta? A sessão aberta termina na próxima renovação de token.", async () =>
+        _pending = new PendingAction("Desativar esta conta? As sessões abertas são encerradas na hora.", async () =>
         {
             await UserAdminService.SetActiveAsync(TenantId, UserId, active: false);
             await ReloadAsync();
