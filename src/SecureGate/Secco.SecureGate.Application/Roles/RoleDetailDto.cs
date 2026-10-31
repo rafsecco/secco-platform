@@ -11,12 +11,17 @@ namespace Secco.SecureGate.Application.Roles;
 /// Permissões do perfil que nenhum catálogo de produto declara (órfãs, ADR-0039): não concedem nada
 /// que um produto reconheça; ficam visíveis até alguém removê-las. Sempre vazio em perfil reservado.
 /// </param>
+/// <param name="IsImplicit">
+/// Perfil implícito do tenant (ADR-0056): todo membro ativo o tem sem atribuição. Editável, mas não
+/// atribuível nem excluível; <paramref name="MemberCount"/> é sempre 0 (não há atribuições).
+/// </param>
 public sealed record RoleDetailDto(
 	string Name,
 	IReadOnlyList<string> Permissions,
 	bool IsReserved,
 	int MemberCount,
-	IReadOnlyList<string> UnknownPermissions);
+	IReadOnlyList<string> UnknownPermissions,
+	bool IsImplicit = false);
 
 /// <summary>Membro de um perfil.</summary>
 /// <param name="UserId">Usuário.</param>

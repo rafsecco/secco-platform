@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-30 (ADR-0055 aceita)
+**Última atualização:** 2026-10-31 (ADR-0056 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -2135,6 +2135,54 @@ Alternativas avaliadas:
 - **Um diretório pode federar vários tenants.** Cada tenant tem o próprio grupo. Pessoa que está nos grupos de dois tenants ganha conta no primeiro que a provisionar; no segundo, a colisão de e-mail vai à trilha e o caminho é o vínculo (ADR-0040).
 - **Amplificação no Graph:** todo login de alguém do diretório sem conta consulta o Graph. Uma resposta negativa fica em cache curto por `oid`.
 - Contrato novo nas duas entregas: `Secco.SecureGate.Client` ganha minor em cada uma.
+
+---
+
+## ADR-0056: Perfil implícito do tenant — `tenant-member`, que toda pessoa ativa tem sem atribuição
+
+**Status:** Aceita
+**Data:** 2026-10-31
+**Emenda:** ADR-0021 (o token carrega os papéis **atribuídos**; passa a carregar também o implícito)
+
+### Contexto
+
+Hoje toda permissão sai de um perfil atribuído à pessoa (ADR-0021). Não existe perfil que todo usuário ativo do tenant tenha por definição. A issue [#51](https://github.com/rafsecco/secco-platform/issues/51) traz o caso: as bibliotecas de documentos do `secco-intranet`, como "Manuais" e "Políticas Internas", que **todo usuário do tenant lê** e só um perfil escreve.
+
+O workaround é um perfil comum atribuído a cada pessoa, à mão ou pela reconciliação da ADR-0055. Ele falha em silêncio: quem entra amanhã e não recebe o perfil fica sem ver a política da empresa, e nada avisa.
+
+Alternativas avaliadas:
+
+- **O resolvedor do SDK une as permissões do perfil a todo token com tenant.** Exigiria atualizar o SDK em todos os produtos. Também obrigaria o resolvedor a distinguir pessoa de máquina, e um client de máquina vinculado a tenant herdaria o perfil se a distinção falhasse. Descartada: o perfil entra no token, emitido pelo SecureGate, que é quem sabe quem é pessoa.
+- **Enumerar todos os membros ativos na lista de membros do perfil.** É fiel ao conceito, mas a lista pode ser grande, e a tela ofereceria "remover perfil" a quem não pode perdê-lo. Descartada: o perfil vem marcado como implícito e a lista volta vazia. Quem precisa enumerar as pessoas usa o diretório (ADR-0045) ou a lista de usuários do tenant.
+- **Recusar com `409` a lista de membros do perfil implícito.** É honesto, mas quebra a tela genérica de perfil que chama a rota. Descartada.
+
+### Decisão
+
+**O perfil.** Todo tenant, exceto o de plataforma, tem um perfil chamado **`tenant-member`**, marcado como implícito no banco. É um perfil de verdade (Role do Identity, ADR-0021): o admin edita as permissões dele pelo mesmo `SetRolePermissions`, com a mesma validação de catálogo (ADR-0039/0043) e a mesma trilha.
+
+- **Nome reservado:** nenhum tenant cria, renomeia nem mapeia grupo do Entra para um perfil com esse nome (a reserva já barra a ADR-0055).
+- **Não atribuível e não excluível:** atribuir responde erro de regra e excluir responde `409`.
+- **Criação:** o perfil nasce com o tenant, na mesma transação. Os tenants que já existem o recebem pelo seed de referência, de forma idempotente.
+- **Colisão:** se um tenant já tiver um perfil criado à mão com esse nome, o seed de referência **recusa** e lista os tenants em conflito. Converter em silêncio daria as permissões daquele perfil a todos. O operador renomeia o perfil antigo e roda o `migrate` de novo.
+
+**Quem recebe.** Ao emitir o token de uma **pessoa** com tenant de login, o SecureGate acrescenta `tenant-member` aos papéis dela, sem linha de atribuição. Isso vale para a conta dona e para o membro ativo do tenant do login (ADR-0040), no mesmo ponto em que os perfis atribuídos são lidos, inclusive na renovação.
+
+- **Não recebem:** client de máquina (os papéis dele vêm do cadastro do client) e os tokens sem tenant: operador, elevação (ADR-0031) e operador designado (ADR-0049).
+- **O tenant de plataforma não tem o perfil.**
+- **Pessoa desativada ou com vínculo suspenso:** já não recebe token daquele tenant, e por isso perde o perfil junto com os outros, sem regra nova.
+
+**Produtos.** Nada muda. O perfil resolve permissões como qualquer outro, pelo nome, com o cache `(tenant_id, role)` da ADR-0021.
+
+**Contrato.** A lista e o detalhe de perfil ganham a marca de implícito. A lista de membros do perfil implícito volta vazia, no formato de hoje, porque a página paginada é tipo do SharedKernel e não comporta marca. A tela lê a marca no detalhe e mostra "todos os membros ativos".
+
+### Consequências
+
+- Uma área "de todos" deixa de depender de alguém lembrar de atribuir um perfil a cada pessoa nova.
+- **Risco assumido:** o admin pode dar ao perfil permissão de escrita, e então todos do tenant escrevem. É decisão dele, registrada na trilha como qualquer mudança de permissão. A plataforma não impõe barreira extra.
+- Mudança de permissão do perfil chega aos produtos em até um TTL do cache, como em qualquer perfil. Quem ganha ou perde o vínculo com o tenant ganha ou perde o perfil na próxima emissão de token.
+- O token de pessoa ganha um papel a mais.
+- A guarda do último membro ativo (ADR-0036/0055) não se aplica ao perfil implícito, que nunca é atribuído nem retirado.
+- Contrato novo, só de acréscimo: `Secco.SecureGate.Client` ganha minor.
 
 ---
 

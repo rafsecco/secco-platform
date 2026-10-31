@@ -36,6 +36,13 @@ public sealed class ListRoleMembersHandler(IRoleRepository repository)
 			return SecureGateErrors.Roles.NotFound;
 		}
 
+		// ADR-0056: o implícito não tem atribuições — todo membro ativo o tem. Página vazia no formato de
+		// sempre; quem enumera pessoas usa o diretório (ADR-0045) ou a lista de usuários do tenant.
+		if (role.IsImplicit)
+		{
+			return PagedResult.Create<RoleMemberDto>([], page, 0);
+		}
+
 		var members = await repository.ListMembersAsync(role.Id, page, cancellationToken).ConfigureAwait(false);
 		var now = DateTimeOffset.UtcNow;
 

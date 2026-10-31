@@ -35,10 +35,11 @@ public sealed class SetRolePermissionsHandler(IRoleRepository repository, IPermi
 			return Result.Failure(SecureGateErrors.Roles.NameInvalid);
 		}
 
-		// Nome reservado à plataforma: o role de operador não é gerido por API — seus poderes
+		// Papel de instalação: o role de operador não é gerido por API — seus poderes
 		// vêm do scope admin, não de permissões (ADR-0023). Bloqueia em todos os tenants para
-		// que o endpoint de gestão nunca toque essa estrutura (ADR-0020/0024).
-		if (RoleInputRules.IsReservedName(name))
+		// que o endpoint de gestão nunca toque essa estrutura (ADR-0020/0024). O perfil implícito
+		// (ADR-0056) NÃO entra aqui: o admin edita as permissões dele como as de qualquer perfil.
+		if (RoleInputRules.IsInstallationName(name))
 		{
 			return Result.Failure(SecureGateErrors.Roles.NameReserved);
 		}

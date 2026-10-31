@@ -99,7 +99,7 @@ else
             {
                 <fieldset>
                     <legend>Perfis</legend>
-                    @foreach (var role in _roles)
+                    @foreach (var role in _roles.Where(r => !r.IsImplicit))
                     {
                         <label>
                             <input type="checkbox"
@@ -277,7 +277,7 @@ else
                     @foreach (var role in _roles)
                     {
                         <tr>
-                            <td><a href="@($"tenants/{TenantId}/roles/{Uri.EscapeDataString(role.Name)}")">@role.Name</a></td>
+                            <td><a href="@($"tenants/{TenantId}/roles/{Uri.EscapeDataString(role.Name)}")">@role.Name</a>@if (role.IsImplicit) { <span class="badge">todos os membros ativos</span> }</td>
                             <td>@role.Permissions.Count</td>
                         </tr>
                     }

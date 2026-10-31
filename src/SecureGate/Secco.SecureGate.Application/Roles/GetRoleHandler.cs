@@ -34,13 +34,13 @@ public sealed class GetRoleHandler(
 		var granted = await permissions.HandleAsync(tenantId, role.Name, cancellationToken).ConfigureAwait(false);
 
 		var effective = granted.IsSuccess ? granted.Value : [];
-		var isReserved = RoleInputRules.IsReservedName(role.Name);
+		var isReserved = RoleInputRules.IsInstallationName(role.Name);
 
-		// Perfil reservado recebe o read-set da plataforma, que não é permissão gravada (nem limpável)
+		// Papel de instalação recebe o read-set da plataforma, que não é permissão gravada (nem limpável)
 		var unknown = isReserved || effective.Count == 0
 			? []
 			: await catalog.FindUnknownAsync(effective, cancellationToken).ConfigureAwait(false);
 
-		return new RoleDetailDto(role.Name, effective, isReserved, role.MemberCount, unknown);
+		return new RoleDetailDto(role.Name, effective, isReserved, role.MemberCount, unknown, role.IsImplicit);
 	}
 }

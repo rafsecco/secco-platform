@@ -41,7 +41,7 @@ internal static partial class RoleInputRules
 	/// <c>GetRolePermissionsHandler</c> — e é esta reserva que impede um tenant de cliente de criar
 	/// um papel com o mesmo nome e herdar o caso especial.
 	/// </remarks>
-	private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+	private static readonly HashSet<string> InstallationNames = new(StringComparer.OrdinalIgnoreCase)
 	{
 		SecureGatePlatform.OperatorRole,
 		SecureGatePlatform.LegacyOperatorRole,
@@ -49,9 +49,27 @@ internal static partial class RoleInputRules
 		SecureGatePlatform.AuditorRole,
 	};
 
-	/// <summary>Indica se o nome é reservado à estrutura de instalação.</summary>
+	/// <summary>
+	/// Indica se o nome é o do perfil implícito do tenant (ADR-0056). Diferente dos de instalação, o
+	/// implícito TEM permissões editáveis pelo admin — por isso a noção é separada.
+	/// </summary>
 	/// <param name="name">Nome candidato (já aparado).</param>
-	public static bool IsReservedName(string name) => ReservedNames.Contains(name);
+	public static bool IsImplicitName(string name) =>
+		string.Equals(name, SecureGatePlatform.TenantMemberRole, StringComparison.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// Indica se o nome é de um papel de INSTALAÇÃO (operador, legado, leitor elevado, auditor): não tem
+	/// permissões gravadas nem gestão por API.
+	/// </summary>
+	/// <param name="name">Nome candidato (já aparado).</param>
+	public static bool IsInstallationName(string name) => InstallationNames.Contains(name);
+
+	/// <summary>
+	/// Indica se o nome é reservado: papéis de instalação e o perfil implícito (ADR-0056). Ninguém cria,
+	/// renomeia nem mapeia grupo para um nome reservado.
+	/// </summary>
+	/// <param name="name">Nome candidato (já aparado).</param>
+	public static bool IsReservedName(string name) => IsInstallationName(name) || IsImplicitName(name);
 
 	/// <summary>
 	/// Indica se usuários podem ser membros do perfil. Dos reservados, só o de operador de instalação:

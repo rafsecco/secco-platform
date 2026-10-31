@@ -12,6 +12,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — perfil implícito do tenant (issue #51, ADR-0056) — ação necessária no `migrate`
+
+Não é pacote: muda o serviço SecureGate. O contrato novo é só acréscimo, e o client está na seção abaixo (0.24.0).
+
+- **`tenant-member`:** todo tenant, menos o de plataforma, passa a ter esse perfil, marcado como implícito. Toda pessoa ativa do tenant o tem sem atribuição. O SecureGate o acrescenta aos papéis do token da conta dona e do membro ativo do tenant do login, também na renovação. Client de máquina e tokens sem tenant (operador, elevação, operador designado) não o recebem.
+- **Edição:** o admin edita as permissões dele pelo mesmo `PUT .../roles/{role}/permissions`, com a validação de catálogo e a trilha de sempre. Os papéis de instalação continuam recusados nessa rota.
+- **Reserva:** o nome é reservado. Criar perfil, mapear grupo do Entra ou dar a client de máquina um perfil com esse nome é recusado. Atribuir é recusado e excluir responde `409`.
+- **Criação:** o perfil nasce com o tenant, na mesma transação, e o seed de referência cria nos tenants que já existem. **Colisão:** se um tenant já tiver um perfil comum chamado `tenant-member`, o `migrate` falha e lista os tenants, sem converter nada; converter daria as permissões dele a todos. Nesse caso, crie outro perfil com as mesmas permissões e atribuições, exclua o antigo e rode o `migrate` de novo.
+- **Produtos:** nada muda. O perfil resolve permissões pelo nome, como qualquer outro.
+- **Contrato:** `isImplicit` na lista e no detalhe de perfil. A lista de membros do perfil implícito volta vazia.
+- **AdminPortal:** mostra o perfil como "todos os membros ativos", com permissões editáveis, sem membros, sem excluir e fora dos seletores de perfil atribuível.
+- **Para a Intranet:** as bibliotecas "de todos" passam a dar `biblioteca-{id}:read` ao `tenant-member`, em vez de atribuir um perfil comum a cada pessoa. A tela acha o perfil pela marca `isImplicit`.
+
 ### SecureGate (serviço) — provisionamento de contas pelo diretório (issue #50, ADR-0055 entrega B) — ação necessária para ligar
 
 Não é pacote: muda o serviço SecureGate. O contrato novo é só acréscimo, e o client está na seção abaixo (0.23.0).
@@ -129,6 +142,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.6 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.7.5 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.24.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.5 — 2026-10-31
 
 Patch **sem mudança funcional**: o diff desde a 0.7.4 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.23.0 sai deste commit e o referencia por `ProjectReference`.
@@ -239,6 +256,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.9 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.9.8 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.24.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.8 — 2026-10-31
 
@@ -433,6 +454,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.24.0 — 2026-10-31
+
+Perfil implícito do tenant (issue #51, ADR-0056). Só acréscimo: `RoleDto.IsImplicit` e `RoleDetailDto.IsImplicit`.
 
 #### 0.23.0 — 2026-10-31
 
@@ -648,6 +673,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.20 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.1.19 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.24.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.19 — 2026-10-31
 

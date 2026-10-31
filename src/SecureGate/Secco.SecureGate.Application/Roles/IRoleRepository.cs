@@ -7,7 +7,8 @@ namespace Secco.SecureGate.Application.Roles;
 /// <param name="Id">Identificador.</param>
 /// <param name="Name">Nome como gravado.</param>
 /// <param name="MemberCount">Quantidade de membros.</param>
-public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
+/// <param name="IsImplicit">Perfil implícito do tenant (ADR-0056).</param>
+public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount, bool IsImplicit = false);
 
 /// <summary>Membro de perfil com o lockout cru — a Application deriva a situação.</summary>
 /// <param name="UserId">Usuário.</param>
@@ -69,6 +70,13 @@ public interface IRoleRepository
 	/// <param name="name">Nome do role.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task CreateRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Enfileira, SEM gravar, o perfil implícito do tenant (ADR-0056) no contexto compartilhado: quem cria o
+	/// tenant efetiva as duas coisas no mesmo <c>SaveChanges</c>, e portanto na mesma transação.
+	/// </summary>
+	/// <param name="tenantId">Tenant que acaba de ser criado (nunca o de plataforma).</param>
+	void StageImplicitRole(Guid tenantId);
 
 	/// <summary>Lista os roles do tenant com suas permissões, ordenados por nome.</summary>
 	/// <param name="tenantId">Tenant dono dos roles.</param>

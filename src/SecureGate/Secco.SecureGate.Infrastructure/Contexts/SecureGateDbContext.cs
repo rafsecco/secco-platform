@@ -216,6 +216,21 @@ public sealed class SecureGateDbContext(
 			// Nome de role é único POR TENANT (ADR-0021), não globalmente
 			role.HasIndex(r => new { r.TenantId, r.NormalizedName }).IsUnique()
 				.HasDatabaseName("uk_roles_id_fk_tenant_ds_normalized_name");
+
+			// No máximo UM perfil implícito por tenant (ADR-0056), garantido pelo banco: índice único filtrado.
+			// O filtro é SQL do engine, então segue o provider do contexto.
+			var implicitIndex = role.HasIndex(r => r.TenantId).IsUnique()
+				.HasDatabaseName("uk_roles_id_fk_tenant_implicit");
+
+			if (Database.IsNpgsql())
+			{
+				implicitIndex.HasFilter("fl_implicit");
+			}
+			else
+			{
+				implicitIndex.HasFilter("[fl_implicit] = 1");
+			}
+
 			role.HasOne<Tenant>().WithMany().HasForeignKey(r => r.TenantId).OnDelete(DeleteBehavior.Restrict);
 			role.HasQueryFilter(TenantFilter, r => IsPlatformScope || r.TenantId == ScopedTenantId);
 		});

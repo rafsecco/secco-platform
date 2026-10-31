@@ -153,7 +153,8 @@ public static class MembershipText
 /// <summary>Perfil na listagem do tenant.</summary>
 /// <param name="Name">Nome.</param>
 /// <param name="Permissions">Permissões gravadas.</param>
-public sealed record RoleSummary(string Name, IReadOnlyList<string> Permissions);
+/// <param name="IsImplicit">Perfil implícito do tenant (ADR-0056): todo membro ativo o tem, sem atribuição.</param>
+public sealed record RoleSummary(string Name, IReadOnlyList<string> Permissions, bool IsImplicit = false);
 
 /// <summary>Perfil detalhado.</summary>
 /// <param name="Name">Nome.</param>
@@ -161,12 +162,14 @@ public sealed record RoleSummary(string Name, IReadOnlyList<string> Permissions)
 /// <param name="IsReserved">Reservado da plataforma.</param>
 /// <param name="MemberCount">Quantidade de membros.</param>
 /// <param name="UnknownPermissions">Permissões gravadas que nenhum produto declara no catálogo (ADR-0039).</param>
+/// <param name="IsImplicit">Perfil implícito do tenant (ADR-0056): editável, mas nunca atribuído nem excluído.</param>
 public sealed record RoleDetail(
 	string Name,
 	IReadOnlyList<string> Permissions,
 	bool IsReserved,
 	int MemberCount,
-	IReadOnlyList<string> UnknownPermissions);
+	IReadOnlyList<string> UnknownPermissions,
+	bool IsImplicit = false);
 
 /// <summary>Permissão declarada no catálogo de um produto (ADR-0039).</summary>
 /// <param name="Name">Nome <c>recurso:acao</c> ou família <c>prefixo-{param}:acao</c> (ADR-0043).</param>

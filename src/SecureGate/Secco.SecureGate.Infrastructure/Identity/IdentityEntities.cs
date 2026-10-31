@@ -45,6 +45,12 @@ public sealed class Role : IdentityRole<Guid>
 {
 	/// <summary>Tenant dono do role (ADR-0021: o mapeamento role→permissions é por tenant).</summary>
 	public Guid TenantId { get; set; }
+
+	/// <summary>
+	/// Perfil implícito do tenant (ADR-0056): todo membro ativo o tem sem atribuição. No máximo um por
+	/// tenant (índice único filtrado); nunca atribuído, nunca excluído e nunca existe no tenant de plataforma.
+	/// </summary>
+	public bool IsImplicit { get; set; }
 }
 
 /// <summary>Claim de usuário (tabela <c>tb_user_claims</c>).</summary>

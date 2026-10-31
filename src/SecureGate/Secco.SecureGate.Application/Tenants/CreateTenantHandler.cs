@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Application.Tenancy;
 using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Domain.TenantAdministration;
@@ -21,6 +22,7 @@ public sealed record CreateTenantCommand(string? Name, string? Slug, Guid? Creat
 /// </summary>
 public sealed class CreateTenantHandler(
 	ITenantRepository repository,
+	IRoleRepository roles,
 	ITenantAdminGrantRepository grants,
 	ITenantAccessScope accessScope,
 	TenantAdminOptions options)
@@ -68,6 +70,10 @@ public sealed class CreateTenantHandler(
 		var tenant = new Tenant(command.Name.Trim(), slug);
 
 		await repository.AddAsync(tenant, cancellationToken).ConfigureAwait(false);
+
+		// ADR-0056: o perfil implícito nasce com o tenant, no mesmo SaveChanges (mesma transação) — nos dois
+		// ramos abaixo. O tenant de plataforma nunca passa por aqui: nasce pelo seed de referência.
+		roles.StageImplicitRole(tenant.Id);
 
 		if (command.CreatedBy is { } createdBy)
 		{

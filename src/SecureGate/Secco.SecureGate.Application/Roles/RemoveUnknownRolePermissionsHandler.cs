@@ -17,7 +17,7 @@ public sealed record RemovedUnknownPermissionsDto(int RolesChanged, int Permissi
 /// <summary>
 /// Remove, nos perfis de UM tenant, as permissões que nenhum catálogo de produto declara (ADR-0039).
 /// Ato explícito do admin sobre um tenant por vez — publicar catálogo nunca faz isso sozinho, e nunca
-/// atravessa tenants. Perfis reservados não são tocados (seus poderes não vêm de permissão gravada).
+/// atravessa tenants. Papéis de instalação não são tocados (seus poderes não vêm de permissão gravada); o perfil implícito (ADR-0056) é limpo como qualquer perfil.
 /// Idempotente: a segunda chamada não encontra mais órfãs.
 /// </summary>
 public sealed class RemoveUnknownRolePermissionsHandler(IRoleRepository roles, IPermissionCatalogRepository catalog)
@@ -33,7 +33,7 @@ public sealed class RemoveUnknownRolePermissionsHandler(IRoleRepository roles, I
 		}
 
 		var candidates = (await roles.ListRolesAsync(tenantId, cancellationToken).ConfigureAwait(false))
-			.Where(role => !RoleInputRules.IsReservedName(role.Name) && role.Permissions.Count > 0)
+			.Where(role => !RoleInputRules.IsInstallationName(role.Name) && role.Permissions.Count > 0)
 			.ToList();
 
 		var unknown = (await catalog

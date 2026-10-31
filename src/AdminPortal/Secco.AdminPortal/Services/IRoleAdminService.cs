@@ -62,7 +62,7 @@ internal sealed class SecureGateRoleAdminService(ISecureGateClientFactory client
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 		var roles = await client.ListRolesAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
-		return [.. roles.Select(role => new RoleSummary(role.Name, [.. role.Permissions]))];
+		return [.. roles.Select(role => new RoleSummary(role.Name, [.. role.Permissions], role.IsImplicit))];
 	}
 
 	public async Task CreateRoleAsync(Guid tenantId, string name, CancellationToken cancellationToken = default)
@@ -90,7 +90,7 @@ internal sealed class SecureGateRoleAdminService(ISecureGateClientFactory client
 		var detail = await client.GetRoleAsync(tenantId, role, cancellationToken).ConfigureAwait(false);
 
 		return new RoleDetail(detail.Name, [.. detail.Permissions], detail.IsReserved, detail.MemberCount,
-			[.. detail.UnknownPermissions]);
+			[.. detail.UnknownPermissions], detail.IsImplicit);
 	}
 
 	public async Task DeleteRoleAsync(Guid tenantId, string role, CancellationToken cancellationToken = default)

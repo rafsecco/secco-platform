@@ -42,6 +42,21 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 	}
 
+	public void StageImplicitRole(Guid tenantId) =>
+		context.Roles.Add(NewImplicitRole(tenantId));
+
+	/// <summary>Perfil implícito do tenant (ADR-0056) — usado também pelo seed de referência.</summary>
+	/// <param name="tenantId">Tenant dono.</param>
+	internal static Role NewImplicitRole(Guid tenantId) => new()
+	{
+		Id = Guid.CreateVersion7(),
+		TenantId = tenantId,
+		Name = Application.SecureGatePlatform.TenantMemberRole,
+		NormalizedName = Normalize(Application.SecureGatePlatform.TenantMemberRole),
+		ConcurrencyStamp = Guid.NewGuid().ToString(),
+		IsImplicit = true,
+	};
+
 	public async Task<IReadOnlyList<RoleDto>> ListRolesAsync(Guid tenantId, CancellationToken cancellationToken = default)
 	{
 		var roles = await context.Roles
@@ -51,6 +66,7 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			.Select(r => new
 			{
 				r.Name,
+				r.IsImplicit,
 				Permissions = context.RoleClaims
 					.Where(c => c.RoleId == r.Id && c.ClaimType == PermissionClaimType && c.ClaimValue != null)
 					.OrderBy(c => c.ClaimValue)
@@ -59,7 +75,7 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			})
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
-		return [.. roles.Select(r => new RoleDto(r.Name!, r.Permissions))];
+		return [.. roles.Select(r => new RoleDto(r.Name!, r.Permissions, r.IsImplicit))];
 	}
 
 	public async Task<IReadOnlyList<string>?> GetPermissionsAsync(
@@ -152,7 +168,7 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 		return await context.Roles
 			.AsNoTracking()
 			.Where(r => r.TenantId == tenantId && r.NormalizedName == normalized)
-			.Select(r => new RoleSummaryData(r.Id, r.Name!, context.UserRoles.Count(ur => ur.RoleId == r.Id)))
+			.Select(r => new RoleSummaryData(r.Id, r.Name!, context.UserRoles.Count(ur => ur.RoleId == r.Id), r.IsImplicit))
 			.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 	}
 

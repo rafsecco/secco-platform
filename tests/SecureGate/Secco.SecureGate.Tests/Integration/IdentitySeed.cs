@@ -83,6 +83,27 @@ internal static class IdentitySeed
 		await context.SaveChangesAsync();
 	}
 
+	/// <summary>Perfil implícito do tenant (ADR-0056), como o seed de referência e a criação de tenant o gravam.</summary>
+	public static async Task ImplicitRoleAsync(SecureGateApiFactory factory, Guid tenantId, params string[] permissions)
+	{
+		using var scope = factory.Services.CreatePlatformScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+
+		var role = new Role
+		{
+			Id = Guid.CreateVersion7(),
+			TenantId = tenantId,
+			Name = SecureGatePlatform.TenantMemberRole,
+			NormalizedName = SecureGatePlatform.TenantMemberRole.ToUpperInvariant(),
+			ConcurrencyStamp = Guid.NewGuid().ToString(),
+			IsImplicit = true,
+		};
+		context.Roles.Add(role);
+		context.RoleClaims.AddRange(permissions.Select(permission =>
+			new RoleClaim { RoleId = role.Id, ClaimType = "permission", ClaimValue = permission }));
+		await context.SaveChangesAsync();
+	}
+
 	public static async Task<Guid> UserAsync(SecureGateApiFactory factory, Guid tenantId, string email, params string[] roles)
 	{
 		using var scope = factory.Services.CreatePlatformScope();

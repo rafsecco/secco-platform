@@ -18,6 +18,12 @@ public sealed class DeleteRoleHandler(IRoleRepository repository)
 			return Result.Failure(SecureGateErrors.Roles.NameInvalid);
 		}
 
+		// O implícito pertence ao tenant, não à instalação (ADR-0056): mensagem própria
+		if (RoleInputRules.IsImplicitName(name))
+		{
+			return Result.Failure(SecureGateErrors.Roles.CannotDeleteImplicit);
+		}
+
 		// Antes do banco: a lista de reservados é pública, e o de operador sustenta a instalação
 		if (RoleInputRules.IsReservedName(name))
 		{

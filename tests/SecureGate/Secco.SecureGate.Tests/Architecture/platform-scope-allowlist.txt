@@ -29,3 +29,4 @@ src/SecureGate/Secco.SecureGate.Infrastructure/TenantAdministration/AuthorityAud
 src/SecureGate/Secco.SecureGate.Infrastructure/Federation/DirectorySyncTenantSource.cs | ciclo de sincronização do diretório: lista os tenants com federação ativa e o que reconciliar, fora de requisição
 src/SecureGate/Secco.SecureGate.Infrastructure/Federation/DirectoryAccountStore.cs | provisionamento pelo diretório: e-mail é único na instalação, colisão pode ser com conta de outro tenant
 src/SecureGate/Secco.SecureGate.Infrastructure/Federation/DirectoryAccountStore.cs | login federado: acha os tenants cujo grupo de provisionamento pode criar a conta, antes de existir tenant
+src/SecureGate/Secco.SecureGate.Infrastructure/Seeding/SecureGateReferenceDataSeeder.cs | seed de referência: perfil implícito em todos os tenants existentes (ADR-0056)

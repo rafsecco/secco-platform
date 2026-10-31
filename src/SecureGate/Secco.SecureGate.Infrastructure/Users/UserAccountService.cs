@@ -233,8 +233,9 @@ internal sealed class UserAccountService(
 	}
 
 	public async Task<IReadOnlyList<string>> GetRolesInTenantAsync(
-		Guid userId, Guid tenantId, CancellationToken cancellationToken = default) =>
-		await (
+		Guid userId, Guid tenantId, CancellationToken cancellationToken = default)
+	{
+		var roles = await (
 			from userRole in context.UserRoles.AsNoTracking()
 			join role in context.Roles.AsNoTracking() on userRole.RoleId equals role.Id
 			where userRole.UserId == userId && role.TenantId == tenantId
@@ -242,6 +243,27 @@ internal sealed class UserAccountService(
 			select role.Name!)
 			.ToListAsync(cancellationToken)
 			.ConfigureAwait(false);
+
+		// ADR-0056: o perfil implícito do tenant entra para a conta dona e para o membro ativo, sem linha de
+		// atribuição. É ESTE o ponto que monta o papel de TODO token de pessoa (authorize, troca do code e
+		// renovação), então a renovação o mantém. O tenant de plataforma não tem o perfil, logo nada entra.
+		var implicitName = await context.Roles.AsNoTracking()
+			.Where(r => r.TenantId == tenantId && r.IsImplicit)
+			.Select(r => r.Name)
+			.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+
+		if (implicitName is not null
+			&& !roles.Contains(implicitName, StringComparer.Ordinal)
+			&& (await context.Users.AsNoTracking().AnyAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken).ConfigureAwait(false)
+				|| await context.TenantMemberships.AsNoTracking()
+					.AnyAsync(m => m.UserId == userId && m.TenantId == tenantId && m.IsActive, cancellationToken).ConfigureAwait(false)))
+		{
+			roles = [.. roles, implicitName];
+			roles.Sort(StringComparer.Ordinal);
+		}
+
+		return roles;
+	}
 
 	public Task<bool> HasRoleAsync(Guid tenantId, Guid userId, string roleName, CancellationToken cancellationToken = default)
 	{

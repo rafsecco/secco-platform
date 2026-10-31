@@ -156,6 +156,11 @@ public static class SecureGateErrors
 			Error.Conflict("SecureGate.Role.CannotDeleteReserved",
 				"Perfis reservados da plataforma não podem ser excluídos.");
 
+		/// <summary>O perfil implícito do tenant (ADR-0056) nunca é excluído: toda pessoa ativa o tem.</summary>
+		public static readonly Error CannotDeleteImplicit =
+			Error.Conflict("SecureGate.Role.CannotDeleteImplicit",
+				"O perfil implícito do tenant não pode ser excluído.");
+
 		/// <summary>
 		/// Excluir perfil com membros retiraria o acesso de todos num clique irreversível; esvaziar
 		/// primeiro é ato explícito.

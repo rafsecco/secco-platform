@@ -55,6 +55,9 @@ public sealed class SecureGateDevelopmentDataSeeder(
 			var tenant = new Tenant("Tenant de Desenvolvimento", "dev-alfa");
 			context.Entry(tenant).Property(nameof(Tenant.Id)).CurrentValue = DemoTenantId;
 			context.Tenants.Add(tenant);
+
+			// ADR-0056: o tenant nasce com o perfil implícito, como em qualquer caminho de criação
+			context.Roles.Add(Roles.RoleRepository.NewImplicitRole(DemoTenantId));
 			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 		}
 

@@ -286,7 +286,7 @@ else
     private IReadOnlyList<string> AvailableRoles =>
         _user is null
             ? []
-            : [.. _roles.Select(role => role.Name).Where(name => !_user.Roles.Contains(name, StringComparer.OrdinalIgnoreCase))];
+            : [.. _roles.Where(role => !role.IsImplicit).Select(role => role.Name).Where(name => !_user.Roles.Contains(name, StringComparer.OrdinalIgnoreCase))];
 
     protected override async Task OnParametersSetAsync()
     {

@@ -38,6 +38,14 @@ public static class SecureGatePlatform
 	public const string LegacyOperatorRole = "platform-operator";
 
 	/// <summary>
+	/// Perfil IMPLÍCITO de todo tenant exceto o de plataforma (ADR-0056): toda pessoa ativa do tenant do login o
+	/// recebe no token sem linha de atribuição. É um perfil de verdade em <c>tb_roles</c> (marcado
+	/// <c>fl_implicit</c>), com permissões editáveis pelo admin; o nome é reservado para que nenhum tenant crie,
+	/// atribua nem mapeie grupo para um perfil homônimo.
+	/// </summary>
+	public const string TenantMemberRole = "tenant-member";
+
+	/// <summary>
 	/// Conjunto READ-ONLY que o operador de instalação recebe em QUALQUER tenant (ADR-0024) —
 	/// política de IAM sobre o que o operador pode ler (exceção consciente à ADR-0003:
 	/// referencia nomes de permissão de produto, mas aqui é política, não a constante do produto).

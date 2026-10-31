@@ -515,6 +515,10 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("ds_concurrency_stamp");
 
+                    b.Property<bool>("IsImplicit")
+                        .HasColumnType("bit")
+                        .HasColumnName("fl_implicit");
+
                     b.Property<string>("Name")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)")
@@ -531,6 +535,11 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_roles");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_roles_id_fk_tenant_implicit")
+                        .HasFilter("[fl_implicit] = 1");
 
                     b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique()

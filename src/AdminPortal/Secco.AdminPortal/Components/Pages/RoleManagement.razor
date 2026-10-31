@@ -22,7 +22,16 @@ else if (_role is null || _members is null)
 else
 {
     <h1>Perfil @_role.Name</h1>
-    <p class="muted">@(_role.IsReserved ? "Reservado da plataforma · " : string.Empty)@_role.MemberCount membro(s)</p>
+    <p class="muted">
+        @if (_role.IsImplicit)
+        {
+            <span>Perfil implícito do tenant · todos os membros ativos</span>
+        }
+        else
+        {
+            <span>@(_role.IsReserved ? "Reservado da plataforma · " : string.Empty)@_role.MemberCount membro(s)</span>
+        }
+    </p>
 
     @if (_message is not null)
     {
@@ -126,6 +135,15 @@ else
         }
     </section>
 
+    @if (_role.IsImplicit)
+    {
+        <section>
+            <h2>Membros</h2>
+            <p class="muted">Toda pessoa ativa do tenant tem este perfil sem atribuição; ele não tem lista de membros e não pode ser atribuído nem removido. Para ver as pessoas, use a lista de usuários do tenant.</p>
+        </section>
+    }
+    else
+    {
     <section>
         <h2>Membros</h2>
         @if (_members.Items.Count == 0)
@@ -173,8 +191,9 @@ else
             </div>
         }
     </section>
+    }
 
-    @if (!_role.IsReserved)
+    @if (!_role.IsReserved && !_role.IsImplicit)
     {
         <section>
             <h2>Excluir perfil</h2>

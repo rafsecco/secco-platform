@@ -118,6 +118,54 @@ public sealed class SecureGateReferenceDataSeeder(
 		{
 			await SeedInstallationOperatorAsync(cancellationToken).ConfigureAwait(false);
 		}
+
+		// ADR-0056: o perfil implícito em todo tenant que já existe — antes dele só nasciam com o tenant
+		using (accessScope.EnterPlatform("seed de referência: perfil implícito em todos os tenants existentes (ADR-0056)"))
+		{
+			await SeedImplicitRolesAsync(cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	/// <summary>
+	/// Perfil implícito (ADR-0056) nos tenants existentes, exceto o de plataforma. Idempotente. Se algum tenant
+	/// já tem um perfil NÃO implícito com o nome reservado, FALHA listando os tenants, sem converter nada:
+	/// converter em silêncio daria as permissões daquele perfil a todas as pessoas do tenant (escalada).
+	/// </summary>
+	private async Task SeedImplicitRolesAsync(CancellationToken cancellationToken)
+	{
+		var normalized = SecureGatePlatform.TenantMemberRole.ToUpperInvariant();
+
+		var conflicts = await context.Roles
+			.AsNoTracking()
+			.Where(r => r.NormalizedName == normalized && !r.IsImplicit && r.TenantId != SecureGatePlatform.TenantId)
+			.Select(r => r.TenantId)
+			.Distinct()
+			.OrderBy(id => id)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		if (conflicts.Count > 0)
+		{
+			throw new InvalidOperationException(
+				$"O nome de perfil '{SecureGatePlatform.TenantMemberRole}' é reservado ao perfil implícito do tenant (ADR-0056), "
+				+ $"mas já existe um perfil comum com esse nome nos tenants: {string.Join(", ", conflicts)}. "
+				+ "Em cada um deles, crie outro perfil com as mesmas permissões e atribuições e exclua o antigo (nada é "
+				+ "convertido em silêncio); depois rode o migrate de novo.");
+		}
+
+		var missing = await context.Tenants
+			.AsNoTracking()
+			.Where(t => t.Id != SecureGatePlatform.TenantId
+				&& !context.Roles.Any(r => r.TenantId == t.Id && r.IsImplicit))
+			.Select(t => t.Id)
+			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+		if (missing.Count == 0)
+		{
+			return;
+		}
+
+		context.Roles.AddRange(missing.Select(Roles.RoleRepository.NewImplicitRole));
+		await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>
