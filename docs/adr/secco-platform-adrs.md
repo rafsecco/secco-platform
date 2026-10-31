@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-22 (ADR-0054 aceita)
+**Última atualização:** 2026-10-30 (ADR-0055 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -2065,6 +2065,76 @@ Alternativas avaliadas:
 - As trilhas das ADR-0031, 0044, 0047 e 0049 continuam no LogStream.
 - Contrato novo: `Secco.SecureGate.Client` ganha a leitura da trilha.
 - **Bateria negativa provada por mutação: 10 de 10 detectadas.** Cobre: escrita sem trilha, gravação que não acontece, falha de gravação virando sucesso, gravação sem ator, máquina gravada como pessoa, leitura pela máquina, leitura pelo admin de tenant, corte da retenção invertido, retenção fora da faixa aceita e ordem da leitura.
+
+---
+
+## ADR-0055: Diretório federado como fonte de quem entra, de quem sai e de qual perfil cada um tem — reconciliação e provisionamento
+
+**Status:** Aceita
+**Data:** 2026-10-30
+**Emenda:** ADR-0026 ("o AD nunca decide quem tem acesso") e ADR-0036 (agendamento da reconciliação)
+
+### Contexto
+
+A ADR-0036 decidiu a reconciliação grupo → perfil (no login e por job diário, fail-closed, sem retirar o último membro ativo de um perfil), mas a issue [#28](https://github.com/rafsecco/secco-platform/issues/28) só teve a primeira rodada: o cadastro do mapeamento. A reconciliação ficou no backlog por falta de caso real. A issue [#50](https://github.com/rafsecco/secco-platform/issues/50) traz o caso e vai além. Uma empresa que já organiza os departamentos como grupos do Entra ID quer que o diretório seja a fonte de **quem entra, de quem sai e de qual setor cada pessoa é**.
+
+Hoje cada funcionário precisa ser cadastrado no SecureGate antes do primeiro login. O efeito mais grave está no desligamento: o funcionário sai do diretório, mas a conta continua ativa, com os refresh tokens já emitidos valendo, até alguém lembrar de desativá-la.
+
+Duas condições da ADR-0036 também mudaram: o SecureGate roda em SQL Server e em Postgres (ADR-0018), e o Hangfire previsto para o job é só SQL Server.
+
+Alternativas avaliadas:
+
+- **Provisionar qualquer pessoa do diretório que fizer login.** O tenant passaria a aceitar a empresa inteira, inclusive convidados e contas de serviço. Descartada: só um grupo marcado pelo operador cria conta.
+- **Desativar qualquer conta federada do tenant fora do grupo.** Ligar o grupo desativaria de uma vez admins, contas de serviço e quem nunca foi sincronizado. Descartada: a sincronização só desativa a conta que ela criou ou adotou.
+- **Hangfire para o job.** Não roda em Postgres. Descartada para o SecureGate: `BackgroundService` com lease no próprio banco.
+- **E-mail da conta tirado do token do login.** O claim `email` do Entra não é garantidamente verificado. Descartada: nome e e-mail vêm do Graph, e o e-mail precisa estar num domínio permitido.
+
+### Decisão
+
+**Fonte e limites da delegação.** O diretório só passa a decidir depois de um ato explícito do operador no tenant: criar mapeamento grupo → perfil (ADR-0036), para perfis, e marcar um grupo mapeado como **grupo de provisionamento**, para contas. Há no máximo um grupo de provisionamento por tenant, e desmarcá-lo desliga o provisionamento e a desativação. O SecureGate continua dono do modelo de perfil e de permissão.
+
+**Reconciliação de perfis** (entrega A, fecha a #28):
+
+- **No login federado**, depois de autenticar, o SecureGate pergunta ao Graph a quais dos grupos mapeados do tenant a pessoa pertence (pertinência transitiva). Depois acrescenta os perfis que faltam (origem `Directory`, com o grupo de origem) e retira os de origem `Directory` que nenhum grupo justifica mais. Atribuição `Manual` nunca é tocada. Falha do Graph não muda nada, e o login segue com os perfis que já tinha.
+- **Por ciclo periódico** (padrão a cada 24 h), para cada tenant com federação ativa e mapeamento, o SecureGate lê os membros transitivos de cada grupo mapeado e reconcilia as contas do tenant vinculadas àquele diretório (`{tid}:{oid}`).
+- **Retirar perfil** revoga as sessões da pessoa (ADR-0032), como a retirada manual. Isso nunca acontece se deixar o perfil sem membro ativo.
+
+**Provisionamento** (entrega B, fecha a #50):
+
+- **Quem o grupo de provisionamento cobre:** cada membro sem conta ganha uma conta **dona** no tenant da federação.
+  - **Credencial:** só login federado (`LocalLoginEnabled = false`), sem senha e sem convite, já vinculada por `{tid}:{oid}`.
+  - **Dados:** nome e e-mail lidos do Graph.
+  - **Perfis:** recebe os perfis dos grupos mapeados a que pertence.
+- **Quando:** no ciclo e no primeiro login (JIT). No login, a conta só nasce se o `tid` for o diretório de um tenant cujo grupo de provisionamento contém a pessoa. Fora disso, vale a recusa genérica de hoje.
+- **E-mail:**
+  - **Domínio:** precisa estar num **domínio permitido** da federação do tenant, lista gerida pelo operador.
+  - **Colisão:** e-mail que já pertence a outra conta não é provisionado. O e-mail é único na instalação (ADR-0022), e o caminho para quem já existe em outro tenant é o vínculo da ADR-0040.
+  - **Rastro:** os dois casos vão à trilha, nunca falham em silêncio.
+- **Conta gerida pelo diretório:** a que a sincronização criou, ou a conta pré-existente já vinculada por `oid` àquele diretório que apareceu no grupo de provisionamento (adoção). Só essas a sincronização desativa ou reativa. Ficam fora a conta só local e a conta administrativa (operador, admin com concessão, operador designado — ADR-0044/0049).
+- **Desativação:** sair do grupo de provisionamento desativa a conta gerida (lockout, com revogação de sessões e refresh tokens, ADR-0032) e grava a **origem da desativação** (`Directory`). A conta não é excluída.
+- **Reativação:** voltar ao grupo reativa só a conta desativada pelo diretório. Desativação `Manual` nunca é desfeita pela sincronização.
+
+**Fail-closed, com freio de massa.**
+
+- **Leitura do Graph incompleta:** um erro, uma resposta que não fecha a paginação ou um consentimento retirado não criam, não retiram, não desativam e não reativam nada naquele tenant naquele ciclo.
+- **Volume anormal:** um ciclo que retiraria perfis ou desativaria contas acima de um limite configurável é abortado inteiro naquele tenant e vai à trilha. O padrão é 10% das contas geridas, com piso de 5 mudanças, para não travar tenant pequeno. Uma lista de membros vazia ou truncada pela Microsoft não pode derrubar a empresa.
+- **Último membro ativo:** a guarda da ADR-0036 vale também para desativar conta.
+
+**Agendamento.** `BackgroundService` no SecureGate com **lease** no banco de plataforma: uma linha por tarefa, com dono e expiração. Só uma instância roda o ciclo por vez (ADR-0035), e o ciclo é idempotente. Funciona nos dois engines.
+
+**Trilha.** Toda mudança vai à trilha de autoridade guardada no SecureGate (ADR-0054), com ator `directory`: perfil acrescentado ou retirado, conta criada, adotada, desativada ou reativada, e-mail recusado, ciclo abortado pelo freio, falha de leitura do Graph. O operador lê no AdminPortal.
+
+**Contrato.** A leitura de usuário e de membros diz se a conta é gerida pelo diretório e qual é a origem da desativação. A gestão do mapeamento ganha marcar e desmarcar o grupo de provisionamento. A federação ganha os domínios permitidos. Quem gere tudo isso é o operador (ADR-0051).
+
+### Consequências
+
+- O desligamento passa a seguir o diretório: sair do grupo de provisionamento desliga a conta e as sessões em até um ciclo. Excluir a pessoa no Entra também tira ela do grupo.
+- **Risco assumido:** quem administra o grupo no Entra (o TI do cliente, ou um dono de grupo delegado) passa a decidir quem tem conta no tenant. É a delegação que a #50 pede, condicionada ao ato explícito do operador e desfeita ao desmarcar o grupo. A documentação de deploy precisa dizer isso com todas as letras.
+- **Risco assumido:** uma conta **desabilitada** no Entra, mas ainda no grupo, continua ativa no SecureGate até sair do grupo. O login federado dela já falha no Entra, mas refresh token emitido continua valendo. Ler `accountEnabled` exige um consentimento mais amplo (`User.Read.All`), e fica para depois se houver pedido. A documentação recomenda tirar do grupo no desligamento.
+- **Consentimento:** a entrega A usa o `GroupMember.Read.All` da ADR-0036. A entrega B precisa também ler o perfil básico das pessoas (nome e e-mail, `User.ReadBasic.All`). Sem ele, o provisionamento recusa e registra; a reconciliação de perfis segue funcionando. As duas permissões precisam ser confirmadas contra um tenant Entra de teste, como a ADR-0036 já registrava: o Graph falso dos testes valida o formato da chamada, não o comportamento do serviço.
+- **Um diretório pode federar vários tenants.** Cada tenant tem o próprio grupo. Pessoa que está nos grupos de dois tenants ganha conta no primeiro que a provisionar; no segundo, a colisão de e-mail vai à trilha e o caminho é o vínculo (ADR-0040).
+- **Amplificação no Graph:** todo login de alguém do diretório sem conta consulta o Graph. Uma resposta negativa fica em cache curto por `oid`.
+- Contrato novo nas duas entregas: `Secco.SecureGate.Client` ganha minor em cada uma.
 
 ---
 
