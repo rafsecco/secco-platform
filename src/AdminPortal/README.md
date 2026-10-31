@@ -12,7 +12,7 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 - **Blazor Server** (render interativo por circuito) — C# ponta a ponta, reuso direto dos `Secco.*.Client`.
 - **Relying party OIDC**, não resource server: autentica via **authorization code + PKCE** contra o SecureGate (Fase 6.5), com sessão em **cookie**. Não usa `AddSeccoAuthentication()` (isso é para APIs que validam JWT); reusa apenas o cross-cutting não-de-auth do SDK (correlation, resilience, health).
-- **On-behalf-of**: chama as APIs de produto com o **access token do operador** (um `IOperatorTokenProvider` lê o token custodiado como claim no cookie de sessão e o anexa às chamadas). Cada ação carrega a identidade e as permissões reais do operador; a auditoria é a pessoa, não o AdminPortal.
+- **On-behalf-of**: chama as APIs de produto com o **access token do operador**. O token fica num **cofre no servidor** do [`Secco.SDK.RelyingParty`](../SDK/Secco.SDK.RelyingParty/README.md) (ADR-0046): o cookie leva só o id da sessão, a renovação acontece sob demanda com refresh rotacionado, e o `ISeccoUserContext` (implementado por `BlazorSeccoUserContext`) dá acesso ao token por circuito. Cada ação carrega a identidade e as permissões reais do operador; a auditoria é a pessoa, não o AdminPortal.
 - **Operador cross-tenant**: o usuário do AdminPortal é o operador de instalação — um usuário com o role `installation-operator` no tenant de plataforma. O SecureGate **filtra o scope `securegate:admin` no login** (só operadores o recebem, ADR-0020): login de usuário comum não escala para admin. As telas exigem a policy `Operator` (`RequireRole("installation-operator")`).
 
 ## O que está entregue
@@ -24,13 +24,13 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 **7.2 — administração de identidade**
 - Drill-in da lista de tenants para `/tenants/{id}` (página de gestão), com o contexto de tenant explícito na URL.
-- Seção **Usuários**: listar + criar (e-mail / senha inicial / roles).
-- Seção **Roles & permissões**: listar, criar role, e editar permissões em **texto livre** (`recurso:acao`, uma por linha) — enviadas no PUT idempotente do SecureGate.
+- Seção **Usuários**: listar + criar. Desde a ADR-0033 o operador **não escolhe senha de ninguém**: a conta nasce com convite por e-mail (senha local) ou só com o diretório corporativo.
+- Seção **Roles & permissões**: listar, criar role e editar permissões — hoje escolhidas no catálogo de permissões dos produtos (ver "Perfis e catálogo" abaixo), enviadas no PUT idempotente do SecureGate.
 - Um `ISecureGateClientFactory` central constrói o client autenticado (anexa o token do operador); erros do client (400/409) são traduzidos em mensagens amigáveis a partir do `detail` do ProblemDetails (ADR-0020).
 
 **7.3 — visualização de logs por tenant (ADR-0024)**
 - Página `/tenants/{id}/logs` (drill-in): busca paginada de `log-entries` de um tenant, com filtros de nível e mensagem, via `Secco.LogStream.Client` on-behalf-of o operador.
-- O `LogQueryService` anexa o **token do operador** e o header **`X-Tenant-Id`** do tenant alvo. O operador é **tenant-less** no token (ADR-0024): escolhe o tenant por requisição (caminho "sem claim → header" da ADR-0005), e a autorização de leitura vem do **read-set cross-tenant** que o SecureGate resolve para o papel `platform-operator` — somente leitura.
+- O `LogQueryService` anexa o **token do operador** e o header **`X-Tenant-Id`** do tenant alvo. O operador é **tenant-less** no token (ADR-0024): escolhe o tenant por requisição (caminho "sem claim → header" da ADR-0005), e a autorização de leitura vem do **read-set cross-tenant** que o SecureGate resolve para o papel `installation-operator` (antes `platform-operator`) — somente leitura.
 
 **7.4 — gestão de bancos de tenant**
 - Seção **Bancos** na página do tenant: lista os produtos que têm banco (a partir de `Products`) e cadastra/rotaciona a connection string via o PUT idempotente do SecureGate (produto em texto livre + input password).
@@ -45,7 +45,26 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 - Formulário **Novo tenant** (nome + slug) na lista `/tenants`, via `POST /api/v1/tenants` on-behalf-of o operador; leva à página do tenant criado. Nasce ativo, sem bancos e sem admin de tenant. Validação e slug repetido (`409`) vêm do SecureGate.
 
 **Federação (ADR-0026, ADR-0052)**
-- Seção **Federação (Entra ID)** na página do tenant: mostra directory id, situação e última alteração, e configura via o PUT idempotente do SecureGate (directory id + habilitada). Federação é só do operador (ADR-0052): o admin de tenant não tem esta rota.
+- Seção **Federação (Entra ID)** na página do tenant: mostra directory id, situação, domínios de e-mail permitidos e última alteração, e configura via o PUT idempotente do SecureGate. Federação é só do operador (ADR-0052): o admin de tenant não tem esta rota.
+- Seção **Grupos do diretório** (ADR-0036/0055): mapeamentos grupo do Entra → perfil e a marca de **grupo de provisionamento** (um por tenant, com confirmação — marcar passa ao diretório do cliente a decisão de quem tem conta). A página da pessoa indica conta gerida pelo diretório e a origem da desativação (`Manual`/`Directory`).
+
+**Pessoas (`/tenants/{id}/users/{userId}`)**
+- Perfis da pessoa (atribuir e retirar — retirar encerra as sessões, ADR-0032), **acesso efetivo** e administração de tenants (ADR-0044).
+- Credencial (ADR-0033): reenviar convite, redefinir senha (encerra as sessões na hora), ligar/desligar a senha local, resetar o segundo fator; vínculo com o diretório (desvincular, ADR-0026); ativar/desativar a conta (desativar encerra as sessões).
+- Operações de credencial e conta só aparecem no **tenant dono** da pessoa (ADR-0040).
+
+**Membros (ADR-0040)**
+- Seção **Membros** na página do tenant: incluir pessoa que já tem conta em outro tenant (pelo e-mail), suspender e remover o vínculo — as duas últimas encerram as sessões da pessoa em todos os sistemas.
+
+**Perfis e catálogo (ADR-0039, ADR-0043, ADR-0056)**
+- Página do perfil (`/tenants/{id}/roles/{role}`): permissões escolhidas no catálogo publicado pelos produtos (inclusive famílias como `setor-{param}:read`), permissões órfãs e limpeza, membros, exclusão.
+- Página **Catálogo de permissões** (`/permission-catalog`): o catálogo de cada produto.
+- O perfil implícito `tenant-member` aparece como "todos os membros ativos": permissões editáveis, sem lista de membros, sem exclusão e fora dos seletores de perfil atribuível.
+
+**Trilha (ADR-0054)**
+- Seção **Trilha** na página do tenant: o que as aplicações com `securegate:tenant-manage` escreveram no tenant, gravado pelo SecureGate antes de cada operação. Só o operador lê.
+
+**Ainda não tem tela** (a API existe, sob `securegate:admin` — ver o backlog do [roadmap](../../docs/roadmap.md)): ativar/desativar tenant, provisionamento de banco (ADR-0028) e clients de produto (ADR-0037).
 
 ## Configuração (`Secco:SecureGate`)
 
@@ -66,4 +85,4 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 
 ## Testes
 
-`tests/AdminPortal/Secco.AdminPortal.Tests` (ADR-0012): `OperatorTokenProvider` (custódia do token no principal), `SecureGateClientFactory` (encaminhamento do token on-behalf-of), serviços de tenant/usuário/role (projeção dos DTOs, client substituído) e smoke de composição (o app sobe e expõe o liveness sem depender do SecureGate no ar).
+`tests/AdminPortal/Secco.AdminPortal.Tests` (ADR-0012): `SecureGateClientFactory` (encaminhamento do token on-behalf-of), serviços de tenant/usuário/role/concessão (projeção dos DTOs, client substituído), consulta de logs (token + `X-Tenant-Id`), catálogo e entrada de famílias de permissão, provisionamento pelo diretório, trilha e smoke de composição (o app sobe e expõe o liveness sem depender do SecureGate no ar). A custódia do token é testada no próprio `Secco.SDK.RelyingParty`.

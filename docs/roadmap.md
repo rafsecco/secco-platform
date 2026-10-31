@@ -263,7 +263,7 @@ Cada uma tem uma condição que a destrava; nenhuma é "quando sobrar tempo".
 | Item | Gatilho |
 |---|---|
 | **Full-text search no LogStream** (hoje `LIKE`, ADR-0018) | demanda real de busca; implementação por provider |
-| **AdminPortal como console completo da instalação** (ADR-0051; criar tenant, gerir perfis e federação Entra já entregues): ativar/desativar tenant, provisionar banco (ADR-0028, script e automático), clients de produto (ADR-0037) e vínculos de pessoa (ADR-0040) — a API de todas já existe sob `securegate:admin` | primeira instalação real que precise criar um tenant além do de plataforma |
+| **AdminPortal como console completo da instalação** (ADR-0051; criar tenant, perfis, membros, federação Entra, grupos do diretório e trilha já entregues): ativar/desativar tenant, provisionar banco (ADR-0028, script e automático) e clients de produto (ADR-0037) — vínculos de pessoa (ADR-0040) já têm tela; a API de todas já existe sob `securegate:admin` | primeira instalação real que precise criar um tenant além do de plataforma |
 | **Webhook e dashboard do LogStream** | demanda real |
 | **Broker de mensageria** (ADR-0015 Camada 3) | caso real de multi-produtor/multi-consumidor; exige ADR nova |
 | **OpenTelemetry** substituindo o `TraceId` manual (ADR-0008) | quando observabilidade distribuída passar a doer |

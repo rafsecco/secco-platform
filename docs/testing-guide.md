@@ -23,9 +23,9 @@ dotnet build Secco.Platform.slnx --configuration Release
 dotnet test Secco.Platform.slnx --configuration Release --no-build
 ```
 
-**Esperado: 525 testes, 0 falhas.** O build deve terminar com **0 erros e nenhum aviso de compilador** — nos projetos de produção `TreatWarningsAsErrors` está ligado, então aviso vira erro; nos `*.Tests` está desligado de propósito, e ali sobram alguns avisos de analisador (CA*), que são conhecidos.
+**Esperado: 2.381 testes em 13 projetos, 0 falhas** (contagem de 2026-10-31). O build deve terminar com **0 erros e nenhum aviso de compilador** — nos projetos de produção `TreatWarningsAsErrors` está ligado, então aviso vira erro; nos `*.Tests` está desligado de propósito, e ali sobram alguns avisos de analisador (CA*), que são conhecidos.
 
-> `dotnet test` na solution roda os projetos **em paralelo**, e cada suíte de integração sobe o próprio container de SQL Server. Numa máquina folgada isso leva ~2 min; numa apertada, satura o Docker e falha em massa com erros de `Docker.DotNet` em milissegundos. Se isso acontecer, vá para a seção 4 — não é bug do código.
+> `dotnet test` na solution roda os projetos **em paralelo**, e cada suíte de integração sobe os próprios containers de SQL Server. Numa máquina folgada isso funciona; numa apertada — ou numa folgada disputando recursos com outros processos pesados —, satura o Docker. O sintoma é falha em massa vinda de `Docker.DotNet` ou de `SeccoSqlServerInstance` (`TaskCanceledException`, `DockerApiException`), nenhuma de asserção, às vezes com testhost que não termina. Não é bug do código; vá para a seção 3 ou 4. Em sequência, as três suítes de integração levam cerca de 4 minutos.
 
 ## 3. Parte por parte
 
@@ -36,6 +36,11 @@ dotnet test tests/SharedKernel/Secco.SharedKernel.Tests            --configurati
 dotnet test tests/SDK/Secco.SDK.EntityFrameworkCore.Tests          --configuration Release --no-build
 dotnet test tests/SDK/Secco.SDK.AspNetCore.Tests                   --configuration Release --no-build
 dotnet test tests/SDK/Secco.SDK.Testing.Tests                      --configuration Release --no-build
+dotnet test tests/SDK/Secco.SDK.ClientCredentials.Tests            --configuration Release --no-build
+dotnet test tests/SDK/Secco.SDK.Logging.Tests                      --configuration Release --no-build
+dotnet test tests/SDK/Secco.SDK.RelyingParty.Tests                 --configuration Release --no-build
+dotnet test tests/SDK/Secco.SDK.Email.Tests                        --configuration Release --no-build
+dotnet test tests/SDK/Secco.SDK.Imaging.Tests                      --configuration Release --no-build
 dotnet test tests/AdminPortal/Secco.AdminPortal.Tests              --configuration Release --no-build
 dotnet test tests/LogStream/Secco.LogStream.Tests                  --configuration Release --no-build
 dotnet test tests/SecureGate/Secco.SecureGate.Tests                --configuration Release --no-build
@@ -44,15 +49,20 @@ dotnet test tests/NotificationHub/Secco.NotificationHub.Tests      --configurati
 
 | Projeto | Testes | Docker? | O que prova |
 |---|---:|---|---|
-| `Secco.SharedKernel.Tests` | 99 | não | `Result<T>`, paginação, entidades base, claims/permissões |
-| `Secco.SDK.EntityFrameworkCore.Tests` | 49 | não | convention de nomenclatura (ADR-0017), seeding, seletor de provider |
-| `Secco.SDK.AspNetCore.Tests` | 79 | não | correlation, auth, tenancy, autorização, health, background jobs |
-| `Secco.SDK.Testing.Tests` | 25 | **não** | a própria base de testes: modo container vs externo, allowlist de nome de banco, chave aleatória por instância |
-| `Secco.AdminPortal.Tests` | 14 | não | token do operador, encaminhamento on-behalf-of, projeções |
-| `Secco.LogStream.Tests` | 72 | **sim** | ingestão, consulta, retenção, isolamento entre tenants, paridade PostgreSQL |
-| `Secco.SecureGate.Tests` | 146 | **sim** | OIDC, catálogo, autorização, login de usuário, federação Entra, cifragem, E2E cross-produto |
-| `Secco.NotificationHub.Tests` | 41 | **sim** | e-mail assíncrono (Hangfire real), inbox in-app, paridade PostgreSQL |
-| **Total** | **525** | | |
+| `Secco.SharedKernel.Tests` | 150 | não | `Result<T>`, paginação, entidades base, claims/permissões e famílias de permissão |
+| `Secco.SDK.EntityFrameworkCore.Tests` | 81 | não | convention de nomenclatura (ADR-0017), seeding, seletor de provider, cifragem, migração no primeiro uso |
+| `Secco.SDK.AspNetCore.Tests` | 99 | não | correlation, auth, tenancy, autorização, versão de sessão, health, background jobs |
+| `Secco.SDK.Testing.Tests` | 29 | **não** | a própria base de testes: modo container vs externo, allowlist de nome de banco, chave aleatória por instância |
+| `Secco.SDK.ClientCredentials.Tests` | 12 | não | token de máquina, cache e renovação |
+| `Secco.SDK.Logging.Tests` | 23 | não | sink `ILogger`: fila limitada, descarte contado, anti-recursão, lote por tenant |
+| `Secco.SDK.RelyingParty.Tests` | 72 | não | cofre do token, renovação, autenticação recente, token trocado, volta só para caminho local |
+| `Secco.SDK.Email.Tests` | 7 | não | adaptadores SMTP/SendGrid e validação da configuração |
+| `Secco.SDK.Imaging.Tests` | 61 | não | variantes, orientação EXIF, remoção de metadados, limites de entrada |
+| `Secco.AdminPortal.Tests` | 88 | não | encaminhamento on-behalf-of, serviços de identidade, catálogo, logs, provisionamento pelo diretório, trilha |
+| `Secco.LogStream.Tests` | 120 | **sim** | ingestão, consulta, auditoria síncrona, retenção, isolamento entre tenants, paridade PostgreSQL |
+| `Secco.SecureGate.Tests` | 1.542 | **sim** | OIDC, catálogo, autorização, login, credenciais, 2FA, sessões, federação e diretório, RLS, autoridades por mutação, E2E cross-produto |
+| `Secco.NotificationHub.Tests` | 97 | **sim** | e-mail assíncrono (Hangfire real), inbox in-app, Teams/Slack, lote, agendamento, paridade PostgreSQL |
+| **Total** | **2.381** | | |
 
 Para rodar um teste específico:
 
@@ -172,10 +182,10 @@ instalação real. Client que sair dessa lista é removido na próxima subida.
 
 1. **APIs de pé.** `https://localhost:4001/health/live` e `/health/ready` em cada API. O `live` responde se o processo está vivo; o `ready` roda os checks de verdade.
 2. **Contrato e documentação.** `https://localhost:4002/openapi/v1.json` (contrato cru, público por design) e `https://localhost:4002/scalar` (UI, só em DEV).
-3. **Login do operador.** Com o compound `Plataforma`, abra `https://localhost:5001` → redireciona para o SecureGate → entre com `operador@secco.local`. Deve voltar autenticado, com o badge do usuário no shell.
-4. **Tenants.** `/tenants` lista; o drill-in `/tenants/{id}` tem Usuários, Roles & permissões e Bancos. Connection string **nunca** aparece — é write-only por design (ADR-0020).
+3. **Login do operador.** Com o compound `Plataforma`, abra `https://localhost:5001` → redireciona para o SecureGate → entre com `operador@secco.local`. O segundo fator é **obrigatório para o operador** e o seed de DEV não o cadastra: no primeiro login a tela de cadastro TOTP (`/conta/dois-fatores`) aparece antes do code sair — leia o QR com um autenticador e guarde os códigos de recuperação. Depois disso deve voltar autenticado, com o badge do usuário no shell. Num banco de DEV recriado o cadastro some junto.
+4. **Tenants.** `/tenants` lista e cria; o drill-in `/tenants/{id}` tem Usuários, Membros, Admins do tenant, Trilha, Perfis, Bancos, Federação e Grupos do diretório. Connection string **nunca** aparece — é write-only por design (ADR-0020). Usuário novo recebe convite por e-mail (ADR-0033), visível no MailHog.
 5. **Logs cross-tenant.** `/tenants/{id}/logs` faz busca paginada no LogStream on-behalf-of o operador. É o caminho que a ADR-0024 desenhou: token sem `tenant_id`, tenant escolhido por requisição no header.
-6. **Revogação de permissão.** Tire uma permissão do role em `/tenants/{id}` e repita a operação correspondente: com o **mesmo token ainda válido**, ela deve passar a falhar em até um TTL de cache. É a razão de ser da ADR-0021.
+6. **Revogação de permissão.** Tire uma permissão do role em `/tenants/{id}` e repita a operação correspondente: com o **mesmo token ainda válido**, ela deve passar a falhar em até um TTL de cache. É a razão de ser da ADR-0021. O mesmo vale para a sessão (ADR-0032): desative a conta ou retire um perfil dela na página da pessoa, e o token em uso deixa de valer em até um TTL de cache.
 7. **E-mail do NotificationHub.** `POST /api/v1/notifications` com `channels: ["email"]`; o e-mail aparece na UI do MailHog em `http://localhost:8025`. Com `["in_app"]`, confira em `GET /api/v1/in-app-notifications`.
 8. **Isolamento entre tenants.** Repita uma consulta trocando o `X-Tenant-Id`: o dado de um tenant nunca deve aparecer no outro (ADR-0005).
 

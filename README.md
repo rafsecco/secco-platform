@@ -21,18 +21,19 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 
 | Produto | Descrição | Pacote / status |
 |---|---|---|
-| [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.7.4** |
-| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.9.7** |
+| [Secco.SharedKernel](src/SharedKernel/Secco.SharedKernel/README.md) | Primitivas compartilhadas (Result, paginação, entidades base, claims/permissions) | `Secco.SharedKernel` **0.7.6** |
+| [Secco.SDK.AspNetCore](src/SDK/Secco.SDK.AspNetCore/README.md) | Cross-cutting de runtime (auth, correlation, tenancy, health, resiliência, autorização, OpenAPI) | `Secco.SDK.AspNetCore` **0.9.9** |
 | [Secco.SDK.EntityFrameworkCore](src/SDK/Secco.SDK.EntityFrameworkCore/README.md) | `SeccoDbContext`, nomenclatura de banco por convention, seeding e cifragem de segredo em repouso (ADR-0025) | `Secco.SDK.EntityFrameworkCore` **0.6.0** |
 | [Secco.SDK.RelyingParty](src/SDK/Secco.SDK.RelyingParty/README.md) | Custódia do token da pessoa para relying party on-behalf-of (cofre no servidor, renovação, handler de Bearer) | `Secco.SDK.RelyingParty` **0.2.1** |
-| [Secco.SDK.ClientCredentials](src/SDK/Secco.SDK.ClientCredentials/README.md) | Client credentials OAuth 2 entre produtos (token de máquina, pacote fino) | `Secco.SDK.ClientCredentials` **0.1.18** |
+| [Secco.SDK.ClientCredentials](src/SDK/Secco.SDK.ClientCredentials/README.md) | Client credentials OAuth 2 entre produtos (token de máquina, pacote fino) | `Secco.SDK.ClientCredentials` **0.1.20** |
 | [Secco.SDK.Email](src/SDK/Secco.SDK.Email/README.md) | Porta de e-mail + adaptadores SMTP/SendGrid (ADR-0033) | `Secco.SDK.Email` **0.1.0** |
+| [Secco.SDK.Imaging](src/SDK/Secco.SDK.Imaging/README.md) | Tratamento seguro de imagem enviada por usuário (variantes sem metadados, ADR-0042) | `Secco.SDK.Imaging` **0.1.0** |
 | [Secco.SDK.Logging](src/SDK/Secco.SDK.Logging/README.md) | Sink `ILogger` → LogStream (`AddLogStream()`, ADR-0008) | `Secco.SDK.Logging` **0.2.0** |
 | [Secco.SDK.Testing](src/SDK/Secco.SDK.Testing/README.md) | Base das factories de teste de integração (SQL Server real, tokens, tenancy/permissões) | `Secco.SDK.Testing` **0.1.1** |
 | [Secco.LogStream](src/LogStream/README.md) | Logging & Observability (produto de referência) | Disponível · client `Secco.LogStream.Client` **0.4.0** |
-| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.22.0** |
-| [Secco.AdminPortal](src/AdminPortal/README.md) | Console de operação (Blazor Server, relying party OIDC) | Disponível (aplicação, não pacote) |
-| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail + inbox in-app) | Disponível · client `Secco.NotificationHub.Client` **0.6.0** |
+| [Secco.SecureGate](src/SecureGate/README.md) | Identity & Access Management: OIDC (client credentials + login de usuário + federação Entra ID), catálogo de tenants, autorização Role+Permission | Disponível · client `Secco.SecureGate.Client` **0.24.0** |
+| [Secco.AdminPortal](src/AdminPortal/README.md) | O console de operação da instalação (Blazor Server, relying party OIDC, ADR-0051) | Disponível (aplicação, não pacote) |
+| [Secco.NotificationHub](src/NotificationHub/README.md) | Envio de notificações multi-canal (e-mail, inbox in-app, Teams, Slack; lote e agendamento) | Disponível · client `Secco.NotificationHub.Client` **0.6.0** |
 | [Secco.Templates](templates/README.md) | `dotnet new secco-service` | `Secco.Templates` **0.4.0** |
 
 ## Começando
@@ -66,7 +67,7 @@ dotnet build Secco.Platform.slnx --configuration Release   # warnings = erros
 dotnet test Secco.Platform.slnx                            # integração usa Testcontainers (Docker)
 ```
 
-São **1.180 testes** em 11 projetos. Máquina com Docker apertado, execução por projeto, validação do template e roteiro de teste manual: veja o **[guia de testes](docs/testing-guide.md)**.
+São **2.381 testes** em 13 projetos. Máquina com Docker apertado, execução por projeto, validação do template e roteiro de teste manual: veja o **[guia de testes](docs/testing-guide.md)**.
 
 ### Ambiente local
 

@@ -50,7 +50,7 @@ Versões publicadas atuais:
 | `Secco.NotificationHub.Client` | 0.6.0 | Client do NotificationHub |
 | `Secco.Templates` | 0.4.0 | `dotnet new secco-service` |
 
-> **`Secco.SDK.Logging` 0.1.0 não serve mais.** Ela foi empacotada quando o `Secco.LogStream.Client` ainda era 0.2.0 e chama um método que a 0.3.0 renomeou. Com os dois pacotes na versão mais recente, o despacho do lote falha e o dispatcher engole a exceção por design (ADR-0008) — o sintoma é log que não chega, sem nada cair. Suba para a 0.1.1.
+> **`Secco.SDK.Logging` 0.1.0 não serve mais.** Ela foi empacotada quando o `Secco.LogStream.Client` ainda era 0.2.0 e chama um método que a 0.3.0 renomeou. Com os dois pacotes na versão mais recente, o despacho do lote falha e o dispatcher engole a exceção por design (ADR-0008) — o sintoma é log que não chega, sem nada cair. Use a 0.1.1 ou posterior (a atual é a 0.2.0).
 
 ```bash
 dotnet add package Secco.SDK.AspNetCore
@@ -69,7 +69,7 @@ builder.Services.AddSeccoOpenApi();    // OpenAPI com as convenções da platafo
 
 var app = builder.Build();
 
-app.UseSeccoPlatform();                // ordem fixa: correlation → auth → tenancy
+app.UseSeccoPlatform();                // ordem fixa: correlation → auth → tenancy → authorization
 app.MapSeccoPlatform();                // health checks + defaults
 app.MapOpenApi().AllowAnonymous();
 

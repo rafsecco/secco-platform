@@ -82,8 +82,8 @@ Fluxo **authorization code + PKCE** (obrigatório, inclusive para clients públi
 | `/login` (Razor Page) | Tela server-rendered, self-contained, antiforgery |
 
 - **Tenant no login** (ADR-0040): email/username é único **global** e a pessoa pode ser membro de vários tenants (`tb_tenant_memberships`). O tenant do token vem da **aplicação**: client interativo vinculado a tenant (criado por `/api/v1/tenants/{id}/clients` com `type: authorization_code`) emite para ele; client sem vínculo (`SecureGate:PlatformClients`, como o AdminPortal) emite para o tenant **dono** da conta (`User.TenantId`). O token leva só os perfis da pessoa no tenant do login; sem vínculo ativo, a aplicação recebe `access_denied` e a sessão segue valendo nas outras (SSO). Vínculos em `/api/v1/tenants/{id}/members`; senha, segundo fator, login externo e ativação da conta só pelo tenant dono. Sem seletor de tenant.
-- **Provisionamento** (`POST /api/v1/tenants/{tenantId}/users`, scope `securegate:admin`): usuários são criados por administradores (hash de senha do Identity, roles atribuídos no tenant), **sem auto-registro público** (ADR-0020). Senhas nunca voltam nas respostas.
-- **Segurança**: PKCE obrigatório, bloqueio contra força bruta (lockout do Identity), `LocalRedirect` (sem open redirect), mensagens de login genéricas (sem enumeração de e-mail), re-derivação de claims no refresh (usuário desativado/role alterado reflete em ≤ vida do refresh).
+- **Provisionamento** (`POST /api/v1/tenants/{tenantId}/users`, scope `securegate:admin`): usuários são criados por administradores, com roles atribuídos no tenant, **sem auto-registro público** (ADR-0020). Desde a ADR-0033 a conta nasce **sem senha** — a pessoa a define pelo convite (ver "Ciclo de credencial") —, e o diretório federado também pode criar contas (ADR-0055).
+- **Segurança**: PKCE obrigatório, bloqueio contra força bruta (lockout do Identity), `LocalRedirect` (sem open redirect), mensagens de login genéricas (sem enumeração de e-mail), re-derivação de claims a cada emissão. Bloqueio, desativação e tenant desativado são checados por uma guarda única (`AccountStateGuard`) na renovação, na troca do code e na elevação.
 - **Consent**: implícito para clients first-party confiáveis (AdminPortal) — a tela de consent entra quando houver um client de terceiros real.
 
 ### Provisionamento de banco de tenant (ADR-0028, issue #3)
@@ -101,7 +101,6 @@ O usuário criado recebe **`db_owner` no próprio banco e nada no servidor** (DD
 
 O painel de status **não usa credencial privilegiada**: sonda cada banco com a conexão de runtime do próprio tenant e responde alcançável/inalcançável com classificação de falha, nunca com a exceção crua.
 
-
 ### Isolamento de tenant no banco (ADR-0041, issue #32)
 
 Toda leitura do `SecureGateDbContext` passa por um **escopo de acesso** da requisição (`ITenantAccessScope`): **nenhum**, **tenant X** ou **plataforma**. Filtros nomeados do EF restringem as entidades de tenant (perfis, permissões, atribuições, vínculos, bancos, federação, mapeamento de grupo, elevação e a pessoa, que aparece se for dona ou membro) ao estado do escopo. **Sem escopo, nada aparece.**
@@ -113,14 +112,62 @@ Para quem mexe no código:
 - `IgnoreQueryFilters()` é proibido (teste de arquitetura).
 - O `SaveChanges` recusa gravar entidade de outro tenant, ou de qualquer tenant sem escopo.
 - Testes que montam dado pelo DI usam `Services.CreatePlatformScope()`.
-- **Row-Level Security (rodada 2):** o mesmo escopo vira contexto de sessão do banco, e a política `pol_tenant_isolation` aplica os mesmos filtros no banco — inclusive para SQL cru. A credencial de runtime (`SecureGate:Database:ConnectionString`) **não pode ser dona do banco** (o SecureGate recusa subir fora de Development); o `migrate` usa `SecureGate:Database:MigrationConnectionString`. Ver dado numa ferramenta SQL exige antes `EXEC sp_set_session_context N'secco_mode', N'platform'`. Migration que altere coluna de tabela protegida chama `TenantRowLevelSecurity.Drop` no começo e `Create` no fim.
+- **Row-Level Security (rodada 2):** o mesmo escopo vira contexto de sessão do banco, e a política `pol_tenant_isolation` aplica os mesmos filtros no banco — inclusive para SQL cru. A credencial de runtime (`SecureGate:Database:ConnectionString`) **não pode ser dona do banco** (o SecureGate recusa subir fora de Development); o `migrate` usa `SecureGate:Database:MigrationConnectionString`. Ver dado numa ferramenta SQL exige antes `EXEC sp_set_session_context N'secco_mode', N'platform'`. Migration que altere coluna de tabela protegida chama `TenantRowLevelSecurity.Drop` no começo e `Create` no fim — na revisão do helper que vale para aquela migration (a revisão 3 cobre as 11 tabelas de hoje).
+
+### Sessões e revogação (ADR-0032)
+
+Todo token de pessoa leva `sver`, um hash do `SecurityStamp` da conta. Os produtos (JwtBearer do SDK) e as aplicações de cookie conferem essa versão em `GET /api/v1/authorization/users/{sub}/session-version`, com cache curto e **fail-closed**. Encerrar sessões (`POST .../users/{userId}/sessions/revoke`), desativar a conta, retirar perfil e as operações de credencial movem o stamp e revogam os tokens do OpenIddict: os tokens em uso deixam de valer em até um TTL de cache. O access token padrão vive 5 minutos.
+
+### Clients OAuth (ADR-0037)
+
+- **De produto**, vinculados a um tenant: `POST/GET/PUT/DELETE /api/v1/tenants/{tenantId}/clients[/{clientId}]` e `.../rotate-secret` (`securegate:admin`). O token de `client_credentials` leva `tenant_id`, e o SDK recusa com `400` um `X-Tenant-Id` de outro tenant. Só escopos de API de produto. O tipo `authorization_code` cria client de login vinculado ao tenant (ADR-0040), recusado no tenant de plataforma.
+- **De plataforma**, sem tenant: só por `SecureGate:PlatformClients`, reconciliados pelo seed de referência (nunca no startup).
+
+### Catálogo de permissões (ADR-0039, ADR-0043)
+
+Cada produto publica o próprio catálogo no `migrate` (`PUT /api/v1/permission-catalog/{product}`, escopo `permissions:<produto>`). `SetRolePermissions` recusa permissão **acrescentada** que não esteja em catálogo nenhum; o catálogo aceita famílias (`setor-{param}:read`, um placeholder só, no fim do recurso), casadas por comparação ordinal sem regex. Publicar nunca toca perfil: o que saiu do catálogo aparece em `unknownPermissions` e sai pela limpeza por tenant. Produto adotante entra em `SecureGate:PermissionCatalog:Products`.
+
+### Perfil implícito do tenant (ADR-0056, issue #51)
+
+Todo tenant, menos o de plataforma, tem o perfil **`tenant-member`**, marcado `isImplicit`. O SecureGate o acrescenta aos papéis do token de quem é dono ou membro ativo do tenant do login, também na renovação; client de máquina e token sem tenant não o recebem. As permissões se editam como as de qualquer perfil (`PUT .../roles/tenant-member/permissions`). O nome é reservado: criar, atribuir, mapear grupo ou dar a client um perfil com esse nome é recusado, e excluir responde `409`. Nasce com o tenant; o seed de referência o cria nos tenants existentes e **falha** se encontrar um perfil comum com o mesmo nome (converter daria as permissões dele a todos).
+
+### Elevação por token exchange (ADR-0031)
+
+Para ler log cross-tenant a partir de um produto tenant-scoped, a pessoa troca o próprio token (RFC 8693, no `/connect/token`) por um token **sem `tenant_id`**, com só o papel `installation-log-reader`, escopo só `logstream`, sem refresh, TTL padrão de 15 min (teto 60) e não re-trocável. Exige concessão explícita (`PUT/GET/DELETE /api/v1/tenants/{tenantId}/users/{userId}/elevation`, `securegate:admin`) e auditoria síncrona e fail-closed no LogStream do tenant de quem elevou, pela identidade `installation-auditor` — sem `SecureGate:Audit` configurado, a elevação fica desligada.
+
+### Gestão do próprio tenant por máquina (ADR-0052, ADR-0054)
+
+Escopo `securegate:tenant-manage`, só para client de produto `client_credentials` vinculado a tenant e concedido só pelo operador. Abre 15 rotas de pessoas e perfis, listadas em `tests/SecureGate/Secco.SecureGate.Tests/Architecture/tenant-manage-routes.txt`, sempre no tenant do `tenant_id` do token, nunca no de plataforma e nunca contra conta administrativa. Toda escrita grava antes, síncrona e fail-closed, em `tb_authority_audit_entries` no banco do SecureGate (ator = client); o operador lê em `GET /api/v1/tenants/{tenantId}/audit-entries`. Federação, clients, vínculos, convite, senha e segundo fator ficam com o operador. No consumidor: `AddSecureGateTenantManagementClient()`.
+
+### Diretório do tenant para produto (ADR-0045)
+
+`GET /api/v1/directory/people[/{userId}]`, escopo `directory:read`, só para client de produto `client_credentials` vinculado a tenant: devolve nome, e-mail e status das pessoas (donas e membros ativos) do tenant do token, sem nenhum dado de segurança.
+
+### Autoridades por concessão — congeladas (ADR-0044, 0047, 0048, 0049, 0050)
+
+Valem como estão, mas a ADR-0051 as congelou: nenhuma capacidade nova entra nelas.
+
+- **Admin de tenant on-behalf-of a pessoa** (ADR-0044/0047/0048): concessão por (pessoa, tenant administrado) em `PUT .../tenants/{tenantId}/admins/{userId}` e concessão de criação em `/api/v1/tenant-creators`, ambas só do operador; escopo `securegate:tenant-admin` só de client de plataforma, emitido com concessão + segundo fator + auditoria configurada; rotas abertas uma a uma (`tenant-admin-routes.txt`).
+- **Operador designado** (ADR-0049): contas de outro tenant em `SecureGate:InstallationOperators:Accounts` trocam o token por um de operador, sem tenant e sem refresh, até 15 min, exigindo 2FA e autenticação recente com `amr=mfa`. Toda escrita vai à trilha.
+
+### Reconciliação grupo do Entra → perfil (ADR-0036, ADR-0055 entrega A, issue #28)
+
+O operador lê os grupos do diretório do tenant (`GET .../entra/groups`, client HTTP próprio contra o Graph, sem `Microsoft.Graph`) e mapeia grupo → perfil (`POST/GET/DELETE .../entra/group-role-mappings`). No **login federado** e num **ciclo periódico** (`SecureGate:DirectorySync:IntervalHours`, lease em `tb_background_leases`, uma instância por vez), o SecureGate acrescenta os perfis que faltam com origem `Directory` e retira os de origem `Directory` que nenhum grupo justifica mais — atribuição `Manual` nunca é tocada. Retirar revoga as sessões e nunca esvazia um perfil. Leitura do Graph com erro ou incompleta não muda nada (fail-closed), e um ciclo que retiraria acima do freio de massa é abortado. Tudo vai à trilha de autoridade com ator `directory`.
 
 ## Configuração
 
 | Seção | Uso |
 |---|---|
-| `SecureGate:Database` | `Provider` (`SqlServer` padrão / `Postgres`, ADR-0018) + `ConnectionString` do banco de plataforma |
-| `SecureGate:Tokens:AccessTokenLifetimeMinutes` | Vida do access token (padrão 60) |
+| `SecureGate:Database` | `Provider` (`SqlServer` padrão / `Postgres`, ADR-0018), `ConnectionString` (runtime — não pode ser dona do banco fora de Development) e `MigrationConnectionString` (dona, usada pelo `migrate`) (ADR-0038/0041) |
+| `SecureGate:Tokens:AccessTokenLifetimeMinutes` | Vida do access token (padrão 5, ADR-0032) |
+| `SecureGate:PlatformClients` | Clients sem tenant (serviços da instalação, AdminPortal), reconciliados pelo seed de referência — criados, atualizados e removidos (ADR-0037) |
+| `SecureGate:PermissionCatalog:Products` | Produtos adotantes que publicam catálogo de permissões; o seed registra `permissions:<produto>` para cada um (ADR-0039) |
+| `SecureGate:EntraId` | App registration multi-tenant da plataforma (`ClientId`/`ClientSecret`). Ausente = federação desligada (ADR-0026) |
+| `SecureGate:DirectorySync` | Ciclo de reconciliação e provisionamento pelo diretório: `IntervalHours` (24, faixa 1–168), `MaxRemovalRatio` (0.10), `MinRemovalsBeforeBrake` (5) (ADR-0055) |
+| `SecureGate:Elevation:TokenLifetimeMinutes` | TTL do token de elevação (padrão 15, teto 60) (ADR-0031) |
+| `SecureGate:InstallationOperators` | `Accounts` (ids de conta designadas operador), `TokenLifetimeMinutes` e `RecentAuthenticationMinutes` (padrão 10, teto 15) (ADR-0049) |
+| `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` | Teto de tenants criados por pessoa com concessão de criação (padrão 20) (ADR-0047) |
+| `SecureGate:Audit:RetentionDays` | Retenção da trilha de autoridade guardada no SecureGate (1–3650; sem valor, não expira) (ADR-0054) |
 | `SecureGate:Signing:CertificatePath/CertificatePassword` | Certificado PKCS#12 — obrigatório em Production |
 | `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
 | `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
@@ -214,6 +261,8 @@ Ou em container: `docker compose --profile securegate up -d --build` (`http://lo
 
 `tests/SecureGate/Secco.SecureGate.Tests` — Testcontainers (ADR-0012): schema ADR-0017 provado por INFORMATION_SCHEMA, fluxo client credentials/JWKS, gestão e catálogo com autorização por scope, cache TTL/stale do client, gestão de roles/usuários, os E2E cross-produto (o LogStream valida token do SecureGate **e resolve tenant pelo catálogo remoto sem nenhum tenant em configuração**, inclusive migrations via `ListAsync`) e o **E2E de login**: authorization code + PKCE ponta a ponta pelo fluxo real do navegador (desafio → login antiforgery → code → troca com `code_verifier` → userinfo → refresh).
 
-## Operador de plataforma (ADR-0023/0024)
+Além disso: testes de arquitetura (escopo de plataforma, `IgnoreQueryFilters` proibido, listas versionadas de rotas de `tenant-admin` e `tenant-manage`), RLS nos dois engines, e as baterias negativas das ADRs de autoridade, provadas por mutação.
 
-O [`Secco.AdminPortal`](../AdminPortal/README.md) consome o SecureGate on-behalf-of um **operador de instalação** (usuário com o role `installation-operator` num tenant de plataforma; renomeado de `platform-operator` na ADR-0030). Duas mecânicas sustentam isso: o `/connect/authorize` **filtra o scope `securegate:admin`** — só operadores o recebem (login comum não escala, ADR-0023); e o token do operador é **tenant-less** (escolhe o tenant por requisição via `X-Tenant-Id`) e recebe um **read-set cross-tenant** somente leitura, resolvido no SecureGate para o papel `installation-operator` (ADR-0024).
+## Operador da instalação (ADR-0023/0024/0030/0051)
+
+O [`Secco.AdminPortal`](../AdminPortal/README.md) — *o* console de operação da instalação (ADR-0051) — consome o SecureGate on-behalf-of um **operador de instalação** (usuário com o role `installation-operator` num tenant de plataforma; renomeado de `platform-operator` na ADR-0030). Duas mecânicas sustentam isso: o `/connect/authorize` **filtra o scope `securegate:admin`** — só operadores o recebem (login comum não escala, ADR-0023); e o token do operador é **tenant-less** (escolhe o tenant por requisição via `X-Tenant-Id`) e recebe um **read-set cross-tenant** somente leitura, resolvido no SecureGate para o papel `installation-operator` (ADR-0024).

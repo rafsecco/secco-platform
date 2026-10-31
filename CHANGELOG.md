@@ -12,6 +12,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) e AdminPortal — textos de sessão alinhados à ADR-0032
+
+Nenhum comportamento muda. Os `summary` de `DeactivateUser` e `RemoveUserRole` no `openapi.json`, e as mensagens correspondentes na página da pessoa no AdminPortal, diziam que a sessão terminava "na próxima renovação de token". Desde a ADR-0032 as duas operações revogam as sessões na hora. O `Secco.SecureGate.Client` muda só no comentário gerado e sai na próxima versão.
+
 ### SecureGate (serviço) — perfil implícito do tenant (issue #51, ADR-0056) — ação necessária no `migrate`
 
 Não é pacote: muda o serviço SecureGate. O contrato novo é só acréscimo, e o client está na seção abaixo (0.24.0).

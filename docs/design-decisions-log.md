@@ -1861,3 +1861,57 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - A recusa do tenant de plataforma só é alcançável com client gravado direto no banco (a API não o cria); a mutação sobreviveu até entrar um teste que simula essa gravação.
 - Client só com `logstream` recebe `401` no SecureGate (audiência errada), não `403`: o teste negativo precisou de um escopo com a audiência do próprio SecureGate para exercitar a autorização.
 - Mutação: 10 de 10; a segunda camada do filtro da `AllowTenantAdmin` só é detectável junto com a policy, por desenho.
+
+## Delegação na trilha de auditoria (ADR-0053, 2026-10-22)
+
+> **Bloco consolidado a posteriori** (revisão geral de 2026-10-31) a partir da seção "Alternativas avaliadas" da ADR-0053 — as
+> perguntas desta rodada não foram transcritas na época. As opções abaixo são as que a ADR
+> registra, não uma reconstrução de memória.
+
+**A pergunta.** O backlog tratava a coluna `OnBehalfOfId` do `AuditEntry` como urgente, "antes de a trilha ganhar volume". Precisa mesmo ser agora?
+
+**O que mudou a leitura.** Coluna anulável é barata nos dois engines; o custo real de adiar é a **história partida** — cada produto inventando a própria chave no `Metadata`. E um "em nome de" declarado pelo chamador é só a palavra dele.
+
+**Escolha:** chave fixa `onBehalfOf` no `Metadata`, só a partir de token assinado (`sub` com `act`). Descartados: a coluna agora, sem consumidor (YAGNI — entra com o "acessar como", #6); e não decidir nada.
+
+## Trilha da gestão do próprio tenant no SecureGate (issue #48, ADR-0054, 2026-10-22)
+
+> **Bloco consolidado a posteriori** (revisão geral de 2026-10-31) a partir da seção "Alternativas avaliadas" da ADR-0054.
+
+**A pergunta.** A ADR-0052 gravava a trilha no LogStream do tenant e, com isso, tornou o LogStream obrigatório para quem administra o próprio tenant. A trilha não pode sair nem virar falha-aberta; onde ela mora?
+
+**Escolha:** no banco do SecureGate (`tb_authority_audit_entries`), fonte única, síncrona e fail-closed antes da operação, leitura só do operador. Descartados:
+- *Falha-aberta sem LogStream:* perde a proteção contra o secret roubado.
+- *Local só quando o tenant não tem LogStream:* a mesma autoridade ficaria com trilha em dois lugares.
+- *Local mais cópia de melhor esforço no LogStream:* duas fontes que podem divergir.
+- *Na mesma transação da operação:* exigiria refazer todos os handlers (`UserManager`, revogador do OpenIddict, vários `SaveChanges`); "auditar antes" já garante que nada acontece sem registro.
+- *Mover também as trilhas das ADR-0044/0047/0049:* estão congeladas pela ADR-0051.
+
+**Risco assumido:** a credencial de runtime do SecureGate alcança a tabela. Uma credencial sem `DELETE` nela fica para ADR própria, se a ameaça justificar.
+
+## Diretório federado como fonte de quem entra, sai e de qual perfil tem (issues #28/#50, ADR-0055, 2026-10-30)
+
+> **Bloco consolidado a posteriori** (revisão geral de 2026-10-31) a partir da seção "Alternativas avaliadas" da ADR-0055.
+
+**A pergunta.** A reconciliação grupo → perfil da ADR-0036 esperava caso real; a #50 trouxe o caso e foi além — o diretório decidindo também quem tem conta e quem é desligado.
+
+**Escolha:** delegação só depois de ato explícito do operador (mapeamento para perfis; grupo de provisionamento, um por tenant, para contas), fail-closed na leitura do Graph e freio de massa. Descartados:
+- *Provisionar qualquer pessoa do diretório que fizer login:* o tenant aceitaria a empresa inteira, convidados e contas de serviço incluídos.
+- *Desativar qualquer conta federada fora do grupo:* ligar o grupo derrubaria admins, contas de serviço e quem nunca foi sincronizado — só a conta criada ou adotada pela sincronização é desativada.
+- *Hangfire para o ciclo:* não roda em Postgres; virou `BackgroundService` com lease no banco de plataforma.
+- *E-mail tirado do token do login:* o claim `email` do Entra não é garantidamente verificado; nome e e-mail vêm do Graph, com domínio permitido.
+
+**Riscos assumidos:** quem administra o grupo no Entra decide quem tem conta no tenant; conta desabilitada no Entra mas ainda no grupo segue ativa até sair dele (ler `accountEnabled` exigiria `User.Read.All`).
+
+## Perfil implícito do tenant (issue #51, ADR-0056, 2026-10-31)
+
+> **Bloco consolidado a posteriori** (revisão geral de 2026-10-31) a partir da seção "Alternativas avaliadas" da ADR-0056.
+
+**A pergunta.** Como dar a todo usuário ativo do tenant uma permissão (ler "Manuais" na Intranet) sem depender de alguém lembrar de atribuir um perfil a cada pessoa nova — o workaround falhava em silêncio.
+
+**Escolha:** perfil `tenant-member`, real e marcado implícito, acrescentado pelo SecureGate ao token de pessoa com tenant de login. Descartados:
+- *O resolvedor do SDK une as permissões a todo token com tenant:* atualizaria o SDK em todos os produtos e obrigaria o resolvedor a distinguir pessoa de máquina — um client de máquina herdaria o perfil se a distinção falhasse. Quem sabe quem é pessoa é o emissor.
+- *Enumerar todos os membros ativos na lista de membros do perfil:* lista grande, e a tela ofereceria "remover perfil" a quem não pode perdê-lo; a lista volta vazia e a marca `isImplicit` diz o resto.
+- *`409` na lista de membros do perfil implícito:* honesto, mas quebra a tela genérica de perfil.
+
+**Risco assumido:** permissão de escrita dada ao perfil vale para todos do tenant — decisão do admin, registrada na trilha.
