@@ -516,7 +516,7 @@
         "tags": [
           "Tenants"
         ],
-        "summary": "Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo.",
+        "summary": "Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo. Os domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055) vão aqui: omitidos, a lista atual é mantida; vazios, é esvaziada.",
         "operationId": "UpsertTenantFederation",
         "parameters": [
           {
@@ -3026,6 +3026,102 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/entra/group-role-mappings/{mappingId}/provisioning": {
+      "put": {
+        "tags": [
+          "Federation"
+        ],
+        "summary": "Marca o grupo do mapeamento como o grupo de provisionamento do tenant (ADR-0055): quem está nele ganha conta, e quem sai dele tem a conta gerida desativada. No máximo um por tenant. Idempotente.",
+        "operationId": "MarkProvisioningGroup",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mappingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Federation"
+        ],
+        "summary": "Desmarca o grupo de provisionamento: o provisionamento e a desativação pelo diretório deixam de valer no tenant (ADR-0055). As contas existentes não mudam. Idempotente.",
+        "operationId": "UnmarkProvisioningGroup",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mappingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tenants/{tenantId}/clients": {
       "post": {
         "tags": [
@@ -3755,6 +3851,10 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "isProvisioningGroup": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -4391,6 +4491,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "directoryManaged": {
+            "type": "boolean",
+            "default": false
+          },
+          "deactivationOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -4706,6 +4816,15 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "allowedEmailDomains": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4779,6 +4898,15 @@
               "null",
               "boolean"
             ]
+          },
+          "allowedEmailDomains": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -4873,6 +5001,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "directoryManaged": {
+            "type": "boolean",
+            "default": false
+          },
+          "deactivationOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -4924,6 +5062,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "directoryManaged": {
+            "type": "boolean",
+            "default": false
+          },
+          "deactivationOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }

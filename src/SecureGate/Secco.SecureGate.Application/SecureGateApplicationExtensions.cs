@@ -120,6 +120,10 @@ public static class SecureGateApplicationExtensions
 		// Reconciliação de perfis com o diretório (ADR-0055, entrega A): usada pelo login federado e pelo ciclo
 		services.AddScoped<Federation.DirectoryRoleReconciler>();
 
+		// Provisionamento de contas pelo diretório (ADR-0055, entrega B): ciclo e primeiro login
+		services.AddScoped<Federation.DirectoryAccountProvisioner>();
+		services.AddScoped<Federation.SetProvisioningGroupHandler>();
+
 		return services;
 	}
 }

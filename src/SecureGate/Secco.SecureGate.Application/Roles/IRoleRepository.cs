@@ -17,6 +17,8 @@ public sealed record RoleSummaryData(Guid Id, string Name, int MemberCount);
 /// <param name="DisplayName">Nome de exibição, opcional (#30).</param>
 /// <param name="Origin">Origem da atribuição a este perfil (issue #28).</param>
 /// <param name="SourceGroupId">Grupo do Entra ID que originou, quando <paramref name="Origin"/> é <c>Directory</c>.</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055).</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta.</param>
 public sealed record RoleMemberData(
 	Guid UserId,
 	string Email,
@@ -24,7 +26,9 @@ public sealed record RoleMemberData(
 	DateTimeOffset? LockoutEnd,
 	string? DisplayName = null,
 	RoleAssignmentOrigin Origin = RoleAssignmentOrigin.Manual,
-	Guid? SourceGroupId = null);
+	Guid? SourceGroupId = null,
+	bool DirectoryManaged = false,
+	DeactivationOrigin DeactivationOrigin = DeactivationOrigin.None);
 
 /// <summary>Resultado da exclusão de perfil.</summary>
 public enum DeleteRoleOutcome

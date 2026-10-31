@@ -1,6 +1,7 @@
 using Secco.SecureGate.Application.Roles;
 using Secco.SecureGate.Application.Sessions;
 using Secco.SecureGate.Application.Tenancy;
+using Secco.SecureGate.Application.Tenants;
 using Secco.SecureGate.Application.Users;
 using Secco.SharedKernel.Results;
 
@@ -18,7 +19,7 @@ public enum DirectorySyncOutcome
 	/// <summary>A leitura do Graph falhou ou veio incompleta: nada mudou (fail-closed).</summary>
 	ReadFailed,
 
-	/// <summary>Retiradas acima do limite do freio de massa: nada mudou naquele tenant.</summary>
+	/// <summary>Retiradas de perfil ou desativações acima do limite do freio de massa: nada mudou naquele tenant.</summary>
 	AbortedByBrake,
 }
 
@@ -29,36 +30,50 @@ public enum DirectorySyncOutcome
 /// <param name="Blocked">Retiradas barradas pela guarda do último membro ativo.</param>
 /// <param name="Unrecorded">Mudanças NÃO feitas porque a trilha não pôde ser gravada (fail-closed).</param>
 /// <param name="ErrorCode">Código do erro traduzido do Graph, quando <see cref="Outcome"/> é <c>ReadFailed</c>.</param>
+/// <param name="Created">Contas criadas pelo provisionamento (entrega B).</param>
+/// <param name="Adopted">Contas adotadas.</param>
+/// <param name="Deactivated">Contas desativadas por terem saído do grupo de provisionamento.</param>
+/// <param name="Reactivated">Contas reativadas por terem voltado ao grupo.</param>
+/// <param name="DeactivationsBlocked">Desativações barradas (conta administrativa ou último membro ativo).</param>
+/// <param name="Refused">Pessoas recusadas por e-mail (sem e-mail utilizável, domínio fora da lista, e-mail em uso).</param>
 public sealed record DirectorySyncResult(
 	DirectorySyncOutcome Outcome,
 	int Added = 0,
 	int Removed = 0,
 	int Blocked = 0,
 	int Unrecorded = 0,
-	string? ErrorCode = null)
+	string? ErrorCode = null,
+	int Created = 0,
+	int Adopted = 0,
+	int Deactivated = 0,
+	int Reactivated = 0,
+	int DeactivationsBlocked = 0,
+	int Refused = 0)
 {
 	/// <summary>Nada foi feito: tenant fora de alcance.</summary>
 	public static readonly DirectorySyncResult Skipped = new(DirectorySyncOutcome.Skipped);
 }
 
 /// <summary>
-/// Reconciliação de perfis com o diretório federado (ADR-0055, entrega A; ADR-0036). Serviço único, usado pelo
-/// login federado (uma conta) e pelo ciclo periódico (o tenant inteiro): dado quem pertence a quais grupos
-/// mapeados, acrescenta os perfis que faltam (origem <c>Directory</c>) e retira os de origem <c>Directory</c> que
-/// nenhum grupo mapeado justifica mais.
+/// Reconciliação com o diretório federado (ADR-0055). Serviço único, usado pelo login federado (uma conta) e pelo
+/// ciclo periódico (o tenant inteiro). Entrega A: dado quem pertence a quais grupos mapeados, acrescenta os perfis que
+/// faltam (origem <c>Directory</c>) e retira os de origem <c>Directory</c> que nenhum grupo mapeado justifica mais.
+/// Entrega B: no ciclo, o grupo de provisionamento também cria, adota, desativa e reativa contas
+/// (<see cref="DirectoryAccountProvisioner"/>).
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
 /// <item><b>Manual nunca é tocado.</b> Se a atribuição já existe como manual e o grupo também a justifica, fica
 /// manual.</item>
-/// <item><b>Fail-closed.</b> Leitura do Graph que falha ou vem incompleta: nada muda. Retiradas acima do freio de
-/// massa: nada muda no tenant (nem as inclusões).</item>
-/// <item><b>Trilha antes da mudança.</b> Cada inclusão/retirada só acontece depois de a trilha local (ADR-0054) ser
-/// gravada; falhou a trilha, não muda.</item>
+/// <item><b>Fail-closed.</b> Leitura do Graph que falha ou vem incompleta: nada muda. Retiradas de perfil ou
+/// desativações de conta acima do freio de massa: nada muda no tenant (nem inclusões, nem criações).</item>
+/// <item><b>Trilha antes da mudança.</b> Cada mudança só acontece depois de a trilha local (ADR-0054) ser gravada;
+/// falhou a trilha, não muda.</item>
 /// <item><b>Último membro ativo.</b> Nunca retira o perfil da última conta ativa que o tem.</item>
 /// <item><b>Retirada revoga sessões</b> (ADR-0032) da conta, antes de a atribuição sair.</item>
 /// <item><b>Perfil reservado</b> nunca é atribuído, mesmo que um mapeamento aponte para ele; e o tenant de
 /// plataforma nunca é reconciliado.</item>
+/// <item><b>Sem User.ReadBasic.All</b> o provisionamento se recusa (e registra) e a reconciliação de perfis segue.</item>
 /// </list>
 /// Cada chamada entra no escopo do tenant (ADR-0041) — nunca em modo plataforma.
 /// </remarks>
@@ -69,11 +84,14 @@ public sealed class DirectoryRoleReconciler(
 	IDirectorySyncAuditor auditor,
 	ISessionRevoker revoker,
 	ITenantAccessScope accessScope,
-	DirectorySyncOptions options)
+	DirectorySyncOptions options,
+	DirectoryAccountProvisioner provisioner,
+	ITenantRepository tenants)
 {
 	/// <summary>
 	/// Reconcilia UMA conta, no login federado dela: pergunta ao Graph a quais grupos mapeados ela pertence. Sem
-	/// mapeamento no tenant não há chamada ao Graph.
+	/// mapeamento no tenant não há chamada ao Graph. No login só entra e sai perfil: criar e desativar conta é do ciclo
+	/// (e a criação no primeiro login é do <see cref="DirectoryAccountProvisioner.ProvisionOnLoginAsync"/>).
 	/// </summary>
 	/// <param name="tenantId">Tenant dono da conta e da federação.</param>
 	/// <param name="directoryId">Directory id da federação.</param>
@@ -108,10 +126,9 @@ public sealed class DirectoryRoleReconciler(
 			memberOf = check.Value;
 		}
 
-		return await ApplyAsync(
+		return await ApplyForLoginAsync(
 			tenantId,
 			directoryId,
-			DirectorySyncTrigger.Login,
 			mapped,
 			[userId],
 			new Dictionary<Guid, IReadOnlySet<Guid>> { [userId] = memberOf },
@@ -120,7 +137,8 @@ public sealed class DirectoryRoleReconciler(
 
 	/// <summary>
 	/// Reconcilia o tenant inteiro, no ciclo: lê os membros transitivos de cada grupo mapeado e reconcilia as contas
-	/// do tenant vinculadas ao diretório. Qualquer leitura que falhe aborta o tenant sem mudar nada.
+	/// do tenant vinculadas ao diretório; com grupo de provisionamento marcado, também cria, adota, desativa e reativa
+	/// contas. Qualquer leitura que falhe aborta o tenant sem mudar nada.
 	/// </summary>
 	/// <param name="tenantId">Tenant.</param>
 	/// <param name="directoryId">Directory id da federação.</param>
@@ -137,10 +155,44 @@ public sealed class DirectoryRoleReconciler(
 
 		var mapped = await LoadMappingsAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
+		// O grupo de provisionamento é um dos mapeados (ADR-0055): desmarcá-lo desliga criar, adotar, desativar e
+		// reativar, e a reconciliação de perfis segue como na entrega A
+		var provisioningGroupId = mapped.FirstOrDefault(m => m.IsProvisioningGroup)?.EntraGroupId;
+
 		var membersByGroup = new Dictionary<Guid, HashSet<Guid>>();
+		IReadOnlyList<DirectoryPerson>? provisioningPeople = null;
 
 		foreach (var groupId in mapped.Select(m => m.EntraGroupId).Distinct())
 		{
+			if (groupId == provisioningGroupId)
+			{
+				// Um passo só: os membros COM o perfil básico (nome e e-mail). Sem o consentimento de leitura de
+				// perfil (User.ReadBasic.All) o Graph recusa — o provisionamento se recusa e registra, e os perfis
+				// seguem pela leitura só de ids logo abaixo
+				var profiled = await directory.GetGroupMembersWithProfileAsync(directoryId, groupId, cancellationToken)
+					.ConfigureAwait(false);
+
+				if (profiled.IsSuccess)
+				{
+					provisioningPeople = profiled.Value;
+					membersByGroup[groupId] = [.. profiled.Value.Select(person => person.ObjectId)];
+
+					continue;
+				}
+
+				if (profiled.Error.Type != ErrorType.Forbidden)
+				{
+					return await ReadFailedAsync(tenantId, directoryId, DirectorySyncTrigger.Cycle, profiled.Error, cancellationToken)
+						.ConfigureAwait(false);
+				}
+
+				_ = await auditor.RecordAsync(
+					new DirectorySyncAuditRecord(
+						tenantId, directoryId, DirectorySyncActions.ReadFailed, DirectorySyncTrigger.Cycle,
+						ErrorCode: profiled.Error.Code, Category: DirectorySyncCategories.Accounts),
+					cancellationToken).ConfigureAwait(false);
+			}
+
 			var members = await directory.GetGroupMemberIdsAsync(directoryId, groupId, cancellationToken).ConfigureAwait(false);
 
 			if (members.IsFailure)
@@ -154,27 +206,100 @@ public sealed class DirectoryRoleReconciler(
 
 		var accounts = await store.ListLinkedAccountsAsync(tenantId, directoryId, cancellationToken).ConfigureAwait(false);
 
-		if (accounts.Count == 0)
+		if (accounts.Count == 0 && provisioningPeople is null)
 		{
 			return new DirectorySyncResult(DirectorySyncOutcome.Completed);
 		}
 
+		var userIds = accounts.Select(account => account.UserId).ToList();
+
 		var groupsByUser = accounts.ToDictionary(
 			account => account.UserId,
-			account => (IReadOnlySet<Guid>)membersByGroup
-				.Where(group => group.Value.Contains(account.ObjectId))
-				.Select(group => group.Key)
-				.ToHashSet());
+			account => (IReadOnlySet<Guid>)GroupsOf(membersByGroup, account.ObjectId));
 
-		return await ApplyAsync(
-			tenantId,
-			directoryId,
-			DirectorySyncTrigger.Cycle,
-			mapped,
-			[.. accounts.Select(account => account.UserId)],
-			groupsByUser,
-			cancellationToken).ConfigureAwait(false);
+		// 1) Planejar — nada muda ainda: o freio de massa olha o plano inteiro (perfis E contas) antes de qualquer mudança
+		var rolePlan = await PlanAsync(tenantId, mapped, userIds, groupsByUser, cancellationToken).ConfigureAwait(false);
+		var accountPlan = ProvisioningPlan.Empty;
+
+		if (provisioningPeople is not null)
+		{
+			var federation = await tenants.GetFederationAsync(tenantId, cancellationToken).ConfigureAwait(false);
+
+			accountPlan = await provisioner
+				.PlanAsync(accounts, provisioningPeople, federation?.GetAllowedEmailDomains() ?? [], cancellationToken)
+				.ConfigureAwait(false);
+		}
+
+		var mappedGroups = mapped.Select(m => m.EntraGroupId).ToHashSet();
+		var removals = rolePlan.Where(change => change.Kind == ChangeKind.Remove).ToList();
+
+		var rolesBase = removals.Count > 0
+			? await ExceedsBrakeAsync(tenantId, removals, mappedGroups, cancellationToken).ConfigureAwait(false)
+			: null;
+		var accountsBase = await provisioner.ExceedsBrakeAsync(tenantId, accountPlan, cancellationToken).ConfigureAwait(false);
+
+		if (rolesBase is not null || accountsBase is not null)
+		{
+			// Qualquer freio aborta o tenant inteiro: nem cria, nem desativa, nem reativa, nem mexe em perfil
+			if (rolesBase is { } rolesTotal)
+			{
+				_ = await auditor.RecordAsync(
+					new DirectorySyncAuditRecord(
+						tenantId, directoryId, DirectorySyncActions.CycleAborted, DirectorySyncTrigger.Cycle,
+						Count: CountedForBrake(removals, mappedGroups), Total: rolesTotal,
+						Category: DirectorySyncCategories.Roles),
+					cancellationToken).ConfigureAwait(false);
+			}
+
+			if (accountsBase is { } accountsTotal)
+			{
+				_ = await auditor.RecordAsync(
+					new DirectorySyncAuditRecord(
+						tenantId, directoryId, DirectorySyncActions.CycleAborted, DirectorySyncTrigger.Cycle,
+						Count: accountPlan.Deactivations.Count, Total: accountsTotal,
+						Category: DirectorySyncCategories.Accounts),
+					cancellationToken).ConfigureAwait(false);
+			}
+
+			return new DirectorySyncResult(DirectorySyncOutcome.AbortedByBrake);
+		}
+
+		// 2) Contas primeiro: quem acabou de ganhar conta precisa existir para receber os perfis do grupo
+		var provisioned = await provisioner.ApplyAsync(tenantId, directoryId, accountPlan, cancellationToken).ConfigureAwait(false);
+
+		if (provisioned.CreatedAccounts.Count > 0)
+		{
+			foreach (var created in provisioned.CreatedAccounts)
+			{
+				groupsByUser[created.UserId] = GroupsOf(membersByGroup, created.ObjectId);
+			}
+
+			rolePlan.AddRange(await PlanAsync(
+				tenantId,
+				mapped,
+				[.. provisioned.CreatedAccounts.Select(created => created.UserId)],
+				groupsByUser,
+				cancellationToken).ConfigureAwait(false));
+		}
+
+		// 3) Perfis
+		var applied = await ExecuteAsync(tenantId, directoryId, DirectorySyncTrigger.Cycle, rolePlan, cancellationToken)
+			.ConfigureAwait(false);
+
+		return applied with
+		{
+			Unrecorded = applied.Unrecorded + provisioned.Unrecorded,
+			Created = provisioned.Created,
+			Adopted = provisioned.Adopted,
+			Deactivated = provisioned.Deactivated,
+			Reactivated = provisioned.Reactivated,
+			DeactivationsBlocked = provisioned.DeactivationsBlocked,
+			Refused = provisioned.Refused,
+		};
 	}
+
+	private static HashSet<Guid> GroupsOf(Dictionary<Guid, HashSet<Guid>> membersByGroup, Guid objectId) =>
+		membersByGroup.Where(group => group.Value.Contains(objectId)).Select(group => group.Key).ToHashSet();
 
 	/// <summary>
 	/// Mapeamentos utilizáveis: perfil reservado nunca é atribuído, mesmo que um mapeamento antigo aponte para ele
@@ -205,10 +330,41 @@ public sealed class DirectoryRoleReconciler(
 		return new DirectorySyncResult(DirectorySyncOutcome.ReadFailed, ErrorCode: error.Code);
 	}
 
-	private async Task<DirectorySyncResult> ApplyAsync(
+	/// <summary>Login de uma conta: planeja, passa pelo freio de perfis e executa.</summary>
+	private async Task<DirectorySyncResult> ApplyForLoginAsync(
 		Guid tenantId,
 		Guid directoryId,
-		DirectorySyncTrigger trigger,
+		IReadOnlyList<GroupRoleMappingRecord> mapped,
+		IReadOnlyList<Guid> userIds,
+		IReadOnlyDictionary<Guid, IReadOnlySet<Guid>> groupsByUser,
+		CancellationToken cancellationToken)
+	{
+		var plan = await PlanAsync(tenantId, mapped, userIds, groupsByUser, cancellationToken).ConfigureAwait(false);
+		var mappedGroups = mapped.Select(m => m.EntraGroupId).ToHashSet();
+		var removals = plan.Where(change => change.Kind == ChangeKind.Remove).ToList();
+
+		if (removals.Count > 0
+			&& await ExceedsBrakeAsync(tenantId, removals, mappedGroups, cancellationToken).ConfigureAwait(false) is { } total)
+		{
+			_ = await auditor.RecordAsync(
+				new DirectorySyncAuditRecord(
+					tenantId,
+					directoryId,
+					DirectorySyncActions.CycleAborted,
+					DirectorySyncTrigger.Login,
+					Count: CountedForBrake(removals, mappedGroups),
+					Total: total,
+					Category: DirectorySyncCategories.Roles),
+				cancellationToken).ConfigureAwait(false);
+
+			return new DirectorySyncResult(DirectorySyncOutcome.AbortedByBrake);
+		}
+
+		return await ExecuteAsync(tenantId, directoryId, DirectorySyncTrigger.Login, plan, cancellationToken).ConfigureAwait(false);
+	}
+
+	private async Task<List<PlannedChange>> PlanAsync(
+		Guid tenantId,
 		IReadOnlyList<GroupRoleMappingRecord> mapped,
 		IReadOnlyList<Guid> userIds,
 		IReadOnlyDictionary<Guid, IReadOnlySet<Guid>> groupsByUser,
@@ -217,7 +373,6 @@ public sealed class DirectoryRoleReconciler(
 		var current = (await store.ListAssignmentsAsync(tenantId, userIds, cancellationToken).ConfigureAwait(false))
 			.ToLookup(assignment => assignment.UserId);
 
-		var mappedGroups = mapped.Select(m => m.EntraGroupId).ToHashSet();
 		var plan = new List<PlannedChange>();
 
 		foreach (var userId in userIds)
@@ -255,20 +410,16 @@ public sealed class DirectoryRoleReconciler(
 			}
 		}
 
-		var removals = plan.Where(change => change.Kind == ChangeKind.Remove).ToList();
+		return plan;
+	}
 
-		if (removals.Count > 0 && await ExceedsBrakeAsync(tenantId, removals, mappedGroups, cancellationToken).ConfigureAwait(false) is { } total)
-		{
-			var counted = CountedForBrake(removals, mappedGroups);
-
-			_ = await auditor.RecordAsync(
-				new DirectorySyncAuditRecord(
-					tenantId, directoryId, DirectorySyncActions.CycleAborted, trigger, Count: counted, Total: total),
-				cancellationToken).ConfigureAwait(false);
-
-			return new DirectorySyncResult(DirectorySyncOutcome.AbortedByBrake);
-		}
-
+	private async Task<DirectorySyncResult> ExecuteAsync(
+		Guid tenantId,
+		Guid directoryId,
+		DirectorySyncTrigger trigger,
+		List<PlannedChange> plan,
+		CancellationToken cancellationToken)
+	{
 		int added = 0, removed = 0, blocked = 0, unrecorded = 0;
 
 		foreach (var userId in plan.Select(change => change.UserId).Distinct())

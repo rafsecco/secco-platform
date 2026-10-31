@@ -191,6 +191,14 @@ internal sealed partial class DirectorySyncService(
 					break;
 			}
 
+			if (result.Outcome == DirectorySyncOutcome.Completed
+				&& result.Created + result.Adopted + result.Deactivated + result.Reactivated + result.DeactivationsBlocked + result.Refused > 0)
+			{
+				LogTenantProvisioned(
+					logger, tenant.TenantId, result.Created, result.Adopted, result.Deactivated, result.Reactivated,
+					result.DeactivationsBlocked, result.Refused);
+			}
+
 			return true;
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -282,6 +290,13 @@ internal sealed partial class DirectorySyncService(
 		Level = LogLevel.Information,
 		Message = "Sincronização do tenant {TenantId}: {Added} acrescentado(s), {Removed} retirado(s), {Blocked} barrado(s), {Unrecorded} sem trilha.")]
 	private static partial void LogTenantReconciled(ILogger logger, Guid tenantId, int added, int removed, int blocked, int unrecorded);
+
+	[LoggerMessage(
+		EventId = 3511,
+		Level = LogLevel.Information,
+		Message = "Provisionamento do tenant {TenantId}: {Created} conta(s) criada(s), {Adopted} adotada(s), {Deactivated} desativada(s), {Reactivated} reativada(s), {Blocked} desativação(ões) barrada(s), {Refused} pessoa(s) recusada(s).")]
+	private static partial void LogTenantProvisioned(
+		ILogger logger, Guid tenantId, int created, int adopted, int deactivated, int reactivated, int blocked, int refused);
 
 	[LoggerMessage(
 		EventId = 3510,

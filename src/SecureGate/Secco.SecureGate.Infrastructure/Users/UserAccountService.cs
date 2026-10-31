@@ -72,7 +72,17 @@ internal sealed class UserAccountService(
 			user.DisplayName, MembershipStates.Owner, user.TenantId);
 	}
 
-	public async Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default)
+	// A porta é a da decisão HUMANA: a origem da desativação é Manual (ADR-0055)
+	public Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default) =>
+		SetActiveAsync(tenantId, userId, active, DeactivationOrigin.Manual);
+
+	/// <summary>
+	/// O mesmo lockout para qualquer origem: a desativação pela sincronização com o diretório (ADR-0055) usa
+	/// exatamente a operação da manual — só a origem gravada difere. <paramref name="origin"/> só vale ao desativar;
+	/// ativar sempre limpa.
+	/// </summary>
+	internal async Task<bool> SetActiveAsync(
+		Guid tenantId, Guid userId, bool active, DeactivationOrigin origin)
 	{
 		var user = await userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
 
@@ -94,6 +104,7 @@ internal sealed class UserAccountService(
 			}
 
 			EnsureSucceeded(await userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false));
+			await SetDeactivationOriginAsync(user, DeactivationOrigin.None).ConfigureAwait(false);
 		}
 		else
 		{
@@ -102,9 +113,25 @@ internal sealed class UserAccountService(
 			// desativação valer de fato.
 			EnsureSucceeded(await userManager.SetLockoutEnabledAsync(user, true).ConfigureAwait(false));
 			EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue).ConfigureAwait(false));
+			await SetDeactivationOriginAsync(user, origin).ConfigureAwait(false);
 		}
 
 		return true;
+	}
+
+	/// <summary>
+	/// Grava quem desativou a conta (ADR-0055). A desativação manual é decisão humana e o admin que reativa assume
+	/// a conta: nos dois casos a origem fica registrada na mesma operação do lockout.
+	/// </summary>
+	private async Task SetDeactivationOriginAsync(User user, DeactivationOrigin origin)
+	{
+		if (user.DeactivationOrigin == origin)
+		{
+			return;
+		}
+
+		user.DeactivationOrigin = origin;
+		EnsureSucceeded(await userManager.UpdateAsync(user).ConfigureAwait(false));
 	}
 
 	private static void EnsureSucceeded(IdentityResult result)
@@ -355,7 +382,10 @@ internal sealed class UserAccountService(
 				UserStatuses.From(person.User.LockoutEnabled, person.User.LockoutEnd, now),
 				person.User.DisplayName,
 				person.Membership,
-				person.User.TenantId))
+				person.User.TenantId,
+				person.Membership == MembershipStates.Owner && person.User.DirectoryManaged,
+				DeactivationOrigins.From(
+					person.Membership == MembershipStates.Owner ? person.User.DeactivationOrigin : DeactivationOrigin.None)))
 		];
 	}
 
@@ -422,7 +452,7 @@ internal sealed class UserAccountService(
 		return new UserAccountData(
 			user.Id, user.Email!, user.TenantId, user.LockoutEnabled, user.LockoutEnd, roles, logins,
 			user.PasswordHash is not null, user.LocalLoginEnabled, user.TwoFactorEnabled, user.DisplayName,
-			roleAssignments, membership, user.TenantId);
+			roleAssignments, membership, user.TenantId, user.DirectoryManaged, user.DeactivationOrigin);
 	}
 
 	public async Task<PersonData?> FindPersonByEmailAsync(string email, CancellationToken cancellationToken = default)

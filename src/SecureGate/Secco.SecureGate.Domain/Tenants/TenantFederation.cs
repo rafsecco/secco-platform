@@ -66,6 +66,32 @@ public sealed class TenantFederation : BaseEntity
 	/// <summary>Momento do cadastro (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }
 
+	/// <summary>
+	/// Domínios de e-mail permitidos para o provisionamento pelo diretório (coluna <c>ds_allowed_email_domains</c>,
+	/// ADR-0055): lista normalizada, minúscula, separada por vírgula (<see cref="EmailDomainRules"/>). Vazia, o
+	/// provisionamento recusa todo e-mail. Não é segredo.
+	/// </summary>
+	public string AllowedEmailDomains { get; private set; } = string.Empty;
+
+	/// <summary>Os domínios de e-mail permitidos, já normalizados.</summary>
+	public IReadOnlyList<string> GetAllowedEmailDomains() => EmailDomainRules.Deserialize(AllowedEmailDomains);
+
+	/// <summary>Substitui a lista de domínios de e-mail permitidos.</summary>
+	/// <param name="domains">Domínios JÁ normalizados e validados por <see cref="EmailDomainRules.TryNormalizeAll"/>.</param>
+	/// <exception cref="DomainInvariantException">Se algum domínio for inválido ou houver mais que o teto.</exception>
+	public void SetAllowedEmailDomains(IEnumerable<string> domains)
+	{
+		ArgumentNullException.ThrowIfNull(domains);
+
+		if (!EmailDomainRules.TryNormalizeAll(domains, out var normalized))
+		{
+			throw new DomainInvariantException("Lista de domínios de e-mail permitidos inválida.");
+		}
+
+		AllowedEmailDomains = EmailDomainRules.Serialize(normalized);
+		UpdatedAt = DateTimeOffset.UtcNow;
+	}
+
 	/// <summary>Momento da última alteração (coluna <c>dt_updated_at</c>).</summary>
 	public DateTimeOffset UpdatedAt { get; private set; }
 

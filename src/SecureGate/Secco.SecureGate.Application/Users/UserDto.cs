@@ -14,6 +14,10 @@ namespace Secco.SecureGate.Application.Users;
 /// Relação com o tenant da listagem (<see cref="MembershipStates"/>, ADR-0040). Entra NO FIM, como o nome.
 /// </param>
 /// <param name="OwnerTenantId">Tenant dono da conta (<c>User.TenantId</c>); <paramref name="TenantId"/> é o da listagem.</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055). Entra NO FIM.</param>
+/// <param name="DeactivationOrigin">
+/// Quem desativou a conta (<see cref="DeactivationOrigins"/>); <c>None</c> enquanto ativa. Entra NO FIM.
+/// </param>
 public sealed record UserDto(
 	Guid Id,
 	string Email,
@@ -22,4 +26,6 @@ public sealed record UserDto(
 	string Status,
 	string? DisplayName = null,
 	string? Membership = null,
-	Guid? OwnerTenantId = null);
+	Guid? OwnerTenantId = null,
+	bool DirectoryManaged = false,
+	string? DeactivationOrigin = null);

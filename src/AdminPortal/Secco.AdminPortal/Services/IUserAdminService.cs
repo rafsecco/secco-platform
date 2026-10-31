@@ -138,7 +138,14 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 		var users = await client.ListUsersAsync(tenantId, cancellationToken).ConfigureAwait(false);
 
 		return [.. users.Select(user => new UserSummary(
-			user.Id, user.Email, [.. user.Roles], user.Status, user.Membership ?? MembershipText.Owner, user.OwnerTenantId))];
+			user.Id,
+			user.Email,
+			[.. user.Roles],
+			user.Status,
+			user.Membership ?? MembershipText.Owner,
+			user.OwnerTenantId,
+			user.DirectoryManaged,
+			user.DeactivationOrigin ?? DirectoryText.NoOrigin))];
 	}
 
 	public async Task CreateUserAsync(
@@ -172,7 +179,9 @@ internal sealed class SecureGateUserAdminService(ISecureGateClientFactory client
 			user.LocalLoginEnabled,
 			user.TwoFactorEnabled,
 			user.Membership ?? MembershipText.Owner,
-			user.OwnerTenantId);
+			user.OwnerTenantId,
+			user.DirectoryManaged,
+			user.DeactivationOrigin ?? DirectoryText.NoOrigin);
 	}
 
 	public async Task AddRoleAsync(Guid tenantId, Guid userId, string role, CancellationToken cancellationToken = default)

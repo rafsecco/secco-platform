@@ -7,7 +7,12 @@ namespace Secco.SecureGate.Application.Tenants;
 /// <param name="TenantId">Tenant dono da federação.</param>
 /// <param name="DirectoryId">Directory id (tenant do Entra ID da empresa). Não é segredo.</param>
 /// <param name="Enabled">Habilita ou desabilita o login federado do tenant.</param>
-public sealed record UpsertTenantFederationCommand(Guid TenantId, Guid DirectoryId, bool Enabled);
+/// <param name="AllowedEmailDomains">
+/// Domínios de e-mail permitidos para o provisionamento pelo diretório (ADR-0055). <c>null</c> mantém a lista
+/// atual (quem só quer ligar ou desligar a federação não a apaga sem querer); lista vazia a esvazia.
+/// </param>
+public sealed record UpsertTenantFederationCommand(
+	Guid TenantId, Guid DirectoryId, bool Enabled, IReadOnlyList<string>? AllowedEmailDomains = null);
 
 /// <summary>
 /// Upsert idempotente da federação Entra ID de um tenant (ADR-0026). A federação é opt-in e
@@ -30,6 +35,14 @@ public sealed class UpsertTenantFederationHandler(ITenantRepository repository)
 			return Result.Failure(SecureGateErrors.Federation.DirectoryIdRequired);
 		}
 
+		IReadOnlyList<string>? domains = null;
+
+		if (command.AllowedEmailDomains is not null
+			&& !EmailDomainRules.TryNormalizeAll(command.AllowedEmailDomains, out domains))
+		{
+			return Result.Failure(SecureGateErrors.Federation.AllowedEmailDomainsInvalid);
+		}
+
 		var tenant = await repository.GetByIdAsync(command.TenantId, cancellationToken).ConfigureAwait(false);
 
 		if (tenant is null)
@@ -43,12 +56,23 @@ public sealed class UpsertTenantFederationHandler(ITenantRepository repository)
 		{
 			var federation = new TenantFederation(command.TenantId, command.DirectoryId);
 			federation.SetEnabled(command.Enabled);
+
+			if (domains is not null)
+			{
+				federation.SetAllowedEmailDomains(domains);
+			}
+
 			await repository.AddFederationAsync(federation, cancellationToken).ConfigureAwait(false);
 		}
 		else
 		{
 			existing.UpdateDirectory(command.DirectoryId);
 			existing.SetEnabled(command.Enabled);
+
+			if (domains is not null)
+			{
+				existing.SetAllowedEmailDomains(domains);
+			}
 		}
 
 		await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

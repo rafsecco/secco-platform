@@ -21,7 +21,21 @@ public sealed record TenantDetail(
 /// <param name="DirectoryId">Diretório (<c>tid</c>) registrado.</param>
 /// <param name="IsEnabled">Login federado habilitado.</param>
 /// <param name="UpdatedAt">Última alteração.</param>
-public sealed record TenantFederationSummary(Guid DirectoryId, bool IsEnabled, DateTimeOffset? UpdatedAt);
+/// <param name="AllowedEmailDomains">Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055).</param>
+public sealed record TenantFederationSummary(
+	Guid DirectoryId,
+	bool IsEnabled,
+	DateTimeOffset? UpdatedAt,
+	IReadOnlyList<string>? AllowedEmailDomains = null);
+
+/// <summary>Mapeamento grupo do diretório → perfil de um tenant (ADR-0036), com a marca de provisionamento (ADR-0055).</summary>
+/// <param name="Id">Identificador do mapeamento.</param>
+/// <param name="GroupId">Id do grupo no Entra ID.</param>
+/// <param name="GroupName">Nome do grupo (snapshot do cadastro).</param>
+/// <param name="RoleName">Perfil que o grupo concede.</param>
+/// <param name="IsProvisioningGroup">É o grupo de provisionamento do tenant: quem está nele tem conta.</param>
+public sealed record GroupMappingSummary(
+	Guid Id, Guid GroupId, string GroupName, string RoleName, bool IsProvisioningGroup);
 
 /// <summary>Usuário na listagem do tenant.</summary>
 /// <param name="Id">Identificador.</param>
@@ -30,13 +44,17 @@ public sealed record TenantFederationSummary(Guid DirectoryId, bool IsEnabled, D
 /// <param name="Status">Situação (Active, Deactivated, LockedOut).</param>
 /// <param name="Membership">Vínculo com o tenant (<see cref="MembershipText"/>): Owner, Member ou Suspended (ADR-0040).</param>
 /// <param name="OwnerTenantId">Tenant dono da conta; só difere do tenant da tela para quem é membro.</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055).</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta (<see cref="DirectoryText"/>): None, Manual ou Directory.</param>
 public sealed record UserSummary(
 	Guid Id,
 	string Email,
 	IReadOnlyList<string> Roles,
 	string Status,
 	string Membership = MembershipText.Owner,
-	Guid? OwnerTenantId = null);
+	Guid? OwnerTenantId = null,
+	bool DirectoryManaged = false,
+	string DeactivationOrigin = DirectoryText.NoOrigin);
 
 /// <summary>Usuário detalhado.</summary>
 /// <param name="Id">Identificador.</param>
@@ -51,6 +69,8 @@ public sealed record UserSummary(
 /// <param name="TwoFactorEnabled">Segundo fator ativado (entrega D).</param>
 /// <param name="Membership">Vínculo com o tenant da tela: Owner, Member ou Suspended (ADR-0040).</param>
 /// <param name="OwnerTenantId">Tenant dono da conta.</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055).</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta (<see cref="DirectoryText"/>): None, Manual ou Directory.</param>
 public sealed record UserDetail(
 	Guid Id,
 	string Email,
@@ -63,7 +83,49 @@ public sealed record UserDetail(
 	bool LocalLoginEnabled,
 	bool TwoFactorEnabled,
 	string Membership = MembershipText.Owner,
-	Guid? OwnerTenantId = null);
+	Guid? OwnerTenantId = null,
+	bool DirectoryManaged = false,
+	string DeactivationOrigin = DirectoryText.NoOrigin);
+
+/// <summary>Estado de conta gerida pelo diretório federado (ADR-0055): valores do contrato e texto para a tela.</summary>
+public static class DirectoryText
+{
+	/// <summary>A conta não está desativada.</summary>
+	public const string NoOrigin = "None";
+
+	/// <summary>Desativada por um admin.</summary>
+	public const string ManualOrigin = "Manual";
+
+	/// <summary>Desativada pela sincronização com o diretório.</summary>
+	public const string DirectoryOrigin = "Directory";
+
+	/// <summary>Texto da coluna de diretório da lista de usuários; vazio quando a conta não é gerida.</summary>
+	/// <param name="managed">A conta é gerida pelo diretório.</param>
+	/// <param name="deactivationOrigin">Origem da desativação.</param>
+	public static string Describe(bool managed, string deactivationOrigin)
+	{
+		if (!managed)
+		{
+			return "—";
+		}
+
+		return deactivationOrigin switch
+		{
+			DirectoryOrigin => "Gerida pelo diretório — desativada pelo diretório",
+			ManualOrigin => "Gerida pelo diretório — desativada manualmente",
+			_ => "Gerida pelo diretório",
+		};
+	}
+
+	/// <summary>Quem desativou, para a página de detalhe; vazio quando nunca foi desativada.</summary>
+	/// <param name="deactivationOrigin">Origem da desativação.</param>
+	public static string? DescribeOrigin(string deactivationOrigin) => deactivationOrigin switch
+	{
+		DirectoryOrigin => "Desativada pela sincronização com o diretório (saiu do grupo de provisionamento). Volta sozinha se a pessoa reentrar no grupo.",
+		ManualOrigin => "Desativada por um administrador. A sincronização com o diretório não a reativa.",
+		_ => null,
+	};
+}
 
 /// <summary>Vínculo da pessoa com o tenant (ADR-0040): valores do contrato e texto para a tela.</summary>
 public static class MembershipText
@@ -149,6 +211,9 @@ public sealed record MemberPage(IReadOnlyList<RoleMemberSummary> Items, int Page
 /// <summary>Texto da situação da conta para a tela.</summary>
 public static class UserStatusText
 {
+	/// <summary>Valor do contrato para a conta desativada.</summary>
+	public const string DeactivatedValue = "Deactivated";
+
 	/// <summary>Traduz a situação vinda do SecureGate; valor desconhecido aparece como veio.</summary>
 	/// <param name="status">Situação.</param>
 	public static string Describe(string status) => status switch

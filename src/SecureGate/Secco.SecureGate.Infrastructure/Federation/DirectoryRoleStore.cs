@@ -25,17 +25,33 @@ internal sealed class DirectoryRoleStore(SecureGateDbContext context) : IDirecto
 			where login.LoginProvider == DirectoryLinkKey.Provider
 				&& login.ProviderKey.StartsWith(prefix)
 				&& user.TenantId == tenantId
-			select new { user.Id, login.ProviderKey })
+			select new
+			{
+				user.Id,
+				login.ProviderKey,
+				user.DirectoryManaged,
+				user.DeactivationOrigin,
+				user.LockoutEnabled,
+				user.LockoutEnd,
+			})
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		var accounts = new Dictionary<Guid, DirectoryLinkedAccount>();
+		var now = DateTimeOffset.UtcNow;
 
 		foreach (var link in links)
 		{
 			// Chave malformada ou de outro formato: ignorada, nunca adivinhada
 			if (DirectoryLinkKey.TryGetObjectId(link.ProviderKey, directoryId, out var objectId))
 			{
-				accounts.TryAdd(link.Id, new DirectoryLinkedAccount(link.Id, objectId));
+				accounts.TryAdd(
+					link.Id,
+					new DirectoryLinkedAccount(
+						link.Id,
+						objectId,
+						link.DirectoryManaged,
+						link.DeactivationOrigin,
+						UserStatuses.From(link.LockoutEnabled, link.LockoutEnd, now) == UserStatuses.Deactivated));
 			}
 		}
 

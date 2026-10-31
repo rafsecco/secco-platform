@@ -26,6 +26,11 @@ namespace Secco.SecureGate.Application.Users;
 /// Tenant dono da conta (<c>User.TenantId</c>); <paramref name="TenantId"/> é o da rota. Entra NO FIM,
 /// como o vínculo — a tela mostra de onde vem quem é membro.
 /// </param>
+/// <param name="DirectoryManaged">
+/// A conta é gerida pelo diretório federado (ADR-0055): só a conta gerida é desativada e reativada pela sincronização.
+/// Vazio para quem é só membro do tenant — é estado do tenant dono.
+/// </param>
+/// <param name="DeactivationOrigin">Quem desativou a conta (<see cref="DeactivationOrigins"/>); <c>None</c> enquanto ativa.</param>
 /// <remarks>
 /// <paramref name="HasPassword"/>, <paramref name="LocalLoginEnabled"/>, <paramref name="DisplayName"/>
 /// e <paramref name="RoleAssignments"/> entram NO FIM: o record é posicional e consumido pelo
@@ -46,7 +51,9 @@ public sealed record UserDetailDto(
 	string? DisplayName = null,
 	IReadOnlyList<RoleAssignmentDto>? RoleAssignments = null,
 	string? Membership = null,
-	Guid? OwnerTenantId = null);
+	Guid? OwnerTenantId = null,
+	bool DirectoryManaged = false,
+	string? DeactivationOrigin = null);
 
 /// <summary>Um perfil do usuário com a origem da atribuição, para exibição (issue #28, ADR-0036).</summary>
 /// <param name="Name">Nome do perfil.</param>

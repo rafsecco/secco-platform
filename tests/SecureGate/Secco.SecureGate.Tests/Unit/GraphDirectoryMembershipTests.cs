@@ -5,6 +5,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using Secco.SecureGate.Application.Federation;
 using Secco.SecureGate.Infrastructure.Federation;
 using Xunit;
 
@@ -378,6 +379,89 @@ public class GraphDirectoryMembershipTests
 		var result = await Build(handler, configured: false).CheckMemberGroupsAsync(DirectoryId, UserOid, [Guid.NewGuid()]);
 
 		result.Error.Code.Should().Be("SecureGate.Federation.NotEnabled");
+	}
+
+	// ---- Perfil básico (provisionamento, ADR-0055 entrega B) ----
+
+	private const string ProfileSelect = "id,displayName,mail,userPrincipalName";
+
+	private static string ProfileJson(Guid id, string? name = "Ana", string? mail = "ana@secco.test", string? upn = "ana@secco.test") =>
+		JsonSerializer.Serialize(new { id = id.ToString("D"), displayName = name, mail, userPrincipalName = upn });
+
+	[Fact]
+	public async Task MembrosComPerfil_PedeSoOsCamposFixos_ELeNomeEEmail()
+	{
+		var handler = new ScriptedHandler(r =>
+			IsTokenRequest(r) ? Json(HttpStatusCode.OK, TokenBody) : Json(HttpStatusCode.OK, $"{{\"value\":[{ProfileJson(UserOid)}]}}"));
+
+		var result = await Build(handler).GetGroupMembersWithProfileAsync(DirectoryId, GroupId);
+
+		handler.Requests.Single(r => !IsTokenRequest(r)).RequestUri!.ToString().Should().Be(
+			$"{GraphBase}groups/{GroupId:D}/transitiveMembers/microsoft.graph.user?$select={ProfileSelect}&$top=999");
+		result.IsSuccess.Should().BeTrue();
+		result.Value.Should().ContainSingle().Which.Should().Be(
+			new DirectoryPerson(UserOid, "Ana", "ana@secco.test", "ana@secco.test"));
+	}
+
+	[Theory]
+	[InlineData("{\"value\":[{\"id\":\"018f0000-0000-7000-8000-0000000000bb\",\"mail\":42}]}")]
+	[InlineData("{\"value\":[{\"id\":\"018f0000-0000-7000-8000-0000000000bb\",\"displayName\":{\"x\":1}}]}")]
+	public async Task MembrosComPerfil_CampoQueNaoETexto_FalhaComoLeituraIncompleta(string body)
+	{
+		var handler = new ScriptedHandler(r => IsTokenRequest(r) ? Json(HttpStatusCode.OK, TokenBody) : Json(HttpStatusCode.OK, body));
+
+		var result = await Build(handler).GetGroupMembersWithProfileAsync(DirectoryId, GroupId);
+
+		result.Error.Code.Should().Be("SecureGate.Federation.DirectoryReadIncomplete");
+	}
+
+	// O reconciliador só segue sem provisionar quando o erro é Forbidden (falta de consentimento): qualquer outro
+	// tipo aborta o tenant. A tradução do 403 precisa continuar sendo Forbidden
+	[Fact]
+	public async Task MembrosComPerfil_SemConsentimento_EForbidden()
+	{
+		var handler = new ScriptedHandler(r =>
+			IsTokenRequest(r) ? Json(HttpStatusCode.OK, TokenBody) : Json(HttpStatusCode.Forbidden, "{\"error\":{}}"));
+
+		var result = await Build(handler).GetGroupMembersWithProfileAsync(DirectoryId, GroupId);
+
+		result.Error.Code.Should().Be("SecureGate.Federation.ConsentRequired");
+		result.Error.Type.Should().Be(Secco.SharedKernel.Results.ErrorType.Forbidden);
+	}
+
+	[Fact]
+	public async Task Pessoa_MontaAUrlComGuid_ELeOPerfil()
+	{
+		var handler = new ScriptedHandler(r =>
+			IsTokenRequest(r) ? Json(HttpStatusCode.OK, TokenBody) : Json(HttpStatusCode.OK, ProfileJson(UserOid, mail: null)));
+
+		var result = await Build(handler).GetPersonAsync(DirectoryId, UserOid);
+
+		handler.Requests.Single(r => !IsTokenRequest(r)).RequestUri!.ToString().Should().Be(
+			$"{GraphBase}users/{UserOid:D}?$select={ProfileSelect}");
+		result.Value.Should().Be(new DirectoryPerson(UserOid, "Ana", null, "ana@secco.test"));
+	}
+
+	[Fact]
+	public async Task Pessoa_GraphDevolveOutroObjeto_FalhaSemAceitarOPerfilDeOutraPessoa()
+	{
+		var handler = new ScriptedHandler(r =>
+			IsTokenRequest(r) ? Json(HttpStatusCode.OK, TokenBody) : Json(HttpStatusCode.OK, ProfileJson(Guid.NewGuid())));
+
+		var result = await Build(handler).GetPersonAsync(DirectoryId, UserOid);
+
+		result.Error.Code.Should().Be("SecureGate.Federation.DirectoryReadIncomplete");
+	}
+
+	[Fact]
+	public async Task Pessoa_GuidVazio_NaoChamaOGraph()
+	{
+		var handler = new ScriptedHandler(_ => throw new InvalidOperationException("não deveria chamar"));
+
+		var result = await Build(handler).GetPersonAsync(DirectoryId, Guid.Empty);
+
+		result.IsFailure.Should().BeTrue();
+		handler.Requests.Should().BeEmpty();
 	}
 
 	private sealed class ScriptedHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

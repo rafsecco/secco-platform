@@ -34,6 +34,9 @@ internal sealed partial class DatabaseDirectorySyncAuditor(
 				error = record.ErrorCode,
 				count = record.Count,
 				total = record.Total,
+				category = record.Category,
+				reason = record.Reason,
+				objectId = record.ObjectId,
 			});
 
 			var entry = new AuthorityAuditEntry(

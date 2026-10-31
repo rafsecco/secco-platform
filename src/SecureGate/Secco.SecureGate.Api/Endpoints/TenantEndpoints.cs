@@ -147,12 +147,13 @@ public static class TenantEndpoints
 				UpsertTenantFederationHandler handler,
 				CancellationToken cancellationToken) =>
 			(await handler.HandleAsync(
-				new UpsertTenantFederationCommand(id, request.DirectoryId ?? Guid.Empty, request.Enabled ?? true),
+				new UpsertTenantFederationCommand(
+					id, request.DirectoryId ?? Guid.Empty, request.Enabled ?? true, request.AllowedEmailDomains),
 				cancellationToken))
 				.ToHttpResult(() => Results.NoContent()))
 			.WithName("UpsertTenantFederation")
 			.RequireTenantScope("id")
-			.WithSummary("Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo.")
+			.WithSummary("Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo. Os domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055) vão aqui: omitidos, a lista atual é mantida; vazios, é esvaziada.")
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status400BadRequest)
 			.ProducesProblem(StatusCodes.Status404NotFound);

@@ -5,7 +5,15 @@ namespace Secco.SecureGate.Application.Federation;
 /// <summary>Conta DONA do tenant vinculada ao diretório federado (ADR-0026): o <c>oid</c> vem da chave do vínculo.</summary>
 /// <param name="UserId">Conta.</param>
 /// <param name="ObjectId">Object id da conta no diretório.</param>
-public sealed record DirectoryLinkedAccount(Guid UserId, Guid ObjectId);
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório (ADR-0055).</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta, quando desativada.</param>
+/// <param name="IsDeactivated">A conta está desativada (lockout sem fim); bloqueio temporário não conta.</param>
+public sealed record DirectoryLinkedAccount(
+	Guid UserId,
+	Guid ObjectId,
+	bool DirectoryManaged = false,
+	DeactivationOrigin DeactivationOrigin = DeactivationOrigin.None,
+	bool IsDeactivated = false);
 
 /// <summary>Atribuição de perfil de uma conta, com a origem (ADR-0036).</summary>
 /// <param name="UserId">Conta.</param>

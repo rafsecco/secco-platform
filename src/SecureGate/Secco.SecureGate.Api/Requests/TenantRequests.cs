@@ -40,7 +40,11 @@ public sealed record ProvisionTenantDatabaseRequest(
 /// </summary>
 /// <param name="DirectoryId">Directory id (tenant GUID do Entra ID da empresa). Obrigatório.</param>
 /// <param name="Enabled">Habilita o login federado. Ausente = habilitado.</param>
-public sealed record UpsertTenantFederationRequest(Guid? DirectoryId, bool? Enabled);
+/// <param name="AllowedEmailDomains">
+/// Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055). Ausente mantém a lista atual; vazia a esvazia.
+/// </param>
+public sealed record UpsertTenantFederationRequest(
+	Guid? DirectoryId, bool? Enabled, IReadOnlyList<string>? AllowedEmailDomains = null);
 
 /// <summary>Payload de criação de role (ADR-0021).</summary>
 /// <param name="Name">Nome do role (sem espaços). Obrigatório.</param>

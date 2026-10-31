@@ -53,6 +53,8 @@ public sealed class GetUserHandler(IUserDirectory userDirectory, GetRolePermissi
 				.Select(assignment => new RoleAssignmentDto(assignment.Name, assignment.Origin, assignment.SourceGroupId))
 				.ToList(),
 			account.Membership,
-			account.OwnerTenantId);
+			account.OwnerTenantId,
+			account.DirectoryManaged,
+			DeactivationOrigins.From(account.DeactivationOrigin));
 	}
 }

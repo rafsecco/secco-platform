@@ -26,8 +26,42 @@ internal sealed class GroupRoleMappingRepository(SecureGateDbContext context) : 
 			where mapping.TenantId == tenantId
 			orderby mapping.EntraGroupDisplayName
 			select new GroupRoleMappingRecord(
-				mapping.Id, mapping.EntraGroupId, mapping.EntraGroupDisplayName, mapping.RoleId, role.Name!, mapping.CreatedAt))
+				mapping.Id,
+				mapping.EntraGroupId,
+				mapping.EntraGroupDisplayName,
+				mapping.RoleId,
+				role.Name!,
+				mapping.CreatedAt,
+				mapping.IsProvisioningGroup))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
+
+	public Task<TenantGroupRoleMapping?> FindProvisioningAsync(Guid tenantId, CancellationToken cancellationToken = default) =>
+		context.TenantGroupRoleMappings
+			.FirstOrDefaultAsync(m => m.TenantId == tenantId && m.IsProvisioningGroup, cancellationToken);
+
+	public async Task<bool> TrySaveProvisioningChangeAsync(CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+			return true;
+		}
+		catch (DbUpdateException)
+		{
+			// O índice único filtrado barrou um segundo grupo de provisionamento (pedido concorrente). Qualquer
+			// outra falha sobe: só esta violação é um "não" do domínio.
+			context.ChangeTracker.Clear();
+
+			if (await context.TenantGroupRoleMappings.AsNoTracking()
+				.CountAsync(m => m.IsProvisioningGroup, cancellationToken).ConfigureAwait(false) > 0)
+			{
+				return false;
+			}
+
+			throw;
+		}
+	}
 
 	public Task AddAsync(TenantGroupRoleMapping mapping, CancellationToken cancellationToken = default)
 	{

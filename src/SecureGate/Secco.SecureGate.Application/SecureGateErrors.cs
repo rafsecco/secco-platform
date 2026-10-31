@@ -423,6 +423,18 @@ public static class SecureGateErrors
 				"SecureGate.Federation.MappingNotFound",
 				"Mapeamento não encontrado.");
 
+		/// <summary>Lista de domínios de e-mail permitidos fora do formato, repetida em excesso ou acima do teto (ADR-0055).</summary>
+		public static readonly Error AllowedEmailDomainsInvalid =
+			Error.Validation(
+				"SecureGate.Federation.AllowedEmailDomainsInvalid",
+				$"Os domínios de e-mail permitidos devem ser nomes de domínio válidos (sem curinga), em até {EmailDomainRules.MaxCount} itens.");
+
+		/// <summary>O tenant já tem outro grupo de provisionamento; desmarque-o antes (ADR-0055: no máximo um por tenant).</summary>
+		public static readonly Error ProvisioningGroupAlreadySet =
+			Error.Conflict(
+				"SecureGate.Federation.ProvisioningGroupAlreadySet",
+				"Este tenant já tem outro grupo de provisionamento. Desmarque-o antes de marcar este.");
+
 		/// <summary>
 		/// A atribuição veio da sincronização de grupo — removê-la manualmente não teria efeito
 		/// duradouro (o próximo ciclo devolveria), então a API recusa em vez de fingir sucesso.

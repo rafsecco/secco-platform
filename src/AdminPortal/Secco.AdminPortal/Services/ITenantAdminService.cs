@@ -38,8 +38,33 @@ public interface ITenantAdminService
 	/// <param name="tenantId">Identificador do tenant.</param>
 	/// <param name="directoryId">Diretório Entra (<c>tid</c>) do tenant.</param>
 	/// <param name="enabled">Se o login federado fica habilitado.</param>
+	/// <param name="allowedEmailDomains">
+	/// Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055). <c>null</c> mantém a lista atual;
+	/// lista vazia a esvazia.
+	/// </param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
-	Task SetFederationAsync(Guid tenantId, Guid directoryId, bool enabled, CancellationToken cancellationToken = default);
+	Task SetFederationAsync(
+		Guid tenantId,
+		Guid directoryId,
+		bool enabled,
+		IReadOnlyList<string>? allowedEmailDomains = null,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>Lista os mapeamentos grupo → perfil do tenant (ADR-0036), com a marca do grupo de provisionamento.</summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<IReadOnlyList<GroupMappingSummary>> ListGroupMappingsAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Marca ou desmarca o grupo do mapeamento como o de provisionamento do tenant (ADR-0055). Marcar passa ao
+	/// diretório a decisão de quem tem conta; desmarcar a devolve. Idempotente nos dois sentidos.
+	/// </summary>
+	/// <param name="tenantId">Identificador do tenant.</param>
+	/// <param name="mappingId">Mapeamento.</param>
+	/// <param name="provisioning"><c>true</c> para marcar; <c>false</c> para desmarcar.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task SetProvisioningGroupAsync(
+		Guid tenantId, Guid mappingId, bool provisioning, CancellationToken cancellationToken = default);
 
 	/// <summary>Lista as pessoas com concessão de admin do tenant (ADR-0044).</summary>
 	/// <param name="tenantId">Tenant administrado.</param>

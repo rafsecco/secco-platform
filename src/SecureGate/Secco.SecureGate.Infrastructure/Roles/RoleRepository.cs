@@ -176,7 +176,7 @@ internal sealed class RoleRepository(SecureGateDbContext context) : IRoleReposit
 			.Take(page.Size)
 			.Select(row => new RoleMemberData(
 				row.user.Id, row.user.Email!, row.user.LockoutEnabled, row.user.LockoutEnd, row.user.DisplayName,
-				row.userRole.Origin, row.userRole.SourceGroupId))
+				row.userRole.Origin, row.userRole.SourceGroupId, row.user.DirectoryManaged, row.user.DeactivationOrigin))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		return PagedResult.Create<RoleMemberData>(items, page, total);

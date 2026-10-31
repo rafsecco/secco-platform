@@ -170,6 +170,27 @@ Pela API (`securegate:admin`): `POST .../users/{id}/invite` reenvia o convite, `
 
 > **Desvincular não bloqueia ninguém.** Enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. A operação existe para vínculo morto — conta recriada no diretório com outro `oid`, ou pessoa que saiu de lá. Para barrar acesso, **desative a conta** ou desligue a federação do tenant.
 
+### Provisionamento de contas pelo diretório (ADR-0055, entrega B, issue #50)
+
+O diretório do cliente (Entra ID) pode ser a fonte de **quem entra, de quem sai e de qual setor cada pessoa é**. Nada acontece sem o ato explícito do operador, que tem duas partes, ambas só do `securegate:admin`:
+
+- **Domínios de e-mail permitidos** da federação: `PUT /api/v1/tenants/{id}/federation` aceita `allowedEmailDomains` (nomes de domínio, sem curinga, até 10). Omitir mantém a lista atual; `[]` a esvazia. Lista vazia = o provisionamento recusa todo e-mail.
+- **Grupo de provisionamento**: `PUT` / `DELETE /api/v1/tenants/{id}/entra/group-role-mappings/{mappingId}/provisioning` marca e desmarca (idempotentes) um grupo **já mapeado a um perfil**. No máximo um por tenant (`409` ao marcar um segundo; também garantido por índice único filtrado nos dois engines). Desmarcar desliga criar, adotar, desativar e reativar; as contas existentes não mudam.
+
+Marcado o grupo, o ciclo (padrão a cada 24 h) e o **primeiro login** passam a:
+
+- **criar** a conta de quem está no grupo e não tem conta: dona do tenant, **sem senha e sem convite**, e-mail confirmado, login local desligado, vinculada por `{tid}:{oid}`, gerida pelo diretório, com os perfis dos grupos mapeados. Nome e e-mail vêm do **Graph** (nunca do token), são validados, e o e-mail precisa estar num domínio permitido; e-mail que já pertence a **qualquer** conta da instalação não é provisionado (vai à trilha);
+- **adotar** a conta existente já vinculada por `oid` àquele diretório que apareceu no grupo (passa a ser *gerida pelo diretório*);
+- **desativar** a conta gerida que saiu do grupo (lockout + revogação de sessões e refresh tokens, `deactivationOrigin = Directory`); **reativar** a que voltou, **somente** se foi o diretório que a desativou. Desativação manual nunca é desfeita pela sincronização. Conta só local e conta administrativa (operador, admin com concessão, operador designado) nunca são tocadas, e nenhum perfil fica sem membro ativo.
+
+O freio de massa (`SecureGate:DirectorySync`) conta também as desativações: acima do piso e da fração das contas geridas do tenant, o ciclo **aborta o tenant inteiro** (nem cria, nem desativa, nem reativa, nem mexe em perfil). Leitura do Graph que falha ou vem incompleta não muda nada. Tudo vai à trilha de autoridade com ator `directory` (a recusa de e-mail registra o `oid`, nunca o e-mail).
+
+> **Risco assumido, com todas as letras:** quem administra o grupo no Entra (o TI do cliente, ou um dono de grupo delegado) **passa a decidir quem tem conta neste tenant**. É a delegação que a #50 pede, condicionada ao ato do operador e desfeita ao desmarcar o grupo.
+
+> **Consentimento:** ler nome e e-mail exige `User.ReadBasic.All` na app registration (a entrega A usa só `GroupMember.Read.All`). Sem ele o Graph responde 403: o provisionamento **recusa e registra**, e a reconciliação de perfis segue funcionando. O Graph falso dos testes valida o formato da chamada, não o comportamento do serviço — confirme as duas permissões contra um tenant Entra de teste antes de ligar em produção.
+
+> **Conta desabilitada no Entra mas ainda no grupo** continua ativa aqui até sair do grupo (ler `accountEnabled` exigiria `User.Read.All`). Recomende tirar a pessoa do grupo no desligamento. Conta desativada pelo diretório que voltou ao grupo **não** é reativada pelo login — só pelo próximo ciclo.
+
 ## Rodando em desenvolvimento
 
 Infraestrutura (SQL Server) pelo `docker-compose.yml` da **raiz** do monorepo:

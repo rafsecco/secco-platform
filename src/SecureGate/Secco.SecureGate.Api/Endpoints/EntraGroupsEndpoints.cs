@@ -81,6 +81,31 @@ public static class EntraGroupsEndpoints
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 
+		group.MapPut("/group-role-mappings/{mappingId:guid}/provisioning", async (
+				Guid tenantId,
+				Guid mappingId,
+				SetProvisioningGroupHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.MarkAsync(tenantId, mappingId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("MarkProvisioningGroup")
+			.WithSummary("Marca o grupo do mapeamento como o grupo de provisionamento do tenant (ADR-0055): quem está nele ganha conta, e quem sai dele tem a conta gerida desativada. No máximo um por tenant. Idempotente.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound)
+			.ProducesProblem(StatusCodes.Status409Conflict);
+
+		group.MapDelete("/group-role-mappings/{mappingId:guid}/provisioning", async (
+				Guid tenantId,
+				Guid mappingId,
+				SetProvisioningGroupHandler handler,
+				CancellationToken cancellationToken) =>
+			(await handler.UnmarkAsync(tenantId, mappingId, cancellationToken))
+				.ToHttpResult(() => Results.NoContent()))
+			.WithName("UnmarkProvisioningGroup")
+			.WithSummary("Desmarca o grupo de provisionamento: o provisionamento e a desativação pelo diretório deixam de valer no tenant (ADR-0055). As contas existentes não mudam. Idempotente.")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound);
+
 		return endpoints;
 	}
 }

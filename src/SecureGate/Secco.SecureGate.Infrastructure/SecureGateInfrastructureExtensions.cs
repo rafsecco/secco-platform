@@ -115,7 +115,9 @@ public static class SecureGateInfrastructureExtensions
 		services.AddScoped<Application.Roles.IRoleRepository, Roles.RoleRepository>();
 
 		// Provisionamento de usuários (Fase 6.5) — sobre o ASP.NET Identity
-		services.AddScoped<Application.Users.IUserDirectory, Users.UserAccountService>();
+		services.AddScoped<Users.UserAccountService>();
+		services.AddScoped<Application.Users.IUserDirectory>(
+			serviceProvider => serviceProvider.GetRequiredService<Users.UserAccountService>());
 		services.AddScoped<Application.Directory.IDirectoryReader, Users.DirectoryReader>();
 
 		// Revogação única de sessões (ADR-0032)
@@ -278,6 +280,8 @@ public static class SecureGateInfrastructureExtensions
 		services.TryAddSingleton(serviceProvider =>
 			serviceProvider.GetRequiredService<IOptions<Application.Federation.DirectorySyncOptions>>().Value);
 		services.AddScoped<Application.Federation.IDirectoryRoleStore, DirectoryRoleStore>();
+		// Provisionamento de contas pelo diretório (ADR-0055, entrega B)
+		services.AddScoped<Application.Federation.IDirectoryAccountStore, DirectoryAccountStore>();
 		services.AddScoped<Application.Federation.IDirectorySyncTenantSource, DirectorySyncTenantSource>();
 		services.AddScoped<Application.Federation.IDirectorySyncAuditor, TenantAdministration.DatabaseDirectorySyncAuditor>();
 		services.AddScoped<Application.Scheduling.IBackgroundLeaseStore, Scheduling.BackgroundLeaseStore>();

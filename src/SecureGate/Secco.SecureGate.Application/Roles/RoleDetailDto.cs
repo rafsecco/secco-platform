@@ -28,6 +28,8 @@ public sealed record RoleDetailDto(
 /// deixar o admin tentar remover à mão um membro que a sincronização de grupo devolveria.
 /// </param>
 /// <param name="SourceGroupId">Id do grupo do Entra ID que originou, quando <paramref name="Origin"/> é <c>Directory</c>.</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055).</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta (<see cref="DeactivationOrigins"/>).</param>
 /// <remarks>
 /// <paramref name="DisplayName"/>, <paramref name="Origin"/> e <paramref name="SourceGroupId"/>
 /// entram NO FIM: o record é posicional e consumido pelo client NSwag — inserir no meio
@@ -39,4 +41,6 @@ public sealed record RoleMemberDto(
 	string Status,
 	string? DisplayName = null,
 	RoleAssignmentOrigin Origin = RoleAssignmentOrigin.Manual,
-	Guid? SourceGroupId = null);
+	Guid? SourceGroupId = null,
+	bool DirectoryManaged = false,
+	string? DeactivationOrigin = null);

@@ -23,6 +23,34 @@ public static class DirectorySyncActions
 
 	/// <summary>Leitura do Graph falhou ou veio incompleta; nada mudou.</summary>
 	public const string ReadFailed = Prefix + "leitura-falhou";
+
+	/// <summary>Conta criada a partir de uma pessoa do grupo de provisionamento (entrega B).</summary>
+	public const string AccountCreated = Prefix + "conta-criada";
+
+	/// <summary>Conta pré-existente passou a ser gerida pelo diretório (adoção).</summary>
+	public const string AccountAdopted = Prefix + "conta-adotada";
+
+	/// <summary>Conta gerida desativada por ter saído do grupo de provisionamento.</summary>
+	public const string AccountDeactivated = Prefix + "conta-desativada";
+
+	/// <summary>Conta gerida reativada por ter voltado ao grupo de provisionamento.</summary>
+	public const string AccountReactivated = Prefix + "conta-reativada";
+
+	/// <summary>Desativação barrada (conta administrativa ou último membro ativo de um perfil).</summary>
+	public const string DeactivationBlocked = Prefix + "desativacao-barrada";
+
+	/// <summary>Pessoa do diretório recusada: sem e-mail utilizável, domínio fora da lista ou e-mail já em uso.</summary>
+	public const string EmailRefused = Prefix + "email-recusado";
+}
+
+/// <summary>Categoria do fato, para o operador separar a trilha de perfis da de contas (metadata <c>category</c>).</summary>
+public static class DirectorySyncCategories
+{
+	/// <summary>Reconciliação de perfis (entrega A).</summary>
+	public const string Roles = "roles";
+
+	/// <summary>Provisionamento de contas (entrega B).</summary>
+	public const string Accounts = "accounts";
 }
 
 /// <summary>Quem disparou a reconciliação.</summary>
@@ -48,7 +76,10 @@ public enum DirectorySyncTrigger
 /// <param name="GroupId">Grupo do diretório que justifica o fato.</param>
 /// <param name="ErrorCode">Código do erro traduzido do Graph, na falha de leitura.</param>
 /// <param name="Count">Contagem relevante (retiradas pretendidas), no aborto.</param>
-/// <param name="Total">Total de referência (atribuições <c>Directory</c> do tenant), no aborto.</param>
+/// <param name="Total">Total de referência (atribuições <c>Directory</c> ou contas geridas do tenant), no aborto.</param>
+/// <param name="Category">Categoria do fato (<see cref="DirectorySyncCategories"/>); <c>null</c> quando a ação basta.</param>
+/// <param name="Reason">Motivo estável (código do servidor), na recusa de e-mail e na desativação barrada.</param>
+/// <param name="ObjectId">Object id (<c>oid</c>) da pessoa no diretório, quando ainda não há conta — nunca o e-mail dela.</param>
 public sealed record DirectorySyncAuditRecord(
 	Guid TenantId,
 	Guid DirectoryId,
@@ -59,7 +90,10 @@ public sealed record DirectorySyncAuditRecord(
 	Guid? GroupId = null,
 	string? ErrorCode = null,
 	int? Count = null,
-	int? Total = null);
+	int? Total = null,
+	string? Category = null,
+	string? Reason = null,
+	Guid? ObjectId = null);
 
 /// <summary>
 /// Trilha da sincronização com o diretório, guardada no SecureGate (ADR-0054/0055). <c>true</c> significa entrada

@@ -33,6 +33,8 @@ public static class SecureGateEntraFederationExtensions
 
 		// O processador é registrado sempre: a decisão fail-closed é testável sem o esquema
 		services.AddScoped<EntraSignInProcessor>();
+		// Cache derivado (ADR-0035, classe 1) da recusa do provisionamento no primeiro login (ADR-0055)
+		services.AddMemoryCache();
 
 		var entra = configuration.GetSection(SecureGateEntraIdOptions.SectionName)
 			.Get<SecureGateEntraIdOptions>() ?? new SecureGateEntraIdOptions();

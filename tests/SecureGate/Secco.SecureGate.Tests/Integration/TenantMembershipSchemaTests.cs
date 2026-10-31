@@ -183,17 +183,18 @@ public class TenantMembershipMigrationTests
 			await migrator.MigrateAsync(PreviousMigration);
 
 			var tenant = new Tenant("Tenant pre-vinculo", $"pre-{Guid.NewGuid():N}"[..20]);
-			var user = new User
-			{
-				Id = Guid.CreateVersion7(),
-				UserName = "antigo@teste.local",
-				NormalizedUserName = "ANTIGO@TESTE.LOCAL",
-				TenantId = tenant.Id,
-				SecurityStamp = Guid.NewGuid().ToString(),
-			};
 			context.Tenants.Add(tenant);
-			context.Users.Add(user);
 			await context.SaveChangesAsync();
+
+			// SQL cru, só com as colunas que existiam NESTE estado do schema: o modelo corrente já conhece colunas
+			// posteriores (ex.: conta gerida pelo diretório, ADR-0055) e um INSERT do EF as incluiria
+			var userId = Guid.CreateVersion7();
+			var stamp = Guid.NewGuid().ToString();
+			await context.Database.ExecuteSqlAsync($@"
+INSERT INTO tb_users (id_pk_user, nr_access_failed_count, fl_email_confirmed, fl_local_login_enabled, fl_lockout_enabled,
+    ds_normalized_user_name, fl_phone_number_confirmed, ds_security_stamp, id_fk_tenant, fl_two_factor_enabled, ds_user_name)
+VALUES ({userId}, 0, 0, 1, 0, 'ANTIGO@TESTE.LOCAL', 0, {stamp}, {tenant.Id}, 0, 'antigo@teste.local')");
+			var user = new { Id = userId };
 
 			await migrator.MigrateAsync();
 

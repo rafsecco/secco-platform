@@ -68,7 +68,7 @@ else
         else
         {
             <table class="grid">
-                <thead><tr><th>E-mail</th><th>Vínculo</th><th>Situação</th><th>Perfis</th></tr></thead>
+                <thead><tr><th>E-mail</th><th>Vínculo</th><th>Situação</th><th>Diretório</th><th>Perfis</th></tr></thead>
                 <tbody>
                     @foreach (var user in _users)
                     {
@@ -76,6 +76,7 @@ else
                             <td><a href="@($"tenants/{TenantId}/users/{user.Id}")">@user.Email</a></td>
                             <td>@MembershipText.Describe(user.Membership)</td>
                             <td>@UserStatusText.Describe(user.Status)</td>
+                            <td>@DirectoryText.Describe(user.DirectoryManaged, user.DeactivationOrigin)</td>
                             <td>@(user.Roles.Count == 0 ? "—" : string.Join(", ", user.Roles))</td>
                         </tr>
                     }
@@ -338,6 +339,8 @@ else
                 <dt>Directory id</dt><dd>@_tenant.Federation.DirectoryId</dd>
                 <dt>Situação</dt><dd>@(_tenant.Federation.IsEnabled ? "Habilitada" : "Desabilitada")</dd>
                 <dt>Atualizada em</dt><dd>@(_tenant.Federation.UpdatedAt?.ToString("g") ?? "-")</dd>
+                <dt>Domínios de e-mail permitidos</dt>
+                <dd>@(_tenant.Federation.AllowedEmailDomains is { Count: > 0 } domains ? string.Join(", ", domains) : "nenhum — o provisionamento recusa todo e-mail")</dd>
             </dl>
         }
 
@@ -345,9 +348,68 @@ else
             <h3>Configurar federação</h3>
             <label>Directory id (tid)<input type="text" @bind="_federationDirectoryId" autocomplete="off" /></label>
             <label><input type="checkbox" @bind="_federationEnabled" /> Habilitada</label>
+            @* ADR-0055: a lista é do operador. Em branco mantém a lista atual; "-" a esvazia. *@
+            <label>Domínios de e-mail permitidos (provisionamento pelo diretório)
+                <input type="text" @bind="_federationDomains" autocomplete="off" placeholder="ex.: empresa.com.br, empresa.com" />
+            </label>
+            <p class="muted">Separe por vírgula ou espaço, sem curinga. Em branco mantém a lista atual; um hífen (-) a esvazia.</p>
             <button @onclick="SaveFederationAsync" disabled="@_busy">Salvar federação</button>
         </div>
     </section>
+
+    @* ADR-0055: marcar um grupo como de provisionamento passa ao diretório do cliente a decisão de quem tem conta. *@
+    @if (_tenant.Federation is not null)
+    {
+        <section>
+            <h2>Grupos do diretório</h2>
+            @if (_pendingProvisioning is not null)
+            {
+                <div class="form-card" role="alertdialog">
+                    <p>@_pendingProvisioning.Message</p>
+                    <button @onclick="ConfirmProvisioningAsync" disabled="@_busy">Confirmar</button>
+                    <button @onclick="() => _pendingProvisioning = null" disabled="@_busy">Cancelar</button>
+                </div>
+            }
+            @if (_mappings is null)
+            {
+                <p>Carregando…</p>
+            }
+            else if (_mappings.Count == 0)
+            {
+                <p>Nenhum grupo mapeado a um perfil.</p>
+            }
+            else
+            {
+                <table class="grid">
+                    <thead><tr><th>Grupo</th><th>Perfil</th><th>Provisionamento</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var mapping in _mappings)
+                        {
+                            <tr>
+                                <td>@mapping.GroupName</td>
+                                <td>@mapping.RoleName</td>
+                                <td>@(mapping.IsProvisioningGroup ? "Grupo de provisionamento" : "—")</td>
+                                <td>
+                                    @if (mapping.IsProvisioningGroup)
+                                    {
+                                        <button @onclick="() => AskSetProvisioning(mapping, false)" disabled="@_busy">Desmarcar</button>
+                                    }
+                                    else
+                                    {
+                                        <button @onclick="() => AskSetProvisioning(mapping, true)" disabled="@_busy">Marcar como provisionamento</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            <p class="muted">
+                Quem está no grupo de provisionamento ganha conta; quem sai dele tem a conta gerida desativada.
+                Quem administra o grupo no diretório do cliente passa a decidir quem tem conta neste tenant.
+            </p>
+        </section>
+    }
 }
 
 @code {
@@ -382,6 +444,9 @@ else
     private string _newDbConnectionString = string.Empty;
     private string _federationDirectoryId = string.Empty;
     private bool _federationEnabled = true;
+    private string _federationDomains = string.Empty;
+    private IReadOnlyList<GroupMappingSummary>? _mappings;
+    private PendingMemberAction? _pendingProvisioning;
 
     private sealed record PendingMemberAction(string Message, Func<Task> Action);
 
@@ -393,6 +458,7 @@ else
         try
         {
             _tenant = await TenantAdminService.GetTenantAsync(TenantId);
+            await ReloadMappingsAsync();
             await ReloadUsersAsync();
             await ReloadRolesAsync();
             await ReloadAdminsAsync();
@@ -623,12 +689,42 @@ else
             return;
         }
 
+        var domains = FederationDomainsInput.Parse(_federationDomains);
+
         await RunAsync(async () =>
         {
-            await TenantAdminService.SetFederationAsync(TenantId, directoryId, _federationEnabled);
+            await TenantAdminService.SetFederationAsync(TenantId, directoryId, _federationEnabled, domains);
             _tenant = await TenantAdminService.GetTenantAsync(TenantId);
+            await ReloadMappingsAsync();
             _message = "Federação salva.";
         });
+    }
+
+    private async Task ReloadMappingsAsync() =>
+        _mappings = _tenant?.Federation is null ? null : await TenantAdminService.ListGroupMappingsAsync(TenantId);
+
+    private void AskSetProvisioning(GroupMappingSummary mapping, bool provisioning) =>
+        _pendingProvisioning = new PendingMemberAction(
+            provisioning
+                ? $"Marcar \"{mapping.GroupName}\" como grupo de provisionamento? Quem está nele ganha conta neste tenant, quem sair dele tem a conta gerida desativada, e quem administra o grupo no diretório do cliente passa a decidir quem tem conta."
+                : $"Desmarcar \"{mapping.GroupName}\"? O provisionamento e a desativação pelo diretório deixam de valer neste tenant; as contas existentes não mudam.",
+            async () =>
+            {
+                await TenantAdminService.SetProvisioningGroupAsync(TenantId, mapping.Id, provisioning);
+                await ReloadMappingsAsync();
+                await ReloadUsersAsync();
+                _message = provisioning ? "Grupo de provisionamento marcado." : "Grupo de provisionamento desmarcado.";
+            });
+
+    private async Task ConfirmProvisioningAsync()
+    {
+        var pending = _pendingProvisioning;
+        _pendingProvisioning = null;
+
+        if (pending is not null)
+        {
+            await RunAsync(pending.Action);
+        }
     }
 
     private async Task RunAsync(Func<Task> action)

@@ -49,7 +49,16 @@ public sealed record TenantDetailDto(
 /// <param name="DirectoryId">Directory id (tenant do Entra ID da empresa).</param>
 /// <param name="IsEnabled">Federação habilitada.</param>
 /// <param name="UpdatedAt">Momento da última alteração.</param>
-public sealed record TenantFederationDto(string Provider, Guid DirectoryId, bool IsEnabled, DateTimeOffset UpdatedAt)
+/// <param name="AllowedEmailDomains">
+/// Domínios de e-mail permitidos para o provisionamento pelo diretório (ADR-0055). Entra NO FIM: o record é
+/// posicional e consumido pelo client NSwag — inserir no meio renumeraria os campos existentes.
+/// </param>
+public sealed record TenantFederationDto(
+	string Provider,
+	Guid DirectoryId,
+	bool IsEnabled,
+	DateTimeOffset UpdatedAt,
+	IReadOnlyList<string>? AllowedEmailDomains = null)
 {
 	/// <summary>Projeta a entidade para o DTO.</summary>
 	/// <param name="federation">Entidade de origem.</param>
@@ -58,6 +67,10 @@ public sealed record TenantFederationDto(string Provider, Guid DirectoryId, bool
 		ArgumentNullException.ThrowIfNull(federation);
 
 		return new TenantFederationDto(
-			federation.Provider, federation.DirectoryId, federation.IsEnabled, federation.UpdatedAt);
+			federation.Provider,
+			federation.DirectoryId,
+			federation.IsEnabled,
+			federation.UpdatedAt,
+			federation.GetAllowedEmailDomains());
 	}
 }

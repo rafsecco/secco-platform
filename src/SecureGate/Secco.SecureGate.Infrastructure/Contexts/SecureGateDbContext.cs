@@ -299,6 +299,10 @@ public sealed class SecureGateDbContext(
 		{
 			federation.Property(f => f.Provider).HasMaxLength(TenantFederation.ProviderMaxLength);
 
+			// Domínios de e-mail permitidos para o provisionamento pelo diretório (ADR-0055): lista curta, na própria
+			// tabela (já protegida pelo RLS) em vez de uma tabela protegida nova
+			federation.Property(f => f.AllowedEmailDomains).HasMaxLength(EmailDomainRules.ColumnMaxLength);
+
 			// 1:1 com o tenant (ADR-0026): índice ÚNICO na FK garante uma federação por tenant.
 			// A convention nomeia como uk_tenant_federations_id_fk_tenant (padrão ADR-0017).
 			federation.HasIndex(f => f.TenantId).IsUnique()
@@ -316,6 +320,20 @@ public sealed class SecureGateDbContext(
 			// Um grupo mapeia para um único perfil por tenant (issue #28, ADR-0036).
 			mapping.HasIndex(m => new { m.TenantId, m.EntraGroupId }).IsUnique()
 				.HasDatabaseName("uk_tenant_group_role_mappings_id_fk_tenant_entra_group_id");
+
+			// No máximo UM grupo de provisionamento por tenant (ADR-0055), garantido pelo banco: índice único
+			// filtrado. O filtro é SQL do engine, então segue o provider do contexto.
+			var provisioningIndex = mapping.HasIndex(m => m.TenantId).IsUnique()
+				.HasDatabaseName("uk_tenant_group_role_mappings_id_fk_tenant_provisioning");
+
+			if (Database.IsNpgsql())
+			{
+				provisioningIndex.HasFilter("fl_provisioning_group");
+			}
+			else
+			{
+				provisioningIndex.HasFilter("[fl_provisioning_group] = 1");
+			}
 
 			// Cascade: o mapeamento é dado intrínseco do tenant (como TenantFederation)
 			mapping.HasOne<Tenant>().WithMany().HasForeignKey(m => m.TenantId).OnDelete(DeleteBehavior.Cascade);

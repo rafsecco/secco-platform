@@ -33,6 +33,8 @@ public sealed record CreateUserData(
 /// é o tenant consultado, não o dono da conta; para quem não é dono, os campos de credencial vêm vazios.
 /// </param>
 /// <param name="OwnerTenantId">Tenant dono da conta (<c>User.TenantId</c>).</param>
+/// <param name="DirectoryManaged">A conta é gerida pelo diretório federado (ADR-0055); vazio para quem é só membro.</param>
+/// <param name="DeactivationOrigin">Quem desativou a conta.</param>
 public sealed record UserAccountData(
 	Guid Id,
 	string Email,
@@ -47,7 +49,9 @@ public sealed record UserAccountData(
 	string? DisplayName = null,
 	IReadOnlyList<RoleAssignmentData>? RoleAssignments = null,
 	string? Membership = null,
-	Guid? OwnerTenantId = null);
+	Guid? OwnerTenantId = null,
+	bool DirectoryManaged = false,
+	DeactivationOrigin DeactivationOrigin = DeactivationOrigin.None);
 
 /// <summary>Um perfil do usuário com a origem da atribuição (issue #28, ADR-0036).</summary>
 /// <param name="Name">Nome do perfil.</param>
@@ -135,6 +139,10 @@ public interface IUserDirectory
 	/// <param name="active"><c>true</c> para ativar; <c>false</c> para desativar.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	/// <returns><c>false</c> se o usuário não existe ou pertence a outro tenant.</returns>
+	/// <remarks>
+	/// Esta porta é a da decisão HUMANA: desativar grava a origem <see cref="DeactivationOrigin.Manual"/> e ativar a
+	/// limpa (ADR-0055). A desativação pela sincronização com o diretório não passa por aqui.
+	/// </remarks>
 	Task<bool> SetActiveAsync(Guid tenantId, Guid userId, bool active, CancellationToken cancellationToken = default);
 
 	/// <summary>

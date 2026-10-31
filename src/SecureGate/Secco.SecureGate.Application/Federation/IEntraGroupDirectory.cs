@@ -61,4 +61,29 @@ public interface IEntraGroupDirectory
 	/// <returns>O subconjunto de <paramref name="groupIds"/> a que o usuário pertence.</returns>
 	Task<Result<IReadOnlySet<Guid>>> CheckMemberGroupsAsync(
 		Guid directoryId, Guid objectId, IReadOnlyCollection<Guid> groupIds, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Membros USUÁRIOS do grupo, de forma transitiva, COM o perfil básico (nome, e-mail, UPN) — a leitura do
+	/// provisionamento (ADR-0055). Mesmas garantias de <see cref="GetGroupMemberIdsAsync"/>: percorre a paginação
+	/// inteira, o cursor vem só do Graph, e a resposta parcial nunca vira sucesso. Ler o perfil exige
+	/// <c>User.ReadBasic.All</c>: sem o consentimento, falha com <see cref="ErrorType.Forbidden"/>.
+	/// </summary>
+	/// <param name="directoryId">Directory id do Entra ID do tenant.</param>
+	/// <param name="groupId">Id do grupo (Guid; nunca texto livre em URL).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns>
+	/// As pessoas, sem repetição de <c>oid</c>. Os textos são input externo, crus: quem os usa valida.
+	/// </returns>
+	Task<Result<IReadOnlyList<DirectoryPerson>>> GetGroupMembersWithProfileAsync(
+		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Perfil básico de UM usuário pelo <c>oid</c> — a leitura do provisionamento no primeiro login (ADR-0055).
+	/// Mesmos campos e a mesma tradução de erro de <see cref="GetGroupMembersWithProfileAsync"/>.
+	/// </summary>
+	/// <param name="directoryId">Directory id do Entra ID do tenant.</param>
+	/// <param name="objectId">Object id (<c>oid</c>) do usuário.</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	Task<Result<DirectoryPerson>> GetPersonAsync(
+		Guid directoryId, Guid objectId, CancellationToken cancellationToken = default);
 }

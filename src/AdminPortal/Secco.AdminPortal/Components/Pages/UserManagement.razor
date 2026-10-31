@@ -28,6 +28,15 @@ else
             <text> até @until.ToLocalTime().ToString("g")</text>
         }
     </p>
+    @* ADR-0055: a conta gerida pelo diretório é criada, desativada e reativada pela sincronização do grupo de provisionamento *@
+    @if (_user.DirectoryManaged)
+    {
+        <p class="muted">@DirectoryText.Describe(_user.DirectoryManaged, _user.DeactivationOrigin)</p>
+    }
+    @if (_user.Status == UserStatusText.DeactivatedValue && DirectoryText.DescribeOrigin(_user.DeactivationOrigin) is { } origin)
+    {
+        <p class="muted">@origin</p>
+    }
 
     @if (_message is not null)
     {

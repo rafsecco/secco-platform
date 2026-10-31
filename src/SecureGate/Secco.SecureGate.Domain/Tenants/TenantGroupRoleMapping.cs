@@ -83,4 +83,17 @@ public sealed class TenantGroupRoleMapping : BaseEntity
 
 	/// <summary>Momento do cadastro (coluna <c>dt_created_at</c>).</summary>
 	public DateTimeOffset CreatedAt { get; private set; }
+
+	/// <summary>
+	/// Este grupo é o <b>grupo de provisionamento</b> do tenant (coluna <c>fl_provisioning_group</c>, ADR-0055):
+	/// quem está nele ganha conta, e quem sai dele tem a conta gerida desativada. No máximo um por tenant — garantido
+	/// por índice único filtrado no banco e conferido pela aplicação.
+	/// </summary>
+	public bool IsProvisioningGroup { get; private set; }
+
+	/// <summary>Marca este grupo como o de provisionamento do tenant. Idempotente.</summary>
+	public void MarkAsProvisioningGroup() => IsProvisioningGroup = true;
+
+	/// <summary>Desmarca o grupo: o provisionamento e a desativação pelo diretório deixam de valer no tenant. Idempotente.</summary>
+	public void UnmarkAsProvisioningGroup() => IsProvisioningGroup = false;
 }

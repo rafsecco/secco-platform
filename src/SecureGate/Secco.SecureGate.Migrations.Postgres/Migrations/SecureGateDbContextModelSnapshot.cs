@@ -383,6 +383,12 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id_pk_tenant_federation");
 
+                    b.Property<string>("AllowedEmailDomains")
+                        .IsRequired()
+                        .HasMaxLength(2539)
+                        .HasColumnType("character varying(2539)")
+                        .HasColumnName("ds_allowed_email_domains");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
@@ -440,6 +446,10 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("entra_group_id");
 
+                    b.Property<bool>("IsProvisioningGroup")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_provisioning_group");
+
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("id_fk_role");
@@ -453,6 +463,11 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
 
                     b.HasIndex("RoleId")
                         .HasDatabaseName("idx_tenant_group_role_mappings_id_fk_role");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("uk_tenant_group_role_mappings_id_fk_tenant_provisioning")
+                        .HasFilter("fl_provisioning_group");
 
                     b.HasIndex("TenantId", "EntraGroupId")
                         .IsUnique()
@@ -569,6 +584,14 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text")
                         .HasColumnName("ds_concurrency_stamp");
+
+                    b.Property<int>("DeactivationOrigin")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_deactivation_origin");
+
+                    b.Property<bool>("DirectoryManaged")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_directory_managed");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(160)

@@ -25,6 +25,19 @@ public sealed class User : IdentityUser<Guid>
 	/// (<c>DisplayNameRules</c>, ADR-0020: log forging por texto livre indo à trilha e ao token).
 	/// </summary>
 	public string? DisplayName { get; set; }
+
+	/// <summary>
+	/// Conta gerida pelo diretório federado (ADR-0055): a que a sincronização criou, ou a pré-existente vinculada
+	/// por <c>oid</c> ao diretório que apareceu no grupo de provisionamento (adoção). Só a conta gerida é
+	/// desativada e reativada pela sincronização; a conta só local e a administrativa nunca são. Nasce <c>false</c>.
+	/// </summary>
+	public bool DirectoryManaged { get; set; }
+
+	/// <summary>
+	/// Quem desativou a conta (ADR-0055). <c>None</c> enquanto ativa. Gravada junto com o lockout, pela mesma
+	/// operação: a sincronização só reativa a conta cuja origem é <c>Directory</c>.
+	/// </summary>
+	public Application.Users.DeactivationOrigin DeactivationOrigin { get; set; } = Application.Users.DeactivationOrigin.None;
 }
 
 /// <summary>Role (perfil) por tenant — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>

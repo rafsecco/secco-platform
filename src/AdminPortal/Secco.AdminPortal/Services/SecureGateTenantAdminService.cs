@@ -36,17 +36,58 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 			tenant.Federation is null
 				? null
 				: new TenantFederationSummary(
-					tenant.Federation.DirectoryId, tenant.Federation.IsEnabled, tenant.Federation.UpdatedAt));
+					tenant.Federation.DirectoryId,
+					tenant.Federation.IsEnabled,
+					tenant.Federation.UpdatedAt,
+					tenant.Federation.AllowedEmailDomains is null ? null : [.. tenant.Federation.AllowedEmailDomains]));
 	}
 
 	public async Task SetFederationAsync(
-		Guid tenantId, Guid directoryId, bool enabled, CancellationToken cancellationToken = default)
+		Guid tenantId,
+		Guid directoryId,
+		bool enabled,
+		IReadOnlyList<string>? allowedEmailDomains = null,
+		CancellationToken cancellationToken = default)
 	{
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
 
 		await client.UpsertTenantFederationAsync(
-			tenantId, new UpsertTenantFederationRequest { DirectoryId = directoryId, Enabled = enabled }, cancellationToken)
-			.ConfigureAwait(false);
+			tenantId,
+			new UpsertTenantFederationRequest
+			{
+				DirectoryId = directoryId,
+				Enabled = enabled,
+				AllowedEmailDomains = allowedEmailDomains is null ? null : [.. allowedEmailDomains],
+			},
+			cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task<IReadOnlyList<GroupMappingSummary>> ListGroupMappingsAsync(
+		Guid tenantId, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+		var mappings = await client.ListGroupRoleMappingsAsync(tenantId, cancellationToken).ConfigureAwait(false);
+
+		return
+		[
+			.. mappings.Select(mapping => new GroupMappingSummary(
+				mapping.Id, mapping.EntraGroupId, mapping.EntraGroupDisplayName, mapping.RoleName, mapping.IsProvisioningGroup))
+		];
+	}
+
+	public async Task SetProvisioningGroupAsync(
+		Guid tenantId, Guid mappingId, bool provisioning, CancellationToken cancellationToken = default)
+	{
+		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
+
+		if (provisioning)
+		{
+			await client.MarkProvisioningGroupAsync(tenantId, mappingId, cancellationToken).ConfigureAwait(false);
+		}
+		else
+		{
+			await client.UnmarkProvisioningGroupAsync(tenantId, mappingId, cancellationToken).ConfigureAwait(false);
+		}
 	}
 
 	public async Task UpsertDatabaseAsync(

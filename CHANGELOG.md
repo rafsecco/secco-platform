@@ -12,6 +12,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) — provisionamento de contas pelo diretório (issue #50, ADR-0055 entrega B) — ação necessária para ligar
+
+Não é pacote: muda o serviço SecureGate. O contrato novo é só acréscimo, e o client está na seção abaixo (0.23.0).
+
+- **O diretório decide quem tem conta, mas só depois de dois atos do operador.** O primeiro é a lista de **domínios de e-mail permitidos** da federação (`allowedEmailDomains` no `PUT .../federation`, até 10, sem curinga). Omitir a lista mantém a atual, e `[]` a esvazia. O segundo é marcar um grupo já mapeado como **grupo de provisionamento** (`PUT`/`DELETE .../entra/group-role-mappings/{mappingId}/provisioning`). Só um grupo por tenant: marcar um segundo responde `409`, garantido também por índice único nos dois engines.
+- **Criação:** no ciclo e no primeiro login, quem está no grupo e não tem conta ganha uma conta **dona** do tenant, sem senha e sem convite, com login local desligado. A conta já nasce vinculada por `{tid}:{oid}` e recebe os perfis dos grupos mapeados. Nome e e-mail vêm do Graph, nunca do token, e são validados. O e-mail precisa estar num domínio permitido. E-mail que já pertence a qualquer conta da instalação não é provisionado: vai à trilha com o `oid`, nunca com o e-mail.
+- **Adoção:** a conta que já existia, vinculada por `oid` ao diretório, e que aparece no grupo passa a ser **gerida pelo diretório**. Conta administrativa (operador, admin com concessão, operador designado) nunca é adotada.
+- **Desativação e reativação:** a conta gerida que sai do grupo é desativada (lockout com revogação de sessões e refresh tokens) e grava a origem `Directory`. Volta só se foi o diretório que a desativou e só pelo ciclo; o login não reativa. Desativar à mão grava a origem `Manual`, que a sincronização nunca desfaz. Conta só local e conta administrativa nunca são desativadas, e nenhum perfil fica sem membro ativo.
+- **Freio de massa:** passa a contar também as desativações sobre as contas geridas, com as mesmas options da entrega A. Qualquer freio que dispare aborta o tenant inteiro, e nada é criado, desativado, reativado ou mexido em perfil.
+- **Primeiro login:** a recusa definitiva (fora de qualquer grupo, ou e-mail recusado) fica 5 minutos em cache por `{tid}:{oid}`. Falha transitória do Graph não entra no cache. Para quem está fora, a recusa continua genérica.
+- **Contrato:** leitura de usuário, lista de usuários e membros de perfil ganham `directoryManaged` e `deactivationOrigin` (`None`/`Manual`/`Directory`), e a federação ganha `allowedEmailDomains`. As rotas novas são só do operador. Nenhuma rota entra nas listas de admin de tenant nem de `securegate:tenant-manage`.
+- **AdminPortal:** campo de domínios na federação, seção "Grupos do diretório" na página do tenant (marcar e desmarcar, com confirmação) e indicação de conta gerida e da origem da desativação.
+- **Migration** `AddDirectoryProvisioning` nos dois engines, em tabelas protegidas por RLS: a política sai antes e volta depois, na revisão 3 do helper.
+- **Consentimento — ação necessária:** ler nome e e-mail exige `User.ReadBasic.All` na app registration, além do `GroupMember.Read.All` da entrega A. Sem ele, o provisionamento recusa e registra, e a reconciliação de perfis segue. Ainda precisa ser confirmado contra um tenant Entra real.
+- **Riscos assumidos (ADR-0055):** quem administra o grupo no Entra passa a decidir quem tem conta no tenant. Uma conta desabilitada no Entra, mas ainda no grupo, continua ativa até sair dele, por isso o desligamento deve tirar a pessoa do grupo.
+
 ### SecureGate (serviço) — reconciliação grupo do Entra → perfil (issue #28, ADR-0055 entrega A)
 
 Não é pacote: muda o serviço SecureGate. Nenhum contrato HTTP nem client muda.
@@ -112,6 +128,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.7.5 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.7.4 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.23.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.7.4 — 2026-10-22
 
@@ -219,6 +239,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.9.8 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.9.7 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.23.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.9.7 — 2026-10-22
 
@@ -409,6 +433,14 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 | 0.1.0 | 2026-07-12 |
 
 ### Secco.SecureGate.Client
+
+#### 0.23.0 — 2026-10-31
+
+Provisionamento pelo diretório (issue #50, ADR-0055). Só acréscimo:
+
+- `MarkProvisioningGroupAsync` e `UnmarkProvisioningGroupAsync` marcam e desmarcam o grupo de provisionamento do tenant. Exigem `securegate:admin`. O mapeamento lido ganha `IsProvisioningGroup`.
+- `UpsertTenantFederationRequest.AllowedEmailDomains` é opcional: `null` mantém a lista atual. A federação lida ganha `AllowedEmailDomains`.
+- As DTOs de usuário e de membro de perfil ganham `DirectoryManaged` e `DeactivationOrigin`.
 
 #### 0.22.0 — 2026-10-22
 
@@ -616,6 +648,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.19 — 2026-10-31
+
+Patch **sem mudança funcional**: o diff desde a 0.1.18 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.23.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.18 — 2026-10-22
 
