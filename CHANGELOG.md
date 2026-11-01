@@ -159,9 +159,13 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.9 — 2026-11-01
+
+Patch **sem mudança funcional**: o diff desde a 0.7.8 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.AspNetCore` 0.10.1 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.8 — 2026-11-01
 
-Patch **sem mudança funcional**: o diff desde a 0.7.7 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.AspNetCore` 0.10.0 sai deste commit e o referencia por `ProjectReference`.
+Patch **sem mudança funcional**: o diff desde a 0.7.7 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.AspNetCore` 0.10.0 sairia deste commit, mas o publish dele falhou (ver 0.10.1) e o referencia por `ProjectReference`.
 
 #### 0.7.7 — 2026-11-01
 
@@ -282,9 +286,9 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 
 ### Secco.SDK.AspNetCore
 
-#### 0.10.0 — 2026-11-01
+#### 0.10.1 — 2026-11-01
 
-Cabeçalhos de segurança de resposta (issue #53, ADR-0057).
+Cabeçalhos de segurança de resposta (issue #53, ADR-0057). **A 0.10.0 tem tag, mas nunca virou pacote**: o publish parou num teste que falhava ao acaso. O nonce saía em base64 padrão, e o `+` dele vira `&#x2B;` no HTML. O navegador decodifica e o nonce funcionava, mas o valor escrito na página já não era idêntico ao do cabeçalho. A 0.10.1 gera o nonce em base64url (`A-Z a-z 0-9 - _`), que nenhum codificador altera.
 
 Só acréscimo, e opt-in: nada muda em quem não chama as extensões novas, e `UseSeccoPlatform()` não as inclui.
 

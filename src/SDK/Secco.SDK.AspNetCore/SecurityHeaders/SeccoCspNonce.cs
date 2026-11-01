@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OutputCaching;
@@ -38,8 +39,11 @@ internal sealed class SeccoCspNonceFeature(HttpContext context)
 {
 	private const int NonceBytes = 16;
 
-	/// <summary>128 bits novos por requisição, nunca derivados de nada que venha nela.</summary>
-	internal string Value { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(NonceBytes));
+	/// <summary>
+	/// 128 bits novos por requisição, nunca derivados de nada que venha nela. Em base64url, que a
+	/// gramática da CSP aceita: sem <c>+</c>, <c>/</c> nem <c>=</c>, o codificador de HTML nunca altera o valor.
+	/// </summary>
+	internal string Value { get; } = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(NonceBytes));
 
 	internal bool Used { get; private set; }
 

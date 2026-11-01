@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
@@ -123,7 +124,8 @@ public sealed class SeccoSecurityHeadersMiddlewareTests
 
 		var firstNonce = await first.Content.ReadAsStringAsync();
 		firstNonce.Should().Be(NonceFromCsp(first));
-		Convert.FromBase64String(firstNonce).Should().HaveCount(16);
+		firstNonce.Should().MatchRegex("^[A-Za-z0-9_-]{22}$", "base64url de 128 bits, sem caractere que o HTML codifique");
+		Base64Url.DecodeFromChars(firstNonce).Should().HaveCount(16);
 		(await second.Content.ReadAsStringAsync()).Should().NotBe(firstNonce);
 	}
 
