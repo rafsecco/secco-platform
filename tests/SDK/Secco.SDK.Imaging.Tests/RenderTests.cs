@@ -15,7 +15,7 @@ public sealed class RenderTests
 			Options.Create(new SeccoImagingOptions()),
 			NullLogger<SeccoImageProcessor>.Instance);
 
-	private static ImageProcessingRequest Req(int maxSide = 512, CropRectangle? crop = null, ImageOutputFormat format = ImageOutputFormat.WebP)
+	private static ImageProcessingRequest Req(int maxSide = 512, ImageCrop? crop = null, ImageOutputFormat format = ImageOutputFormat.WebP)
 		=> new([new ImageVariant("v", maxSide)], crop, format);
 
 	private static async Task<ImageOutput> Single(byte[] input, ImageProcessingRequest request)
@@ -95,7 +95,7 @@ public sealed class RenderTests
 	[Fact]
 	public async Task Recorte_por_retangulo()
 	{
-		var output = await Single(TestImages.Png(200, 100), Req(crop: new CropRectangle(100, 0, 100, 100)));
+		var output = await Single(TestImages.Png(200, 100), Req(crop: ImageCrop.Rectangle(100, 0, 100, 100)));
 
 		(output.Width, output.Height).Should().Be((100, 100));
 		using var bitmap = Decode(output);
@@ -108,6 +108,24 @@ public sealed class RenderTests
 		var output = await Single(TestImages.Png(300, 100), Req());
 
 		(output.Width, output.Height).Should().Be((100, 100));
+	}
+
+	[Fact]
+	public async Task Imagem_inteira_reduz_mantendo_a_proporcao()
+	{
+		var output = await Single(TestImages.Png(1200, 400), Req(600, ImageCrop.Whole));
+
+		(output.Width, output.Height).Should().Be((600, 200));
+		using var bitmap = Decode(output);
+		(bitmap.Width, bitmap.Height).Should().Be((600, 200));
+	}
+
+	[Fact]
+	public async Task Imagem_inteira_nao_amplia()
+	{
+		var output = await Single(TestImages.Png(300, 100), Req(512, ImageCrop.Whole));
+
+		(output.Width, output.Height).Should().Be((300, 100));
 	}
 
 	// Armazenada 200x100: TL=R (vermelho), TR=G (verde), BL=B (azul), BR=Y (amarelo).
@@ -126,24 +144,28 @@ public sealed class RenderTests
 		var jpeg = TestImages.JpegWithExif(200, 100, (ushort)orientation, "x", quadrants: true);
 		var (displayW, displayH) = orientation >= 5 ? (100, 200) : (200, 100);
 
-		var output = await Single(jpeg, Req(512, new CropRectangle(0, 0, displayW, displayH)));
-
-		(output.Width, output.Height).Should().Be((displayW, displayH));
-		using var bitmap = Decode(output);
-		(bitmap.Width, bitmap.Height).Should().Be((displayW, displayH));
-
-		var centers = new[]
+		// O retângulo do quadro todo e a imagem inteira precisam dar a mesma saída orientada.
+		foreach (var crop in new[] { ImageCrop.Rectangle(0, 0, displayW, displayH), ImageCrop.Whole })
 		{
-			(displayW / 4, displayH / 4),
-			(displayW * 3 / 4, displayH / 4),
-			(displayW / 4, displayH * 3 / 4),
-			(displayW * 3 / 4, displayH * 3 / 4),
-		};
+			var output = await Single(jpeg, Req(512, crop));
 
-		for (var i = 0; i < 4; i++)
-		{
-			var pixel = bitmap.GetPixel(centers[i].Item1, centers[i].Item2);
-			Named(pixel).Should().Be(expectedTlTrBlBr[i], $"quadrante {i} da orientação {orientation}");
+			(output.Width, output.Height).Should().Be((displayW, displayH));
+			using var bitmap = Decode(output);
+			(bitmap.Width, bitmap.Height).Should().Be((displayW, displayH));
+
+			var centers = new[]
+			{
+				(displayW / 4, displayH / 4),
+				(displayW * 3 / 4, displayH / 4),
+				(displayW / 4, displayH * 3 / 4),
+				(displayW * 3 / 4, displayH * 3 / 4),
+			};
+
+			for (var i = 0; i < 4; i++)
+			{
+				var pixel = bitmap.GetPixel(centers[i].Item1, centers[i].Item2);
+				Named(pixel).Should().Be(expectedTlTrBlBr[i], $"quadrante {i} da orientação {orientation} com {crop}");
+			}
 		}
 
 		static char Named(SKColor c) => (c.Red > 150, c.Green > 150, c.Blue > 150) switch
@@ -175,7 +197,7 @@ public sealed class RenderTests
 	[Fact]
 	public async Task Imagem_alongada_nunca_zera_dimensao()
 	{
-		var output = await Single(TestImages.Png(4000, 1), Req(96, new CropRectangle(0, 0, 4000, 1)));
+		var output = await Single(TestImages.Png(4000, 1), Req(96, ImageCrop.Rectangle(0, 0, 4000, 1)));
 
 		(output.Width, output.Height).Should().Be((96, 1));
 	}

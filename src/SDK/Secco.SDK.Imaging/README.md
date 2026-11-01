@@ -50,9 +50,17 @@ Com recorte escolhido pelo usuário e saída JPEG:
 ```csharp
 var pedido = new ImageProcessingRequest(
     Variants: [new ImageVariant("perfil", 512)],
-    Crop: new CropRectangle(X: 120, Y: 40, Width: 600, Height: 600),
+    Crop: ImageCrop.Rectangle(x: 120, y: 40, width: 600, height: 600),
     Format: ImageOutputFormat.Jpeg,
     Quality: 85);
+```
+
+A imagem inteira, sem recorte, só reduzida quando passar do lado máximo (arte, banner, foto de evento):
+
+```csharp
+var pedido = new ImageProcessingRequest(
+    Variants: [new ImageVariant("mural", 1600)],
+    Crop: ImageCrop.Whole);
 ```
 
 O resultado é um dicionário por nome de variante (comparação ordinal); cada `ImageOutput` traz `Content`, `ContentType`, `Width` e `Height`.
@@ -70,7 +78,7 @@ O resultado é um dicionário por nome de variante (comparação ordinal); cada 
 | Campo | Padrão | Regra |
 |---|---|---|
 | `Variants` | — | Ao menos uma, com nomes únicos. `MaxSide` de 1 a 4096; a imagem **nunca é ampliada**. |
-| `Crop` | quadrado central | Em coordenadas da imagem **já orientada** (depois do EXIF). Fora dos limites: `InvalidCrop`. |
+| `Crop` | `ImageCrop.CenterSquare` | `CenterSquare` (maior quadrado centralizado, o caso de avatar), `Whole` (imagem inteira, mantendo a proporção) ou `Rectangle(x, y, width, height)`. Tudo em coordenadas da imagem **já orientada** (depois do EXIF): a SDK resolve `CenterSquare` e `Whole` pelo cabeçalho, sem o chamador conhecer as dimensões. Retângulo fora dos limites: `InvalidCrop`. |
 | `Format` | `WebP` | `WebP` ou `Jpeg`; no JPEG, transparência é composta sobre fundo branco. |
 | `Quality` | 80 | De 1 a 100. |
 

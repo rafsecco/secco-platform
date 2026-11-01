@@ -1,3 +1,4 @@
+using Secco.SDK.Imaging.Internal;
 using Secco.SharedKernel.Results;
 
 namespace Secco.SDK.Imaging;
@@ -30,12 +31,12 @@ public enum ImageOutputFormat
 
 /// <summary>Pedido de processamento de imagem.</summary>
 /// <param name="Variants">Variantes de saída (ao menos uma, nomes únicos).</param>
-/// <param name="Crop">Recorte em coordenadas da imagem já orientada; sem ele, usa-se o quadrado central.</param>
+/// <param name="Crop">Recorte antes do redimensionamento; sem ele, <see cref="ImageCrop.CenterSquare"/>.</param>
 /// <param name="Format">Formato de saída.</param>
 /// <param name="Quality">Qualidade de codificação, de 1 a 100.</param>
 public sealed record ImageProcessingRequest(
 	IReadOnlyList<ImageVariant> Variants,
-	CropRectangle? Crop = null,
+	ImageCrop? Crop = null,
 	ImageOutputFormat Format = ImageOutputFormat.WebP,
 	int Quality = 80);
 
@@ -44,12 +45,41 @@ public sealed record ImageProcessingRequest(
 /// <param name="MaxSide">Maior lado em pixels, de 1 a 4096; a imagem nunca é ampliada.</param>
 public sealed record ImageVariant(string Name, int MaxSide);
 
-/// <summary>Retângulo de recorte em coordenadas da imagem orientada.</summary>
-/// <param name="X">Coluna do canto superior esquerdo.</param>
-/// <param name="Y">Linha do canto superior esquerdo.</param>
-/// <param name="Width">Largura em pixels.</param>
-/// <param name="Height">Altura em pixels.</param>
-public sealed record CropRectangle(int X, int Y, int Width, int Height);
+/// <summary>
+/// Recorte aplicado antes do redimensionamento, sempre em coordenadas da imagem já orientada (EXIF).
+/// Conjunto fechado: <see cref="CenterSquare"/>, <see cref="Whole"/> ou <see cref="Rectangle"/>.
+/// </summary>
+public sealed record ImageCrop
+{
+	private ImageCrop(ImageCropKind kind, CropRectangle? area)
+	{
+		Kind = kind;
+		Area = area;
+	}
+
+	/// <summary>Maior quadrado centralizado; o caso de avatar.</summary>
+	public static ImageCrop CenterSquare { get; } = new(ImageCropKind.CenterSquare, null);
+
+	/// <summary>A imagem inteira, mantendo a proporção; o caso de arte, banner ou foto de evento.</summary>
+	public static ImageCrop Whole { get; } = new(ImageCropKind.Whole, null);
+
+	internal ImageCropKind Kind { get; }
+
+	internal CropRectangle? Area { get; }
+
+	/// <summary>Retângulo escolhido pelo usuário; fora dos limites da imagem responde <see cref="SeccoImagingErrors.InvalidCrop"/>.</summary>
+	/// <param name="x">Coluna do canto superior esquerdo.</param>
+	/// <param name="y">Linha do canto superior esquerdo.</param>
+	/// <param name="width">Largura em pixels.</param>
+	/// <param name="height">Altura em pixels.</param>
+	public static ImageCrop Rectangle(int x, int y, int width, int height)
+		=> new(ImageCropKind.Rectangle, new CropRectangle(x, y, width, height));
+
+	/// <inheritdoc />
+	public override string ToString() => Area is { } area
+		? $"Rectangle({area.X}, {area.Y}, {area.Width}, {area.Height})"
+		: Kind.ToString();
+}
 
 /// <summary>Resultado do processamento.</summary>
 /// <param name="Variants">Saídas indexadas pelo nome da variante (comparação ordinal).</param>

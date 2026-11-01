@@ -97,19 +97,25 @@ internal sealed partial class SeccoImageProcessor : ISeccoImageProcessor, IDispo
 
 	public void Dispose() => _slots.Dispose();
 
-	private static CropRectangle? ResolveCrop(CropRectangle? requested, ImageHeader header)
+	private static CropRectangle? ResolveCrop(ImageCrop? crop, ImageHeader header)
 	{
-		if (requested is null)
+		// Toda forma resolve para um retângulo em coordenadas orientadas: o cabeçalho já as tem.
+		if (crop?.Area is { } requested)
 		{
-			var side = Math.Min(header.Width, header.Height);
-			return new CropRectangle((header.Width - side) / 2, (header.Height - side) / 2, side, side);
+			var valid = requested.Width > 0 && requested.Height > 0 && requested.X >= 0 && requested.Y >= 0
+				&& (long)requested.X + requested.Width <= header.Width
+				&& (long)requested.Y + requested.Height <= header.Height;
+
+			return valid ? requested : null;
 		}
 
-		var valid = requested.Width > 0 && requested.Height > 0 && requested.X >= 0 && requested.Y >= 0
-			&& (long)requested.X + requested.Width <= header.Width
-			&& (long)requested.Y + requested.Height <= header.Height;
+		if (crop?.Kind == ImageCropKind.Whole)
+		{
+			return new CropRectangle(0, 0, header.Width, header.Height);
+		}
 
-		return valid ? requested : null;
+		var side = Math.Min(header.Width, header.Height);
+		return new CropRectangle((header.Width - side) / 2, (header.Height - side) / 2, side, side);
 	}
 
 	private Result<ProcessedImage> Reject(Error error)

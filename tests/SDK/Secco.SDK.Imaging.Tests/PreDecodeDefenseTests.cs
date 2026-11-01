@@ -157,7 +157,7 @@ public sealed class PreDecodeDefenseTests
 	public async Task Recorte_fora_dos_limites(int x, int y, int width, int height)
 	{
 		var codec = FakeCodec(100, 100);
-		var request = Request with { Crop = new CropRectangle(x, y, width, height) };
+		var request = Request with { Crop = ImageCrop.Rectangle(x, y, width, height) };
 
 		var result = await Run(Processor(codec), TestImages.Png(4, 4), request);
 
@@ -172,7 +172,7 @@ public sealed class PreDecodeDefenseTests
 		var result = await Run(
 			RealProcessor(),
 			TestImages.JpegWithExif(200, 100, 6, "x"),
-			Request with { Crop = new CropRectangle(0, 100, 100, 100) });
+			Request with { Crop = ImageCrop.Rectangle(0, 100, 100, 100) });
 
 		result.IsSuccess.Should().BeTrue();
 	}
@@ -191,6 +191,33 @@ public sealed class PreDecodeDefenseTests
 			Arg.Any<ImageOutputFormat>(),
 			Arg.Any<int>(),
 			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task Imagem_inteira_usa_o_quadro_todo()
+	{
+		var codec = FakeCodec(300, 100);
+
+		await Run(Processor(codec), TestImages.Png(4, 4), Request with { Crop = ImageCrop.Whole });
+
+		codec.Received(1).Render(
+			Arg.Any<ReadOnlyMemory<byte>>(),
+			Arg.Is<CropRectangle>(c => c == new CropRectangle(0, 0, 300, 100)),
+			Arg.Any<IReadOnlyList<ImageVariant>>(),
+			Arg.Any<ImageOutputFormat>(),
+			Arg.Any<int>(),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task Imagem_inteira_nao_dispensa_o_limite_de_pixels()
+	{
+		var codec = FakeCodec(50000, 50000);
+
+		var result = await Run(Processor(codec), TestImages.Png(4, 4), Request with { Crop = ImageCrop.Whole });
+
+		result.Error.Should().Be(SeccoImagingErrors.TooManyPixels);
+		ShouldNotRender(codec);
 	}
 
 	[Fact]

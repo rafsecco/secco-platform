@@ -146,6 +146,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.7 — 2026-11-01
+
+Patch **sem mudança funcional**: o diff desde a 0.7.6 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Imaging` 0.2.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.6 — 2026-10-31
 
 Patch **sem mudança funcional**: o diff desde a 0.7.5 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.24.0 sai deste commit e o referencia por `ProjectReference`.
@@ -376,6 +380,14 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 | 0.1.0 | 2026-07-11 |
 
 ### Secco.SDK.Imaging
+
+#### 0.2.0 — 2026-11-01
+
+**Breaking** (issue #52): imagem inteira, sem recorte.
+
+- **Adicionado** `ImageCrop.Whole`: a imagem inteira, mantendo a proporção, só reduzida até o `MaxSide` de cada variante. A SDK resolve o quadro pelas dimensões já orientadas do cabeçalho, então o chamador não precisa conhecê-las. As defesas não mudam: o `MaxPixels` continua conferido no cabeçalho antes da decodificação, e a saída continua limitada a 4096 no maior lado.
+- **Quebra:** `ImageProcessingRequest.Crop` passa de `CropRectangle?` para `ImageCrop?`, um conjunto fechado com `ImageCrop.CenterSquare`, `ImageCrop.Whole` e `ImageCrop.Rectangle(x, y, width, height)`. `CropRectangle` deixa de ser público. Omitir o recorte, ou passar `null`, continua dando o quadrado central.
+- **Upgrade:** troque `new CropRectangle(x, y, w, h)` por `ImageCrop.Rectangle(x, y, w, h)`. Na Intranet é uma linha, em `ProcessadorDeImagemDaSdk.cs`.
 
 #### 0.1.0 — 2026-10-17
 

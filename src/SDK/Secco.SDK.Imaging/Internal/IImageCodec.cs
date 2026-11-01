@@ -10,6 +10,17 @@ internal enum ImageInputFormat
 	WebP,
 }
 
+/// <summary>Variações de <see cref="ImageCrop"/>.</summary>
+internal enum ImageCropKind
+{
+	CenterSquare,
+	Whole,
+	Rectangle,
+}
+
+/// <summary>Retângulo de recorte resolvido, em coordenadas da imagem orientada.</summary>
+internal sealed record CropRectangle(int X, int Y, int Width, int Height);
+
 /// <summary>Cabeçalho lido sem decodificar pixels; largura e altura já orientadas.</summary>
 internal sealed record ImageHeader(ImageInputFormat Format, int Width, int Height);
 
