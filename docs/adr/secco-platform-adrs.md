@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-10-31 (ADR-0056 aceita)
+**Última atualização:** 2026-11-01 (ADR-0057 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -2183,6 +2183,91 @@ Alternativas avaliadas:
 - O token de pessoa ganha um papel a mais.
 - A guarda do último membro ativo (ADR-0036/0055) não se aplica ao perfil implícito, que nunca é atribuído nem retirado.
 - Contrato novo, só de acréscimo: `Secco.SecureGate.Client` ganha minor.
+
+---
+
+## ADR-0057: Cabeçalhos de segurança de resposta — CSP com nonce por requisição no `Secco.SDK.AspNetCore`
+
+**Status:** Aceita
+**Data:** 2026-11-01
+
+### Contexto
+
+Nenhum produto da plataforma envia cabeçalho de segurança de resposta: nem `Content-Security-Policy`, nem `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` ou `frame-ancestors`. A busca no repositório não encontra nenhum (issue [#53](https://github.com/rafsecco/secco-platform/issues/53), `adopter-demand`). O `X-Frame-Options` que aparece vem do antiforgery, e só nas páginas que geram token.
+
+A análise de segurança do `secco-intranet` achou um XSS armazenado por link `javascript:` no Markdown do Mural. O defeito foi corrigido no produto, mas o navegador não tinha nenhuma segunda linha de defesa: o script rodaria na sessão de um `intranet-admin`.
+
+Três aplicações servem HTML:
+
+- o `secco-intranet` (MVC);
+- o `Secco.AdminPortal` (Blazor Server);
+- as telas de login, segundo fator e conta do `Secco.SecureGate` (Razor Pages). São o alvo de maior valor da instalação contra clickjacking.
+
+A regra é que cross-cutting vem do SDK. Cada produto montar os seus cabeçalhos daria defaults diferentes, e uma política de CSP com nonce envelhece mal quando duplicada. Por isso o adotante recusou o middleware próprio.
+
+Restrições técnicas que moldam a decisão:
+
+- **Nonce não cobre atributo.** Ele vale para os elementos `<script>` e `<style>`, nunca para `style="..."`. A Intranet tem 18 atributos com a cor do setor, e as telas do SecureGate também usam `style=`. Atributo de estilo só passa com `'unsafe-inline'`, que libera qualquer valor, ou com `'unsafe-hashes'` mais o hash de cada valor exato. Os valores da Intranet formam um conjunto pequeno e conhecido: 8 matizes fixos de setor, um recuo por profundidade e uma largura.
+- **`form-action` alcança a cadeia de redirects.** O Chrome aplica `form-action` também aos redirects que seguem um POST. O login do SecureGate termina na `redirect_uri` do client, que é outra origem, e o logout de um relying party termina no SecureGate. Um `form-action 'self'` fixo quebraria o OIDC.
+
+Alternativas avaliadas:
+
+- **Pacote novo e fino, só com ASP.NET Core.** As três aplicações já referenciam o `Secco.SDK.AspNetCore`, e não existe consumidor que sirva HTML sem ele. Descartada: seria mais um pacote no ciclo de release sem ninguém que ganhe com a separação.
+- **No `Secco.SDK.RelyingParty`.** O SecureGate é emissor, não relying party, e precisa do mesmo. Descartada.
+- **Liberar qualquer atributo de estilo (`style-src-attr 'unsafe-inline'`) por opção do produto.** Foi o primeiro desenho. Um `style=` injetado pode sobrepor uma tela falsa à página verdadeira (UI redress), e os valores reais são poucos e conhecidos. Descartada em favor do hash do valor exato.
+- **HSTS só pelo `UseHsts()` nativo.** Ele só envia quando a aplicação vê HTTPS, e atrás de proxy com TLS terminado isso exige forwarded headers configurados. Sem isso, falha em silêncio. Descartada: o SDK envia sempre, porque por HTTP o navegador ignora.
+- **Coletor de relatórios de CSP no SDK.** Seria um endpoint anônimo recebendo JSON arbitrário, aberto a negação de serviço e log forging, numa capacidade que serve a todo produto. Descartada: o modo `ReportOnly` aponta para um coletor externo.
+- **Ligar por padrão no `UseSeccoPlatform()`, também nas APIs JSON.** O ganho é marginal, porque JSON com `Content-Type` correto quase não tem vetor no navegador. Além disso, mudaria a resposta de todo produto e quebraria o Scalar em DEV. Fica fora desta decisão: as APIs podem adotar depois, com o mesmo par de chamadas.
+
+### Decisão
+
+**O `Secco.SDK.AspNetCore` ganha `AddSeccoSecurityHeaders()` e `UseSeccoSecurityHeaders()`, opt-in.** O middleware entra cedo no pipeline, antes dos arquivos estáticos, e põe os cabeçalhos em toda resposta.
+
+**Sem configuração, saem estes cabeçalhos:**
+
+- `X-Content-Type-Options: nosniff`;
+- `Referrer-Policy: strict-origin-when-cross-origin`;
+- `Permissions-Policy` negando câmera, microfone, geolocalização, pagamento, USB e os demais recursos sensíveis. O produto libera um recurso pelo nome;
+- `Content-Security-Policy`: `default-src 'self'`, `script-src 'self' 'nonce-…'`, `style-src 'self' 'nonce-…'`, `style-src-attr 'none'`, `img-src 'self' data:`, `object-src 'none'`, `base-uri 'self'` e `frame-ancestors 'self'`;
+- `X-Frame-Options` coerente com o `frame-ancestors` (`DENY` para `'none'`, `SAMEORIGIN` para `'self'`), para navegador antigo;
+- `Strict-Transport-Security: max-age=31536000`, sem `includeSubDomains` e sem `preload`. Sai fora de Development e de `localhost`, **mesmo em requisição HTTP**: o navegador ignora HSTS recebido por HTTP (RFC 6797), e assim o cabeçalho chega também quando o TLS termina num proxy, sem depender de forwarded headers. O `UseHsts()` nativo falha em silêncio nesse caso, porque só envia quando a aplicação vê HTTPS.
+
+**Nonce por requisição.** São 128 bits de `RandomNumberGenerator`, novos a cada requisição e nunca derivados de nada da requisição. As views recebem o nonce de duas formas:
+
+- uma tag helper (`<script secco-nonce>`, `<style secco-nonce>`), para MVC e Razor Pages;
+- um serviço injetável, para componentes Razor renderizados no servidor.
+
+**Resposta com nonce nunca vai para cache compartilhado.** Quando a resposta usa o nonce, o middleware a marca com `Cache-Control: no-store` e desliga o armazenamento do output cache do ASP.NET para aquela requisição. Um nonce reaproveitado entre respostas seria um valor que o atacante pode ler e usar.
+
+**O que o produto ajusta, por código.** Cada ajuste é uma opção nomeada, e nenhum padrão é afrouxado em silêncio:
+
+- **origens extras por diretiva**, como um CDN. São validadas na subida: só esquema+host ou as palavras-chave permitidas, nunca `*`, e nunca `;`, vírgula ou quebra de linha (injeção no cabeçalho);
+- **`AllowStyleAttribute(valor)`**, para um valor **exato** de atributo de estilo. A SDK calcula o hash na subida e emite `style-src-attr 'unsafe-hashes' 'sha256-…'`: só aquele valor passa, e qualquer outro `style=` é bloqueado. **Não existe opção que libere atributo de estilo qualquer.** Navegador sem suporte a `style-src-attr` cai no `style-src`, que não tem `'unsafe-inline'`, e bloqueia o atributo: a falha é só visual, e para o lado seguro;
+- **`frame-ancestors`**: `'none'`, `'self'` ou uma lista de origens;
+- **`form-action`**, fora do padrão pelo motivo do OIDC acima. O produto declara as origens que conhece;
+- **HSTS**: prazo, `includeSubDomains` e `preload`, ou desligar;
+- **modo `Enforce` ou `ReportOnly`**, este com `report-uri` opcional para um coletor externo.
+
+**Proibido, recusado na subida (fail-fast):**
+
+- `'unsafe-inline'`, `'unsafe-eval'`, `data:` ou `*` em `script-src`;
+- `'unsafe-inline'` em `style-src` ou `style-src-attr`;
+- qualquer origem com caractere que quebre o cabeçalho.
+
+**A plataforma adota na mesma entrega, sem exceção de estilo:**
+
+- **SecureGate:** `frame-ancestors 'none'`. Os `style=` das telas viram classe no `<style>` com nonce do layout. Sem `form-action`, porque o destino do login é a `redirect_uri` de qualquer client cadastrado. O Scalar fica liberado só em Development.
+- **AdminPortal:** `frame-ancestors 'none'` e `form-action 'self'` mais a origem do SecureGate, que vem da configuração.
+- **Intranet:** adota pelo pacote publicado. A recomendação é trocar a cor do setor por 8 classes no CSS, sem hash; `AllowStyleAttribute` fica para o que não couber em classe.
+
+### Consequências
+
+- O XSS que escapar da validação de um produto passa a encontrar uma segunda barreira: script inline sem nonce e `javascript:` em link não executam, e um `style=` injetado não muda a aparência da página.
+- **Risco residual, que nenhuma CSP cobre:** HTML injetado sem script nem estilo, como um link enganoso ou um formulário cru, continua possível. Barrá-lo segue sendo trabalho da validação de cada produto.
+- **Risco residual no SecureGate:** sem `form-action`, um formulário injetado numa tela do SecureGate poderia enviar para outra origem. As telas não exibem conteúdo de usuário além de nome e e-mail, sempre codificados. Calcular as origens dos clients por requisição traria complexidade e superfície que não compensam.
+- **Risco do HSTS:** se o HTTPS da aplicação quebrar depois, quem já visitou fica preso a ele pelo prazo inteiro. É o comportamento esperado do HSTS, e por isso `includeSubDomains` fica desligado: alcançaria outros sistemas no mesmo domínio.
+- Script e estilo inline de terceiros, como um widget que injeta `<style>`, passam a ser bloqueados até receberem origem ou nonce. O produto descobre isso rodando em `ReportOnly` antes de impor.
+- `Secco.SDK.AspNetCore` ganha só acréscimos: minor.
 
 ---
 

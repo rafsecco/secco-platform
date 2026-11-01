@@ -22,11 +22,11 @@
 
 @if (Model.UsesLocalPassword)
 {
-    <p style="margin-top:1rem"><a href="/conta/trocar-senha">Trocar minha senha</a></p>
+    <p class="back"><a href="/conta/trocar-senha">Trocar minha senha</a></p>
 }
 else
 {
-    <p class="sub" style="margin-top:1rem">Esta conta entra pelo diretório corporativo e não usa senha local.</p>
+    <p class="sub back">Esta conta entra pelo diretório corporativo e não usa senha local.</p>
 }
 
 @* Fora do ramo acima de propósito: conta de diretório também troca o e-mail — nela não há

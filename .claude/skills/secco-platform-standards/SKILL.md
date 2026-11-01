@@ -51,6 +51,7 @@ Nem todo produto é uma API de 4 camadas. Um **console de operação** (ex.: `Se
 - É **relying party OIDC**, não resource server: autentica via cookie de sessão + authorization code/PKCE contra o SecureGate. Usa `AddSeccoAuthentication()`? **Não** — essa extensão é para produtos que validam JWT como resource server; um relying party reusa só o cross-cutting não-de-auth do SDK (correlation, resilience, health).
 - Chama os demais produtos **on-behalf-of** o operador: o token do próprio operador (custodiado num cofre no servidor e anexado por chamada pelo `Secco.SDK.RelyingParty`, ADR-0046 — nunca reimplementar a custódia) vai em toda chamada — nunca client credentials do produto de operação em nome próprio. A auditoria é a pessoa, não o console.
 - Telas/ações são protegidas por `RequireRole` (ou policy equivalente) no papel de operador, não por scope de API.
+- **Todo produto que serve HTML** (console, relying party, telas de login) usa `AddSeccoSecurityHeaders()`/`UseSeccoSecurityHeaders()` (ADR-0057), nunca cabeçalhos montados à mão. Script e `<style>` inline só com `secco-nonce`; atributo `style=` vira classe (ou `AllowStyleAttribute` com o valor exato). `form-action` só com as origens que o produto conhece, porque o navegador o aplica aos redirects do OIDC.
 
 Referência concreta: `Secco.AdminPortal` (Blazor Server, ADR-0023/0024) — ver `src/AdminPortal/README.md`. Um produto novo nesse molde documenta a exceção citando a ADR-0023, sem inventar Domain/Infrastructure vazios só para "bater" com a estrutura padrão.
 

@@ -86,6 +86,27 @@ a { color: #2563eb; }
 }
 #blazor-error-ui .dismiss { cursor: pointer; float: right; }
 
+/* Reconexão do circuito: o Blazor alterna as classes components-reconnect-* no elemento */
+.reconnect {
+    display: none; position: fixed; bottom: 1rem; right: 1rem; max-width: 22rem;
+    padding: 0.75rem 1rem; border-radius: 8px; background: #1a1d23; color: #e5e7eb;
+    box-shadow: 0 8px 30px rgba(0,0,0,.25); font-size: 0.875rem;
+}
+.reconnect a { color: #93c5fd; }
+.reconnect-msg { display: none; margin: 0; }
+.reconnect.components-reconnect-show,
+.reconnect.components-reconnect-retrying,
+.reconnect.components-reconnect-paused,
+.reconnect.components-reconnect-failed,
+.reconnect.components-reconnect-resume-failed,
+.reconnect.components-reconnect-rejected { display: block; }
+.components-reconnect-show .reconnect-msg--trying,
+.components-reconnect-retrying .reconnect-msg--trying,
+.components-reconnect-paused .reconnect-msg--paused,
+.components-reconnect-failed .reconnect-msg--failed,
+.components-reconnect-resume-failed .reconnect-msg--failed,
+.components-reconnect-rejected .reconnect-msg--rejected { display: block; }
+
 @media (prefers-color-scheme: dark) {
     body { background: #0f1115; color: #e5e7eb; }
     .content h1 { color: #f3f4f6; }

@@ -15,6 +15,14 @@
         <a href="." class="reload">Recarregar</a>
         <span class="dismiss">🗙</span>
     </div>
+    @* Diálogo de reconexão da própria aplicação (ADR-0057): o padrão do Blazor injeta <style> sem
+       nonce, que a CSP bloqueia. Com este id, o Blazor só troca classes — o estilo vem do app.css. *@
+    <div id="components-reconnect-modal" class="reconnect" role="status" aria-live="polite">
+        <p class="reconnect-msg reconnect-msg--trying">Conexão perdida. Tentando reconectar…</p>
+        <p class="reconnect-msg reconnect-msg--paused">Sessão pausada. <a href="">Recarregar</a></p>
+        <p class="reconnect-msg reconnect-msg--failed">Não foi possível reconectar. <a href="">Recarregar</a></p>
+        <p class="reconnect-msg reconnect-msg--rejected">A sessão terminou no servidor. <a href="">Recarregar</a></p>
+    </div>
     <script src="_framework/blazor.web.js"></script>
 </body>
 </html>

@@ -60,7 +60,7 @@ public partial class PasswordRecoveryTests(SelfIssuedAuthSecureGateApiFactory fa
 			["Input.Email"] = email,
 		}));
 
-		return (response.StatusCode, await response.Content.ReadAsStringAsync());
+		return (response.StatusCode, OidcLoginDriver.WithoutCspNonce(await response.Content.ReadAsStringAsync()));
 	}
 
 	private async Task<HttpResponseMessage> SubmitResetAsync(string link, string password)

@@ -13,7 +13,7 @@
     <input asp-for="Input.Code" autocomplete="one-time-code" inputmode="numeric" autofocus />
     <span class="field-error" asp-validation-for="Input.Code"></span>
 
-    <label style="font-weight:400">
+    <label class="inline">
         <input asp-for="Input.IsRecoveryCode" type="checkbox" />
         Estou usando um código de recuperação
     </label>
@@ -26,4 +26,4 @@
     <button type="submit">Entrar</button>
 </form>
 
-<p style="margin-top:1rem"><a href="/login">Voltar</a></p>
+<p class="back"><a href="/login">Voltar</a></p>

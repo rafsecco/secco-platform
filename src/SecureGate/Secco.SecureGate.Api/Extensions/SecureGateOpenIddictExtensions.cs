@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using Secco.SecureGate.Api.Identity;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.OpenIddict;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -70,6 +71,9 @@ public static class SecureGateOpenIddictExtensions
 				server.SetAccessTokenLifetime(TimeSpan.FromMinutes(accessTokenLifetimeMinutes));
 
 				ConfigureCertificates(server, environment, configuration);
+
+				// ADR-0057: a página de form_post sai com o nonce da CSP, senão o script dela é bloqueado
+				server.AddEventHandler(NoncedFormPostResponseHandler.Descriptor);
 
 				var aspNetCore = server.UseAspNetCore();
 				aspNetCore.EnableTokenEndpointPassthrough();

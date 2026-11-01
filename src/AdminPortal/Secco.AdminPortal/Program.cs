@@ -3,6 +3,7 @@ using Secco.AdminPortal.Components;
 using Secco.AdminPortal.Endpoints;
 using Secco.AdminPortal.Services;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.AspNetCore.SecurityHeaders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,21 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddSeccoCorrelation();
 builder.Services.AddSeccoResilience();
 builder.Services.AddSeccoHealthChecks();
+
+// Cabeçalhos de segurança (ADR-0057): o console nunca é emoldurado. O logout posta aqui e termina
+// no end_session do SecureGate, e o navegador aplica form-action aos redirects do POST — por isso
+// a origem dele entra na lista. Authority HTTP (só fora de Production) fica sem form-action.
+builder.Services.AddSeccoSecurityHeaders(options => options.DenyFraming());
+builder.Services.AddOptions<SeccoSecurityHeadersOptions>().Configure<IConfiguration>((options, configuration) =>
+{
+	// Lido na montagem da política, não no registro: fontes de configuração tardias também valem
+	if (Uri.TryCreate(configuration["Secco:SecureGate:Authority"], UriKind.Absolute, out var authority)
+		&& authority.Scheme == Uri.UriSchemeHttps)
+	{
+		options.FormActions.Add("'self'");
+		options.FormActions.Add(authority.GetLeftPart(UriPartial.Authority));
+	}
+});
 
 // Relying party OIDC: cookie + authorization code/PKCE contra o SecureGate
 builder.Services.AddAdminPortalAuthentication(builder.Configuration, builder.Environment);
@@ -48,6 +64,7 @@ builder.Services.AddScoped<ILogQueryService, LogStreamQueryService>();
 
 var app = builder.Build();
 
+app.UseSeccoSecurityHeaders();
 app.UseStaticFiles();
 app.UseSeccoCorrelation();
 app.UseAuthentication();

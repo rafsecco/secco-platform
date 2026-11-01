@@ -24,6 +24,7 @@ Chamadas repetidas de `AddSeccoPlatform()` são no-op. Ajuste fino: chamar a ext
 - `AddSeccoAuthorization()` — autorização granular Role + Permission (ADR-0021): policies dinâmicas por permissão (`RequireAuthorization("recurso:acao")`), resolução `(tenant, role) → permissões` com cache de TTL curto e **fail-closed**. Resolver por `IConfiguration` (DEV) ou remoto via `Secco.SecureGate.Client`.
 - `AddSeccoOpenApi()` — OpenAPI com as convenções da plataforma (enums como `type: string`, ADR-0006).
 - `AddSeccoBackgroundJobs()` — jobs persistentes com retry automático (ADR-0015 Camada 2): `IBackgroundJobScheduler` sobre Hangfire, com o tenant restaurado automaticamente na execução. **Não** faz parte de `AddSeccoPlatform()` — opt-in só para quem precisa (produtos isolados não carregam Hangfire).
+- `AddSeccoSecurityHeaders()` / `UseSeccoSecurityHeaders()` — cabeçalhos de segurança de resposta (ADR-0057): CSP com nonce por requisição, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors`/`X-Frame-Options` e HSTS. **Não** faz parte de `UseSeccoPlatform()` — opt-in para quem serve HTML.
 - `AddSeccoPlatform()` / `UseSeccoPlatform()` / `MapSeccoPlatform()` — composição de tudo acima, com ordem de pipeline fixada (correlation → auth → tenancy → authorization) e guarda contra registro duplicado.
 
 ## Uso
@@ -159,3 +160,49 @@ public sealed class SendEmailJob(INotificationRepository repository, ISeccoEmail
 Regras (ADR-0015): jobs vivem no banco de **plataforma** do produto — nunca por tenant; o `tenant_id` viaja como argumento e o `TenantJobRunner` interno restaura o contexto (ADR-0005) ANTES de resolver e invocar o job via DI, então qualquer repositório usado dentro do job já enxerga o tenant certo. Retry automático fixo em `[AutomaticRetry(Attempts = 5)]` no runner — é decisão de plataforma, não por job; um produto que precise de outra política ajusta via `GlobalJobFilters` no próprio host. Núcleo gratuito do Hangfire (LGPL) apenas — recursos Pro exigem reavaliar a ADR-0015 antes de adotar. Produtos que não precisam de jobs persistentes não chamam esta extensão — não entra em `AddSeccoPlatform()` ("produtos isolados permanecem leves").
 
 **Testes com múltiplas `WebApplicationFactory`**: o Hangfire usa um bridge de log estático por processo (`Hangfire.Logging.LogProvider`) — se cada classe de teste criar sua própria factory com Hangfire, a primeira a ser descartada deixa as demais com um `ILoggerFactory` já disposto (`ObjectDisposedException` no primeiro job enfileirado). Compartilhe uma única factory entre as classes de teste do produto via `ICollectionFixture` (ver `Secco.NotificationHub.Tests` para o padrão).
+
+## Cabeçalhos de segurança (ADR-0057)
+
+Para aplicação que serve HTML (relying party, console de operação, telas de login). Os padrões já são seguros; cada ajuste é opção nomeada, validada na subida.
+
+```csharp
+builder.Services.AddSeccoSecurityHeaders(options => options
+    .DenyFraming()                                   // frame-ancestors 'none' + X-Frame-Options: DENY
+    .AllowStyleAttribute("--sc-setor-hue:152"));     // só este valor exato de style="..."
+
+app.UseExceptionHandler("/erro");
+app.UseSeccoSecurityHeaders();                       // antes de UseStaticFiles, para cobri-los também
+app.UseStaticFiles();
+```
+
+Nas views (MVC e Razor Pages), com `@addTagHelper *, Secco.SDK.AspNetCore` no `_ViewImports.cshtml`:
+
+```html
+<script secco-nonce>/* inline */</script>
+<style secco-nonce>/* inline */</style>
+```
+
+Em componente Razor renderizado no servidor, injete `ISeccoCspNonce` e use `nonce="@Nonce.Value"`. Em código, `HttpContext.GetSeccoCspNonce()`.
+
+**O que sai sem configuração:**
+
+| Cabeçalho | Valor |
+|---|---|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'nonce-…'; style-src 'self' 'nonce-…'; style-src-attr 'none'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | nega câmera, microfone, geolocalização, pagamento, USB, serial, MIDI, captura de tela e sensores |
+| `X-Frame-Options` | coerente com `frame-ancestors`: `DENY` para `'none'`, `SAMEORIGIN` para `'self'`, ausente para outras origens |
+| `Strict-Transport-Security` | `max-age=31536000`, fora de Development e de `localhost` — **também por HTTP**, porque o navegador o ignora sem TLS e assim ele chega atrás de proxy que termina o TLS |
+
+**Ajustes:** `ScriptSources`, `StyleSources`, `ImageSources` (aceita `blob:`), `FontSources` (aceita `data:`), `ConnectSources`, `FrameAncestors`, `FormActions`, `AllowedPermissions`, `AllowStyleAttribute(valor)`, `Mode` (`Enforce` ou `ReportOnly`), `ReportUri` (coletor externo HTTPS; o SDK não hospeda coletor) e as opções de HSTS.
+
+**Recusado na subida (fail-fast):** qualquer palavra-chave além de `'self'` (logo, `'unsafe-inline'`, `'unsafe-eval'`, `'unsafe-hashes'` e `'strict-dynamic'`), `*`, `http:`, `data:` em script ou estilo, e origem com `;`, vírgula, aspas ou espaço — esses caracteres injetariam conteúdo na CSP.
+
+Regras que valem saber:
+
+- **Atributo `style="..."` não aceita nonce.** Ou vira classe no CSS (preferível), ou entra por `AllowStyleAttribute` com o valor **exato** já decodificado, que vira `'unsafe-hashes' 'sha256-…'`. Não existe opção que libere atributo de estilo qualquer.
+- **`form-action` fica fora do padrão.** O navegador aplica a diretiva também aos redirects que seguem o POST, e o login e o logout por OIDC terminam em outra origem. Declare as origens que o produto conhece em `FormActions`.
+- **Resposta que usa o nonce sai com `Cache-Control: no-store`** e fica fora do output cache: um nonce reaproveitado seria um valor que o atacante lê e usa.
+- **Em `ReportOnly`, o navegador ignora `frame-ancestors`.** O `X-Frame-Options` continua protegendo contra moldura.
+- **Blazor Server:** o diálogo padrão de reconexão injeta `<style>` sem nonce e sai sem estilo. Declare o seu próprio, com `id="components-reconnect-modal"` e CSS na folha da aplicação.

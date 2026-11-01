@@ -44,6 +44,11 @@ builder.Services.AddRazorPages(options =>
 	options.Conventions.AllowAnonymousToPage("/TwoFactorLogin");
 });
 
+// Cabeçalhos de segurança (ADR-0057): as telas de login e de conta são o alvo de maior valor da
+// instalação contra clickjacking — nunca emolduradas. Sem form-action: o login termina na
+// redirect_uri de qualquer client cadastrado, e o navegador aplica a diretiva aos redirects do POST.
+builder.Services.AddSeccoSecurityHeaders(options => options.DenyFraming());
+
 // Options (SecureGate:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
 builder.Services.AddSecureGateApplication();
 builder.Services.AddSecureGateInfrastructure();
@@ -62,6 +67,10 @@ builder.Services.AddSecureGateEntraFederation(builder.Configuration, builder.Env
 
 var app = builder.Build();
 
+// A UI do Scalar (só em DEV) carrega script inline e de CDN: fica fora da política, e só em Development
+app.UseWhen(
+	context => !(app.Environment.IsDevelopment() && context.Request.Path.StartsWithSegments("/scalar")),
+	branch => branch.UseSeccoSecurityHeaders());
 app.UseSeccoPlatform();
 
 // Operador designado (ADR-0049): reconfere a designação e audita cada escrita, em qualquer rota

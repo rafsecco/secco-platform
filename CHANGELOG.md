@@ -12,6 +12,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) e AdminPortal — cabeçalhos de segurança adotados (ADR-0057)
+
+Não são pacotes: mudam os serviços.
+
+- **SecureGate:**
+  - toda resposta sai com a política do SDK e `frame-ancestors 'none'`: as telas de login, segundo fator e conta nunca são emolduradas;
+  - os atributos `style=` das telas viraram classe, e o `<style>` do layout leva o nonce;
+  - a UI do Scalar, só em Development, fica fora da política.
+- **SecureGate, `response_mode=form_post`:** a página do OpenIddict se enviava por um `<script>` inline sem nonce, que a CSP bloquearia. `form_post` é o padrão do handler OIDC da Microsoft, então o login do AdminPortal e da Intranet travaria ali. O SecureGate passou a gerar essa página com o nonce da requisição e com todos os valores codificados em HTML (o `state` vem do client).
+- **AdminPortal:**
+  - `frame-ancestors 'none'`, e `form-action 'self'` mais a origem do SecureGate, para o logout terminar no `end_session`;
+  - o diálogo de reconexão do Blazor passou a ser marcação da própria aplicação, porque o padrão injeta `<style>` sem nonce.
+
 ### SecureGate (serviço) e AdminPortal — textos de sessão alinhados à ADR-0032
 
 Nenhum comportamento muda. Os `summary` de `DeactivateUser` e `RemoveUserRole` no `openapi.json`, e as mensagens correspondentes na página da pessoa no AdminPortal, diziam que a sessão terminava "na próxima renovação de token". Desde a ADR-0032 as duas operações revogam as sessões na hora. O `Secco.SecureGate.Client` muda só no comentário gerado e sai na próxima versão.
@@ -146,6 +159,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.8 — 2026-11-01
+
+Patch **sem mudança funcional**: o diff desde a 0.7.7 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.AspNetCore` 0.10.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.7 — 2026-11-01
 
 Patch **sem mudança funcional**: o diff desde a 0.7.6 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Imaging` 0.2.0 sai deste commit e o referencia por `ProjectReference`.
@@ -264,6 +281,24 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.10.0 — 2026-11-01
+
+Cabeçalhos de segurança de resposta (issue #53, ADR-0057).
+
+Só acréscimo, e opt-in: nada muda em quem não chama as extensões novas, e `UseSeccoPlatform()` não as inclui.
+
+- **Adicionado** `AddSeccoSecurityHeaders(configure)` / `UseSeccoSecurityHeaders()`. Toda resposta passa a levar `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` restritiva, `X-Frame-Options` coerente com `frame-ancestors` e uma CSP com **nonce por requisição**: `script-src` e `style-src` só `'self'` mais nonce, `style-src-attr 'none'`, `object-src 'none'`, `base-uri 'self'` e `frame-ancestors 'self'`.
+- **HSTS:** `Strict-Transport-Security: max-age=31536000` sai fora de Development e de `localhost`, **também por HTTP**. O navegador ignora o cabeçalho sem TLS, e assim ele chega atrás de proxy que termina o TLS.
+- **Nonce:** tag helper `secco-nonce` para `<script>` e `<style>` (registrar com `@addTagHelper *, Secco.SDK.AspNetCore`), `ISeccoCspNonce` para componente Razor e `HttpContext.GetSeccoCspNonce()`. A página de erro reexecutada mantém o mesmo nonce do cabeçalho.
+- **Cache:** resposta que usa o nonce sai com `Cache-Control: no-store` e fica fora do output cache do ASP.NET.
+- **Ajustes, validados na subida (fail-fast):**
+  - origens extras por diretiva (só `'self'`, `https://` ou `wss://`);
+  - `AllowStyleAttribute(valor)`, que libera o valor **exato** pelo hash (`'unsafe-hashes'`);
+  - `DenyFraming()`, `FrameAncestors`, `FormActions` e `AllowedPermissions`;
+  - modo `ReportOnly` com `ReportUri` externa;
+  - opções de HSTS.
+- **Recusado na subida:** qualquer palavra-chave além de `'self'` (logo, `'unsafe-inline'` e `'unsafe-eval'`), `*`, `http:`, `data:` em script ou estilo, e origem com `;`, vírgula, aspas ou espaço.
 
 #### 0.9.9 — 2026-10-31
 

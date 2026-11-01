@@ -311,7 +311,8 @@ public partial class EmailChangeTests(SelfIssuedAuthSecureGateApiFactory factory
 		var livre = await SubmitChangeAsync(browser, Email(), IdentitySeed.Password);
 		var emUso = await SubmitChangeAsync(browser, ocupado, IdentitySeed.Password);
 
-		(await emUso.Content.ReadAsStringAsync()).Should().Be(await livre.Content.ReadAsStringAsync());
+		OidcLoginDriver.WithoutCspNonce(await emUso.Content.ReadAsStringAsync())
+			.Should().Be(OidcLoginDriver.WithoutCspNonce(await livre.Content.ReadAsStringAsync()));
 	}
 
 	[Fact]

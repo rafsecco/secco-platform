@@ -26,9 +26,20 @@ internal sealed partial class OidcLoginDriver(
 	[GeneratedRegex("__RequestVerificationToken.*?value=\"([^\"]+)\"", RegexOptions.Singleline)]
 	private static partial Regex AntiforgeryField();
 
+	[GeneratedRegex("nonce=\"[^\"]*\"")]
+	private static partial Regex CspNonceAttribute();
+
 	/// <summary>Token antiforgery de uma página renderizada — as telas de credencial também o exigem.</summary>
 	/// <param name="html">HTML da página.</param>
 	public static string ExtractAntiforgeryToken(string html) => AntiforgeryField().Match(html).Groups[1].Value;
+
+	/// <summary>
+	/// HTML sem o nonce da CSP (ADR-0057), para os testes de "resposta indistinguível": o nonce é
+	/// aleatório por requisição e nunca depende da conta, então não distingue nada — todo o resto
+	/// da página continua tendo de ser idêntico.
+	/// </summary>
+	/// <param name="html">HTML da página.</param>
+	public static string WithoutCspNonce(string html) => CspNonceAttribute().Replace(html, "nonce=\"\"");
 
 	public HttpClient CreateBrowser() => factory.CreateClient(new WebApplicationFactoryClientOptions
 	{
