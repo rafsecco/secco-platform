@@ -92,10 +92,25 @@ public class ElevationPolicyTests
 	[Fact]
 	public void NenhumPapelCrossTenantCombinaLeituraEEscrita()
 	{
-		// Guarda contra deriva futura: um papel cross-tenant só lê OU só escreve
+		// Guarda contra deriva futura: um papel cross-tenant só lê OU só escreve. A exportação da
+		// trilha é leitura em massa e entra NOMINALMENTE (ADR-0058, emenda à ADR-0024): qualquer outra
+		// ação que não seja ":read" continua recusada aqui.
 		SecureGatePlatform.ElevatedLogReaderPermissions.Should().OnlyContain(p => p.EndsWith(":read", StringComparison.Ordinal));
-		SecureGatePlatform.OperatorReadPermissions.Should().OnlyContain(p => p.EndsWith(":read", StringComparison.Ordinal));
+		SecureGatePlatform.OperatorReadPermissions.Should().OnlyContain(p =>
+			p.EndsWith(":read", StringComparison.Ordinal) || p == "audit-entries:export");
 		SecureGatePlatform.AuditorPermissions.Should().OnlyContain(p => p.EndsWith(":write", StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public async Task RolePermissions_Operador_ExportaATrilhaMasOLeitorElevadoNao()
+	{
+		var repository = Substitute.For<IRoleRepository>();
+
+		var operador = await new GetRolePermissionsHandler(repository).HandleAsync(AnyTenant, SecureGatePlatform.OperatorRole);
+		var elevado = await new GetRolePermissionsHandler(repository).HandleAsync(AnyTenant, SecureGatePlatform.ElevatedLogReaderRole);
+
+		operador.Value.Should().Contain("audit-entries:export");
+		elevado.Value.Should().NotContain("audit-entries:export", "quem só elevou para diagnóstico não extrai a trilha");
 	}
 
 	// ─────────────────────── identidade de auditoria (emenda da ADR-0031) ───────────────────────

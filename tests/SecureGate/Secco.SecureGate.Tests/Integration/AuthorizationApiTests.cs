@@ -123,8 +123,8 @@ public class AuthorizationApiTests(SecureGateApiFactory factory) : IAsyncLifetim
 
 		permissions.Should().BeEquivalentTo(SecureGatePlatform.OperatorReadPermissions,
 			"o operador de instalação recebe o read-set em qualquer tenant, resolvido no SecureGate");
-		permissions.Should().OnlyContain(p => p.EndsWith(":read", StringComparison.Ordinal),
-			"a capacidade cross-tenant do operador é somente leitura");
+		permissions.Should().OnlyContain(p => p.EndsWith(":read", StringComparison.Ordinal) || p == "audit-entries:export",
+			"a capacidade cross-tenant do operador é somente leitura (a exportação da trilha é leitura em massa, ADR-0058)");
 	}
 
 	[Fact]

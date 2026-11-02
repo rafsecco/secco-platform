@@ -143,6 +143,14 @@ public static class LogStreamErrors
 		/// <summary>Intervalo de busca invertido.</summary>
 		public static readonly Error InvalidDateRange =
 			Error.Validation("LogStream.AuditEntry.InvalidDateRange", "A data inicial não pode ser posterior à final.");
+
+		/// <summary>Formato de exportação fora de <c>xlsx</c> e <c>pdf</c>.</summary>
+		public static readonly Error InvalidExportFormat =
+			Error.Validation("LogStream.AuditEntry.InvalidExportFormat", "Formato de exportação inválido. Use xlsx ou pdf.");
+
+		/// <summary>Fuso horário desconhecido. A descrição não ecoa o valor recebido (ADR-0020).</summary>
+		public static readonly Error InvalidTimeZone =
+			Error.Validation("LogStream.AuditEntry.InvalidTimeZone", "Fuso horário desconhecido. Use um identificador IANA, como America/Sao_Paulo.");
 	}
 
 	/// <summary>Erros de ingestão.</summary>

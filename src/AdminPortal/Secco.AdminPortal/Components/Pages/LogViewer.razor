@@ -65,9 +65,46 @@ else
     </div>
 }
 
+<section class="export">
+    <h2>Exportar trilha de auditoria</h2>
+    <p class="hint">Gera um arquivo com a trilha de auditoria deste tenant. A exportação fica registrada na própria trilha.</p>
+
+    @if (ExportError is not null)
+    {
+        <p class="error" role="alert">@ExportMessage(ExportError)</p>
+    }
+
+    @* Formulário nativo, sem @onsubmit: o navegador baixa o arquivo. POST com antiforgery (ADR-0058). *@
+    <form method="post" action="@($"tenants/{TenantId}/audit-entries/export")" class="filters" data-enhance="false">
+        <AntiforgeryToken />
+        <label>De <input type="datetime-local" name="From" /></label>
+        <label>Até <input type="datetime-local" name="To" /></label>
+        <label>Ator <input type="text" name="ActorId" maxlength="256" placeholder="sub ou client id" /></label>
+        <label>Ação <input type="text" name="Action" maxlength="256" placeholder="ex.: documento.download" /></label>
+        <label>Formato
+            <select name="Format">
+                <option value="xlsx">Excel (.xlsx)</option>
+                <option value="pdf">PDF</option>
+            </select>
+        </label>
+        <button type="submit">Exportar</button>
+    </form>
+</section>
 @code {
     /// <summary>Tenant alvo (rota) — viaja no header X-Tenant-Id (ADR-0024).</summary>
     [Parameter] public Guid TenantId { get; set; }
+
+    /// <summary>Código da falha da exportação, devolvido pelo endpoint de download; nunca texto livre.</summary>
+    [SupplyParameterFromQuery(Name = "exportError")] public string? ExportError { get; set; }
+
+    private static string ExportMessage(string code) => Enum.TryParse<AuditExportFailure>(code, out var failure) ? failure switch
+    {
+        AuditExportFailure.TooManyRows => "A exportação passa do limite de linhas. Restrinja os filtros e tente de novo.",
+        AuditExportFailure.Forbidden => "Sem permissão para exportar a trilha deste tenant.",
+        AuditExportFailure.RateLimited => "Exportações demais em pouco tempo. Aguarde um minuto e tente de novo.",
+        AuditExportFailure.InvalidRequest => "Filtros inválidos. Confira as datas e os campos.",
+        _ => "Não foi possível exportar agora. Tente novamente.",
+    } : "Não foi possível exportar agora. Tente novamente.";
 
     private const int PageSize = 25;
 

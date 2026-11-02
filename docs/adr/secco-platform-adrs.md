@@ -4,7 +4,7 @@
 > Nenhum código deve contradizer uma ADR com status **Aceita**.
 > Para mudar uma decisão, cria-se uma nova ADR que **substitui** a anterior — ADRs nunca são editadas retroativamente nem apagadas.
 
-**Última atualização:** 2026-11-01 (ADR-0057 aceita)
+**Última atualização:** 2026-11-01 (ADR-0058 aceita)
 **Produtos cobertos:** Secco.SecureGate, Secco.LogStream, Secco.NotificationHub, Secco.Configuration, Secco.FeatureFlags, Secco.Audit, Secco.AdminPortal, Secco.SharedKernel, Secco.SDK, Secco.Templates
 
 ---
@@ -2271,8 +2271,107 @@ Alternativas avaliadas:
 
 ---
 
+## ADR-0058: Exportação de listagens em Excel e PDF — `Secco.SDK.Documents`, gerado no servidor por cada produto
+
+**Status:** Aceita
+**Data:** 2026-11-01
+**Emenda:** ADR-0024 (o conjunto fixo de leitura do `installation-operator` ganha `audit-entries:export`)
+
+### Contexto
+
+A Intranet e os produtos da plataforma precisam deixar o usuário baixar listagens em Excel e em PDF. A plataforma não tem nada para isso, e cada produto faria o seu, com bibliotecas, layouts e defesas diferentes.
+
+Os consumidores autenticam de formas diferentes, e isso muda o jeito de baixar:
+
+- o `secco-intranet` (MVC) e o `Secco.AdminPortal` (Blazor Server) têm sessão por cookie, então um link ou formulário comum leva a autenticação;
+- as APIs são chamadas com Bearer token, e um `<a href>` não envia o token.
+
+Alternativas de **onde gerar**:
+
+- **No navegador** (SheetJS, jsPDF). Os dados brutos teriam que chegar ao cliente antes, o volume fica limitado à memória da aba, e cada frontend refaria o layout. Além disso, o pacote do SheetJS no npm parou numa versão com CVE (CVE-2023-30533). Descartada.
+- **Num serviço central de relatórios.** O serviço precisaria ler dados de todos os produtos, o que gera acoplamento e um ponto onde dados de tenants diferentes se encontram (ADR-0005). Descartada.
+- **No servidor de cada produto, com uma biblioteca comum.** Cada produto exporta só os seus dados, com o tenant e a autorização que já aplica na listagem.
+
+Alternativas de **biblioteca**, com o mesmo critério da ADR-0042: uso comercial sem cobrança, Windows/Linux/container e sem `System.Drawing`.
+
+- **QuestPDF:** a licença Community cobra de empresa acima de um faturamento, a mesma armadilha do ImageSharp. Descartada.
+- **iText:** AGPL. Descartada.
+- **PDFsharp + MigraDoc:** eram MIT até a 6.2.4. A 6.5.0 (2026-10-14) passou a AGPL ou licença comercial, com escolha obrigatória da licença em tempo de execução. Fixar a 6.2.4 congelaria a dependência: o primeiro advisory forçaria AGPL ou pagamento. Descartada.
+- **PDF a partir de HTML (Playwright/Puppeteer):** exige um Chromium em cada imagem Docker de adotante, além do custo de memória e de processo. Descartada.
+- **EPPlus:** comercial desde a v5. Descartada.
+- **ClosedXML:** MIT, mas monta a planilha inteira em memória. Descartada.
+- **Open XML SDK (`DocumentFormat.OpenXml`, MIT):** o `OpenXmlWriter` não basta, porque o `System.IO.Packaging` segura o conteúdo em memória. Medido na 3.5.1, com 10 colunas: 395 MB de pico para 200 mil linhas, gravando por stream ou por caminho. Um stream só de escrita é recusado pelo SDK. Descartada como gravador; fica nos testes, como validador.
+- **Gravadores próprios, só de saída.** Um `.xlsx` é um zip com seis XMLs fixos. Gravado com `ZipArchive` em modo `Create` e `XmlWriter`, manteve 54 MB constantes com 1 milhão de linhas e passou no `OpenXmlValidator` sem erro. Um PDF tabular com as fontes padrão do formato também cabe num gravador pequeno. Nenhum dos dois lê arquivo de fora, e por isso a superfície de ataque é a de qualquer código que escreve texto: o escape.
+
+### Decisão
+
+Criaremos o pacote **`Secco.SDK.Documents`**. Ele recebe a definição das colunas e as linhas (`IAsyncEnumerable<T>`) e escreve um `.xlsx` ou um PDF tabular, com **gravadores próprios e sem dependência de terceiros em tempo de execução**. Assim como na ADR-0042, a SDK só cuida do formato: busca de dados, tenant e autorização ficam com o produto.
+
+**O que o pacote entrega:**
+
+- **Excel:** uma planilha por exportação, com cabeçalho, tipos (texto, número, data, moeda) e formatos por coluna. É gravada linha a linha, com memória constante.
+- **PDF tabular:** o layout padrão da plataforma, também gravado página a página com memória constante.
+  - **Cabeçalho:** título, nome do tenant e filtros aplicados.
+  - **Rodapé:** quem emitiu, data/hora e "página X de Y". O total vai num objeto do PDF definido depois da última página.
+  - **Fontes:** as fontes padrão do PDF (Helvetica, codificação WinAnsi), que cobrem todo o português. Não há fonte para embutir nem resolvedor de fonte no Linux, e o resultado não depende do sistema onde foi gerado. Caractere fora do WinAnsi, como emoji ou CJK, sai como `?`.
+- **Fuso e cultura:** o produto informa o fuso e a cultura no pedido, com `pt-BR` como padrão. As datas, guardadas em UTC, e o "emitido em" saem no fuso informado.
+- **Resposta HTTP:** um helper monta a resposta com `Content-Type` correto, `Content-Disposition: attachment` codificado conforme a RFC 6266 (`filename*`) e `Cache-Control: no-store`. Nenhum produto monta esses cabeçalhos à mão.
+
+**Gera primeiro, envia depois.** O documento é escrito num arquivo temporário e só depois enviado, com `Content-Length`. Uma falha no meio da geração vira ProblemDetails, e nunca um arquivo truncado com status 200. O arquivo temporário guarda dado de tenant, então:
+
+- fica num diretório próprio da SDK, criado com permissão `0600` no Linux;
+- é apagado ao terminar, com sucesso ou falha;
+- os restos de um processo que caiu são apagados na subida, porque no Linux o `DeleteOnClose` só apaga ao fechar.
+
+**Defesas, todas na SDK:**
+
+- **Nenhuma célula vira fórmula.** Todo texto é gravado como `inlineStr`, e a API pública não tem tipo de fórmula. Isso fecha a injeção de fórmula (`=`, `+`, `-`, `@`).
+- **Escape do PDF.** Todo texto entra no conteúdo do PDF como literal, com `\`, `(` e `)` escapados. Dado do usuário nunca vira operador de desenho, e nenhum dado vai para o catálogo do PDF: ações, links e JavaScript não existem no gravador.
+- **Dado que quebraria o arquivo é limpo, não derruba a exportação.** Caractere de controle inválido em XML e surrogate solto são removidos. Texto acima de 32.767 caracteres, o limite de célula do Excel, é truncado com marcador.
+- **Limite de linhas por formato**, com padrão e ajuste por produto. Quem passa do limite recebe `Result` com erro tipado (ADR-0004), que pede para restringir o filtro.
+- **Concorrência limitada por instância, e cancelamento** pelo `RequestAborted`.
+- **Nome do arquivo gerado no servidor:** o produto passa um prefixo fixo, e a SDK acrescenta a data e remove qualquer caractere fora do conjunto permitido.
+
+**O que cada produto faz:**
+
+- **API com Bearer:** expõe `GET /api/v1/<recurso>/export?format=xlsx|pdf&<filtros>`, com os mesmos filtros e o mesmo isolamento de tenant da listagem. O cliente baixa com `fetch`, `Blob` e `URL.createObjectURL`. Token em query string fica proibido.
+- **Aplicação com cookie (MVC, Blazor Server):** a exportação é **`POST` com antiforgery**, nunca `GET`. Uma página externa conseguiria disparar um `GET` em nome de quem tem sessão, porque o cookie `Lax` acompanha a navegação, e isso geraria trilha falsa e carga no servidor.
+- **Permissão:** própria no catálogo (ADR-0039), por exemplo `<recurso>:export`. Extrair tudo de uma vez é um risco diferente de ver uma página da listagem.
+- **Limite por pessoa:** a exportação tem limite de taxa por `sub`, além do limite de concorrência da SDK, para uma pessoa só não ocupar todas as vagas.
+- **Trilha, síncrona e fail-closed:** antes de enviar o arquivo, o produto registra quem exportou, quais filtros usou e quantas linhas saíram. Se a trilha falhar, o arquivo não sai. O conteúdo nunca é registrado, e os valores dos filtros entram com tamanho limitado, porque podem trazer dado pessoal.
+
+**Primeiro consumidor: a trilha de auditoria do LogStream.**
+
+- `GET /api/v1/audit-entries/export`, com os filtros da busca de auditoria e a permissão `audit-entries:export`.
+- A própria exportação vira um `AuditEntry` no tenant exportado.
+- O AdminPortal oferece o download na página de logs do tenant, por `POST` com antiforgery, chamando o LogStream on-behalf-of o operador (ADR-0023).
+
+**Emenda à ADR-0024.** O conjunto fixo de leitura do `installation-operator` ganha `audit-entries:export`. Continua sendo só leitura, mas leitura em massa, e por isso cada exportação deixa trilha no tenant exportado.
+
+**Fora do v1: exportação assíncrona.** Relatório lento demais para uma requisição precisa de job (Hangfire via `IBackgroundJobScheduler`, ADR-0015), armazenamento de arquivo com expiração e segregação por tenant, e aviso pelo NotificationHub. A plataforma ainda não tem armazenamento de arquivo, e escolhê-lo é decisão própria. Isso fica para uma ADR nova quando surgir o primeiro caso real. O contrato acima não muda quando ela vier: o modo assíncrono entra como recurso novo (`POST /api/v1/exports`).
+
+### Consequências
+
+- **Mais fácil:**
+  - exportar em qualquer produto com o mesmo layout, as mesmas defesas e os mesmos cabeçalhos;
+  - nenhuma licença ou advisory de terceiros para acompanhar no pacote.
+- **Mais difícil:**
+  - a plataforma passa a manter dois gravadores de formato. Isso é limitado de propósito: só listagem tabular, só escrita. Os testes validam o `.xlsx` com o Open XML SDK e leem o PDF de volta com o PdfPig (Apache-2.0), ambos só como dependências de teste;
+  - o PDF tabular cobre listagens, e não documentos de layout livre, como contrato, recibo ou crachá. Esses casos pedem revisão desta ADR. O mesmo vale para texto fora do WinAnsi, que exigiria embutir fonte;
+  - o limite de linhas obriga o produto a oferecer filtro. A exportação "de tudo" espera o modo assíncrono.
+- **Proibido:**
+  - gerar a exportação no navegador;
+  - exportação por `GET` em aplicação autenticada por cookie;
+  - montar `Content-Disposition` ou nome de arquivo a partir de input do usuário;
+  - gravar fórmula em célula, ou ação, link ou JavaScript no PDF, a partir de dado;
+  - entregar o arquivo quando a trilha da exportação falhou;
+  - um serviço que exporte dados de outro produto lendo o banco dele.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
 - Estratégia de deploy (contêiner: onde? Azure/AWS/on-prem do cliente?)
 - Roadmap público e política de suporte a versões
+- Armazenamento de arquivos e exportação assíncrona (pendência da ADR-0058)

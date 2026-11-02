@@ -48,6 +48,12 @@ public static class LogStreamPermissions
 
 		/// <summary>Registrar entradas de auditoria.</summary>
 		public const string Write = "audit-entries:write";
+
+		/// <summary>
+		/// Exportar a trilha em Excel ou PDF (ADR-0058). Permissão própria: extrair tudo de uma
+		/// vez é um risco diferente de ver uma página da busca.
+		/// </summary>
+		public const string Export = "audit-entries:export";
 	}
 
 	/// <summary>
@@ -64,5 +70,6 @@ public static class LogStreamPermissions
 		new(ApiCallLogs.Write, "Inserir chamadas de API"),
 		new(AuditEntries.Read, "Consultar entradas de auditoria"),
 		new(AuditEntries.Write, "Registrar entradas de auditoria"),
+		new(AuditEntries.Export, "Exportar a trilha de auditoria (Excel ou PDF)"),
 	];
 }

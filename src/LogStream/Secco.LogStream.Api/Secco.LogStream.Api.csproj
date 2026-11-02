@@ -15,6 +15,7 @@
     <!-- Catálogo de tenants central via SecureGate (Fase 6.3) — comunicação entre produtos
          exclusivamente pelo client NSwag (ADR-0006) -->
     <ProjectReference Include="..\..\SecureGate\Secco.SecureGate.Client\Secco.SecureGate.Client.csproj" />
+    <ProjectReference Include="..\..\SDK\Secco.SDK.Documents\Secco.SDK.Documents.csproj" />
   </ItemGroup>
 
 </Project>

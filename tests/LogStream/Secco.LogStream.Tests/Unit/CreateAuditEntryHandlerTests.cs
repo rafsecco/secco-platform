@@ -25,6 +25,8 @@ public class CreateAuditEntryHandlerTests
 
 		public Task<PagedResult<AuditEntry>> SearchAsync(AuditEntrySearchCriteria criteria, CancellationToken cancellationToken = default) =>
 			Task.FromResult(PagedResult.Create((IReadOnlyList<AuditEntry>)Added, PageRequest.Default, Added.Count));
+
+		public IAsyncEnumerable<AuditEntry> StreamAsync(AuditEntrySearchCriteria criteria) => Added.ToAsyncEnumerable();
 	}
 
 	private static readonly LogStreamIngestionOptions Options = new();

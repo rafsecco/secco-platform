@@ -4,6 +4,7 @@ using Secco.LogStream.Api.Endpoints;
 using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.Documents;
 using Secco.SDK.EntityFrameworkCore.Migrations;
 using Secco.SecureGate.Client.Authorization;
 using Secco.SecureGate.Client.Catalog;
@@ -34,9 +35,16 @@ builder.Services.AddSecureGateTenantCatalog();
 // o resolver por configuração do SDK (Secco:Authorization:Roles) segue valendo em DEV
 builder.Services.AddSecureGatePermissionResolver();
 
+// Exportação em Excel/PDF (ADR-0058): limites em LogStream:Documents, taxa por pessoa em LogStream:Exports
+builder.Services.AddSeccoDocuments("LogStream:Documents");
+builder.Services.AddExportRateLimiting();
+
 var app = builder.Build();
 
 app.UseSeccoPlatform();
+
+// Depois da autenticação: a partição do limite é o sub do token
+app.UseRateLimiter();
 app.MapSeccoPlatform();
 app.MapLogEntryEndpoints();
 app.MapLogProcessEndpoints();

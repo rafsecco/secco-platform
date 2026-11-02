@@ -92,6 +92,14 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
   </ItemGroup>
 
+  <!-- Secco.SDK.Documents (ADR-0058): os gravadores de .xlsx e PDF são da própria SDK, sem dependência em
+       runtime. Estes dois só entram nos TESTES: o Open XML SDK (MIT) valida a planilha gerada e o PdfPig
+       (Apache-2.0) lê o PDF de volta. -->
+  <ItemGroup>
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
+  </ItemGroup>
+
   <!-- Contratos HTTP (Fase 4, ADR-0006) -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />

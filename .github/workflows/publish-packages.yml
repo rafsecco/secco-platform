@@ -11,6 +11,7 @@ name: Publish NuGet
 #   sdk-relyingparty/v0.1.0 → Secco.SDK.RelyingParty 0.1.0
 #   sdk-email/v0.1.0      → Secco.SDK.Email 0.1.0
 #   sdk-imaging/v0.1.0    → Secco.SDK.Imaging 0.1.0
+#   sdk-documents/v0.1.0  → Secco.SDK.Documents 0.1.0
 #   logstream-client/v0.1.0 → Secco.LogStream.Client 0.1.0
 #   notificationhub-client/v0.1.0 → Secco.NotificationHub.Client 0.1.0
 #   securegate-client/v0.1.0 → Secco.SecureGate.Client 0.1.0
@@ -33,6 +34,7 @@ on:
       - "sdk-relyingparty/v*"
       - "sdk-email/v*"
       - "sdk-imaging/v*"
+      - "sdk-documents/v*"
       - "logstream-client/v*"
       - "notificationhub-client/v*"
       - "securegate-client/v*"
@@ -80,6 +82,7 @@ jobs:
             sdk-relyingparty/v*) echo "project=src/SDK/Secco.SDK.RelyingParty/Secco.SDK.RelyingParty.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-email/v*)    echo "project=src/SDK/Secco.SDK.Email/Secco.SDK.Email.csproj" >> "$GITHUB_OUTPUT" ;;
             sdk-imaging/v*)  echo "project=src/SDK/Secco.SDK.Imaging/Secco.SDK.Imaging.csproj" >> "$GITHUB_OUTPUT" ;;
+            sdk-documents/v*)  echo "project=src/SDK/Secco.SDK.Documents/Secco.SDK.Documents.csproj" >> "$GITHUB_OUTPUT" ;;
             logstream-client/v*) echo "project=src/LogStream/Secco.LogStream.Client/Secco.LogStream.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             notificationhub-client/v*) echo "project=src/NotificationHub/Secco.NotificationHub.Client/Secco.NotificationHub.Client.csproj" >> "$GITHUB_OUTPUT" ;;
             securegate-client/v*) echo "project=src/SecureGate/Secco.SecureGate.Client/Secco.SecureGate.Client.csproj" >> "$GITHUB_OUTPUT" ;;

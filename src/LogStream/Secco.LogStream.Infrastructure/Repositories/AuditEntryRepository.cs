@@ -25,6 +25,25 @@ internal sealed class AuditEntryRepository(LogStreamDbContext context) : IAuditE
 		AuditEntrySearchCriteria criteria,
 		CancellationToken cancellationToken = default)
 	{
+		var query = Filtered(criteria);
+		var page = criteria.EffectivePage;
+		var totalCount = await query.LongCountAsync(cancellationToken).ConfigureAwait(false);
+
+		var items = await Ordered(query)
+			.Skip(page.Skip)
+			.Take(page.Size)
+			.ToListAsync(cancellationToken)
+			.ConfigureAwait(false);
+
+		return PagedResult.Create(items, page, totalCount);
+	}
+
+	// Mesmos filtros e mesma ordem da busca: a exportação é a busca inteira, lida linha a linha.
+	public IAsyncEnumerable<AuditEntry> StreamAsync(AuditEntrySearchCriteria criteria) =>
+		Ordered(Filtered(criteria)).AsAsyncEnumerable();
+
+	private IQueryable<AuditEntry> Filtered(AuditEntrySearchCriteria criteria)
+	{
 		var query = context.AuditEntries.AsNoTracking();
 
 		if (criteria.From is not null)
@@ -62,17 +81,9 @@ internal sealed class AuditEntryRepository(LogStreamDbContext context) : IAuditE
 			query = query.Where(entry => entry.CorrelationId == criteria.CorrelationId);
 		}
 
-		var page = criteria.EffectivePage;
-		var totalCount = await query.LongCountAsync(cancellationToken).ConfigureAwait(false);
-
-		var items = await query
-			.OrderByDescending(entry => entry.OccurredAt)
-			.ThenByDescending(entry => entry.Id)
-			.Skip(page.Skip)
-			.Take(page.Size)
-			.ToListAsync(cancellationToken)
-			.ConfigureAwait(false);
-
-		return PagedResult.Create(items, page, totalCount);
+		return query;
 	}
+
+	private static IQueryable<AuditEntry> Ordered(IQueryable<AuditEntry> query) =>
+		query.OrderByDescending(entry => entry.OccurredAt).ThenByDescending(entry => entry.Id);
 }

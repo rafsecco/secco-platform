@@ -4,6 +4,7 @@ using Secco.AdminPortal.Endpoints;
 using Secco.AdminPortal.Services;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.AspNetCore.SecurityHeaders;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +63,22 @@ builder.Services.AddHttpClient(AdminPortalDefaults.LogStreamHttpClient, (service
 });
 builder.Services.AddScoped<ILogQueryService, LogStreamQueryService>();
 
+// Exportação da trilha (ADR-0058): client próprio, sem o pipeline de resiliência — o retry repetiria
+// uma operação que grava trilha, e o timeout por tentativa cortaria uma exportação grande.
+// RemoveAllResilienceHandlers é experimental: se a API mudar numa atualização, o build quebra à vista.
+#pragma warning disable EXTEXP0001
+builder.Services.AddHttpClient(AdminPortalDefaults.LogStreamExportHttpClient, (serviceProvider, client) =>
+{
+	var baseUrl = serviceProvider.GetRequiredService<IConfiguration>()["Secco:LogStream:BaseUrl"]
+		?? throw new InvalidOperationException("Configure 'Secco:LogStream:BaseUrl'.");
+
+	client.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+	client.Timeout = TimeSpan.FromMinutes(5);
+}).RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+builder.Services.AddScoped<IAuditExportService, LogStreamAuditExportService>();
+builder.Services.TryAddSingleton(TimeProvider.System);
+
 var app = builder.Build();
 
 app.UseSeccoSecurityHeaders();
@@ -74,6 +91,7 @@ app.UseAntiforgery();
 // Health é anônimo (sem FallbackPolicy neste app); os componentes exigem autenticação
 app.MapSeccoHealthChecks();
 app.MapAuthenticationEndpoints();
+app.MapAuditExportEndpoints();
 app.MapRazorComponents<App>()
 	.AddInteractiveServerRenderMode()
 	.RequireAuthorization();

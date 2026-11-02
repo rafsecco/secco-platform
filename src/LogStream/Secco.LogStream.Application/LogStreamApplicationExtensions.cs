@@ -37,6 +37,7 @@ public static class LogStreamApplicationExtensions
 		services.AddScoped<CreateAuditEntryHandler>();
 		services.AddScoped<GetAuditEntryByIdHandler>();
 		services.AddScoped<SearchAuditEntriesHandler>();
+		services.AddScoped<ExportAuditEntriesHandler>();
 
 		return services;
 	}

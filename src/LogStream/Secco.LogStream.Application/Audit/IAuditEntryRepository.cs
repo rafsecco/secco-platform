@@ -43,4 +43,11 @@ public interface IAuditEntryRepository
 	/// <param name="criteria">Filtros e paginação.</param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task<PagedResult<AuditEntry>> SearchAsync(AuditEntrySearchCriteria criteria, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Todas as entradas que casam com os filtros, na ordem da busca, lidas uma a uma — para a
+	/// exportação (ADR-0058). A paginação do critério é ignorada; quem limita é a SDK.
+	/// </summary>
+	/// <param name="criteria">Filtros, os mesmos da busca.</param>
+	IAsyncEnumerable<AuditEntry> StreamAsync(AuditEntrySearchCriteria criteria);
 }

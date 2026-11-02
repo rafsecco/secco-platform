@@ -62,6 +62,10 @@ public static class SecureGatePlatform
 		// automática — auditoria é mais sensível que diagnóstico, e fora do read-set ela
 		// simplesmente não apareceria no AdminPortal.
 		"audit-entries:read",
+
+		// Exportar a trilha (ADR-0058, emenda à ADR-0024): ainda só leitura, mas em massa — por isso
+		// cada exportação deixa trilha no próprio tenant exportado.
+		"audit-entries:export",
 	];
 
 	/// <summary>

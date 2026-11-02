@@ -19,6 +19,15 @@ public sealed class LogStreamApiFactory : SeccoApiFactory<Program>
 	/// <summary>Segundo tenant — existe para provar que nenhuma query cruza bancos.</summary>
 	public Guid TenantBeta { get; } = Guid.NewGuid();
 
+	/// <summary>Papel que só lê a trilha: sem <c>audit-entries:export</c>.</summary>
+	public const string AuditReaderRole = "leitor-de-auditoria";
+
+	/// <summary>Teto de linhas do PDF neste host.</summary>
+	public const int ExportPdfRowLimit = 30;
+
+	/// <summary>Exportações por minuto por pessoa neste host.</summary>
+	public const int ExportPermitsPerMinute = 5;
+
 	/// <inheritdoc />
 	protected override Task MigrateAsync(IServiceProvider services) =>
 		services.MigrateLogStreamTenantDatabasesAsync();
@@ -39,6 +48,13 @@ public sealed class LogStreamApiFactory : SeccoApiFactory<Program>
 			"api-call-logs:read",
 			"api-call-logs:write",
 			"audit-entries:read",
-			"audit-entries:write");
+			"audit-entries:write",
+			"audit-entries:export");
+
+		AddRolePermissions(settings, AuditReaderRole, "audit-entries:read");
+
+		// Limites baixos para os testes de exportação exercitarem o teto sem gerar milhares de linhas
+		settings["LogStream:Documents:MaxPdfRows"] = ExportPdfRowLimit.ToString(System.Globalization.CultureInfo.InvariantCulture);
+		settings["LogStream:Exports:PermitsPerMinute"] = ExportPermitsPerMinute.ToString(System.Globalization.CultureInfo.InvariantCulture);
 	}
 }

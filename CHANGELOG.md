@@ -12,6 +12,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### LogStream (serviço), SecureGate (serviço) e AdminPortal — exportação da trilha (ADR-0058) — ação necessária para usar
+
+Não são pacotes: mudam os serviços.
+
+- **LogStream:** `GET /api/v1/audit-entries/export?format=xlsx|pdf` com os filtros da busca e `timeZone` IANA opcional.
+  - **Permissão:** nova, `audit-entries:export`, publicada no catálogo pelo `migrate`.
+  - **Limite por pessoa:** `LogStream:Exports:PermitsPerMinute`, padrão 10, por instância.
+  - **Linhas:** `LogStream:Documents`, padrão 100 mil no Excel e 10 mil no PDF.
+  - **Trilha:** a exportação vira um `AuditEntry` (`audit-entries.export`, com formato, linhas e filtros, nunca o conteúdo) **antes** do envio. Se o registro falhar, o arquivo não sai.
+- **SecureGate (emenda à ADR-0024):** o conjunto fixo de leitura do `installation-operator` ganha `audit-entries:export`. O leitor elevado da ADR-0031 não ganha.
+- **AdminPortal:**
+  - seção "Exportar trilha de auditoria" na página de logs do tenant, por `POST` com antiforgery, baixando on-behalf-of o operador;
+  - o client de exportação não tem retry nem timeout por tentativa, porque o retry repetiria uma operação que grava trilha;
+  - fuso em `Secco:AdminPortal:TimeZone`, padrão `America/Sao_Paulo`.
+- **Para usar:** rode o `migrate` do LogStream, para publicar a permissão no catálogo, e conceda `audit-entries:export` aos perfis que podem extrair a trilha.
+
 ### SecureGate (serviço) e AdminPortal — cabeçalhos de segurança adotados (ADR-0057)
 
 Não são pacotes: mudam os serviços.
@@ -158,6 +174,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 - Verificado que o SourceLink continua valendo sem a referência: o nuspec mantém `repository` com o SHA do commit e o `.snupkg` segue sendo gerado. E o componente que passa a fazer o trabalho é o do SDK, cuja versão é que governa daqui em diante — as instaladas (10.0.401 e 9.0.318) estão fora de todas as faixas afetadas pelo advisory.
 
 ### Secco.SharedKernel
+
+#### 0.7.10 — 2026-11-02
+
+Patch **sem mudança funcional**: o diff desde a 0.7.9 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Documents` 0.1.0 e o `Secco.LogStream.Client` 0.5.0 saem deste commit e o referenciam por `ProjectReference`.
 
 #### 0.7.9 — 2026-11-01
 
@@ -418,6 +438,27 @@ Patch **sem mudança funcional**: o diff de `src/SDK/Secco.SDK.AspNetCore` entre
 | 0.2.0 | 2026-07-12 |
 | 0.1.0 | 2026-07-11 |
 
+### Secco.SDK.Documents
+
+#### 0.1.0 — 2026-11-02
+
+Pacote novo (ADR-0058). Exportação de listagens em Excel (`.xlsx`) e PDF tabular, gerada no servidor de cada produto. Os gravadores são da própria SDK, sem dependência de terceiros em runtime. O PDFsharp/MigraDoc passou a AGPL ou licença comercial na 6.5.0, e o Open XML SDK segura a planilha inteira em memória (395 MB para 200 mil linhas).
+
+- **Adicionado** `AddSeccoDocuments(sectionKey)`, `ISeccoDocumentExporter.ExportAsync` e `ExportedDocument.ToHttpResult()`.
+  - **Colunas tipadas:** texto, inteiro, número, moeda, data e instante, pelo construtor fluente `ExportColumns<T>`.
+  - **Linhas:** `IAsyncEnumerable<T>`, consumidas uma a uma.
+  - **Fuso e cultura** vêm do pedido.
+- **Excel:** aba `Dados` com cabeçalho congelado e autofiltro, e aba `Sobre` com título, tenant, filtros e emissão. Memória constante, medida em 55 MB com 1 milhão de linhas.
+- **PDF:** A4 paisagem com o layout da plataforma e as fontes padrão do PDF (Helvetica, WinAnsi). Caractere fora do WinAnsi sai como `?`.
+- **Defesas:**
+  - nenhuma célula vira fórmula;
+  - o texto entra no PDF como literal escapado, e o gravador não tem ação, link nem JavaScript;
+  - caractere que quebraria o arquivo é removido;
+  - limite de linhas por formato (`TooManyRows`), concorrência limitada e cancelamento;
+  - arquivo temporário em diretório `0700` e arquivo `0600` no Linux, com restos apagados na subida;
+  - nome de arquivo gerado no servidor, e resposta com `Content-Disposition` RFC 6266, `no-store` e `nosniff`.
+- **Repasse:** `SeccoDocumentResults.Attachment` repassa um arquivo gerado por outro produto, refazendo o nome.
+
 ### Secco.SDK.Imaging
 
 #### 0.2.0 — 2026-11-01
@@ -479,6 +520,12 @@ Pacote novo (issue #29, ADR-0042): tratamento seguro de imagem enviada por usuá
 | 0.1.0 | 2026-07-11 |
 
 ### Secco.LogStream.Client
+
+#### 0.5.0 — 2026-11-02
+
+Exportação da trilha de auditoria (ADR-0058).
+
+- **Adicionado** `ExportAuditEntriesAsync(format, from, to, actorId, action, resourceType, resourceId, correlationId, timeZone)`, que devolve `FileResponse`. Só acréscimo.
 
 #### 0.4.0 — 2026-09-10
 
@@ -728,6 +775,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.21 — 2026-11-02
+
+Patch **sem mudança funcional**: o diff desde a 0.1.20 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.LogStream.Client` 0.5.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.20 — 2026-10-31
 

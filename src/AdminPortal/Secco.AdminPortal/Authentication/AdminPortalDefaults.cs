@@ -20,6 +20,15 @@ public static class AdminPortalDefaults
 	/// <summary>Nome do <c>HttpClient</c> tipado do LogStream (leitura de logs, Fase 7.3).</summary>
 	public const string LogStreamHttpClient = "LogStream";
 
+	/// <summary>
+	/// <c>HttpClient</c> da exportação da trilha (ADR-0058): sem o pipeline de resiliência — o retry
+	/// repetiria uma operação que grava trilha, e o timeout por tentativa cortaria uma exportação grande.
+	/// </summary>
+	public const string LogStreamExportHttpClient = "LogStreamExport";
+
+	/// <summary>Fuso das datas da exportação e dos filtros digitados (padrão: America/Sao_Paulo).</summary>
+	public const string TimeZoneKey = "Secco:AdminPortal:TimeZone";
+
 	/// <summary>Seção das credenciais próprias da consulta de versão de sessão.</summary>
 	public const string SessionValidationSection = "Secco:SessionValidation";
 

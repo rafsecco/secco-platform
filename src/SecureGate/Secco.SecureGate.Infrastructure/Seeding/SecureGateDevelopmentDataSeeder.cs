@@ -41,7 +41,7 @@ public sealed class SecureGateDevelopmentDataSeeder(
 		"log-entries:read", "log-entries:write",
 		"log-processes:read", "log-processes:write",
 		"api-call-logs:read", "api-call-logs:write",
-		"audit-entries:read", "audit-entries:write",
+		"audit-entries:read", "audit-entries:write", "audit-entries:export",
 	];
 
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
