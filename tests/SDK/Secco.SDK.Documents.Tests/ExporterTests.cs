@@ -121,7 +121,8 @@ public sealed class ExporterTests : TempRootTest
 	[Fact]
 	public void Restos_de_processo_que_caiu_sao_apagados_na_subida_e_os_recentes_ficam()
 	{
-		Directory.CreateDirectory(StoreDirectory);
+		// A SDK cria o diretório (0700 no Linux); um criado aqui sairia 0755 e seria recusado, de propósito.
+		_ = ExportFixture.Exporter(Root);
 		var velho = Path.Combine(StoreDirectory, "velho.tmp");
 		var recente = Path.Combine(StoreDirectory, "recente.tmp");
 		File.WriteAllText(velho, "dado de tenant");

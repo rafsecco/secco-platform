@@ -175,9 +175,9 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
-#### 0.7.10 — 2026-11-02
+#### 0.7.11 — 2026-11-02
 
-Patch **sem mudança funcional**: o diff desde a 0.7.9 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Documents` 0.1.0 e o `Secco.LogStream.Client` 0.5.0 saem deste commit e o referenciam por `ProjectReference`.
+Patch **sem mudança funcional**: o diff desde a 0.7.9 é vazio. **A 0.7.10 tem tag, mas nunca virou pacote**: o publish parou num teste do `Secco.SDK.Documents` que só falhava no Linux, porque o teste criava o diretório temporário com permissão 0755 e a SDK o recusava, como deve. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Documents` 0.1.0 e o `Secco.LogStream.Client` 0.5.0 saem deste commit e o referenciam por `ProjectReference`.
 
 #### 0.7.9 — 2026-11-01
 
