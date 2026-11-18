@@ -589,6 +589,15 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("nr_access_failed_count");
 
+                    b.Property<int>("AttributesOrigin")
+                        .HasColumnType("integer")
+                        .HasColumnName("ie_attributes_origin");
+
+                    b.Property<string>("BusinessPhone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ds_business_phone");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text")
@@ -597,6 +606,11 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.Property<int>("DeactivationOrigin")
                         .HasColumnType("integer")
                         .HasColumnName("ie_deactivation_origin");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("ds_department");
 
                     b.Property<bool>("DirectoryManaged")
                         .HasColumnType("boolean")
@@ -616,6 +630,11 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("fl_email_confirmed");
 
+                    b.Property<string>("JobTitle")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("ds_job_title");
+
                     b.Property<bool>("LocalLoginEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("fl_local_login_enabled");
@@ -627,6 +646,10 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_lockout_end");
+
+                    b.Property<Guid?>("ManagerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id_fk_manager");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
@@ -669,6 +692,9 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_users");
+
+                    b.HasIndex("ManagerId")
+                        .HasDatabaseName("idx_users_id_fk_manager");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("idx_users_ds_normalized_email");
@@ -1211,6 +1237,12 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
 
             modelBuilder.Entity("Secco.SecureGate.Infrastructure.Identity.User", b =>
                 {
+                    b.HasOne("Secco.SecureGate.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_users_user");
+
                     b.HasOne("Secco.SecureGate.Domain.Tenants.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")

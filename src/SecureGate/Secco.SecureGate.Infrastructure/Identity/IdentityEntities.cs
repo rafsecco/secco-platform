@@ -38,6 +38,24 @@ public sealed class User : IdentityUser<Guid>
 	/// operação: a sincronização só reativa a conta cuja origem é <c>Directory</c>.
 	/// </summary>
 	public Application.Users.DeactivationOrigin DeactivationOrigin { get; set; } = Application.Users.DeactivationOrigin.None;
+
+	/// <summary>Cargo vindo do diretório federado (ADR-0055). Nulo se ausente ou descartado pela validação.</summary>
+	public string? JobTitle { get; set; }
+
+	/// <summary>Departamento vindo do diretório federado (ADR-0055).</summary>
+	public string? Department { get; set; }
+
+	/// <summary>Telefone comercial vindo do diretório federado (ADR-0055).</summary>
+	public string? BusinessPhone { get; set; }
+
+	/// <summary>
+	/// Conta do gestor no SecureGate (ADR-0055), quando o gestor do diretório tem conta dona do mesmo tenant.
+	/// Auto-FK sem ação: não existe exclusão de conta.
+	/// </summary>
+	public Guid? ManagerId { get; set; }
+
+	/// <summary>Quem gravou os atributos acima; <c>None</c> enquanto nunca sincronizados.</summary>
+	public Application.Users.DirectoryAttributesOrigin AttributesOrigin { get; set; } = Application.Users.DirectoryAttributesOrigin.None;
 }
 
 /// <summary>Role (perfil) por tenant — a autorização granular resolve permissões a partir dele (ADR-0021).</summary>

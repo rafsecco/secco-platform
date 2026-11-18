@@ -282,6 +282,7 @@ public static class SecureGateInfrastructureExtensions
 		services.AddScoped<Application.Federation.IDirectoryRoleStore, DirectoryRoleStore>();
 		// Provisionamento de contas pelo diretório (ADR-0055, entrega B)
 		services.AddScoped<Application.Federation.IDirectoryAccountStore, DirectoryAccountStore>();
+		services.AddScoped<Application.Federation.IDirectoryAttributeStore, DirectoryAttributeStore>();
 		services.AddScoped<Application.Federation.IDirectorySyncTenantSource, DirectorySyncTenantSource>();
 		services.AddScoped<Application.Federation.IDirectorySyncAuditor, TenantAdministration.DatabaseDirectorySyncAuditor>();
 		services.AddScoped<Application.Scheduling.IBackgroundLeaseStore, Scheduling.BackgroundLeaseStore>();

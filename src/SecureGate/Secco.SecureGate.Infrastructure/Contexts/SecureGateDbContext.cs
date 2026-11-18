@@ -192,6 +192,13 @@ public sealed class SecureGateDbContext(
 			user.HasIndex(u => u.TenantId).HasDatabaseName("idx_users_id_fk_tenant");
 			user.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId).OnDelete(DeleteBehavior.Restrict);
 			user.Property(u => u.DisplayName).HasMaxLength(DisplayNameRules.MaxLength);
+			user.Property(u => u.JobTitle).HasMaxLength(Secco.SecureGate.Application.Federation.DirectoryAttributeRules.JobTitleMaxLength);
+			user.Property(u => u.Department).HasMaxLength(Secco.SecureGate.Application.Federation.DirectoryAttributeRules.DepartmentMaxLength);
+			user.Property(u => u.BusinessPhone).HasMaxLength(Secco.SecureGate.Application.Federation.DirectoryAttributeRules.BusinessPhoneMaxLength);
+
+			// Gestor (ADR-0055): auto-FK sem ação — o SQL Server recusa SET NULL auto-referente e não há exclusão de conta
+			user.HasOne<User>().WithMany().HasForeignKey(u => u.ManagerId).OnDelete(DeleteBehavior.NoAction);
+			user.HasIndex(u => u.ManagerId).HasDatabaseName("idx_users_id_fk_manager");
 
 			// Pessoa (ADR-0040/0041): vista no tenant dono OU onde é membro. Fail-closed sem escopo.
 			user.HasQueryFilter(TenantFilter, u =>
