@@ -199,6 +199,11 @@ internal sealed partial class DirectorySyncService(
 					result.DeactivationsBlocked, result.Refused);
 			}
 
+			if (result.Attributes is { } attributes)
+			{
+				LogAttributes(tenant.TenantId, attributes);
+			}
+
 			return true;
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
