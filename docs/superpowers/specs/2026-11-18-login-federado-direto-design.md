@@ -62,7 +62,7 @@ Tudo abaixo precisa valer ao mesmo tempo. Se um item falhar, o comportamento é 
 2. O client da requisição é **vinculado a tenant** (`OidcApplication.TenantId`, ADR-0040). É o mesmo dado que o `LoginTenantResolver.ForAuthorizeAsync` usa.
 3. O tenant tem federação com `IsEnabled` e `DirectSignIn`, e o esquema do Entra está configurado nesta instalação (`SecureGateEntraIdOptions.IsConfigured`).
 4. **Não há marca de logout** (ver "Logout").
-5. **Não há marca de tentativa direta recente.** É a segunda defesa contra laço: um cookie curto gravado ao desafiar o Entra e apagado no callback bem-sucedido. Se ele existir quando o authorize chegar de novo sem sessão, alguma volta falhou sem chegar ao callback, e o authorize vai para a tela local com a mensagem genérica.
+5. **A requisição não traz a marca de tentativa direta.** É a segunda defesa contra laço. O desafio ao Entra devolve a pessoa ao authorize com o parâmetro `secco_direct_attempt=1` acrescentado ao `returnUrl`. Se o authorize chegar de novo **sem sessão e com a marca**, a sessão criada no callback não ficou no navegador (cookie recusado, proxy sem HTTPS, SameSite). Nesse caso, o authorize vai para a tela local com a mensagem genérica. A marca vai na URL, e não num cookie, por dois motivos. O primeiro: quando o navegador não guarda o cookie de sessão, também não guardaria um cookie de marca. O segundo: um cookie de marca daria erro falso a quem abre dois produtos ao mesmo tempo. O parâmetro vem da requisição, mas só consegue **desligar** o modo direto, nunca ligá-lo, então não contraria o terceiro anti-objetivo.
 
 Com `prompt=none` vindo da aplicação, sem sessão e no modo direto, a resposta é **`login_required`** ao `redirect_uri`, sem desafio nenhum (OIDC Core §3.1.2.6). Fora do modo direto, segue o comportamento de hoje.
 
@@ -100,7 +100,7 @@ O caminho `prompt=login` / `max_age` vencido hoje derruba o cookie e desafia o I
   - aberta sem `returnUrl`, o botão leva a `/conta`.
 - Qualquer login bem-sucedido, local ou federado, apaga a marca.
 
-```
+```text
 ┌──────────────────────────────────┐
 │  Você saiu                       │
 │  Sua sessão foi encerrada.       │
@@ -119,7 +119,7 @@ O caminho `prompt=login` / `max_age` vencido hoje derruba o cookie e desafia o I
 - **Input externo:** só o `login_hint` vem da requisição. Ele é validado em tamanho, caracteres de controle e formato, e descartado se falhar. O `domain_hint` e o directory id vêm do banco, e o directory id entra na URL como GUID formatado, sem texto livre. O `returnUrl` segue só local (`LocalRedirect` / `IsLocalUrl`).
 - **Isolamento de tenant:** a decisão vem do registro do client, nunca de parâmetro. O pin `tid == DirectoryId` do processador continua sendo o gate real. Ir direto ao diretório errado no máximo falha e cai na tela local.
 - **Vazamento:** o directory id fica visível no redirect a quem tem o `client_id`. Ele não é segredo (ADR-0026), e o `client_id` é público. As mensagens de erro continuam genéricas.
-- **Negação de serviço:** o laço é a forma de DoS relevante aqui, e é coberto pela regra 1 e pela marca de tentativa. A leitura da federação é uma consulta por authorize sem sessão, o mesmo custo da busca do client que já existe.
+- **Negação de serviço:** o laço é a forma de DoS relevante aqui, e é coberto pela regra 1 e pela marca de tentativa na URL. A leitura da federação é uma consulta por authorize sem sessão, o mesmo custo da busca do client que já existe.
 - **CSRF de login:** o desafio passa a sair de um `GET` (o authorize), não do `POST` com antiforgery da tela. O atacante consegue iniciar o fluxo, mas a identidade provada é a do PRT da própria vítima. Não há como injetar a conta do atacante. A `/saiu` usa antiforgery no botão.
 - **Clickjacking:** a `/saiu` herda `frame-ancestors 'none'` (ADR-0057).
 - **Dependências:** nenhuma nova.
@@ -131,7 +131,7 @@ O caminho `prompt=login` / `max_age` vencido hoje derruba o cookie e desafia o I
   - authorize sem sessão, opção ligada: `302` para o endpoint de autorização **do diretório**, com `domain_hint` e `login_hint`;
   - opção desligada, federação desabilitada, client sem tenant e Entra não configurado: `302` para `/login`, como hoje;
   - com a marca de logout: `302` para `/saiu`, e o `POST` de Entrar apaga a marca e volta ao authorize;
-  - com a marca de tentativa: `/login?federatedError=1`;
+  - com a marca de tentativa e sem sessão: `/login?federatedError=1`. Duas requisições sem sessão em paralelo (duas abas) vão ambas ao Entra;
   - cookie com stamp inválido e conta bloqueada: tela local, nunca o Entra;
   - `prompt=none` sem sessão no modo direto: `login_required`;
   - `prompt=login` no modo direto: desafio ao Entra com `prompt=login`;
@@ -154,7 +154,7 @@ O caminho `prompt=login` / `max_age` vencido hoje derruba o cookie e desafia o I
 
 ## O que fica com quem implementa
 
-- O nome dos cookies das duas marcas e a duração da marca de tentativa (sugestão: 2 min).
+- O nome do cookie da marca de logout.
 - Onde fica a decisão "ir direto?": sugestão de uma classe na `Api/Identity`, ao lado do `LoginTenantResolver`, usada pelo authorize nos dois pontos (sem sessão e reautenticação).
 - A forma exata de reescrever o endpoint de autorização no evento, respeitando o fallback.
 - Texto final da `/saiu`, no tom das telas existentes.
