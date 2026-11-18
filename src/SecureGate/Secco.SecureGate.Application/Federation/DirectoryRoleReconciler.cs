@@ -36,6 +36,7 @@ public enum DirectorySyncOutcome
 /// <param name="Reactivated">Contas reativadas por terem voltado ao grupo.</param>
 /// <param name="DeactivationsBlocked">Desativações barradas (conta administrativa ou último membro ativo).</param>
 /// <param name="Refused">Pessoas recusadas por e-mail (sem e-mail utilizável, domínio fora da lista, e-mail em uso).</param>
+/// <param name="Attributes">Etapa de atributos de pessoa; <c>null</c> quando não rodou (sem grupo de provisionamento ou retorno antecipado).</param>
 public sealed record DirectorySyncResult(
 	DirectorySyncOutcome Outcome,
 	int Added = 0,
@@ -48,7 +49,8 @@ public sealed record DirectorySyncResult(
 	int Deactivated = 0,
 	int Reactivated = 0,
 	int DeactivationsBlocked = 0,
-	int Refused = 0)
+	int Refused = 0,
+	DirectoryAttributeSyncResult? Attributes = null)
 {
 	/// <summary>Nada foi feito: tenant fora de alcance.</summary>
 	public static readonly DirectorySyncResult Skipped = new(DirectorySyncOutcome.Skipped);
@@ -86,7 +88,8 @@ public sealed class DirectoryRoleReconciler(
 	ITenantAccessScope accessScope,
 	DirectorySyncOptions options,
 	DirectoryAccountProvisioner provisioner,
-	ITenantRepository tenants)
+	ITenantRepository tenants,
+	IDirectoryAttributeStore attributes)
 {
 	/// <summary>
 	/// Reconcilia UMA conta, no login federado dela: pergunta ao Graph a quais grupos mapeados ela pertence. Sem
@@ -295,7 +298,39 @@ public sealed class DirectoryRoleReconciler(
 			Reactivated = provisioned.Reactivated,
 			DeactivationsBlocked = provisioned.DeactivationsBlocked,
 			Refused = provisioned.Refused,
+			Attributes = provisioningGroupId is { } provisioningGroup
+				? await SyncAttributesAsync(tenantId, directoryId, provisioningGroup, cancellationToken).ConfigureAwait(false)
+				: null,
 		};
+	}
+
+	/// <summary>
+	/// Última etapa do ciclo: atributos de pessoa (cargo, departamento, telefone, gestor). As contas são listadas
+	/// DEPOIS do provisionamento, para incluir as criadas neste ciclo. Nada vai à trilha de autoridade (ADR-0054).
+	/// </summary>
+	private async Task<DirectoryAttributeSyncResult> SyncAttributesAsync(
+		Guid tenantId, Guid directoryId, Guid groupId, CancellationToken cancellationToken)
+	{
+		var read = await directory.GetGroupMemberAttributesAsync(directoryId, groupId, cancellationToken).ConfigureAwait(false);
+
+		if (read.IsFailure)
+		{
+			return read.Error.Type == ErrorType.Forbidden
+				? new DirectoryAttributeSyncResult(DirectoryAttributeSyncOutcome.ConsentRequired)
+				: new DirectoryAttributeSyncResult(DirectoryAttributeSyncOutcome.ReadFailed, ErrorCode: read.Error.Code);
+		}
+
+		var linked = await attributes.ListLinkedAsync(tenantId, directoryId, cancellationToken).ConfigureAwait(false);
+		var plan = DirectoryAttributePlanner.Plan(linked, read.Value);
+
+		if (DirectoryAttributePlanner.ExceedsBrake(plan, options))
+		{
+			return new DirectoryAttributeSyncResult(DirectoryAttributeSyncOutcome.AbortedByBrake);
+		}
+
+		var updated = await attributes.ApplyAsync(tenantId, plan.Updates, cancellationToken).ConfigureAwait(false);
+
+		return new DirectoryAttributeSyncResult(DirectoryAttributeSyncOutcome.Completed, updated, plan.Notices);
 	}
 
 	private static HashSet<Guid> GroupsOf(Dictionary<Guid, HashSet<Guid>> membersByGroup, Guid objectId) =>

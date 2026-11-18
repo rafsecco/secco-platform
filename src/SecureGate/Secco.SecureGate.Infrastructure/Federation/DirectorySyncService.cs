@@ -216,6 +216,60 @@ internal sealed partial class DirectorySyncService(
 		}
 	}
 
+	/// <summary>Só ids, contagens e motivos fixos: nunca texto vindo do diretório (ADR-0020).</summary>
+	private void LogAttributes(Guid tenantId, DirectoryAttributeSyncResult attributes)
+	{
+		switch (attributes.Outcome)
+		{
+			case DirectoryAttributeSyncOutcome.ConsentRequired:
+				LogAttributesConsentRequired(logger, tenantId);
+				break;
+			case DirectoryAttributeSyncOutcome.ReadFailed:
+				LogAttributesReadFailed(logger, tenantId, attributes.ErrorCode ?? "?");
+				break;
+			case DirectoryAttributeSyncOutcome.AbortedByBrake:
+				LogAttributesAborted(logger, tenantId);
+				break;
+			case DirectoryAttributeSyncOutcome.Completed:
+				if (attributes.Updated > 0)
+				{
+					LogAttributesUpdated(logger, tenantId, attributes.Updated);
+				}
+
+				var notices = attributes.Notices ?? [];
+
+				if (notices.Count > 0)
+				{
+					LogAttributesNotices(
+						logger,
+						tenantId,
+						notices.Count(n => n.Warning == DirectoryAttributeWarning.ManagerNotFound),
+						notices.Count(n => n.Warning == DirectoryAttributeWarning.ManagerInactive),
+						notices.Count(n => n.Warning == DirectoryAttributeWarning.ManagerSelf),
+						notices.Count(n => n.Warning == DirectoryAttributeWarning.ManagerCycle),
+						notices.Count(n => n.Warning == DirectoryAttributeWarning.FieldDiscarded));
+
+					foreach (var notice in notices)
+					{
+						var reason = Reason(notice.Warning);
+						LogAttributeNotice(logger, tenantId, notice.UserId, reason);
+					}
+				}
+
+				break;
+		}
+	}
+
+	private static string Reason(DirectoryAttributeWarning warning) => warning switch
+	{
+		DirectoryAttributeWarning.ManagerNotFound => "manager-not-found",
+		DirectoryAttributeWarning.ManagerInactive => "manager-inactive",
+		DirectoryAttributeWarning.ManagerSelf => "manager-self",
+		DirectoryAttributeWarning.ManagerCycle => "manager-cycle",
+		DirectoryAttributeWarning.FieldDiscarded => "field-discarded",
+		_ => "unknown",
+	};
+
 	private void WarnAboutInvalidOptions()
 	{
 		var current = options.Value;
@@ -303,4 +357,41 @@ internal sealed partial class DirectorySyncService(
 		Level = LogLevel.Warning,
 		Message = "Sincronização do tenant {TenantId} falhou ({ExceptionType}); os demais tenants seguem.")]
 	private static partial void LogTenantFailed(ILogger logger, Guid tenantId, string exceptionType);
+
+	[LoggerMessage(
+		EventId = 3512,
+		Level = LogLevel.Warning,
+		Message = "Atributos do diretório no tenant {TenantId}: sem consentimento User.Read.All; campos inalterados.")]
+	private static partial void LogAttributesConsentRequired(ILogger logger, Guid tenantId);
+
+	[LoggerMessage(
+		EventId = 3513,
+		Level = LogLevel.Warning,
+		Message = "Atributos do diretório no tenant {TenantId}: leitura falhou ({ErrorCode}); nada mudou.")]
+	private static partial void LogAttributesReadFailed(ILogger logger, Guid tenantId, string errorCode);
+
+	[LoggerMessage(
+		EventId = 3514,
+		Level = LogLevel.Warning,
+		Message = "Atributos do diretório no tenant {TenantId}: freio de esvaziamento acionado; nada mudou.")]
+	private static partial void LogAttributesAborted(ILogger logger, Guid tenantId);
+
+	[LoggerMessage(
+		EventId = 3515,
+		Level = LogLevel.Information,
+		Message = "Atributos do diretório no tenant {TenantId}: {Updated} conta(s) atualizada(s).")]
+	private static partial void LogAttributesUpdated(ILogger logger, Guid tenantId, int updated);
+
+	[LoggerMessage(
+		EventId = 3516,
+		Level = LogLevel.Warning,
+		Message = "Atributos do diretório no tenant {TenantId}: gestor nulo — {NotFound} sem conta, {Inactive} inativo(s), {Self} a própria pessoa, {Cycle} em ciclo; {Discarded} campo(s) descartado(s).")]
+	private static partial void LogAttributesNotices(
+		ILogger logger, Guid tenantId, int notFound, int inactive, int self, int cycle, int discarded);
+
+	[LoggerMessage(
+		EventId = 3517,
+		Level = LogLevel.Debug,
+		Message = "Atributo do diretório: tenant {TenantId}, conta {UserId}, {Reason}.")]
+	private static partial void LogAttributeNotice(ILogger logger, Guid tenantId, Guid userId, string reason);
 }

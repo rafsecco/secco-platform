@@ -70,9 +70,14 @@ internal sealed class DirectoryReconcilerRig
 			.Returns(Task.FromResult(Result.Success<IReadOnlyList<DirectoryAttributes>>([])));
 		Mappings.ListAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
 			.Returns(_ => Task.FromResult<IReadOnlyList<GroupRoleMappingRecord>>([.. _mappings]));
+		AttributeStore = new InMemoryDirectoryAttributeStore(Events, Store);
 	}
 
-	public DirectoryRoleReconciler Build() => new(Graph, Mappings, Store, Auditor, Revoker, Scope, Options, Provisioner(), Tenants);
+	/// <summary>Atributos de pessoa (ADR-0055): lista as mesmas contas do store de perfis e guarda o que foi gravado.</summary>
+	public InMemoryDirectoryAttributeStore AttributeStore { get; }
+
+	public DirectoryRoleReconciler Build() =>
+		new(Graph, Mappings, Store, Auditor, Revoker, Scope, Options, Provisioner(), Tenants, AttributeStore);
 
 	public DirectoryAccountProvisioner Provisioner() =>
 		new(AccountStore, Store, Auditor, Revoker, Grants, Graph, Scope, Options);
@@ -382,5 +387,50 @@ internal sealed class InMemoryDirectoryAccountStore(List<string> events, InMemor
 		roles.Accounts[index] = change(roles.Accounts[index]);
 
 		return true;
+	}
+}
+
+/// <summary>
+/// Persistência dos atributos de pessoa em memória: deriva as contas vinculadas da MESMA lista do store de perfis
+/// (inclusive as criadas no ciclo) e guarda o que foi gravado por conta.
+/// </summary>
+internal sealed class InMemoryDirectoryAttributeStore(List<string> events, InMemoryDirectoryRoleStore roles) : IDirectoryAttributeStore
+{
+	/// <summary>Valores gravados por conta (origem diretório).</summary>
+	public Dictionary<Guid, DirectoryAttributeUpdate> Stored { get; } = [];
+
+	/// <summary>Cada chamada de gravação, na ordem.</summary>
+	public List<IReadOnlyList<DirectoryAttributeUpdate>> Applied { get; } = [];
+
+	public Task<IReadOnlyList<DirectoryAttributeAccount>> ListLinkedAsync(
+		Guid tenantId, Guid directoryId, CancellationToken cancellationToken = default) =>
+		Task.FromResult<IReadOnlyList<DirectoryAttributeAccount>>([.. roles.Accounts.Select(account =>
+		{
+			var stored = Stored.GetValueOrDefault(account.UserId);
+
+			return new DirectoryAttributeAccount(
+				account.UserId,
+				account.ObjectId,
+				account.DirectoryManaged,
+				!account.IsDeactivated,
+				stored?.JobTitle,
+				stored?.Department,
+				stored?.BusinessPhone,
+				stored?.ManagerId,
+				stored is null ? DirectoryAttributesOrigin.None : DirectoryAttributesOrigin.Directory);
+		})]);
+
+	public Task<int> ApplyAsync(
+		Guid tenantId, IReadOnlyList<DirectoryAttributeUpdate> updates, CancellationToken cancellationToken = default)
+	{
+		events.Add("attributes");
+		Applied.Add(updates);
+
+		foreach (var update in updates)
+		{
+			Stored[update.UserId] = update;
+		}
+
+		return Task.FromResult(updates.Count);
 	}
 }
