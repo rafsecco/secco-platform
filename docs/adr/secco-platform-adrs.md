@@ -2369,6 +2369,68 @@ Criaremos o pacote **`Secco.SDK.Documents`**. Ele recebe a definição das colun
 
 ---
 
+## ADR-0059: Atributos de pessoa vindos do diretório federado — cargo, departamento, telefone e gestor
+
+**Status:** Aceita
+**Data:** 2026-11-17
+**Emenda:** ADR-0045 (campos do diretório) e ADR-0055 (o que a sincronização lê e com qual consentimento)
+
+### Contexto
+
+O `secco-intranet` mostra o Diretório e o organograma, mas o SecureGate só entrega nome e e-mail. Por isso cargo, departamento, telefone e gestor são digitados à mão na intranet. Quem provisiona contas pelo grupo do Entra ID (ADR-0055) já mantém esses dados no diretório. Hoje são dois cadastros do mesmo dado, e um deles desatualiza.
+
+A ADR-0045 fixou um contrato mínimo para o diretório (`id`, `email`, `displayName`, `isActive`, `isOwner`). A sincronização da ADR-0055 lê do Graph só nome e e-mail, e só quando cria a conta.
+
+Alternativas avaliadas:
+
+- **Ampliar a leitura que o provisionamento já faz** (`$select` maior na mesma chamada). Seria uma chamada só, mas sem o consentimento novo a leitura inteira volta 403 e o provisionamento para. Quem já usa a ADR-0055 perderia o desligamento automático ao atualizar o SecureGate. Descartada.
+- **Tabela própria (`tb_directory_attributes`, 1:1 com a pessoa).** A `tb_users` ficaria só com identidade, mas seria mais uma tabela sob RLS (ADR-0041) e um join em toda leitura do diretório, para quatro campos. Descartada.
+- **O diretório passar a mandar também no nome.** Descartada. O nome continua editável pela pessoa e pelo admin (#30), e o produto funciona igual sem Entra.
+
+### Decisão
+
+**Etapa própria no fim do ciclo de sincronização**, depois de contas e perfis, só em tenant com grupo de provisionamento marcado.
+
+- **Leitura:**
+  - Uma leitura separada dos membros transitivos do grupo, com `$select=id,jobTitle,department,businessPhones` fixo.
+  - O gestor vem por `users/{oid}/manager?$select=id`, uma chamada por pessoa. Nessa chamada, 404 = sem gestor.
+  - Tudo ou nada, como na ADR-0055: qualquer outra falha, ou uma resposta malformada, não grava nada naquele tenant.
+- **Telefone:** o primeiro item de `businessPhones`. O `telephoneNumber` do AD local chega ao Graph por esse campo.
+- **Quem recebe:** só as contas geridas pelo diretório (ADR-0055) presentes no grupo. Conta só local ou federada não gerida fica com os campos vazios. Desmarcado o grupo, os valores ficam congelados.
+- **Validação (ADR-0020):** `Trim`; vazio vira nulo. O texto é descartado (fica nulo, nunca truncado) se tiver caractere de controle em qualquer posição ou passar do limite: cargo 128, departamento 128, telefone 64.
+- **Gestor:** referência a uma conta dona do mesmo tenant vinculada ao mesmo diretório. Fica nulo, com aviso no log, quando:
+  - o gestor não tem conta no tenant;
+  - a conta do gestor está inativa;
+  - o gestor é a própria pessoa;
+  - a pessoa está num ciclo de gestores, situação em que todas as pessoas do ciclo ficam sem gestor, para não eleger um "topo" arbitrário.
+
+  A resolução é refeita a cada rodada, então um gestor desativado sai mesmo sem mudança no Entra.
+- **Freio de esvaziamento:** se a rodada fosse limpar valores existentes a partir de leitura vazia do Graph em mais contas que o piso e a fração do freio da ADR-0055, a etapa aborta naquele tenant. Nulos causados por descarte ou pela resolução do gestor não contam.
+- **Sem trilha de autoridade.** Atributo de cadastro não é ato de autoridade (ADR-0054). O log leva só ids e contagens, nunca o conteúdo.
+- **Sem o consentimento novo (403):** a etapa é pulada e o log avisa. Contas e perfis seguem como antes.
+
+**Contrato (emenda à ADR-0045).** `DirectoryPersonDto` ganha os campos abaixo, como acréscimo (`Secco.SecureGate.Client` 0.25.0):
+
+- `jobTitle`, `department`, `businessPhone`;
+- `managerId`;
+- `attributesSource`: string, `"directory"` ou nulo. O produto não edita o que tem origem `directory`.
+
+Os atributos **só saem para a conta dona do tenant consultado**: o membro por vínculo (ADR-0040) aparece no diretório do outro tenant com os campos nulos. Os dados descrevem a pessoa na organização do tenant dono, e mostrá-los no outro tenant seria vazamento entre tenants e dado errado no organograma dele. A regra foi tomada na revisão de segurança da entrega. O `managerId` só aparece quando o gestor também é visível no diretório do tenant consultado. As duas checagens ficam na consulta SQL, e o filtro de tenant (ADR-0041) vale por baixo.
+
+**Consentimento (emenda à ADR-0055).** A permissão de aplicação `User.Read.All` passa a ser necessária para esta etapa. Ela inclui o `User.ReadBasic.All`.
+
+### Consequências
+
+- O organograma e o diretório do adotante seguem o Entra sem cadastro duplicado. O `secco-intranet` precisa travar a edição desses campos quando `attributesSource == "directory"`.
+- **Risco assumido:** `User.Read.All` permite ler todo o perfil das pessoas do diretório do cliente, mais do que usamos. O uso fica restrito pelo `$select` fixo, e o guia de instalação diz isso com todas as letras.
+- **Risco assumido:** telefone e cargo são dado pessoal exposto a clients `directory:read` do próprio tenant, que é a função pedida (como na ADR-0045).
+- **Custo:** uma chamada ao Graph por pessoa do grupo, a cada ciclo (24 h por padrão), sequencial. Usar `$expand=manager` ou `$batch` é otimização para depois de confirmar o comportamento contra um tenant Entra real. Um laço que passe de uma hora perderia o token de aplicação e pularia a etapa naquele ciclo, sem dano aos dados.
+- **A confirmar contra um tenant Entra de teste antes de ligar em produção:** o `$expand=manager` em `transitiveMembers` e o que o Graph devolve ao selecionar `jobTitle` com só `User.ReadBasic.All` (403 ou nulos). O freio de esvaziamento cobre o segundo caso. O Graph falso dos testes valida o formato da chamada, não o comportamento do serviço.
+- Fica de fora: `accountEnabled` (fecharia o risco assumido na ADR-0055, mas é decisão de autoridade, não de cadastro), outros atributos, exibição no AdminPortal e atualização no login.
+- **Mutação:** 11 de 11 — visibilidade do gestor, atributos só da conta dona, freio, gestor com erro tratado como ausente, truncar em vez de descartar, controle aceito, gestor inativo aceito, ciclo não detectado, gravação em conta que não é dona, 403 tratado como sucesso e limpeza por resolução contando no freio. Dois só morreram depois de testes acrescentados na revisão: gestor gravado de outro tenant e membro por vínculo na gravação.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto

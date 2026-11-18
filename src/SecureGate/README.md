@@ -238,6 +238,32 @@ O freio de massa (`SecureGate:DirectorySync`) conta também as desativações: a
 
 > **Conta desabilitada no Entra mas ainda no grupo** continua ativa aqui até sair do grupo (ler `accountEnabled` exigiria `User.Read.All`). Recomende tirar a pessoa do grupo no desligamento. Conta desativada pelo diretório que voltou ao grupo **não** é reativada pelo login — só pelo próximo ciclo.
 
+### Cargo, departamento, telefone e gestor vindos do diretório (ADR-0059)
+
+Com o grupo de provisionamento marcado, o ciclo também copia do Entra o **cargo** (`jobTitle`), o **departamento** (`department`), o **telefone comercial** (primeiro item de `businessPhones`, que é o `telephoneNumber` do AD sincronizado) e o **gestor** de cada conta gerida pelo diretório. Mudanças no Entra aparecem no ciclo seguinte. O nome continua sendo do SecureGate e editável.
+
+A API de diretório (`GET /api/v1/directory/people`, escopo `directory:read`) devolve `jobTitle`, `department`, `businessPhone`, `managerId` e `attributesSource`.
+
+- `attributesSource` vale `"directory"` quando os campos vêm do Entra. **O produto não deve oferecer edição desses campos**: a próxima rodada sobrescreveria a mudança. Quando vale nulo (conta local, instalação sem Entra), os campos ficam vazios e o produto mantém o próprio cadastro.
+- Os atributos só aparecem no diretório do **tenant dono** da conta. A pessoa que entra em outro tenant por vínculo aparece lá com os campos nulos.
+- `managerId` é o id SecureGate do gestor. Ele fica nulo, com aviso no log, quando:
+  - o gestor não tem conta no tenant (por exemplo, está fora do grupo de provisionamento);
+  - a conta do gestor está desativada;
+  - o Entra aponta a pessoa como gestora de si mesma;
+  - os gestores formam um ciclo.
+
+  A sincronização não para por causa disso. Fica nulo também quando o gestor não é visível no diretório do tenant consultado.
+- Texto com caractere de controle, ou acima do limite (cargo e departamento 128, telefone 64), é descartado: o campo fica nulo.
+- Se uma rodada fosse apagar valores de muitas contas ao mesmo tempo, acima do mesmo freio de `SecureGate:DirectorySync`, a etapa é abortada naquele tenant e nada é gravado.
+
+> **Consentimento novo: `User.Read.All` (permissão de aplicação, com consentimento de admin no diretório do cliente).** O `User.ReadBasic.All` não cobre cargo, departamento nem gestor. Antes de pedir, saiba e diga ao cliente: **essa permissão permite ler o perfil inteiro de todas as pessoas do diretório**, bem mais do que o SecureGate usa. O SecureGate pede só a lista fixa de campos acima, mas é a permissão concedida que define o alcance. Ela inclui o `User.ReadBasic.All`, e manter as duas não faz mal.
+
+> **O que muda para quem já usa o provisionamento:** nada quebra. Sem o `User.Read.All`, criar, adotar, desativar e reativar contas e reconciliar perfis seguem iguais. Os quatro campos ficam vazios, e cada ciclo registra no log o aviso `3512` ("sem consentimento User.Read.All"). Para ligar, o admin do cliente concede a permissão, e o próximo ciclo preenche os campos.
+
+> **Antes de ligar em produção, confirme contra um tenant Entra de teste:** que a leitura de cargo, departamento e gestor funciona com o `User.Read.All` concedido, e o que o Graph devolve com só o `User.ReadBasic.All` (403 ou campos nulos; o freio cobre o segundo caso). O Graph falso dos testes valida o formato da chamada, não o comportamento do serviço.
+
+> **Custo:** o gestor é lido com uma chamada ao Graph por pessoa do grupo, a cada ciclo (24 h por padrão).
+
 ## Rodando em desenvolvimento
 
 Infraestrutura (SQL Server) pelo `docker-compose.yml` da **raiz** do monorepo:

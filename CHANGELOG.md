@@ -12,6 +12,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço) e `Secco.SecureGate.Client` — cargo, departamento, telefone e gestor vindos do diretório (ADR-0059) — ação necessária para ligar
+
+O serviço muda e o contrato só ganha campos. O `Secco.SecureGate.Client` 0.25.0 sai na publicação.
+
+- **Sincronização:** em tenant com grupo de provisionamento (ADR-0055), o ciclo copia do Entra o cargo, o departamento, o telefone comercial (primeiro item de `businessPhones`) e o gestor das contas geridas pelo diretório, e reflete as mudanças no ciclo seguinte. O nome não é tocado.
+- **Gestor:** referência à conta do gestor no mesmo tenant. Fica nulo, com aviso no log e sem parar a sincronização, quando o gestor não tem conta no tenant, está desativado, é a própria pessoa ou fecha um ciclo.
+- **Validação:** texto com caractere de controle, ou acima de 128 caracteres (cargo e departamento) ou 64 (telefone), é descartado (nulo).
+- **Freio:** uma rodada que apagaria valores de muitas contas ao mesmo tempo é abortada no tenant, com os limites de `SecureGate:DirectorySync`.
+- **Contrato (`directory:read`):** `DirectoryPersonDto` ganha `jobTitle`, `department`, `businessPhone`, `managerId` e `attributesSource` (`"directory"` ou nulo). Os atributos só aparecem para a conta dona do tenant consultado. O `managerId` só aparece quando o gestor também está no diretório do tenant.
+- **Banco:** migration `AddDirectoryAttributes` nos dois engines (cinco colunas em `tb_users`, com o RLS refeito na revisão vigente). Ela entra pelo `migrate`.
+- **Log:** EventIds 3512 a 3517, só com ids e contagens.
+- **Para ligar:** conceda a permissão de aplicação `User.Read.All` na app registration, com consentimento de admin no diretório do cliente. Leia antes o alcance dela no README do SecureGate. Sem a permissão nada quebra: os campos ficam vazios e o log avisa a cada ciclo.
+- **Adotante:** o produto que lê o diretório não deve editar os campos quando `attributesSource == "directory"`.
+
 ### LogStream (serviço), SecureGate (serviço) e AdminPortal — exportação da trilha (ADR-0058) — ação necessária para usar
 
 Não são pacotes: mudam os serviços.

@@ -1915,3 +1915,16 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - *`409` na lista de membros do perfil implícito:* honesto, mas quebra a tela genérica de perfil.
 
 **Risco assumido:** permissão de escrita dada ao perfil vale para todos do tenant — decisão do admin, registrada na trilha.
+
+## Atributos de pessoa vindos do diretório federado (ADR-0059, 2026-11-17)
+
+**A pergunta.** O `secco-intranet` digitava à mão cargo, departamento, telefone e gestor que já existem no Entra ID. Como trazer esses dados pela sincronização da ADR-0055 sem que um cliente que não conceder a permissão nova perca o provisionamento que já usa?
+
+**Escolha:** etapa própria no fim do ciclo, com leitura separada do Graph e os campos em colunas da `tb_users`. Descartados:
+- *Ampliar a leitura do provisionamento:* sem `User.Read.All` a leitura inteira voltaria 403 e o desligamento automático pararia no dia do upgrade.
+- *Tabela própria 1:1:* mais uma tabela sob RLS e um join em toda leitura do diretório, para quatro campos.
+- *O diretório mandar também no nome:* o nome segue editável (#30), para o produto funcionar igual sem Entra (decisão do usuário).
+- *`$expand=manager` ou `$batch` para o gestor:* não confirmados contra um tenant real; ficou uma chamada por pessoa, que funciona com certeza, e a otimização espera a confirmação.
+- *Mostrar os atributos também ao tenant em que a pessoa é só membro (ADR-0040):* vazaria dado organizacional do tenant dono e poria o departamento errado no organograma do outro tenant. Saem só para a conta dona (achado da revisão de segurança).
+
+**Riscos assumidos:** `User.Read.All` lê mais do que o necessário (uso restrito por `$select` fixo); telefone e cargo expostos a clients `directory:read` do próprio tenant.
