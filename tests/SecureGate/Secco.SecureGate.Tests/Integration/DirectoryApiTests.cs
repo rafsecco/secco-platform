@@ -348,4 +348,36 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 
 		person.GetProperty("attributesSource").ValueKind.Should().Be(JsonValueKind.String);
 	}
+
+	[Fact]
+	public async Task Diretorio_MembroDeOutroTenant_SemAtributosDoDiretorioDoDono()
+	{
+		// Atributos vêm do diretório do tenant dono (A); no tenant B, onde é só membro, não aparecem
+		var personEmail = Email();
+		var managerId = await IdentitySeed.UserAsync(factory, _otherTenantId, Email());
+		var personId = await IdentitySeed.UserAsync(factory, _otherTenantId, personEmail);
+		await SetAttributesAsync(personId, "Analista", "Financeiro", "+55 11 4000-0000", managerId, DirectoryAttributesOrigin.Directory);
+		await AddMemberAsync(_tenantId, personEmail);
+
+		var clientB = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+		var clientA = await ProductClientAsync(_otherTenantId, SecureGateScopes.DirectoryRead);
+
+		var byId = await (await clientB.GetAsync($"/api/v1/directory/people/{personId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+		var listed = (await ListAsync(clientB)).GetProperty("items").EnumerateArray().Single(p => p.GetProperty("id").GetGuid() == personId);
+		foreach (var seen in new[] { byId, listed })
+		{
+			seen.GetProperty("isOwner").GetBoolean().Should().BeFalse();
+			foreach (var name in AttributeFields)
+			{
+				seen.GetProperty(name).ValueKind.Should().Be(JsonValueKind.Null, name);
+			}
+		}
+
+		var owner = await (await clientA.GetAsync($"/api/v1/directory/people/{personId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+		owner.GetProperty("jobTitle").GetString().Should().Be("Analista");
+		owner.GetProperty("department").GetString().Should().Be("Financeiro");
+		owner.GetProperty("businessPhone").GetString().Should().Be("+55 11 4000-0000");
+		owner.GetProperty("managerId").GetGuid().Should().Be(managerId);
+		owner.GetProperty("attributesSource").GetString().Should().Be("directory");
+	}
 }

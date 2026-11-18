@@ -13,11 +13,11 @@ namespace Secco.SecureGate.Application.Directory;
 /// <param name="LockoutEnabled">Lockout habilitado.</param>
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
 /// <param name="IsOwner">Se o tenant consultado é o dono da conta (<c>User.TenantId</c>).</param>
-/// <param name="JobTitle">Cargo, opcional.</param>
-/// <param name="Department">Departamento, opcional.</param>
-/// <param name="BusinessPhone">Telefone comercial, opcional.</param>
-/// <param name="ManagerId">Gestor, já filtrado: só vem preenchido se o gestor também está no diretório do tenant consultado.</param>
-/// <param name="AttributesOrigin">Quem escreveu os atributos.</param>
+/// <param name="JobTitle">Cargo, opcional; só vem preenchido para conta dona do tenant consultado.</param>
+/// <param name="Department">Departamento, opcional; só para conta dona.</param>
+/// <param name="BusinessPhone">Telefone comercial, opcional; só para conta dona.</param>
+/// <param name="ManagerId">Gestor, já filtrado: só para conta dona e só se o gestor também está no diretório do tenant consultado.</param>
+/// <param name="AttributesOrigin">Quem escreveu os atributos; <c>None</c> para quem não é conta dona do tenant.</param>
 public sealed record DirectoryPersonData(
 	Guid Id, string Email, string? DisplayName, bool LockoutEnabled, DateTimeOffset? LockoutEnd, bool IsOwner,
 	string? JobTitle, string? Department, string? BusinessPhone, Guid? ManagerId, DirectoryAttributesOrigin AttributesOrigin);

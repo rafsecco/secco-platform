@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application.Directory;
+using Secco.SecureGate.Application.Users;
 using Secco.SecureGate.Infrastructure.Contexts;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Pagination;
@@ -19,7 +20,9 @@ internal sealed class DirectoryReader(SecureGateDbContext context) : IDirectoryR
 			|| context.TenantMemberships.Any(m => m.UserId == user.Id && m.TenantId == tenantId && m.IsActive));
 
 	/// <summary>
-	/// Projeção para o contrato. O gestor só sai se também está no diretório do tenant (subconsulta,
+	/// Projeção para o contrato. Os atributos do diretório (e a origem deles) pertencem ao tenant dono da
+	/// conta: para quem entra por vínculo vêm todos nulos/<c>None</c>, senão o diretório federado de uma
+	/// empresa vazaria para outro tenant. O gestor só sai se também está no diretório do tenant (subconsulta,
 	/// traduzida para SQL): não vaza a existência de conta de outro tenant.
 	/// </summary>
 	private Expression<Func<User, DirectoryPersonData>> Project(Guid tenantId)
@@ -28,9 +31,11 @@ internal sealed class DirectoryReader(SecureGateDbContext context) : IDirectoryR
 
 		return user => new DirectoryPersonData(
 			user.Id, user.Email!, user.DisplayName, user.LockoutEnabled, user.LockoutEnd, user.TenantId == tenantId,
-			user.JobTitle, user.Department, user.BusinessPhone,
-			visible.Any(p => p.Id == user.ManagerId) ? user.ManagerId : null,
-			user.AttributesOrigin);
+			user.TenantId == tenantId ? user.JobTitle : null,
+			user.TenantId == tenantId ? user.Department : null,
+			user.TenantId == tenantId ? user.BusinessPhone : null,
+			user.TenantId == tenantId && visible.Any(p => p.Id == user.ManagerId) ? user.ManagerId : null,
+			user.TenantId == tenantId ? user.AttributesOrigin : DirectoryAttributesOrigin.None);
 	}
 
 	public async Task<PagedResult<DirectoryPersonData>> ListAsync(
