@@ -154,4 +154,29 @@ public class DirectoryAttributeStoreTests(SecureGateApiFactory factory) : IAsync
 			AttributesOrigin = DirectoryAttributesOrigin.None,
 		});
 	}
+
+	[Fact]
+	public async Task Apply_MembroPorVinculo_NaoGrava()
+	{
+		// Membro (ADR-0040) é visível no escopo do tenant: o filtro do EF não o esconde, só o "conta dona" segura
+		var tenantId = await IdentitySeed.TenantAsync(factory);
+		var otherTenantId = await IdentitySeed.TenantAsync(factory);
+		var member = await LinkAsync(otherTenantId, Guid.NewGuid());
+		using (var scope = factory.Services.CreatePlatformScope())
+		{
+			var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+			context.TenantMemberships.Add(new TenantMembership(member.UserId, tenantId, DateTimeOffset.UtcNow));
+			await context.SaveChangesAsync();
+		}
+
+		var applied = await InTenantAsync(tenantId, store => store.ApplyAsync(
+			tenantId, [new DirectoryAttributeUpdate(member.UserId, "Analista", null, null, null)]));
+
+		applied.Should().Be(0);
+		(await UserAsync(member.UserId)).Should().BeEquivalentTo(new
+		{
+			JobTitle = (string?)null,
+			AttributesOrigin = DirectoryAttributesOrigin.None,
+		});
+	}
 }

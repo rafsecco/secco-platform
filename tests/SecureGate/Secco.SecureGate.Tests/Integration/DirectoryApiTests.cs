@@ -315,6 +315,22 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 	}
 
 	[Fact]
+	public async Task Diretorio_GestorGravadoDeOutroTenant_ContaDona_ManagerIdNulo()
+	{
+		// Defesa em profundidade: a sincronização só resolve gestor no próprio tenant, mas um ManagerId que aponte
+		// para conta de outro tenant (dado corrompido, migração manual) não pode revelar essa conta
+		var foreignManagerId = await IdentitySeed.UserAsync(factory, _otherTenantId, Email());
+		var personId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		await SetAttributesAsync(personId, "Analista", null, null, foreignManagerId, DirectoryAttributesOrigin.Directory);
+		var client = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+
+		var person = await (await client.GetAsync($"/api/v1/directory/people/{personId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+
+		person.GetProperty("jobTitle").GetString().Should().Be("Analista");
+		person.GetProperty("managerId").ValueKind.Should().Be(JsonValueKind.Null);
+	}
+
+	[Fact]
 	public async Task Diretorio_GestorNaoVisivelNoTenant_ManagerIdNulo()
 	{
 		// Pessoa do tenant A (_otherTenantId), membro do B (_tenantId); o gestor só existe em A
