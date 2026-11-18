@@ -14,7 +14,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### SecureGate (serviço) e `Secco.SecureGate.Client` — cargo, departamento, telefone e gestor vindos do diretório (ADR-0059) — ação necessária para ligar
 
-O serviço muda e o contrato só ganha campos. O `Secco.SecureGate.Client` 0.25.0 sai na publicação.
+O serviço muda e o contrato só ganha campos. O client está na seção abaixo (0.25.0).
 
 - **Sincronização:** em tenant com grupo de provisionamento (ADR-0055), o ciclo copia do Entra o cargo, o departamento, o telefone comercial (primeiro item de `businessPhones`) e o gestor das contas geridas pelo diretório, e reflete as mudanças no ciclo seguinte. O nome não é tocado.
 - **Gestor:** referência à conta do gestor no mesmo tenant. Fica nulo, com aviso no log e sem parar a sincronização, quando o gestor não tem conta no tenant, está desativado, é a própria pessoa ou fecha um ciclo.
@@ -189,6 +189,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.12 — 2026-11-17
+
+Patch **sem mudança funcional**: o diff desde a 0.7.11 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.25.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.11 — 2026-11-02
 
 Patch **sem mudança funcional**: o diff desde a 0.7.9 é vazio. **A 0.7.10 tem tag, mas nunca virou pacote**: o publish parou num teste do `Secco.SDK.Documents` que só falhava no Linux, porque o teste criava o diretório temporário com permissão 0755 e a SDK o recusava, como deve. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.Documents` 0.1.0 e o `Secco.LogStream.Client` 0.5.0 saem deste commit e o referenciam por `ProjectReference`.
@@ -319,6 +323,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.10.2 — 2026-11-17
+
+Patch **sem mudança funcional**: o diff desde a 0.10.1 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.25.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.10.1 — 2026-11-01
 
@@ -571,6 +579,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.25.0 — 2026-11-17
+
+Cargo, departamento, telefone e gestor vindos do diretório (ADR-0059). Só acréscimo: `DirectoryPersonDto` ganha `JobTitle`, `Department`, `BusinessPhone`, `ManagerId` e `AttributesSource` (`"directory"` ou nulo). Os atributos só vêm para a conta dona do tenant consultado. Quando `AttributesSource` é `"directory"`, o produto não deve editar esses campos.
+
 #### 0.24.0 — 2026-10-31
 
 Perfil implícito do tenant (issue #51, ADR-0056). Só acréscimo: `RoleDto.IsImplicit` e `RoleDetailDto.IsImplicit`.
@@ -789,6 +801,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.22 — 2026-11-17
+
+Patch **sem mudança funcional**: o diff desde a 0.1.21 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.25.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.21 — 2026-11-02
 
