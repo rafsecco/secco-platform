@@ -3,14 +3,18 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Secco.SecureGate.Application;
+using Secco.SecureGate.Application.Users;
+using Secco.SecureGate.Infrastructure.Contexts;
 using Xunit;
 
 namespace Secco.SecureGate.Tests.Integration;
 
 /// <summary>
 /// Diretório de pessoas do tenant para client de produto (ADR-0045): o tenant sai SÓ da claim do
-/// token, o contrato carrega cinco campos e nada de segurança.
+/// token, o contrato carrega identidade, atributos do diretório e nada de segurança.
 /// </summary>
 [Collection(SelfIssuedApiCollectionDefinition.Name)]
 public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAsyncLifetime
@@ -52,6 +56,30 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 	}
 
 	public Task DisposeAsync() => Task.CompletedTask;
+
+	private static readonly string[] Fields =
+	[
+		"id", "email", "displayName", "isActive", "isOwner",
+		"jobTitle", "department", "businessPhone", "managerId", "attributesSource",
+	];
+
+	private static readonly string[] AttributeFields = ["jobTitle", "department", "businessPhone", "managerId", "attributesSource"];
+
+	private static readonly string[] SecurityFields =
+		["twoFactorEnabled", "externalLogins", "roles", "lockoutEnd", "lockoutEnabled", "lockoutReason", "securityStamp"];
+
+	private async Task SetAttributesAsync(Guid userId, string? jobTitle, string? department, string? phone, Guid? managerId, DirectoryAttributesOrigin origin)
+	{
+		using var scope = factory.Services.CreatePlatformScope();
+		var context = scope.ServiceProvider.GetRequiredService<SecureGateDbContext>();
+		var user = await context.Users.SingleAsync(u => u.Id == userId);
+		user.JobTitle = jobTitle;
+		user.Department = department;
+		user.BusinessPhone = phone;
+		user.ManagerId = managerId;
+		user.AttributesOrigin = origin;
+		await context.SaveChangesAsync();
+	}
 
 	private static string Email() => $"pessoa-{Guid.NewGuid():N}@secco.test";
 
@@ -120,7 +148,7 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 	}
 
 	[Fact]
-	public async Task List_RespostaTemSoOsCincoCampos()
+	public async Task List_RespostaTemSoOsCamposDoContrato()
 	{
 		await IdentitySeed.UserAsync(factory, _tenantId, Email());
 		var client = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
@@ -131,7 +159,8 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 		foreach (var person in page.GetProperty("items").EnumerateArray())
 		{
 			person.EnumerateObject().Select(p => p.Name).Should()
-				.BeEquivalentTo(["id", "email", "displayName", "isActive", "isOwner"]);
+				.BeEquivalentTo(Fields);
+			person.EnumerateObject().Select(p => p.Name).Should().NotIntersectWith(SecurityFields);
 		}
 	}
 
@@ -158,7 +187,7 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 		var person = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
 		person.GetProperty("email").GetString().Should().Be(email);
 		person.EnumerateObject().Select(p => p.Name).Should()
-			.BeEquivalentTo(["id", "email", "displayName", "isActive", "isOwner"]);
+			.BeEquivalentTo(Fields);
 	}
 
 	[Fact]
@@ -249,5 +278,74 @@ public class DirectoryApiTests(SelfIssuedAuthSecureGateApiFactory factory) : IAs
 		});
 
 		response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+	}
+
+	[Fact]
+	public async Task Diretorio_ContaComAtributos_ExpoeCamposEOrigem()
+	{
+		var managerId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		await SetAttributesAsync(userId, "Analista", "Financeiro", "+55 11 4000-0000", managerId, DirectoryAttributesOrigin.Directory);
+		var client = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+
+		var person = await (await client.GetAsync($"/api/v1/directory/people/{userId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+
+		person.GetProperty("jobTitle").GetString().Should().Be("Analista");
+		person.GetProperty("department").GetString().Should().Be("Financeiro");
+		person.GetProperty("businessPhone").GetString().Should().Be("+55 11 4000-0000");
+		person.GetProperty("managerId").GetGuid().Should().Be(managerId);
+		person.GetProperty("attributesSource").GetString().Should().Be("directory");
+
+		var listed = (await ListAsync(client)).GetProperty("items").EnumerateArray().Single(p => p.GetProperty("id").GetGuid() == userId);
+		listed.GetProperty("attributesSource").GetString().Should().Be("directory");
+	}
+
+	[Fact]
+	public async Task Diretorio_ContaLocal_CamposNulosEOrigemNula()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		var client = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+
+		var person = await (await client.GetAsync($"/api/v1/directory/people/{userId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+
+		foreach (var name in AttributeFields)
+		{
+			person.GetProperty(name).ValueKind.Should().Be(JsonValueKind.Null, name);
+		}
+	}
+
+	[Fact]
+	public async Task Diretorio_GestorNaoVisivelNoTenant_ManagerIdNulo()
+	{
+		// Pessoa do tenant A (_otherTenantId), membro do B (_tenantId); o gestor só existe em A
+		var personEmail = Email();
+		var managerId = await IdentitySeed.UserAsync(factory, _otherTenantId, Email());
+		var personId = await IdentitySeed.UserAsync(factory, _otherTenantId, personEmail);
+		await SetAttributesAsync(personId, "Analista", null, null, managerId, DirectoryAttributesOrigin.Directory);
+		await AddMemberAsync(_tenantId, personEmail);
+
+		var clientB = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+		var clientA = await ProductClientAsync(_otherTenantId, SecureGateScopes.DirectoryRead);
+
+		var seenByB = await (await clientB.GetAsync($"/api/v1/directory/people/{personId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+		var seenByA = await (await clientA.GetAsync($"/api/v1/directory/people/{personId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+
+		seenByB.GetProperty("managerId").ValueKind.Should().Be(JsonValueKind.Null);
+		seenByA.GetProperty("managerId").GetGuid().Should().Be(managerId);
+
+		var listedByB = (await ListAsync(clientB)).GetProperty("items").EnumerateArray().Single(p => p.GetProperty("id").GetGuid() == personId);
+		listedByB.GetProperty("managerId").ValueKind.Should().Be(JsonValueKind.Null);
+	}
+
+	[Fact]
+	public async Task Diretorio_JsonDoAttributesSource_EhString()
+	{
+		var userId = await IdentitySeed.UserAsync(factory, _tenantId, Email());
+		await SetAttributesAsync(userId, null, null, null, null, DirectoryAttributesOrigin.Directory);
+		var client = await ProductClientAsync(_tenantId, SecureGateScopes.DirectoryRead);
+
+		var person = await (await client.GetAsync($"/api/v1/directory/people/{userId}")).Content.ReadFromJsonAsync<JsonElement>(Json);
+
+		person.GetProperty("attributesSource").ValueKind.Should().Be(JsonValueKind.String);
 	}
 }

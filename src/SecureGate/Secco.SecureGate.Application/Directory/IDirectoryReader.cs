@@ -1,3 +1,4 @@
+using Secco.SecureGate.Application.Users;
 using Secco.SharedKernel.Pagination;
 
 namespace Secco.SecureGate.Application.Directory;
@@ -12,8 +13,14 @@ namespace Secco.SecureGate.Application.Directory;
 /// <param name="LockoutEnabled">Lockout habilitado.</param>
 /// <param name="LockoutEnd">Fim do bloqueio.</param>
 /// <param name="IsOwner">Se o tenant consultado é o dono da conta (<c>User.TenantId</c>).</param>
+/// <param name="JobTitle">Cargo, opcional.</param>
+/// <param name="Department">Departamento, opcional.</param>
+/// <param name="BusinessPhone">Telefone comercial, opcional.</param>
+/// <param name="ManagerId">Gestor, já filtrado: só vem preenchido se o gestor também está no diretório do tenant consultado.</param>
+/// <param name="AttributesOrigin">Quem escreveu os atributos.</param>
 public sealed record DirectoryPersonData(
-	Guid Id, string Email, string? DisplayName, bool LockoutEnabled, DateTimeOffset? LockoutEnd, bool IsOwner);
+	Guid Id, string Email, string? DisplayName, bool LockoutEnabled, DateTimeOffset? LockoutEnd, bool IsOwner,
+	string? JobTitle, string? Department, string? BusinessPhone, Guid? ManagerId, DirectoryAttributesOrigin AttributesOrigin);
 
 /// <summary>
 /// Leitura do diretório de pessoas de UM tenant (ADR-0045): donos da conta mais membros com vínculo

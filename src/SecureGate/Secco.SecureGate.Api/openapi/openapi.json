@@ -3695,7 +3695,12 @@
           "email",
           "displayName",
           "isActive",
-          "isOwner"
+          "isOwner",
+          "jobTitle",
+          "department",
+          "businessPhone",
+          "managerId",
+          "attributesSource"
         ],
         "type": "object",
         "properties": {
@@ -3717,6 +3722,37 @@
           },
           "isOwner": {
             "type": "boolean"
+          },
+          "jobTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "department": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "businessPhone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "managerId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "attributesSource": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

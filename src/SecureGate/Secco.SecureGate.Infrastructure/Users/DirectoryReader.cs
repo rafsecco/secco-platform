@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Secco.SecureGate.Application.Directory;
 using Secco.SecureGate.Infrastructure.Contexts;
@@ -17,6 +18,21 @@ internal sealed class DirectoryReader(SecureGateDbContext context) : IDirectoryR
 			user.TenantId == tenantId
 			|| context.TenantMemberships.Any(m => m.UserId == user.Id && m.TenantId == tenantId && m.IsActive));
 
+	/// <summary>
+	/// Projeção para o contrato. O gestor só sai se também está no diretório do tenant (subconsulta,
+	/// traduzida para SQL): não vaza a existência de conta de outro tenant.
+	/// </summary>
+	private Expression<Func<User, DirectoryPersonData>> Project(Guid tenantId)
+	{
+		var visible = People(tenantId);
+
+		return user => new DirectoryPersonData(
+			user.Id, user.Email!, user.DisplayName, user.LockoutEnabled, user.LockoutEnd, user.TenantId == tenantId,
+			user.JobTitle, user.Department, user.BusinessPhone,
+			visible.Any(p => p.Id == user.ManagerId) ? user.ManagerId : null,
+			user.AttributesOrigin);
+	}
+
 	public async Task<PagedResult<DirectoryPersonData>> ListAsync(
 		Guid tenantId, PageRequest page, CancellationToken cancellationToken = default)
 	{
@@ -30,8 +46,7 @@ internal sealed class DirectoryReader(SecureGateDbContext context) : IDirectoryR
 			.ThenBy(user => user.Id)
 			.Skip(page.Skip)
 			.Take(page.Size)
-			.Select(user => new DirectoryPersonData(
-				user.Id, user.Email!, user.DisplayName, user.LockoutEnabled, user.LockoutEnd, user.TenantId == tenantId))
+			.Select(Project(tenantId))
 			.ToListAsync(cancellationToken).ConfigureAwait(false);
 
 		return PagedResult.Create<DirectoryPersonData>(items, page, total);
@@ -40,7 +55,6 @@ internal sealed class DirectoryReader(SecureGateDbContext context) : IDirectoryR
 	public Task<DirectoryPersonData?> FindAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken = default) =>
 		People(tenantId)
 			.Where(user => user.Id == userId)
-			.Select(user => new DirectoryPersonData(
-				user.Id, user.Email!, user.DisplayName, user.LockoutEnabled, user.LockoutEnd, user.TenantId == tenantId))
+			.Select(Project(tenantId))
 			.FirstOrDefaultAsync(cancellationToken);
 }
