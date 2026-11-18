@@ -115,7 +115,7 @@ internal sealed partial class GraphGroupDirectory(
 		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default)
 	{
 		var people = await ReadAllMembersAsync(
-			directoryId, groupId, "id", ParseMemberIdsPage, cancellationToken).ConfigureAwait(false);
+			directoryId, groupId, "id", ParseMemberIdsPage, person => person.ObjectId, cancellationToken).ConfigureAwait(false);
 
 		return people.IsFailure
 			? Result.Failure<IReadOnlyList<Guid>>(people.Error)
@@ -128,11 +128,57 @@ internal sealed partial class GraphGroupDirectory(
 		// O perfil básico exige User.ReadBasic.All: sem o consentimento o Graph responde 403 e a leitura vira
 		// ConsentRequired — o provisionamento recusa, e a reconciliação de perfis (só ids) segue (ADR-0055)
 		var people = await ReadAllMembersAsync(
-			directoryId, groupId, ProfileSelect, ParseMemberProfilesPage, cancellationToken).ConfigureAwait(false);
+			directoryId, groupId, ProfileSelect, ParseMemberProfilesPage, person => person.ObjectId, cancellationToken).ConfigureAwait(false);
 
 		return people.IsFailure
 			? Result.Failure<IReadOnlyList<DirectoryPerson>>(people.Error)
 			: Result.Success<IReadOnlyList<DirectoryPerson>>(people.Value);
+	}
+
+	public async Task<Result<IReadOnlyList<DirectoryAttributes>>> GetGroupMemberAttributesAsync(
+		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default)
+	{
+		var members = await ReadAllMembersAsync(
+			directoryId, groupId, AttributesSelect, ParseMemberAttributesPage, item => item.ObjectId, cancellationToken)
+			.ConfigureAwait(false);
+
+		if (members.IsFailure)
+		{
+			return Result.Failure<IReadOnlyList<DirectoryAttributes>>(members.Error);
+		}
+
+		// O token já foi emitido (e está em cache) na leitura dos membros: aqui só se reaproveita
+		var token = await AcquireTokenAsync(directoryId, options.Value, cancellationToken).ConfigureAwait(false);
+
+		if (token.IsFailure)
+		{
+			return Result.Failure<IReadOnlyList<DirectoryAttributes>>(token.Error);
+		}
+
+		var attributes = new List<DirectoryAttributes>(members.Value.Count);
+
+		// Um gestor por pessoa, em sequência. 404 = sem gestor; qualquer outra falha derruba a leitura inteira —
+		// um gestor "ausente" por erro transitório limparia o vínculo de quem não deveria perdê-lo
+		foreach (var member in members.Value)
+		{
+			var manager = await SendAsync(
+				directoryId,
+				token.Value,
+				HttpMethod.Get,
+				$"{GraphBaseUrl}users/{member.ObjectId:D}/manager?$select=id",
+				jsonBody: null,
+				ParseManagerId,
+				cancellationToken).ConfigureAwait(false);
+
+			if (manager.IsFailure && manager.Error.Code != SecureGateErrors.Federation.DirectoryObjectNotFound.Code)
+			{
+				return Result.Failure<IReadOnlyList<DirectoryAttributes>>(manager.Error);
+			}
+
+			attributes.Add(member with { ManagerObjectId = manager.IsSuccess ? manager.Value : null });
+		}
+
+		return Result.Success<IReadOnlyList<DirectoryAttributes>>(attributes);
 	}
 
 	public async Task<Result<DirectoryPerson>> GetPersonAsync(
@@ -171,39 +217,43 @@ internal sealed partial class GraphGroupDirectory(
 	/// <summary>Campos do perfil básico lidos do Graph (ADR-0055). Lista fixa: nada vindo do chamador entra no <c>$select</c>.</summary>
 	private const string ProfileSelect = "id,displayName,mail,userPrincipalName";
 
+	/// <summary>Campos de cargo, departamento e telefone lidos do Graph (ADR-0055). Lista fixa, como a do perfil.</summary>
+	private const string AttributesSelect = "id,jobTitle,department,businessPhones";
+
 	/// <summary>
 	/// Percorre a paginação INTEIRA dos membros usuários, transitivos, do grupo: ou devolve todos, ou falha. O cursor
 	/// é sempre a URL que o PRÓPRIO Graph devolveu e há um teto de páginas. Resposta parcial nunca vira sucesso — uma
 	/// lista truncada retiraria perfis (e desativaria contas) de quem ficou fora dela.
 	/// </summary>
-	private async Task<Result<List<DirectoryPerson>>> ReadAllMembersAsync(
+	private async Task<Result<List<T>>> ReadAllMembersAsync<T>(
 		Guid directoryId,
 		Guid groupId,
 		string select,
-		Func<JsonElement, Result<(List<DirectoryPerson> Items, string? NextLink)>> parsePage,
+		Func<JsonElement, Result<(List<T> Items, string? NextLink)>> parsePage,
+		Func<T, Guid> objectIdOf,
 		CancellationToken cancellationToken)
 	{
 		// O id entra na URL por formatação de Guid — nunca texto livre (ADR-0020)
 		if (directoryId == Guid.Empty || groupId == Guid.Empty)
 		{
-			return Result.Failure<List<DirectoryPerson>>(SecureGateErrors.Federation.DirectoryObjectNotFound);
+			return Result.Failure<List<T>>(SecureGateErrors.Federation.DirectoryObjectNotFound);
 		}
 
 		var entra = options.Value;
 
 		if (!entra.IsConfigured)
 		{
-			return Result.Failure<List<DirectoryPerson>>(SecureGateErrors.Federation.NotEnabled);
+			return Result.Failure<List<T>>(SecureGateErrors.Federation.NotEnabled);
 		}
 
 		var token = await AcquireTokenAsync(directoryId, entra, cancellationToken).ConfigureAwait(false);
 
 		if (token.IsFailure)
 		{
-			return Result.Failure<List<DirectoryPerson>>(token.Error);
+			return Result.Failure<List<T>>(token.Error);
 		}
 
-		var members = new Dictionary<Guid, DirectoryPerson>();
+		var members = new Dictionary<Guid, T>();
 		string? url = $"{GraphBaseUrl}groups/{groupId:D}/transitiveMembers/microsoft.graph.user?$select={select}&$top=999";
 
 		for (var page = 0; url is not null; page++)
@@ -213,7 +263,7 @@ internal sealed partial class GraphGroupDirectory(
 			{
 				LogDirectoryUnavailable(logger, directoryId, "paginação acima do teto");
 
-				return Result.Failure<List<DirectoryPerson>>(SecureGateErrors.Federation.DirectoryReadIncomplete);
+				return Result.Failure<List<T>>(SecureGateErrors.Federation.DirectoryReadIncomplete);
 			}
 
 			var read = await SendAsync(
@@ -222,12 +272,12 @@ internal sealed partial class GraphGroupDirectory(
 
 			if (read.IsFailure)
 			{
-				return Result.Failure<List<DirectoryPerson>>(read.Error);
+				return Result.Failure<List<T>>(read.Error);
 			}
 
-			foreach (var person in read.Value.Items)
+			foreach (var item in read.Value.Items)
 			{
-				members.TryAdd(person.ObjectId, person);
+				members.TryAdd(objectIdOf(item), item);
 			}
 
 			url = read.Value.NextLink;
@@ -437,22 +487,118 @@ internal sealed partial class GraphGroupDirectory(
 			people.Add(new DirectoryPerson(parsed, displayName, mail, principalName));
 		}
 
-		string? nextLink = null;
+		return TryReadNextLink(root, out var nextLink)
+			? Result.Success((people, nextLink))
+			: incomplete;
+	}
 
-		if (root.TryGetProperty("@odata.nextLink", out var next) && next.ValueKind != JsonValueKind.Null)
+	/// <summary>
+	/// Cursor da próxima página. Ausente ou <c>null</c> = fim; presente tem de ser uma URL do PRÓPRIO Graph: o token de
+	/// aplicação não segue para outro lugar (SSRF).
+	/// </summary>
+	private static bool TryReadNextLink(JsonElement root, out string? nextLink)
+	{
+		nextLink = null;
+
+		if (!root.TryGetProperty("@odata.nextLink", out var next) || next.ValueKind == JsonValueKind.Null)
 		{
-			// O cursor tem de ser uma URL do PRÓPRIO Graph: o token de aplicação não segue para outro lugar (SSRF)
-			if (next.ValueKind != JsonValueKind.String
-				|| next.GetString() is not { } link
-				|| !link.StartsWith(GraphBaseUrl, StringComparison.Ordinal))
+			return true;
+		}
+
+		if (next.ValueKind != JsonValueKind.String
+			|| next.GetString() is not { } link
+			|| !link.StartsWith(GraphBaseUrl, StringComparison.Ordinal))
+		{
+			return false;
+		}
+
+		nextLink = link;
+
+		return true;
+	}
+
+	private static Result<(List<DirectoryAttributes> Items, string? NextLink)> ParseMemberAttributesPage(JsonElement root)
+	{
+		var incomplete = Result.Failure<(List<DirectoryAttributes> Items, string? NextLink)>(SecureGateErrors.Federation.DirectoryReadIncomplete);
+
+		if (root.ValueKind != JsonValueKind.Object
+			|| !root.TryGetProperty("value", out var value)
+			|| value.ValueKind != JsonValueKind.Array)
+		{
+			return incomplete;
+		}
+
+		var people = new List<DirectoryAttributes>();
+
+		foreach (var member in value.EnumerateArray())
+		{
+			if (member.ValueKind != JsonValueKind.Object
+				|| !member.TryGetProperty("id", out var id)
+				|| id.ValueKind != JsonValueKind.String
+				|| !Guid.TryParseExact(id.GetString(), "D", out var parsed)
+				|| !TryReadText(member, "jobTitle", out var jobTitle)
+				|| !TryReadText(member, "department", out var department)
+				|| !TryReadFirstPhone(member, out var phone))
 			{
 				return incomplete;
 			}
 
-			nextLink = link;
+			// O gestor é lido depois, por pessoa
+			people.Add(new DirectoryAttributes(parsed, jobTitle, department, phone, ManagerObjectId: null));
 		}
 
-		return Result.Success((people, nextLink));
+		return TryReadNextLink(root, out var nextLink)
+			? Result.Success((people, nextLink))
+			: incomplete;
+	}
+
+	/// <summary>
+	/// Primeiro telefone comercial, CRU. Ausente, <c>null</c> ou lista vazia = sem telefone; presente e que não seja
+	/// lista cujo primeiro item é texto é resposta malformada.
+	/// </summary>
+	private static bool TryReadFirstPhone(JsonElement member, out string? phone)
+	{
+		phone = null;
+
+		if (!member.TryGetProperty("businessPhones", out var phones) || phones.ValueKind == JsonValueKind.Null)
+		{
+			return true;
+		}
+
+		if (phones.ValueKind != JsonValueKind.Array)
+		{
+			return false;
+		}
+
+		if (phones.GetArrayLength() == 0)
+		{
+			return true;
+		}
+
+		var first = phones[0];
+
+		if (first.ValueKind != JsonValueKind.String)
+		{
+			return false;
+		}
+
+		phone = first.GetString();
+
+		return true;
+	}
+
+	private static Result<Guid?> ParseManagerId(JsonElement root)
+	{
+		// Qualquer objeto de diretório pode ser gestor (usuário, contato): só o id importa, e ele tem de ser um Guid
+		if (root.ValueKind != JsonValueKind.Object
+			|| !root.TryGetProperty("id", out var id)
+			|| id.ValueKind != JsonValueKind.String
+			|| !Guid.TryParseExact(id.GetString(), "D", out var parsed))
+		{
+			return Result.Failure<Guid?>(SecureGateErrors.Federation.DirectoryReadIncomplete);
+		}
+
+		return Result.Success<Guid?>(parsed);
 	}
 
 	private static Result<DirectoryPerson> ParsePerson(JsonElement root, Guid expectedObjectId)

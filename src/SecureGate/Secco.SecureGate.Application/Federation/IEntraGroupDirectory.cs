@@ -78,6 +78,19 @@ public interface IEntraGroupDirectory
 		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Cargo, departamento, telefone comercial e gestor dos membros USUÁRIOS do grupo, de forma transitiva — a leitura
+	/// dos atributos do diretório (ADR-0055). Mesmas garantias de <see cref="GetGroupMemberIdsAsync"/> (paginação
+	/// inteira, cursor só do Graph, nada parcial); o gestor é lido por pessoa e sua ausência (404) vira <c>null</c>,
+	/// mas qualquer outra falha na leitura do gestor derruba a leitura inteira.
+	/// </summary>
+	/// <param name="directoryId">Directory id do Entra ID do tenant.</param>
+	/// <param name="groupId">Id do grupo (Guid; nunca texto livre em URL).</param>
+	/// <param name="cancellationToken">Token de cancelamento.</param>
+	/// <returns>Os atributos, sem repetição de <c>oid</c>. Os textos são input externo, crus: quem os usa valida.</returns>
+	Task<Result<IReadOnlyList<DirectoryAttributes>>> GetGroupMemberAttributesAsync(
+		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Perfil básico de UM usuário pelo <c>oid</c> — a leitura do provisionamento no primeiro login (ADR-0055).
 	/// Mesmos campos e a mesma tradução de erro de <see cref="GetGroupMembersWithProfileAsync"/>.
 	/// </summary>

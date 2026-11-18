@@ -66,6 +66,8 @@ internal sealed class DirectoryReconcilerRig
 			return Task.FromResult<TenantFederation?>(federation);
 		});
 		Revoker = new RecordingRevoker(Events);
+		Graph.GetGroupMemberAttributesAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+			.Returns(Task.FromResult(Result.Success<IReadOnlyList<DirectoryAttributes>>([])));
 		Mappings.ListAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
 			.Returns(_ => Task.FromResult<IReadOnlyList<GroupRoleMappingRecord>>([.. _mappings]));
 	}
@@ -111,6 +113,16 @@ internal sealed class DirectoryReconcilerRig
 		Graph.GetGroupMemberIdsAsync(DirectoryId, groupId, Arg.Any<CancellationToken>())
 			.Returns(Task.FromResult(Result.Success<IReadOnlyList<Guid>>([.. memberIds])));
 	}
+
+	/// <summary>O grupo tem estes atributos de diretório (cargo, departamento, telefone, gestor).</summary>
+	public void GraphAttributes(Guid groupId, params DirectoryAttributes[] attributes) =>
+		Graph.GetGroupMemberAttributesAsync(DirectoryId, groupId, Arg.Any<CancellationToken>())
+			.Returns(Task.FromResult(Result.Success<IReadOnlyList<DirectoryAttributes>>([.. attributes])));
+
+	/// <summary>A leitura dos atributos do grupo falha com o erro informado.</summary>
+	public void GraphAttributesFail(Guid groupId, Error error) =>
+		Graph.GetGroupMemberAttributesAsync(DirectoryId, groupId, Arg.Any<CancellationToken>())
+			.Returns(Task.FromResult(Result.Failure<IReadOnlyList<DirectoryAttributes>>(error)));
 
 	public void Unmap(Guid groupId) => _mappings.RemoveAll(m => m.EntraGroupId == groupId);
 

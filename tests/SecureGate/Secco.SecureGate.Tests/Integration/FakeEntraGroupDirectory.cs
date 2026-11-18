@@ -19,9 +19,11 @@ public sealed class FakeEntraGroupDirectory : IEntraGroupDirectory
 	private readonly ConcurrentDictionary<(Guid Directory, Guid Group), IReadOnlyList<DirectoryPerson>> _people = new();
 	private readonly ConcurrentDictionary<(Guid Directory, Guid Object), DirectoryPerson> _profiles = new();
 	private readonly ConcurrentDictionary<Guid, bool> _profileForbidden = new();
+	private readonly ConcurrentDictionary<(Guid Directory, Guid Group), IReadOnlyList<DirectoryAttributes>> _attributes = new();
+	private readonly ConcurrentDictionary<Guid, bool> _attributesForbidden = new();
 
 	/// <summary>
-	/// Leituras feitas, na ordem: <c>members:{dir}:{grupo}</c>, <c>profiles:{dir}:{grupo}</c>, <c>person:{dir}:{oid}</c> e
+	/// Leituras feitas, na ordem: <c>members:{dir}:{grupo}</c>, <c>profiles:{dir}:{grupo}</c>, <c>attributes:{dir}:{grupo}</c>, <c>person:{dir}:{oid}</c> e
 	/// <c>check:{dir}:{oid}</c>.
 	/// </summary>
 	public IReadOnlyList<string> Calls => [.. _calls];
@@ -50,6 +52,13 @@ public sealed class FakeEntraGroupDirectory : IEntraGroupDirectory
 
 	/// <summary>Simula o diretório SEM o consentimento <c>User.ReadBasic.All</c>: ids funcionam, perfil devolve 403.</summary>
 	public void ForbidProfiles(Guid directoryId) => _profileForbidden[directoryId] = true;
+
+	/// <summary>Programa os atributos (cargo, departamento, telefone, gestor) das pessoas do grupo.</summary>
+	public void SetAttributes(Guid directoryId, Guid groupId, params DirectoryAttributes[] attributes) =>
+		_attributes[(directoryId, groupId)] = attributes;
+
+	/// <summary>Simula o diretório SEM o consentimento dos atributos: ids e perfil funcionam, a leitura de atributos devolve 403.</summary>
+	public void ForbidAttributes(Guid directoryId) => _attributesForbidden[directoryId] = true;
 
 	/// <summary>Programa a leitura do grupo para falhar.</summary>
 	public void SetFailure(Guid directoryId, Guid groupId, Error error) =>
@@ -105,6 +114,23 @@ public sealed class FakeEntraGroupDirectory : IEntraGroupDirectory
 			_people.TryGetValue((directoryId, groupId), out var people)
 				? people
 				: (IReadOnlyList<DirectoryPerson>)[.. group.Value.Select(id => new DirectoryPerson(id, null, null, null))]));
+	}
+
+	/// <inheritdoc />
+	public Task<Result<IReadOnlyList<DirectoryAttributes>>> GetGroupMemberAttributesAsync(
+		Guid directoryId, Guid groupId, CancellationToken cancellationToken = default)
+	{
+		_calls.Enqueue($"attributes:{directoryId:D}:{groupId:D}");
+		ThrowIfProgrammed(directoryId);
+
+		if (_attributesForbidden.ContainsKey(directoryId))
+		{
+			return Task.FromResult(Result.Failure<IReadOnlyList<DirectoryAttributes>>(SecureGateErrors.Federation.ConsentRequired));
+		}
+
+		// Sem programação, o grupo não traz atributo nenhum: sucesso com lista vazia
+		return Task.FromResult(Result.Success(
+			_attributes.TryGetValue((directoryId, groupId), out var attributes) ? attributes : (IReadOnlyList<DirectoryAttributes>)[]));
 	}
 
 	/// <inheritdoc />
