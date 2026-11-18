@@ -37,7 +37,7 @@
 
 ---
 
-### Tarefa 1: `DirectSignIn` na federação — domínio, API, migration e client
+### Task 1: `DirectSignIn` na federação — domínio, API, migration e client
 
 **Files:**
 
@@ -91,7 +91,7 @@
 
 ---
 
-### Tarefa 2: AdminPortal — caixa "Ir direto ao Entra"
+### Task 2: AdminPortal — caixa "Ir direto ao Entra"
 
 **Files:**
 
@@ -116,7 +116,7 @@
 
 ---
 
-### Tarefa 3: Decisão "ir direto?", `login_hint` e marcas
+### Task 3: Decisão "ir direto?", `login_hint` e marcas
 
 **Files:**
 
@@ -162,7 +162,7 @@
 
 ---
 
-### Tarefa 4: Desafio ao Entra com diretório fixado e retorno de erro com `returnUrl`
+### Task 4: Desafio ao Entra com diretório fixado e retorno de erro com `returnUrl`
 
 **Files:**
 
@@ -200,7 +200,7 @@
 
 ---
 
-### Tarefa 5: Authorize vai direto ao Entra
+### Task 5: Authorize vai direto ao Entra
 
 **Files:**
 
@@ -247,7 +247,7 @@ Comportamento a implementar no `AuthorizeAsync` (a ordem importa):
 
 ---
 
-### Tarefa 6: Logout com "Você saiu"
+### Task 6: Logout com "Você saiu"
 
 **Files:**
 
@@ -278,7 +278,7 @@ Texto fixo da página: título `Você saiu`, parágrafo `Sua sessão foi encerra
 
 ---
 
-### Tarefa 7: Prova por mutação, documentação e verificação final
+### Task 7: Prova por mutação, documentação e verificação final
 
 **Files:**
 
