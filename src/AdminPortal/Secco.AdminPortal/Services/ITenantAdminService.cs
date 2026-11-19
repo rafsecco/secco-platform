@@ -42,12 +42,16 @@ public interface ITenantAdminService
 	/// Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055). <c>null</c> mantém a lista atual;
 	/// lista vazia a esvazia.
 	/// </param>
+		/// <param name="directSignIn">
+		/// Login federado direto (opt-in). <c>null</c> mantém o valor atual; <c>true</c>/<c>false</c> o define.
+		/// </param>
 	/// <param name="cancellationToken">Token de cancelamento.</param>
 	Task SetFederationAsync(
 		Guid tenantId,
 		Guid directoryId,
 		bool enabled,
 		IReadOnlyList<string>? allowedEmailDomains = null,
+		bool? directSignIn = null,
 		CancellationToken cancellationToken = default);
 
 	/// <summary>Lista os mapeamentos grupo → perfil do tenant (ADR-0036), com a marca do grupo de provisionamento.</summary>

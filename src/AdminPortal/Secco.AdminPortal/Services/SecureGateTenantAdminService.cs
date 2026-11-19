@@ -39,7 +39,8 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 					tenant.Federation.DirectoryId,
 					tenant.Federation.IsEnabled,
 					tenant.Federation.UpdatedAt,
-					tenant.Federation.AllowedEmailDomains is null ? null : [.. tenant.Federation.AllowedEmailDomains]));
+					tenant.Federation.AllowedEmailDomains is null ? null : [.. tenant.Federation.AllowedEmailDomains],
+						tenant.Federation.DirectSignIn));
 	}
 
 	public async Task SetFederationAsync(
@@ -47,6 +48,7 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 		Guid directoryId,
 		bool enabled,
 		IReadOnlyList<string>? allowedEmailDomains = null,
+		bool? directSignIn = null,
 		CancellationToken cancellationToken = default)
 	{
 		var client = await clientFactory.CreateAsync(cancellationToken).ConfigureAwait(false);
@@ -58,6 +60,7 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 				DirectoryId = directoryId,
 				Enabled = enabled,
 				AllowedEmailDomains = allowedEmailDomains is null ? null : [.. allowedEmailDomains],
+				DirectSignIn = directSignIn,
 			},
 			cancellationToken).ConfigureAwait(false);
 	}

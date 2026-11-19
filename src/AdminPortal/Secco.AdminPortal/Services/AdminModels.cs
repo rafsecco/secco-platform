@@ -22,11 +22,13 @@ public sealed record TenantDetail(
 /// <param name="IsEnabled">Login federado habilitado.</param>
 /// <param name="UpdatedAt">Última alteração.</param>
 /// <param name="AllowedEmailDomains">Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055).</param>
+/// <param name="DirectSignIn">Login federado direto ligado: vai direto ao Entra ID, sem a tela de login do SecureGate.</param>
 public sealed record TenantFederationSummary(
 	Guid DirectoryId,
 	bool IsEnabled,
 	DateTimeOffset? UpdatedAt,
-	IReadOnlyList<string>? AllowedEmailDomains = null);
+	IReadOnlyList<string>? AllowedEmailDomains = null,
+	bool DirectSignIn = false);
 
 /// <summary>Mapeamento grupo do diretório → perfil de um tenant (ADR-0036), com a marca de provisionamento (ADR-0055).</summary>
 /// <param name="Id">Identificador do mapeamento.</param>

@@ -130,6 +130,60 @@ public class DirectoryProvisioningAdminTests
 		tenant.Federation!.AllowedEmailDomains.Should().Equal("acme.com");
 	}
 
+	[Fact]
+	public async Task SetFederation_ComDirectSignIn_EnviaOCampo()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+
+		await new SecureGateTenantAdminService(factory)
+			.SetFederationAsync(tenantId, Guid.NewGuid(), enabled: true, directSignIn: true);
+
+		await client.Received(1).UpsertTenantFederationAsync(
+			tenantId,
+			Arg.Is<UpsertTenantFederationRequest>(r => r.DirectSignIn == true),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task SetFederation_SemDirectSignIn_NaoMandaOCampo()
+	{
+		var (factory, client) = BuildFactory();
+
+		await new SecureGateTenantAdminService(factory).SetFederationAsync(Guid.NewGuid(), Guid.NewGuid(), enabled: true);
+
+		await client.Received(1).UpsertTenantFederationAsync(
+			Arg.Any<Guid>(),
+			Arg.Is<UpsertTenantFederationRequest>(r => r.DirectSignIn == null),
+			Arg.Any<CancellationToken>());
+	}
+
+	[Fact]
+	public async Task GetTenant_ProjetaODirectSignIn()
+	{
+		var (factory, client) = BuildFactory();
+		var tenantId = Guid.NewGuid();
+		client.GetTenantAsync(tenantId, Arg.Any<CancellationToken>()).Returns(new TenantDetailDto
+		{
+			Id = tenantId,
+			Name = "Acme",
+			Slug = "acme",
+			IsActive = true,
+			Products = [],
+			Federation = new TenantFederationDto
+			{
+				Provider = "entra-id",
+				DirectoryId = Guid.NewGuid(),
+				IsEnabled = true,
+				DirectSignIn = true,
+			},
+		});
+
+		var tenant = await new SecureGateTenantAdminService(factory).GetTenantAsync(tenantId);
+
+		tenant.Federation!.DirectSignIn.Should().BeTrue();
+	}
+
 	[Theory]
 	[InlineData(null)]
 	[InlineData("")]
