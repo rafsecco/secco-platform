@@ -516,7 +516,7 @@
         "tags": [
           "Tenants"
         ],
-        "summary": "Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo. Os domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055) vão aqui: omitidos, a lista atual é mantida; vazios, é esvaziada.",
+        "summary": "Cadastra ou atualiza o login federado Entra ID do tenant (ADR-0026) — directory id visível na leitura, não é segredo. Os domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055) vão aqui: omitidos, a lista atual é mantida; vazios, é esvaziada. O login federado direto (`directSignIn`, opt-in) leva o usuário direto ao Entra ID no authorize; omitido, o valor atual é mantido.",
         "operationId": "UpsertTenantFederation",
         "parameters": [
           {
@@ -4869,6 +4869,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "directSignIn": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -4951,6 +4955,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "directSignIn": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

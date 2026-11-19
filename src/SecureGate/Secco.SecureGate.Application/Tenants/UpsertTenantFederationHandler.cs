@@ -11,8 +11,16 @@ namespace Secco.SecureGate.Application.Tenants;
 /// Domínios de e-mail permitidos para o provisionamento pelo diretório (ADR-0055). <c>null</c> mantém a lista
 /// atual (quem só quer ligar ou desligar a federação não a apaga sem querer); lista vazia a esvazia.
 /// </param>
+/// <param name="DirectSignIn">
+/// Login federado direto: leva o usuário direto ao Entra ID no authorize. <c>null</c> mantém o valor atual; na
+/// criação, <c>null</c> equivale a desligado.
+/// </param>
 public sealed record UpsertTenantFederationCommand(
-	Guid TenantId, Guid DirectoryId, bool Enabled, IReadOnlyList<string>? AllowedEmailDomains = null);
+	Guid TenantId,
+	Guid DirectoryId,
+	bool Enabled,
+	IReadOnlyList<string>? AllowedEmailDomains = null,
+	bool? DirectSignIn = null);
 
 /// <summary>
 /// Upsert idempotente da federação Entra ID de um tenant (ADR-0026). A federação é opt-in e
@@ -62,6 +70,11 @@ public sealed class UpsertTenantFederationHandler(ITenantRepository repository)
 				federation.SetAllowedEmailDomains(domains);
 			}
 
+			if (command.DirectSignIn is { } direct)
+			{
+				federation.SetDirectSignIn(direct);
+			}
+
 			await repository.AddFederationAsync(federation, cancellationToken).ConfigureAwait(false);
 		}
 		else
@@ -72,6 +85,11 @@ public sealed class UpsertTenantFederationHandler(ITenantRepository repository)
 			if (domains is not null)
 			{
 				existing.SetAllowedEmailDomains(domains);
+			}
+
+			if (command.DirectSignIn is { } direct)
+			{
+				existing.SetDirectSignIn(direct);
 			}
 		}
 

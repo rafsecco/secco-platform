@@ -393,6 +393,10 @@ namespace Secco.SecureGate.Migrations.Postgres.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dt_created_at");
 
+                    b.Property<bool>("DirectSignIn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("fl_direct_sign_in");
+
                     b.Property<Guid>("DirectoryId")
                         .HasColumnType("uuid")
                         .HasColumnName("directory_id");

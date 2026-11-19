@@ -53,12 +53,14 @@ public sealed record TenantDetailDto(
 /// Domínios de e-mail permitidos para o provisionamento pelo diretório (ADR-0055). Entra NO FIM: o record é
 /// posicional e consumido pelo client NSwag — inserir no meio renumeraria os campos existentes.
 /// </param>
+/// <param name="DirectSignIn">Login federado direto ligado (opt-in; vai direto ao Entra ID no authorize). Entra NO FIM pelo mesmo motivo.</param>
 public sealed record TenantFederationDto(
 	string Provider,
 	Guid DirectoryId,
 	bool IsEnabled,
 	DateTimeOffset UpdatedAt,
-	IReadOnlyList<string>? AllowedEmailDomains = null)
+	IReadOnlyList<string>? AllowedEmailDomains = null,
+	bool DirectSignIn = false)
 {
 	/// <summary>Projeta a entidade para o DTO.</summary>
 	/// <param name="federation">Entidade de origem.</param>
@@ -71,6 +73,7 @@ public sealed record TenantFederationDto(
 			federation.DirectoryId,
 			federation.IsEnabled,
 			federation.UpdatedAt,
-			federation.GetAllowedEmailDomains());
+			federation.GetAllowedEmailDomains(),
+			federation.DirectSignIn);
 	}
 }

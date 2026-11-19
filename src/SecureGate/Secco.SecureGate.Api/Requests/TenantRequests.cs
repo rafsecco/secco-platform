@@ -43,8 +43,14 @@ public sealed record ProvisionTenantDatabaseRequest(
 /// <param name="AllowedEmailDomains">
 /// Domínios de e-mail permitidos ao provisionamento pelo diretório (ADR-0055). Ausente mantém a lista atual; vazia a esvazia.
 /// </param>
+/// <param name="DirectSignIn">
+/// Login federado direto: leva o usuário direto ao Entra ID no authorize. Ausente mantém o valor atual; na criação, desligado.
+/// </param>
 public sealed record UpsertTenantFederationRequest(
-	Guid? DirectoryId, bool? Enabled, IReadOnlyList<string>? AllowedEmailDomains = null);
+	Guid? DirectoryId,
+	bool? Enabled,
+	IReadOnlyList<string>? AllowedEmailDomains = null,
+	bool? DirectSignIn = null);
 
 /// <summary>Payload de criação de role (ADR-0021).</summary>
 /// <param name="Name">Nome do role (sem espaços). Obrigatório.</param>

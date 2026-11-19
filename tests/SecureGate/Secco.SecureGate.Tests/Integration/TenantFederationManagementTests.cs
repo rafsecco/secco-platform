@@ -134,4 +134,36 @@ public class TenantFederationManagementTests(SecureGateApiFactory factory) : IAs
 		federation.GetProperty("directoryId").GetGuid().Should().Be(newDirectoryId);
 		federation.GetProperty("isEnabled").GetBoolean().Should().BeFalse();
 	}
+
+	[Fact]
+	public async Task UpsertFederation_ComDirectSignIn_GetTenantDevolveOCampo()
+	{
+		var admin = CreateClientWithScopes(SecureGateScopes.Admin);
+		var tenantId = await CreateTenantAsync(admin);
+
+		(await admin.PutAsJsonAsync($"/api/v1/tenants/{tenantId}/federation",
+			new { directoryId = Guid.NewGuid(), directSignIn = true })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		var fetched = await admin.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{tenantId}", Json);
+
+		fetched.GetProperty("federation").GetProperty("directSignIn").GetBoolean().Should().BeTrue();
+	}
+
+	[Fact]
+	public async Task UpsertFederation_SemDirectSignIn_MantemOValor()
+	{
+		var admin = CreateClientWithScopes(SecureGateScopes.Admin);
+		var tenantId = await CreateTenantAsync(admin);
+		var directoryId = Guid.NewGuid();
+
+		(await admin.PutAsJsonAsync($"/api/v1/tenants/{tenantId}/federation",
+			new { directoryId, directSignIn = true })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+		(await admin.PutAsJsonAsync($"/api/v1/tenants/{tenantId}/federation",
+			new { directoryId })).StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+		var fetched = await admin.GetFromJsonAsync<JsonElement>($"/api/v1/tenants/{tenantId}", Json);
+
+		fetched.GetProperty("federation").GetProperty("directSignIn").GetBoolean().Should().BeTrue(
+			"campo ausente mantém o valor atual");
+	}
 }

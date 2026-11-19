@@ -73,4 +73,22 @@ public class TenantFederationTests
 
 		federation.IsEnabled.Should().BeFalse("desabilitar bloqueia o login federado sem apagar o cadastro");
 	}
+
+	[Fact]
+	public void NovaFederacao_DirectSignInDesligado()
+	{
+		new TenantFederation(Guid.NewGuid(), Guid.NewGuid()).DirectSignIn.Should().BeFalse();
+	}
+
+	[Fact]
+	public void SetDirectSignIn_LigaEAtualizaUpdatedAt()
+	{
+		var federation = new TenantFederation(Guid.NewGuid(), Guid.NewGuid());
+		var antes = federation.UpdatedAt;
+
+		federation.SetDirectSignIn(true);
+
+		federation.DirectSignIn.Should().BeTrue();
+		federation.UpdatedAt.Should().BeOnOrAfter(antes);
+	}
 }

@@ -80,4 +80,37 @@ public class UpsertTenantFederationHandlerTests
 			Arg.Any<TenantFederation>(), Arg.Any<CancellationToken>());
 		await _repository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
 	}
+
+	[Fact]
+	public async Task Upsert_DirectSignInNulo_MantemOValorAtual()
+	{
+		var tenant = new Tenant("Tenant", "tenant");
+		var existing = new TenantFederation(tenant.Id, Guid.NewGuid());
+		existing.SetDirectSignIn(true);
+		_repository.GetByIdAsync(tenant.Id, Arg.Any<CancellationToken>()).Returns(tenant);
+		_repository.GetFederationAsync(tenant.Id, Arg.Any<CancellationToken>()).Returns(existing);
+
+		var result = await _handler.HandleAsync(
+			new UpsertTenantFederationCommand(tenant.Id, existing.DirectoryId, Enabled: true, DirectSignIn: null));
+
+		result.IsSuccess.Should().BeTrue();
+		existing.DirectSignIn.Should().BeTrue();
+	}
+
+	[Fact]
+	public async Task Upsert_DirectSignInInformado_Grava()
+	{
+		var tenant = new Tenant("Tenant", "tenant");
+		_repository.GetByIdAsync(tenant.Id, Arg.Any<CancellationToken>()).Returns(tenant);
+		_repository.GetFederationAsync(tenant.Id, Arg.Any<CancellationToken>())
+			.Returns((TenantFederation?)null);
+
+		var result = await _handler.HandleAsync(
+			new UpsertTenantFederationCommand(tenant.Id, Guid.NewGuid(), Enabled: true, DirectSignIn: true));
+
+		result.IsSuccess.Should().BeTrue();
+		await _repository.Received(1).AddFederationAsync(
+			Arg.Is<TenantFederation>(f => f.DirectSignIn),
+			Arg.Any<CancellationToken>());
+	}
 }

@@ -92,6 +92,20 @@ public sealed class TenantFederation : BaseEntity
 		UpdatedAt = DateTimeOffset.UtcNow;
 	}
 
+	/// <summary>
+	/// Login federado direto (coluna <c>fl_direct_sign_in</c>): opt-in por tenant. Ligado, o <c>/connect/authorize</c>
+	/// leva o usuário direto ao Entra ID, sem a tela de login local. Desligado por padrão.
+	/// </summary>
+	public bool DirectSignIn { get; private set; }
+
+	/// <summary>Liga ou desliga o login federado direto.</summary>
+	/// <param name="enabled">Novo estado.</param>
+	public void SetDirectSignIn(bool enabled)
+	{
+		DirectSignIn = enabled;
+		UpdatedAt = DateTimeOffset.UtcNow;
+	}
+
 	/// <summary>Momento da última alteração (coluna <c>dt_updated_at</c>).</summary>
 	public DateTimeOffset UpdatedAt { get; private set; }
 

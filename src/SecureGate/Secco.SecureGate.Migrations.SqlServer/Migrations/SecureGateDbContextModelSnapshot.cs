@@ -393,6 +393,10 @@ namespace Secco.SecureGate.Migrations.SqlServer.Migrations
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("dt_created_at");
 
+                    b.Property<bool>("DirectSignIn")
+                        .HasColumnType("bit")
+                        .HasColumnName("fl_direct_sign_in");
+
                     b.Property<Guid>("DirectoryId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("directory_id");
