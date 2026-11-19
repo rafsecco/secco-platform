@@ -1,0 +1,15 @@
+@page "/saiu"
+@model SignedOutModel
+@{
+    Layout = "_AccountLayout";
+    ViewData["Title"] = "Você saiu";
+}
+
+<h1>Você saiu</h1>
+<p class="sub">Sua sessão foi encerrada.</p>
+
+<form method="post" asp-route-returnUrl="@Model.ReturnUrl" novalidate>
+    <button type="submit">Entrar</button>
+</form>
+
+<p class="back"><a href="/login?returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? string.Empty)">Entrar com e-mail e senha</a></p>

@@ -304,4 +304,128 @@ public class DirectSignInAuthorizeTests(EntraFederatedSecureGateApiFactory facto
 		Local(local).Should().Be("/login?federatedError=1&returnUrl=%2Fconnect%2Fauthorize%3Fx%3D1");
 		Local(hostil).Should().Be("/login?federatedError=1");
 	}
+
+	private static bool ExpiresSignedOutMarker(HttpResponseMessage response) =>
+		response.Headers.TryGetValues("Set-Cookie", out var cookies)
+		&& cookies.Any(c => c.StartsWith("secco.securegate.signed-out=", StringComparison.Ordinal)
+			&& c.Contains("expires=Thu, 01 Jan 1970", StringComparison.OrdinalIgnoreCase));
+
+	private async Task<HttpResponseMessage> LogoutAsync(HttpClient browser)
+	{
+		var response = await browser.GetAsync("/connect/logout");
+		response.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
+		cookies!.Should().Contain(c => c.StartsWith("secco.securegate.signed-out=", StringComparison.Ordinal));
+
+		return response;
+	}
+
+	private async Task<(HttpResponseMessage Post, string ReturnUrl)> PostSaiuAsync(
+		HttpClient browser, string returnUrl, bool withAntiforgery = true)
+	{
+		var url = "/saiu?returnUrl=" + Uri.EscapeDataString(returnUrl);
+		var page = await browser.GetAsync(url);
+		page.StatusCode.Should().Be(HttpStatusCode.OK);
+
+		var form = new Dictionary<string, string>();
+		if (withAntiforgery)
+		{
+			form["__RequestVerificationToken"] = OidcLoginDriver.ExtractAntiforgeryToken(await page.Content.ReadAsStringAsync());
+		}
+
+		return (await browser.PostAsync(url, new FormUrlEncodedContent(form)), returnUrl);
+	}
+
+	[Fact]
+	public async Task Logout_GravaAMarcaEOProximoAuthorizeVaiParaSaiu()
+	{
+		var s = await ScenarioAsync();
+		using var browser = await LocalSessionAsync(s);
+
+		await LogoutAsync(browser);
+		var response = await browser.GetAsync(AuthorizeUrl(s));
+
+		response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		Local(response).Should().StartWith("/saiu?returnUrl=");
+	}
+
+	[Fact]
+	public async Task Logout_OpcaoDesligada_AuthorizeContinuaIndoParaLogin()
+	{
+		var s = await ScenarioAsync();
+		using var browser = await LocalSessionAsync(s);
+
+		await LogoutAsync(browser);
+		await SetDirectSignInAsync(s.TenantId, false);
+		var response = await browser.GetAsync(AuthorizeUrl(s));
+
+		response.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		Local(response).Should().StartWith("/login");
+	}
+
+	[Fact]
+	public async Task Saiu_Get_MostraVoceSaiuSemRedirecionar()
+	{
+		var s = await ScenarioAsync();
+		using var browser = Driver(s).CreateBrowser();
+
+		var response = await browser.GetAsync("/saiu?returnUrl=%2Fconnect%2Fauthorize%3Fx%3D1");
+		var html = await response.Content.ReadAsStringAsync();
+
+		response.StatusCode.Should().Be(HttpStatusCode.OK);
+		html.Should().Contain("Você saiu");
+		html.Should().Contain("Entrar com e-mail e senha");
+	}
+
+	[Fact]
+	public async Task Saiu_PostEntrar_ApagaAMarcaEVoltaAoAuthorize()
+	{
+		var s = await ScenarioAsync();
+		using var browser = await LocalSessionAsync(s);
+		await LogoutAsync(browser);
+		var authorize = AuthorizeUrl(s);
+
+		var (post, _) = await PostSaiuAsync(browser, authorize);
+
+		post.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		Local(post).Should().Be(authorize);
+		ExpiresSignedOutMarker(post).Should().BeTrue();
+		ShouldGoToEntra(await browser.GetAsync(Local(post)), s);
+	}
+
+	[Fact]
+	public async Task Saiu_PostComReturnUrlAbsoluta_VaiParaConta()
+	{
+		var s = await ScenarioAsync();
+		using var browser = Driver(s).CreateBrowser();
+
+		var (post, _) = await PostSaiuAsync(browser, "https://evil.example");
+
+		post.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		Local(post).Should().Be("/conta");
+	}
+
+	[Fact]
+	public async Task Saiu_PostSemAntiforgery_Recusado()
+	{
+		var s = await ScenarioAsync();
+		using var browser = Driver(s).CreateBrowser();
+
+		var (post, _) = await PostSaiuAsync(browser, "/connect/authorize?x=1", withAntiforgery: false);
+
+		post.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+	}
+
+	[Fact]
+	public async Task LoginLocal_ApagaAMarcaDeLogout()
+	{
+		var s = await ScenarioAsync();
+		using var browser = await LocalSessionAsync(s);
+		await LogoutAsync(browser);
+		await SetDirectSignInAsync(s.TenantId, false);
+
+		var post = await Driver(s).SubmitLoginAsync(browser, s.Email, Scope, OidcLoginDriver.CreatePkce().Challenge);
+
+		post.StatusCode.Should().Be(HttpStatusCode.Redirect);
+		ExpiresSignedOutMarker(post).Should().BeTrue();
+	}
 }

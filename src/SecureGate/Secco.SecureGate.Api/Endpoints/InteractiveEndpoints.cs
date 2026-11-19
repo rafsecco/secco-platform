@@ -294,6 +294,10 @@ public static class InteractiveEndpoints
 
 	private static async Task<IResult> LogoutAsync(HttpContext context, SignInManager<User> signInManager)
 	{
+		// Marca a saída: o login federado direto não pode devolver a pessoa ao Entra (que ainda tem
+		// sessão) logo após ela ter saído — o próximo authorize cai em /saiu
+		SignInMarkers.MarkSignedOut(context, DateTimeOffset.UtcNow);
+
 		// Encerra a sessão local (cookie do Identity)...
 		await signInManager.SignOutAsync();
 
