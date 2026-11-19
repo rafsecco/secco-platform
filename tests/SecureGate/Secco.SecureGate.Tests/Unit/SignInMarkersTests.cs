@@ -84,6 +84,31 @@ public class SignInMarkersTests
 	}
 
 	[Fact]
+	public void HasSignedOut_NoFuturo_Falso()
+	{
+		var context = WithCookie(Now.AddMinutes(10).ToUnixTimeSeconds().ToString());
+
+		SignInMarkers.HasSignedOut(context, Now).Should().BeFalse();
+	}
+
+	[Fact]
+	public void WithDirectAttempt_JaMarcada_NaoDuplica()
+	{
+		var url = SignInMarkers.WithDirectAttempt(SignInMarkers.WithDirectAttempt("/connect/authorize?client_id=x"));
+
+		url.Split("secco_direct_attempt=1").Length.Should().Be(2);
+	}
+
+	[Fact]
+	public void HasDirectAttempt_ValorRepetido_Verdadeiro()
+	{
+		var context = NewContext();
+		context.Request.QueryString = new QueryString("?secco_direct_attempt=1&secco_direct_attempt=1");
+
+		SignInMarkers.HasDirectAttempt(context.Request).Should().BeTrue();
+	}
+
+	[Fact]
 	public void WithDirectAttempt_PreservaAQueryOriginal()
 	{
 		var url = SignInMarkers.WithDirectAttempt("/connect/authorize?client_id=x&state=y");

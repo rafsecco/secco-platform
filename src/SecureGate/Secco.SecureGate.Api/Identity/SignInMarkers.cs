@@ -17,6 +17,8 @@ internal static class SignInMarkers
 	/// <summary>Quanto tempo o logout suprime o login direto.</summary>
 	public static readonly TimeSpan SignedOutMaxAge = TimeSpan.FromHours(12);
 
+	private static readonly TimeSpan ClockSkew = TimeSpan.FromMinutes(5);
+
 	/// <summary>Parâmetro de query que marca a volta de uma tentativa de login direto.</summary>
 	public const string DirectAttemptParameter = "secco_direct_attempt";
 
@@ -54,7 +56,11 @@ internal static class SignInMarkers
 			return false;
 		}
 
-		return now.ToUnixTimeSeconds() - seconds <= (long)SignedOutMaxAge.TotalSeconds;
+		// Valor adiantado além da tolerância de relógio não vale: um cookie "do futuro" suprimiria o login direto
+		// durante toda a sessão do navegador
+		var age = now.ToUnixTimeSeconds() - seconds;
+
+		return age >= -(long)ClockSkew.TotalSeconds && age <= (long)SignedOutMaxAge.TotalSeconds;
 	}
 
 	/// <summary>Apaga o cookie do logout (todo login bem-sucedido).</summary>
@@ -75,6 +81,16 @@ internal static class SignInMarkers
 	{
 		ArgumentNullException.ThrowIfNull(localUrl);
 
+		// Idempotente: a volta da reautenticação pode passar por aqui com a marca já presente
+		var queryStart = localUrl.IndexOf('?', StringComparison.Ordinal);
+
+		if (queryStart >= 0
+			&& QueryHelpers.ParseQuery(localUrl[queryStart..]).TryGetValue(DirectAttemptParameter, out var existing)
+			&& existing.Any(v => string.Equals(v, "1", StringComparison.Ordinal)))
+		{
+			return localUrl;
+		}
+
 		return QueryHelpers.AddQueryString(localUrl, DirectAttemptParameter, "1");
 	}
 
@@ -84,6 +100,7 @@ internal static class SignInMarkers
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
-		return string.Equals(request.Query[DirectAttemptParameter], "1", StringComparison.Ordinal);
+		return request.Query.TryGetValue(DirectAttemptParameter, out var values)
+			&& values.Any(v => string.Equals(v, "1", StringComparison.Ordinal));
 	}
 }
