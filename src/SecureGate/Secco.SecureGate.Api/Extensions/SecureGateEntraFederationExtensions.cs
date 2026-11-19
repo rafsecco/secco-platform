@@ -89,11 +89,15 @@ public static class SecureGateEntraFederationExtensions
 
 				options.Events = new OpenIdConnectEvents
 				{
+					// Desafio direto: fixa o diretorio do tenant e repassa as dicas; sem os itens de
+					// diretorio nao mexe em nada (o botao da /login segue igual)
+					OnRedirectToIdentityProvider = EntraDirectChallenge.OnRedirectToIdentityProvider,
+
 					// Usuário cancelou no Microsoft, erro do diretório etc. — mensagem
 					// genérica na tela de login, nunca stack trace (ADR-0020)
 					OnRemoteFailure = context =>
 					{
-						context.Response.Redirect("/login?federatedError=1");
+						context.Response.Redirect(FederatedFailureRedirect.FromCallbackRedirectUri(context.Properties?.RedirectUri));
 						context.HandleResponse();
 						return Task.CompletedTask;
 					},
