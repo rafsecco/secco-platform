@@ -14,7 +14,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### SecureGate (serviço), AdminPortal e `Secco.SecureGate.Client` — login federado direto — opt-in por tenant
 
-O serviço muda e o contrato só ganha um campo. Quando publicado, o client sai como 0.26.0.
+O serviço muda e o contrato só ganha um campo. O client está na seção abaixo (0.26.0).
 
 - **Opção:** `directSignIn` na federação do tenant (`PUT /api/v1/tenants/{id}/federation`, só `securegate:admin`). Omitido, mantém o valor atual. Desligado por padrão.
 - **Ligada:** o `/connect/authorize` sem sessão, para client vinculado ao tenant, vai direto ao Entra pelo endpoint do diretório, com `domain_hint` e `login_hint` validado. Sem a opção, nada muda.
@@ -203,6 +203,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.13 — 2026-11-18
+
+Patch **sem mudança funcional**: o diff desde a 0.7.12 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.26.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.12 — 2026-11-17
 
 Patch **sem mudança funcional**: o diff desde a 0.7.11 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.25.0 sai deste commit e o referencia por `ProjectReference`.
@@ -337,6 +341,10 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.10.3 — 2026-11-18
+
+Patch **sem mudança funcional**: o diff desde a 0.10.2 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.26.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.10.2 — 2026-11-17
 
@@ -593,6 +601,10 @@ Patch **sem mudança funcional**: o diff de `src/LogStream/Secco.LogStream.Clien
 
 ### Secco.SecureGate.Client
 
+#### 0.26.0 — 2026-11-18
+
+Login federado direto. Só acréscimo: `TenantFederationDto.DirectSignIn` e `UpsertTenantFederationRequest.DirectSignIn` (`null` mantém o valor atual). Exige `securegate:admin`, como o resto da federação.
+
 #### 0.25.0 — 2026-11-17
 
 Cargo, departamento, telefone e gestor vindos do diretório (ADR-0059). Só acréscimo: `DirectoryPersonDto` ganha `JobTitle`, `Department`, `BusinessPhone`, `ManagerId` e `AttributesSource` (`"directory"` ou nulo). Os atributos só vêm para a conta dona do tenant consultado. Quando `AttributesSource` é `"directory"`, o produto não deve editar esses campos.
@@ -815,6 +827,10 @@ Primeira publicação (issue #38, ADR-0046). Custódia do token da pessoa para r
 - **AdminPortal migrado:** o cofre e a renovação próprios saíram. Sessões abertas antes da troca caem uma vez (a claim e a chave do cofre mudaram).
 
 ### Secco.SDK.ClientCredentials
+
+#### 0.1.23 — 2026-11-18
+
+Patch **sem mudança funcional**: o diff desde a 0.1.22 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SecureGate.Client` 0.26.0 sai deste commit e o referencia por `ProjectReference`.
 
 #### 0.1.22 — 2026-11-17
 
