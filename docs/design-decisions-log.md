@@ -1928,3 +1928,18 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - *Mostrar os atributos também ao tenant em que a pessoa é só membro (ADR-0040):* vazaria dado organizacional do tenant dono e poria o departamento errado no organograma do outro tenant. Saem só para a conta dona (achado da revisão de segurança).
 
 **Riscos assumidos:** `User.Read.All` lê mais do que o necessário (uso restrito por `$select` fixo); telefone e cargo expostos a clients `directory:read` do próprio tenant.
+
+## Login federado direto (2026-11-18, pedido da ABBC)
+
+**A pergunta.** Com máquinas que o Entra já autentica sozinho (PRT ou Seamless SSO), a tela de login do SecureGate só pedia um clique em "Entrar com Microsoft". Como tirar esse clique sem criar laço de redirecionamento, sem deixar o operador sem caminho de entrada e sem que o logout vire um login automático?
+
+**Escolha:** opção por tenant na federação, com a decisão no `/connect/authorize` tomada a partir do registro do client (ADR-0040). Vale só sem cookie de sessão. A tela `/login` nunca redireciona, e a página "Você saiu" fica no SecureGate. Sem ADR própria: só o SecureGate muda, é opt-in e reversível. Descartados:
+
+- *Decidir na tela `/login`:* ela teria de reinterpretar o `returnUrl` para achar o client, que é entrada externa re-analisada fora do OpenIddict. A saída de emergência passaria a depender de `?local=1` em todo caminho de erro.
+- *Esquema OIDC por tenant:* a ADR-0026 fixou um esquema único e estático.
+- *`prompt=none` ao Entra com repetição em caso de falha:* com o diretório fixado e as dicas, o Entra já entra sem interação quando pode. A repetição mostraria a mesma tela, ao custo de uma ida e volta e de um estado a mais contra laço.
+- *Página de saída em cada aplicação:* cada adotante teria de implementá-la, e um erro ali trazia o laço de volta (decisão do usuário).
+- *Encerrar também a sessão do Entra no logout:* derrubaria Office, Teams e o Windows da pessoa. A federação é só autenticação.
+- *Marca de tentativa em cookie:* quando o navegador recusa o cookie de sessão, recusa a marca também, e era justamente o laço a evitar. Além disso, duas abas abertas juntas dariam erro falso. A marca foi para a URL de volta, onde só consegue desligar o modo direto.
+
+**Riscos assumidos:** a troca do code no endpoint `organizations` depois de uma autorização no endpoint do diretório não foi provada contra um Entra real, e fica como aceite manual. A marca de logout é só do navegador, então sair num e abrir noutro entra direto.

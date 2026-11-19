@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,7 +59,7 @@ public class SignInMarkersTests
 	[Fact]
 	public void HasSignedOut_DentroDe12h_Verdadeiro()
 	{
-		var context = WithCookie(Now.AddHours(-11).ToUnixTimeSeconds().ToString());
+		var context = WithCookie(Now.AddHours(-11).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
 
 		SignInMarkers.HasSignedOut(context, Now).Should().BeTrue();
 	}
@@ -66,7 +67,7 @@ public class SignInMarkersTests
 	[Fact]
 	public void HasSignedOut_Com12hE1s_Falso()
 	{
-		var context = WithCookie(Now.AddHours(-12).AddSeconds(-1).ToUnixTimeSeconds().ToString());
+		var context = WithCookie(Now.AddHours(-12).AddSeconds(-1).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
 
 		SignInMarkers.HasSignedOut(context, Now).Should().BeFalse();
 	}
@@ -86,7 +87,7 @@ public class SignInMarkersTests
 	[Fact]
 	public void HasSignedOut_NoFuturo_Falso()
 	{
-		var context = WithCookie(Now.AddMinutes(10).ToUnixTimeSeconds().ToString());
+		var context = WithCookie(Now.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
 
 		SignInMarkers.HasSignedOut(context, Now).Should().BeFalse();
 	}

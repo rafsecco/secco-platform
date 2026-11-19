@@ -12,6 +12,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### SecureGate (serviço), AdminPortal e `Secco.SecureGate.Client` — login federado direto — opt-in por tenant
+
+O serviço muda e o contrato só ganha um campo. Quando publicado, o client sai como 0.26.0.
+
+- **Opção:** `directSignIn` na federação do tenant (`PUT /api/v1/tenants/{id}/federation`, só `securegate:admin`). Omitido, mantém o valor atual. Desligado por padrão.
+- **Ligada:** o `/connect/authorize` sem sessão, para client vinculado ao tenant, vai direto ao Entra pelo endpoint do diretório, com `domain_hint` e `login_hint` validado. Sem a opção, nada muda.
+- **Contra laço:** marca `secco_direct_attempt=1` na volta; cookie inválido e conta recusada vão sempre à tela local; erro do Entra volta a `/login?federatedError=1`, agora preservando o `returnUrl` local.
+- **Logout:** grava uma marca de até 12 h, e o próximo authorize sem sessão leva à página nova `/saiu` ("Você saiu").
+- **Outros fluxos:** `prompt=none` sem sessão no modo direto responde `login_required`; a reautenticação vai ao Entra com `prompt=login`.
+- **Banco:** migration `AddFederationDirectSignIn` nos dois engines (`fl_direct_sign_in` em `tb_tenant_federations`, com o RLS refeito na revisão vigente). Entra pelo `migrate`.
+- **AdminPortal:** caixa "Ir direto ao Entra" na seção Federação.
+- **`Secco.SecureGate.Client` (0.26.0, só acréscimo):** `TenantFederationDto.DirectSignIn` e `UpsertTenantFederationRequest.DirectSignIn`.
+- **Lado do cliente:** os requisitos (PRT ou Seamless SSO, Edge, Chrome com `CloudAPAuthEnabled`, Firefox com `WindowsSSO`) estão no README do SecureGate.
+
 ### SecureGate (serviço) e `Secco.SecureGate.Client` — cargo, departamento, telefone e gestor vindos do diretório (ADR-0059) — ação necessária para ligar
 
 O serviço muda e o contrato só ganha campos. O client está na seção abaixo (0.25.0).

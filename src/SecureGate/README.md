@@ -217,6 +217,46 @@ Pela API (`securegate:admin`): `POST .../users/{id}/invite` reenvia o convite, `
 
 > **Desvincular não bloqueia ninguém.** Enquanto a pessoa seguir no diretório e a federação do tenant estiver ligada, o próximo login casa por e-mail e vincula de novo. A operação existe para vínculo morto — conta recriada no diretório com outro `oid`, ou pessoa que saiu de lá. Para barrar acesso, **desative a conta** ou desligue a federação do tenant.
 
+### Login federado direto
+
+Em tenant cujas contas entram só pelo Entra, a tela de login do SecureGate é um clique a mais: "Entrar com Microsoft", e o Entra autentica sem perguntar nada. Com o **login federado direto**, o `/connect/authorize` sem sessão leva a pessoa direto ao Entra e ela volta logada, sem ver a tela do SecureGate.
+
+**Como ligar.** É opt-in por tenant e só o operador liga:
+
+- no AdminPortal, seção Federação da página do tenant, marque "Ir direto ao Entra";
+- ou pela API, com `PUT /api/v1/tenants/{id}/federation` e `directSignIn: true`. Omitido, o valor atual é mantido.
+
+O efeito só aparece com a federação habilitada e o Entra configurado nesta instalação. Vale apenas para aplicação cujo client é **vinculado ao tenant** (ADR-0040). Client sem tenant, como o AdminPortal, continua na tela local, onde o operador entra com senha e segundo fator.
+
+**O que muda no fluxo:**
+
+- **Ida ao Entra:** a pessoa vai ao endpoint de autorização **do diretório do tenant**, não ao `organizations`. Junto vão o `domain_hint` (o primeiro domínio permitido da federação) e o `login_hint` que a aplicação mandou, se for um e-mail válido.
+- **Callback:** é o mesmo de sempre. Pin do `tid`, casamento por `oid` ou e-mail e provisionamento não mudam.
+- **Reautenticação** (`prompt=login`, `max_age`): também vai ao Entra, com `prompt=login`.
+- **`prompt=none` sem sessão:** responde `login_required` à aplicação, sem desafio nenhum.
+- **Erro do Entra, consentimento retirado ou conta recusada:** a pessoa volta à tela `/login` com a mensagem genérica de sempre. A tela de login nunca redireciona sozinha.
+- **Contra laço:** a volta do Entra traz a marca `secco_direct_attempt=1`. Se o navegador não guardou a sessão (cookie recusado, proxy sem HTTPS), a próxima passagem sem sessão para na tela de login em vez de ir ao Entra de novo. Cookie de sessão inválido e conta bloqueada também vão à tela local, nunca ao Entra.
+
+**Logout.** O `/connect/logout` grava uma marca, que é um cookie de sessão do navegador e vale até 12 h. Com ela, o próximo authorize sem sessão leva a **`/saiu`** ("Você saiu"), em vez de devolver a pessoa ao Entra, que ainda tem sessão e a reconectaria na hora. Na página há duas saídas:
+
+- o botão **Entrar** apaga a marca e retoma o login direto;
+- o link **Entrar com e-mail e senha** leva à tela local.
+
+Qualquer login bem-sucedido também apaga a marca. A sessão do Entra não é encerrada: sair dela derrubaria Office, Teams e o Windows da pessoa (a federação é só autenticação, ADR-0026).
+
+**Saída de emergência.** **`/login`** do SecureGate sempre mostra a tela local, com a opção ligada ou não. O operador, ou quem tem senha local, entra por ali. Depois, ao abrir o produto, o authorize encontra a sessão e não vai ao Entra.
+
+**O que precisa existir do lado do cliente** para o Entra autenticar sem perguntar:
+
+- **Dispositivo:** ingressado no Entra ID, ou em ingresso híbrido, com PRT. A alternativa é o **Seamless SSO** (Entra Connect), com `https://autologon.microsoftazuread-sso.com` na zona Intranet por GPO.
+- **Edge:** funciona de fábrica com o PRT.
+- **Chrome:** política `CloudAPAuthEnabled` habilitada. Em versões antigas, a extensão Windows Accounts.
+- **Firefox:** política `WindowsSSO`, ou a opção "Permitir login único do Windows para contas Microsoft, corporativas e de estudante".
+- **Acesso Condicional:** pode exigir MFA ou dispositivo compatível. Nesse caso o Entra pergunta, e isso é esperado.
+- Fora dessas condições, o Entra mostra a tela de conta dele. O modo direto continua funcionando, só não fica silencioso.
+
+> **Antes de ligar em produção**, confirme contra um tenant Entra real que o code emitido pelo endpoint do diretório é aceito na troca, que continua no endpoint `organizations`. Os testes usam uma configuração OIDC fixa em memória e não falam com a Microsoft.
+
 ### Provisionamento de contas pelo diretório (ADR-0055, entrega B, issue #50)
 
 O diretório do cliente (Entra ID) pode ser a fonte de **quem entra, de quem sai e de qual setor cada pessoa é**. Nada acontece sem o ato explícito do operador, que tem duas partes, ambas só do `securegate:admin`:
