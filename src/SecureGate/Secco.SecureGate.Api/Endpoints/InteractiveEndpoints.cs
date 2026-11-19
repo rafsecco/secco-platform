@@ -9,6 +9,7 @@ using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Application.TenantAdministration;
 using Secco.SecureGate.Application.Tenants;
+using Secco.SecureGate.Infrastructure.Federation;
 using Secco.SecureGate.Infrastructure.Identity;
 using Secco.SharedKernel.Constants;
 using static OpenIddict.Abstractions.OpenIddictConstants;
@@ -53,18 +54,12 @@ public static class InteractiveEndpoints
 		var request = context.GetOpenIddictServerRequest()
 			?? throw new InvalidOperationException("Requisição OIDC não encontrada no contexto.");
 
-		// Sem cookie de sessão → desafia o esquema do Identity → redireciona para /login
+		// Sem cookie de sessão → /login, ou direto ao Entra quando o tenant do client ligou a opção (ADR-0026)
 		var authentication = await context.AuthenticateAsync(IdentityConstants.ApplicationScheme);
 
 		if (!authentication.Succeeded)
 		{
-			return Results.Challenge(
-				new AuthenticationProperties
-				{
-					// Após o login, o usuário volta exatamente a esta requisição de autorização
-					RedirectUri = context.Request.PathBase + context.Request.Path + context.Request.QueryString,
-				},
-				[IdentityConstants.ApplicationScheme]);
+			return await ChallengeWithoutSessionAsync(context, request);
 		}
 
 		// ADR-0032: o cookie só vale se o stamp ainda é o do login e a conta pode receber token. Sem isto, um
@@ -110,6 +105,22 @@ public static class InteractiveEndpoints
 			}
 
 			await context.SignOutAsync(IdentityConstants.ApplicationScheme);
+
+			// Com login direto a reautenticação também vai ao Entra, forçando o prompt; a volta já sem o "login"
+			// no prompt e com a marca de tentativa (guarda contra laço)
+			var reauthTarget = await context.RequestServices.GetRequiredService<DirectSignInPolicy>()
+				.ResolveAsync(request.ClientId, context.RequestAborted);
+
+			if (reauthTarget is not null)
+			{
+				return Results.Challenge(
+					EntraDirectChallenge.Create(
+						SignInMarkers.WithDirectAttempt(WithoutLoginPrompt(context, request)),
+						reauthTarget,
+						LoginHint.Sanitize(request.LoginHint),
+						forceLogin: true),
+					[SecureGateEntraIdOptions.AuthenticationScheme]);
+			}
 
 			return Results.Challenge(
 				new AuthenticationProperties { RedirectUri = WithoutLoginPrompt(context, request) },
@@ -180,6 +191,55 @@ public static class InteractiveEndpoints
 			authenticatedAt, FreshAuthentication.MethodsOf(authentication.Principal));
 
 		return Results.SignIn(principal, properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+	}
+
+	// Sem sessão: a decisão vem só do registro do client e do banco (ADR-0020) — parâmetros da requisição só
+	// conseguem DESLIGAR o modo direto (prompt=none, marcas de laço), nunca ligá-lo
+	private static async Task<IResult> ChallengeWithoutSessionAsync(HttpContext context, OpenIddictRequest request)
+	{
+		var currentUrl = context.Request.PathBase + context.Request.Path + context.Request.QueryString;
+
+		var target = await context.RequestServices.GetRequiredService<DirectSignInPolicy>()
+			.ResolveAsync(request.ClientId, context.RequestAborted);
+
+		if (target is null)
+		{
+			// Após o login, a pessoa volta exatamente a esta requisição de autorização
+			return Results.Challenge(
+				new AuthenticationProperties { RedirectUri = currentUrl },
+				[IdentityConstants.ApplicationScheme]);
+		}
+
+		if (request.HasPromptValue(PromptValues.None))
+		{
+			return Results.Forbid(
+				authenticationSchemes: [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme],
+				properties: new AuthenticationProperties(new Dictionary<string, string?>
+				{
+					[OpenIddictServerAspNetCoreConstants.Properties.Error] = Errors.LoginRequired,
+					[OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "É preciso autenticar a pessoa.",
+				}));
+		}
+
+		// Já foi ao Entra nesta volta e continua sem sessão: tela de login com o erro, nunca um laço
+		if (SignInMarkers.HasDirectAttempt(context.Request))
+		{
+			return Results.Redirect(FederatedFailureRedirect.For(currentUrl));
+		}
+
+		// Acabou de sair: manda ao /saiu, que não autentica ninguém sozinho
+		if (SignInMarkers.HasSignedOut(context, DateTimeOffset.UtcNow))
+		{
+			return Results.Redirect("/saiu?returnUrl=" + Uri.EscapeDataString(currentUrl));
+		}
+
+		return Results.Challenge(
+			EntraDirectChallenge.Create(
+				SignInMarkers.WithDirectAttempt(currentUrl),
+				target,
+				LoginHint.Sanitize(request.LoginHint),
+				forceLogin: false),
+			[SecureGateEntraIdOptions.AuthenticationScheme]);
 	}
 
 	// A mesma requisição de autorização, sem o "login" no prompt e sem max_age: a autenticação nova já atende
