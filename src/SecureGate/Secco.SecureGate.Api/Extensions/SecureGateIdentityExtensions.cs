@@ -33,6 +33,9 @@ public static class SecureGateIdentityExtensions
 		// ADR-0040: tenant do login e vínculo, usados no authorize e na renovação
 		services.AddScoped<LoginTenantResolver>();
 
+		// Login federado direto: decide se o authorize vai ao Entra sem passar pela tela local
+		services.AddScoped<DirectSignInPolicy>();
+
 		services.AddIdentityCore<User>(options =>
 			{
 				// Política de senha (ADR-0020): mínimo forte, sem impor complexidade excessiva
@@ -77,7 +80,12 @@ public static class SecureGateIdentityExtensions
 				options.Cookie.Name = "secco.securegate.auth";
 
 				// Instante da autenticação, gravado só pelas telas de login e preservado nas renovações (ADR-0049)
-				options.Events.OnSigningIn = FreshAuthentication.OnSigningInAsync;
+				// Todo login bem-sucedido também apaga a marca de logout (login federado direto)
+				options.Events.OnSigningIn = async context =>
+				{
+					SignInMarkers.ClearSignedOut(context.HttpContext);
+					await FreshAuthentication.OnSigningInAsync(context);
+				};
 				// O fluxo de autorização é same-site (login e authorize no mesmo host)
 				options.Cookie.SameSite = SameSiteMode.Lax;
 				options.Cookie.HttpOnly = true;

@@ -35,3 +35,14 @@ public sealed class ReseedApiCollectionDefinition : ICollectionFixture<SecureGat
 	/// <summary>Nome da collection.</summary>
 	public const string Name = "SecureGate com seed re-executado";
 }
+
+/// <summary>
+/// Collection dos testes com o login federado (Entra ID) configurado — o login federado direto
+/// precisa do esquema <c>EntraId</c> registrado.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class EntraFederatedApiCollectionDefinition : ICollectionFixture<EntraFederatedSecureGateApiFactory>
+{
+	/// <summary>Nome da collection.</summary>
+	public const string Name = "SecureGate com login federado";
+}

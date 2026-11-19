@@ -264,6 +264,58 @@ public class SecureGateApiFactory : SeccoApiFactory<Program>
 		await applications.CreateAsync(descriptor);
 	}
 
+	/// <summary>
+	/// Registra um client PÚBLICO interativo VINCULADO a um tenant (<c>OidcApplication.TenantId</c>, ADR-0040) —
+	/// como <see cref="CreatePublicClientAsync"/>, mas o tenant do login vem do client.
+	/// </summary>
+	public async Task CreateTenantPublicClientAsync(Guid tenantId, string clientId, string redirectUri, params string[] scopes)
+	{
+		using var scope = Services.CreatePlatformScope();
+		var applications = scope.ServiceProvider
+			.GetRequiredService<OpenIddict.Core.OpenIddictApplicationManager<Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication>>();
+
+		if (await applications.FindByClientIdAsync(clientId) is not null)
+		{
+			return;
+		}
+
+		var application = new Secco.SecureGate.Infrastructure.OpenIddict.OidcApplication
+		{
+			TenantId = tenantId,
+			Origin = Secco.SecureGate.Application.Clients.ClientOrigin.Api,
+			Name = clientId,
+		};
+
+		var descriptor = new OpenIddict.Abstractions.OpenIddictApplicationDescriptor
+		{
+			ClientId = clientId,
+			ClientType = OpenIddict.Abstractions.OpenIddictConstants.ClientTypes.Public,
+			ConsentType = OpenIddict.Abstractions.OpenIddictConstants.ConsentTypes.Implicit,
+			DisplayName = $"Client público de tenant de teste {clientId}",
+			RedirectUris = { new Uri(redirectUri) },
+			Permissions =
+			{
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Authorization,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.Token,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Endpoints.EndSession,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.ResponseTypes.Code,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Email,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Profile,
+				OpenIddict.Abstractions.OpenIddictConstants.Permissions.Scopes.Roles,
+			},
+		};
+
+		foreach (var scopeName in scopes)
+		{
+			descriptor.Permissions.Add(OpenIddict.Abstractions.OpenIddictConstants.Permissions.Prefixes.Scope + scopeName);
+		}
+
+		await applications.PopulateAsync(application, descriptor);
+		await applications.CreateAsync(application);
+	}
+
 	/// <inheritdoc />
 	protected override void ConfigureTestConfiguration(IDictionary<string, string?> settings)
 	{
