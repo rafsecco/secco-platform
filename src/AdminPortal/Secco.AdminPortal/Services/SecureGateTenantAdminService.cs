@@ -40,7 +40,7 @@ internal sealed class SecureGateTenantAdminService(ISecureGateClientFactory clie
 					tenant.Federation.IsEnabled,
 					tenant.Federation.UpdatedAt,
 					tenant.Federation.AllowedEmailDomains is null ? null : [.. tenant.Federation.AllowedEmailDomains],
-						tenant.Federation.DirectSignIn));
+					tenant.Federation.DirectSignIn));
 	}
 
 	public async Task SetFederationAsync(
