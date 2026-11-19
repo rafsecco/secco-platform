@@ -14,8 +14,6 @@ namespace Secco.SecureGate.Api.Endpoints;
 /// </summary>
 public static class FederatedLoginEndpoints
 {
-	private const string GenericFailureRedirect = "/login?federatedError=1";
-
 	/// <summary>Mapeia o callback do login federado.</summary>
 	/// <param name="endpoints">Builder de rotas de endpoints da aplicação.</param>
 	public static IEndpointRouteBuilder MapFederatedLoginEndpoints(this IEndpointRouteBuilder endpoints)
@@ -38,7 +36,7 @@ public static class FederatedLoginEndpoints
 
 		if (!authentication.Succeeded || authentication.Principal is null)
 		{
-			return Results.Redirect(GenericFailureRedirect);
+			return Results.Redirect(FederatedFailureRedirect.For(returnUrl));
 		}
 
 		var result = await processor.ProcessAsync(authentication.Principal, context.RequestAborted);
@@ -48,7 +46,7 @@ public static class FederatedLoginEndpoints
 
 		if (result.IsFailure)
 		{
-			return Results.Redirect(GenericFailureRedirect);
+			return Results.Redirect(FederatedFailureRedirect.For(returnUrl));
 		}
 
 		// Sessão do Identity — daqui em diante o fluxo é o mesmo do login por senha:
@@ -57,14 +55,6 @@ public static class FederatedLoginEndpoints
 		await signInManager.SignInAsync(result.Value, isPersistent: false);
 
 		// Só destinos locais — sem open redirect (ADR-0020)
-		return Results.LocalRedirect(ToLocalUrl(returnUrl));
+		return Results.LocalRedirect(FederatedFailureRedirect.IsLocal(returnUrl) ? returnUrl! : "/");
 	}
-
-	private static string ToLocalUrl(string? returnUrl) =>
-		!string.IsNullOrEmpty(returnUrl)
-			&& returnUrl.StartsWith('/')
-			&& !returnUrl.StartsWith("//", StringComparison.Ordinal)
-			&& !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
-		? returnUrl
-		: "/";
 }
