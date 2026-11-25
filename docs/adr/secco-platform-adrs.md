@@ -2431,6 +2431,57 @@ Os atributos **só saem para a conta dona do tenant consultado**: o membro por v
 
 ---
 
+## ADR-0061: Cifragem de arquivo em repouso — envelope AES-256-GCM em blocos, no `Secco.SDK.EntityFrameworkCore`
+
+**Status:** Aceita
+**Data:** 2026-11-25
+
+### Contexto
+
+O SDK cifra segredo curto em coluna (`ISeccoSecretCipher`, ADR-0025, promovido na ADR-0029), mas não cifra arquivo. O `secco-intranet` guarda documentos, imagens do Mural e fotos cifrados com um `EnvelopeCipher` próprio, que reimplementa o embrulho `secco-enc:v1:` (issue [#54](https://github.com/rafsecco/secco-platform/issues/54)). É o caso que a ADR-0029 quis evitar para os segredos: cada produto que guarda arquivo escreveria o próprio código AEAD em blocos, e é código fácil de errar (nonce, dado associado, truncamento).
+
+O `ISeccoSecretCipher` não serve para o conteúdo. Ele trabalha com `string` em memória, e o GCM só autentica no fim da mensagem: cifrar o arquivo inteiro de uma vez obrigaria a carregá-lo em memória antes de confiar em qualquer byte. Serve para embrulhar a chave do arquivo.
+
+Alternativas de pacote:
+
+- **`Secco.SDK.EntityFrameworkCore`, ao lado do `ISeccoSecretCipher`.** Sem quebra, e o produto que guarda arquivo cifrado guarda a chave embrulhada numa coluna, então já referencia o pacote. O nome do pacote não diz "criptografia", mas a ADR-0029 já pôs o cifrador ali.
+- **Pacote novo `Secco.SDK.Cryptography`, com os dois cifradores.** Nome melhor, mas mover o `ISeccoSecretCipher` quebra SecureGate, NotificationHub e o adotante por uma questão de nome. Descartado por ora; se surgir consumidor de criptografia sem banco, a mudança vira ADR própria.
+- **`Secco.SDK.Documents`.** É geração de planilha e PDF (ADR-0058), outro assunto. Descartado.
+
+Alternativas de formato:
+
+- **O do adotante:** blocos de 1 MiB, nonce aleatório gravado por bloco, índice e marca de último como dado associado, com campo de comprimento e byte de marca por bloco. É correto, mas grava 17 bytes de enquadramento por bloco que só o tag protege. Os buffers de 1 MiB vão para o Large Object Heap e custam 2 MiB por download simultâneo.
+- **STREAM** (Hoang, Reyhanitabar, Rogaway e Vizár, 2015), a construção do `age` e do Tink: nonce derivado do índice e da marca de último, sem nada gravado além do tag. Exige que a chave nunca cifre dois conteúdos, o que o envelope já garante: a chave do arquivo é sorteada a cada cifragem.
+
+### Decisão
+
+O **`Secco.SDK.EntityFrameworkCore`** ganha `ISeccoFileCipher` e `AesGcmFileCipher`, no mesmo namespace do `ISeccoSecretCipher`:
+
+- **Envelope.** `EncryptAsync(origem, destino, limite?)` sorteia uma chave de 32 bytes por arquivo, cifra o `Stream` e devolve a chave **embrulhada** pelo `ISeccoSecretCipher` recebido (formato `secco-enc:v1:`, sobre o base64 da chave) e o tamanho em claro. A chave do arquivo nunca entra pela API nem sai dela em claro. É o que torna o nonce determinístico seguro.
+- **Formato `SECCOENC` versão 1**, documentado no tipo e no README do pacote:
+  - cabeçalho de 9 bytes, `"SECCOENC"` em ASCII seguido de `0x01`;
+  - blocos de 64 KiB em claro, menos o último (de 0 a 64 KiB; só o arquivo vazio tem bloco de 0 byte), cada um gravado como cifrado seguido do tag de 16 bytes;
+  - nonce do bloco `i` = `00 00 00 ‖ i (uint64 big-endian) ‖ 01 se último, senão 00`;
+  - o cabeçalho é o dado associado de todo bloco.
+- **Decifragem bloco a bloco.** Um bloco só é escrito no destino depois de autenticado. Bloco alterado, fora de posição, repetido ou cortado, versão desconhecida e chave desconhecida lançam `SeccoSecretCipherException` (falha infraestrutural, ADR-0004). O truncamento só aparece no fim: quem escreve numa resposta HTTP trata a exceção como resposta abortada.
+- **A chave embrulhada sem o prefixo `secco-enc:` é recusada.** O passthrough de legado em claro do `ISeccoSecretCipher` (ADR-0025) não vale aqui: com ele, quem escrevesse na coluna escolheria a chave do arquivo.
+- **Rotação sem regravar arquivo.** `IsKeyWrappedWithActiveKey` é a condição de convergência e `RewrapKey` reembrulha a chave com a chave mestra ativa. As aposentadas são as do `ISeccoSecretCipher`. O laço de convergência é do produto, como o seeder do SecureGate (ADR-0025).
+- **Limite de tamanho opcional na cifragem**, com `SeccoFileTooLargeException`, separada da falha criptográfica porque quem chama a traduz em erro de negócio.
+- **O que fica com o produto:** onde o arquivo mora, o caminho (e o tenant nele, ADR-0005), apagar o arquivo parcial quando a cifragem falha, a política de origem da chave mestra (chave de DEV, fail-fast fora dela) e se a chave mestra dos arquivos é a mesma dos segredos em coluna.
+
+### Consequências
+
+- **Mais fácil:** qualquer produto guarda arquivo enviado por usuário cifrado, em memória constante (cerca de 130 KiB por operação, fora do LOH), com rotação barata. A chave que passa pelo cofre é de 32 bytes, então um KMS futuro embrulha chave e nunca vê o arquivo.
+- **Overhead:** 9 bytes por arquivo mais 16 por bloco de 64 KiB (0,02%).
+- **Quebra no adotante:** o formato `SCCOFILE` do `secco-intranet` não é lido por este tipo. A primeira instalação ainda está em testes, e o adotante aceitou trocar o formato registrando a quebra: arquivos já gravados são recifrados uma vez, ou descartados.
+- **Risco assumido (ADR-0020):** a chave do arquivo passa pelo `ISeccoSecretCipher` como `string` base64, que o .NET não deixa zerar. Fica na memória do processo até o GC. Os buffers de bytes são zerados. Comprometimento da memória do processo não é coberto por nenhuma cifragem de aplicação (ADR-0025).
+- **Fora de escopo:** leitura parcial (`Range`) e `Stream` de decifragem para leitura sob demanda. O formato permite, porque cada bloco é independente e endereçável pela posição, e isso vem quando um produto pedir. Armazenamento de arquivos segue no backlog de ADRs.
+- **Proibido:**
+  - aceitar chave de arquivo vinda de fora ou reaproveitar uma para outro conteúdo, porque quebra o nonce determinístico;
+  - mudar o formato v1, porque arquivo gravado deixa de abrir (o teste que monta o arquivo à mão pela especificação existe para isso). Formato novo é versão nova no cabeçalho, com a v1 ainda decifrável.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto

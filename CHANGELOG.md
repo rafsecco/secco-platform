@@ -12,6 +12,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### `Secco.SDK.EntityFrameworkCore` 0.7.0 — cifragem de arquivo em repouso (issue #54, ADR-0061)
+
+Só acréscimo ao pacote.
+
+- **Adicionado** `ISeccoFileCipher` e `AesGcmFileCipher`: cifragem em envelope de arquivo, em streaming. Cada arquivo recebe uma chave sorteada, o conteúdo vai em blocos AES-256-GCM de 64 KiB e a chave sai embrulhada pelo `ISeccoSecretCipher` (`secco-enc:v1:`). `EncryptAsync` devolve `SeccoEncryptedFile` (chave embrulhada e tamanho em claro). `DecryptAsync` só escreve um bloco depois de autenticado.
+- **Formato `SECCOENC` v1**, documentado no README do pacote: cabeçalho de 9 bytes, nonce derivado do índice do bloco e da marca de último, cabeçalho como dado associado. Bloco alterado, fora de ordem, repetido ou cortado lança `SeccoSecretCipherException`.
+- **Rotação** sem regravar arquivo: `IsKeyWrappedWithActiveKey` e `RewrapKey`.
+- **Adicionado** `SeccoFileTooLargeException`, lançada quando o conteúdo passa do `maxPlaintextLength` opcional.
+- Chave embrulhada **sem** o prefixo `secco-enc:` é recusada. O passthrough de legado em claro do `ISeccoSecretCipher` não vale para chave de arquivo.
+
+**`secco-intranet` — ação necessária ao migrar:** o formato `SCCOFILE` do `EnvelopeCipher` próprio não é lido pelo `AesGcmFileCipher`, e a chave embrulhada também muda (o embrulho agora é sobre o base64 da chave). Arquivos já gravados precisam ser recifrados uma vez (decifrar com o `EnvelopeCipher` e cifrar com o `AesGcmFileCipher`) ou descartados.
+
 ### SecureGate (serviço), AdminPortal e `Secco.SecureGate.Client` — login federado direto — opt-in por tenant
 
 O serviço muda e o contrato só ganha um campo. O client está na seção abaixo (0.26.0).

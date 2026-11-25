@@ -1943,3 +1943,19 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - *Marca de tentativa em cookie:* quando o navegador recusa o cookie de sessão, recusa a marca também, e era justamente o laço a evitar. Além disso, duas abas abertas juntas dariam erro falso. A marca foi para a URL de volta, onde só consegue desligar o modo direto.
 
 **Riscos assumidos:** a troca do code no endpoint `organizations` depois de uma autorização no endpoint do diretório não foi provada contra um Entra real, e fica como aceite manual. A marca de logout é só do navegador, então sair num e abrir noutro entra direto.
+
+## Cifragem de arquivo em repouso (2026-11-25, issue #54, ADR-0061)
+
+**A pergunta.** O `secco-intranet` cifra documentos e fotos com um `EnvelopeCipher` próprio, que reimplementa o embrulho `secco-enc:v1:` do SDK. Onde e como a plataforma oferece cifragem de arquivo?
+
+**Escolha:** `ISeccoFileCipher`/`AesGcmFileCipher` no `Secco.SDK.EntityFrameworkCore`, ao lado do `ISeccoSecretCipher`, que embrulha a chave de cada arquivo. Formato próprio (`SECCOENC` v1) no molde STREAM: blocos de 64 KiB, nonce derivado do índice e da marca de último, cabeçalho como dado associado, nada gravado por bloco além do tag. Descartados:
+
+- *Pacote `Secco.SDK.Cryptography` com os dois cifradores:* nome melhor, mas mover o `ISeccoSecretCipher` quebra SecureGate, NotificationHub e o adotante só por nome. Fica para quando houver consumidor de criptografia sem banco.
+- *`Secco.SDK.Documents`:* é geração de planilha e PDF (ADR-0058), outro assunto.
+- *Copiar o formato do adotante:* correto, mas com nonce aleatório e comprimento e marca gravados por bloco (17 bytes de enquadramento que só o tag protege) e buffers de 1 MiB, que vão para o LOH. Com chave sorteada por arquivo, o nonce determinístico é seguro e dispensa tudo isso.
+- *`Stream` de decifragem para leitura sob demanda e `Range`:* ninguém pediu. O formato permite, porque cada bloco é endereçável pela posição.
+- *Dado associado fornecido pelo chamador (id do registro):* trocar arquivo e chave entre dois registros exige escrever no banco, e quem escreve no banco já troca o ponteiro do arquivo. Não compensa a API maior.
+
+**Achado no desenho:** o `ISeccoSecretCipher` devolve como está o valor sem prefixo (legado em claro, ADR-0025). Herdado pela chave de arquivo, deixaria quem escreve na coluna escolher a chave. A chave sem prefixo é recusada.
+
+**Riscos assumidos:** a chave do arquivo passa como `string` base64 pelo embrulho e não pode ser zerada; e o truncamento só é detectado no fim, depois de os blocos anteriores (autênticos) terem sido escritos.

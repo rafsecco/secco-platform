@@ -4,8 +4,8 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <MinVerTagPrefix>sdk-efcore/v</MinVerTagPrefix>
-    <Description>Integração EF Core da Secco Platform: SeccoDbContext e convention global de nomenclatura húngara de banco (ADR-0017), agnóstica de provider (ADR-0018).</Description>
-    <PackageTags>secco;sdk;efcore;naming-convention</PackageTags>
+    <Description>Integração EF Core da Secco Platform: SeccoDbContext e convention global de nomenclatura húngara de banco (ADR-0017), agnóstica de provider (ADR-0018). Cifragem AES-256-GCM de segredo em coluna (ADR-0025) e de arquivo em streaming, em envelope (ADR-0061).</Description>
+    <PackageTags>secco;sdk;efcore;naming-convention;encryption</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
