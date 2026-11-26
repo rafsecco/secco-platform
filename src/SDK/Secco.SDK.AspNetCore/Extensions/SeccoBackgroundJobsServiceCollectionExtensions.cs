@@ -1,4 +1,5 @@
 using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using Secco.SDK.AspNetCore.BackgroundJobs;
 
@@ -26,7 +27,27 @@ public static class SeccoBackgroundJobsServiceCollectionExtensions
 	/// </param>
 	public static IServiceCollection AddSeccoBackgroundJobs(
 		this IServiceCollection services,
-		Func<IServiceProvider, string> platformConnectionStringFactory)
+		Func<IServiceProvider, string> platformConnectionStringFactory) =>
+		services.AddSeccoBackgroundJobs(platformConnectionStringFactory, prepareSchema: true);
+
+	/// <summary>
+	/// Igual a <see cref="AddSeccoBackgroundJobs(IServiceCollection, Func{IServiceProvider, string})"/>,
+	/// mas permite NÃO preparar o schema do Hangfire na inicialização. Fora de Development o schema
+	/// é aplicado pelo verbo <c>migrate</c> (ADR-0038) e o servidor sobe sem tocar o DDL.
+	/// </summary>
+	/// <param name="services">Coleção de serviços da aplicação.</param>
+	/// <param name="platformConnectionStringFactory">
+	/// Resolve a connection string do banco de plataforma, de forma LAZY (ver a sobrecarga sem
+	/// <paramref name="prepareSchema"/>).
+	/// </param>
+	/// <param name="prepareSchema">
+	/// <c>true</c> deixa o Hangfire criar/atualizar o próprio schema ao inicializar (comportamento
+	/// da sobrecarga sem este parâmetro); <c>false</c> assume que o schema já foi aplicado.
+	/// </param>
+	public static IServiceCollection AddSeccoBackgroundJobs(
+		this IServiceCollection services,
+		Func<IServiceProvider, string> platformConnectionStringFactory,
+		bool prepareSchema)
 	{
 		ArgumentNullException.ThrowIfNull(services);
 		ArgumentNullException.ThrowIfNull(platformConnectionStringFactory);
@@ -40,7 +61,9 @@ public static class SeccoBackgroundJobsServiceCollectionExtensions
 				.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
 				.UseSimpleAssemblyNameTypeSerializer()
 				.UseRecommendedSerializerSettings()
-				.UseSqlServerStorage(connectionString);
+				.UseSqlServerStorage(
+						connectionString,
+						new SqlServerStorageOptions { PrepareSchemaIfNecessary = prepareSchema });
 		});
 
 		services.AddHangfireServer();
