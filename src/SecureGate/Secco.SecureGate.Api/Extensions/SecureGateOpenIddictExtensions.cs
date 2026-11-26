@@ -96,18 +96,10 @@ public static class SecureGateOpenIddictExtensions
 		IHostEnvironment environment,
 		IConfiguration configuration)
 	{
-		if (environment.IsProduction())
+		// Fora de Development e Testing o certificado é obrigatório e vem da configuração
+		var certificate = SigningCertificateSource.Load(configuration, environment);
+		if (certificate is not null)
 		{
-			var certificatePath = configuration["SecureGate:Signing:CertificatePath"];
-			var certificatePassword = configuration["SecureGate:Signing:CertificatePassword"];
-
-			if (string.IsNullOrWhiteSpace(certificatePath))
-			{
-				throw new InvalidOperationException(
-					"'SecureGate:Signing:CertificatePath' Ã© obrigatÃ³rio em Production â€” o SecureGate nÃ£o sobe sem certificado explÃ­cito (fail-fast, ADR-0020).");
-			}
-
-			var certificate = X509CertificateLoader.LoadPkcs12FromFile(certificatePath, certificatePassword);
 			server.AddSigningCertificate(certificate);
 			server.AddEncryptionCertificate(certificate);
 			return;
@@ -121,7 +113,7 @@ public static class SecureGateOpenIddictExtensions
 			return;
 		}
 
-		// DEV/Staging: certificados de desenvolvimento gerados e persistidos pelo OpenIddict
+		// Development: certificados de desenvolvimento gerados e persistidos pelo OpenIddict
 		server.AddDevelopmentSigningCertificate();
 		server.AddDevelopmentEncryptionCertificate();
 	}
