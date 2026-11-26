@@ -4,10 +4,17 @@ using Secco.LogStream.Api.Endpoints;
 using Secco.LogStream.Application;
 using Secco.LogStream.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.AspNetCore.HealthChecks;
 using Secco.SDK.Documents;
 using Secco.SDK.EntityFrameworkCore.Migrations;
 using Secco.SecureGate.Client.Authorization;
 using Secco.SecureGate.Client.Catalog;
+
+// Probe do HEALTHCHECK do container (ADR-0062): sai antes de montar o host
+if (SeccoHealthCheckCommand.IsHealthCheck(args))
+{
+	return await SeccoHealthCheckCommand.RunAsync();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +47,8 @@ builder.Services.AddSeccoDocuments("LogStream:Documents");
 builder.Services.AddExportRateLimiting();
 
 var app = builder.Build();
+// Proxy reverso (ADR-0062): primeiro middleware, antes de qualquer decisão por esquema ou IP
+app.UseSeccoForwardedHeaders();
 
 app.UseSeccoPlatform();
 

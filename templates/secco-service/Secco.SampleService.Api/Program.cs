@@ -4,7 +4,14 @@ using Secco.SampleService.Api.Endpoints;
 using Secco.SampleService.Application;
 using Secco.SampleService.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.AspNetCore.HealthChecks;
 using Secco.SDK.EntityFrameworkCore.Migrations;
+
+// Probe do HEALTHCHECK do container (ADR-0062): sai antes de montar o host
+if (SeccoHealthCheckCommand.IsHealthCheck(args))
+{
+	return await SeccoHealthCheckCommand.RunAsync();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +31,8 @@ builder.Services.AddSampleServiceApplication();
 builder.Services.AddSampleServiceInfrastructure();
 
 var app = builder.Build();
+// Proxy reverso (ADR-0062): primeiro middleware, antes de qualquer decisão por esquema ou IP
+app.UseSeccoForwardedHeaders();
 
 app.UseSeccoPlatform();
 app.MapSeccoPlatform();

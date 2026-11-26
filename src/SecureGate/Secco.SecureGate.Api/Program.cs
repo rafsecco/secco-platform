@@ -7,7 +7,14 @@ using Secco.SecureGate.Api.Tenancy;
 using Secco.SecureGate.Application;
 using Secco.SecureGate.Infrastructure;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.AspNetCore.HealthChecks;
 using Secco.SDK.EntityFrameworkCore.Migrations;
+
+// Probe do HEALTHCHECK do container (ADR-0062): sai antes de montar o host
+if (SeccoHealthCheckCommand.IsHealthCheck(args))
+{
+	return await SeccoHealthCheckCommand.RunAsync();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +73,8 @@ builder.Services.AddSecureGateOpenIddict(builder.Environment, builder.Configurat
 builder.Services.AddSecureGateEntraFederation(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
+// Proxy reverso (ADR-0062): primeiro middleware, antes de qualquer decisão por esquema ou IP
+app.UseSeccoForwardedHeaders();
 
 // A UI do Scalar (só em DEV) carrega script inline e de CDN: fica fora da política, e só em Development
 app.UseWhen(

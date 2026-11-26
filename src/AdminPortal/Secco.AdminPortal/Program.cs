@@ -3,8 +3,15 @@ using Secco.AdminPortal.Components;
 using Secco.AdminPortal.Endpoints;
 using Secco.AdminPortal.Services;
 using Secco.SDK.AspNetCore.Extensions;
+using Secco.SDK.AspNetCore.HealthChecks;
 using Secco.SDK.AspNetCore.SecurityHeaders;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
+// Probe do HEALTHCHECK do container (ADR-0062): sai antes de montar o host
+if (SeccoHealthCheckCommand.IsHealthCheck(args))
+{
+	return await SeccoHealthCheckCommand.RunAsync();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +23,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddSeccoCorrelation();
 builder.Services.AddSeccoResilience();
 builder.Services.AddSeccoHealthChecks();
+builder.Services.AddSeccoForwardedHeaders();
 builder.Services.AddAdminPortalDataProtection(builder.Configuration);
 
 // Cabeçalhos de segurança (ADR-0057): o console nunca é emoldurado. O logout posta aqui e termina
@@ -81,6 +89,8 @@ builder.Services.AddScoped<IAuditExportService, LogStreamAuditExportService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 
 var app = builder.Build();
+// Proxy reverso (ADR-0062): primeiro middleware, antes de qualquer decisão por esquema ou IP
+app.UseSeccoForwardedHeaders();
 
 app.UseSeccoSecurityHeaders();
 app.UseStaticFiles();
@@ -98,6 +108,7 @@ app.MapRazorComponents<App>()
 	.RequireAuthorization();
 
 await app.RunAsync();
+return 0;
 
 /// <summary>Ponto de entrada exposto para os testes de integração (WebApplicationFactory).</summary>
 public partial class Program;
