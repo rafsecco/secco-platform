@@ -9,4 +9,10 @@ public sealed class NotificationHubBackgroundJobOptions
 {
 	/// <summary>Connection string do banco de plataforma (schema próprio, gerenciado pelo Hangfire).</summary>
 	public string ConnectionString { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Credencial com DDL, usada só pelo <c>migrate</c> para aplicar o schema do Hangfire (ADR-0038).
+	/// Vazia = o <c>migrate</c> usa <see cref="ConnectionString"/>.
+	/// </summary>
+	public string? MigrationConnectionString { get; set; }
 }

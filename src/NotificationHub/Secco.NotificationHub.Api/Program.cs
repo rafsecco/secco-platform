@@ -3,6 +3,7 @@ using Scalar.AspNetCore;
 using Secco.NotificationHub.Api.Endpoints;
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Infrastructure;
+using Secco.NotificationHub.Infrastructure.BackgroundJobs;
 using Secco.SDK.AspNetCore.Extensions;
 using Secco.SDK.EntityFrameworkCore.Migrations;
 
@@ -25,7 +26,7 @@ builder.Services.AddNotificationHubInfrastructure();
 
 // Jobs persistentes com retry (ADR-0015 Camada 2) — banco de PLATAFORMA, não por tenant;
 // não faz parte de AddSeccoPlatform() (produtos sem essa necessidade não carregam Hangfire)
-builder.Services.AddNotificationHubBackgroundJobs();
+builder.Services.AddNotificationHubBackgroundJobs(prepareSchema: builder.Environment.IsDevelopment());
 
 var app = builder.Build();
 
@@ -52,6 +53,11 @@ if (app.Environment.IsDevelopment())
 
 	// Em DEV, o mesmo código do comando: F5 continua automático
 	await app.Services.RunSeccoMigrationsAsync();
+}
+else if (app.Configuration.GetValue("NotificationHub:BackgroundJobs:VerifySchemaOnStartup", true))
+{
+	// Só confere — quem aplica o schema do Hangfire é o `migrate` do deploy (ADR-0038)
+	await app.Services.EnsureNotificationHubJobSchemaAsync();
 }
 
 await app.RunAsync();

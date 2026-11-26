@@ -90,5 +90,20 @@ public sealed class NotificationHubApiFactory : SeccoApiFactory<Program>
 	{
 		await CreateDatabaseAsync(PlatformDatabaseName);
 		await CreateDatabaseAsync(NewTenantDatabaseName);
+
+		// Ambiente Testing não prepara o schema ao subir (só Development, ADR-0038) e a checagem de
+		// startup o exige: aplica como o `migrate` faria, antes de o host existir.
+		var failures = await new Secco.NotificationHub.Infrastructure.BackgroundJobs.HangfireSchemaMigrator(
+			Microsoft.Extensions.Options.Options.Create(new NotificationHubBackgroundJobOptions
+			{
+				ConnectionString = GetConnectionStringFor(PlatformDatabaseName),
+			}),
+			Microsoft.Extensions.Logging.Abstractions.NullLogger<Secco.NotificationHub.Infrastructure.BackgroundJobs.HangfireSchemaMigrator>.Instance)
+			.MigrateAsync();
+
+		if (failures.Count > 0)
+		{
+			throw new InvalidOperationException("Falha ao aplicar o schema do Hangfire no banco de plataforma de teste.");
+		}
 	}
 }

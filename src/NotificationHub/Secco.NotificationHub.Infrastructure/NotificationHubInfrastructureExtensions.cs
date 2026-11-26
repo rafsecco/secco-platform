@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Application.InAppNotifications;
 using Secco.NotificationHub.Application.Notifications;
+using Secco.NotificationHub.Infrastructure.BackgroundJobs;
 using Secco.NotificationHub.Infrastructure.Contexts;
 using Secco.NotificationHub.Infrastructure.Email;
 using Secco.NotificationHub.Infrastructure.Repositories;
@@ -98,7 +99,11 @@ public static class NotificationHubInfrastructureExtensions
 	/// clareza de composição (o wiring é conceitualmente distinto: fila, não dados de tenant).
 	/// </summary>
 	/// <param name="services">Coleção de serviços da aplicação.</param>
-	public static IServiceCollection AddNotificationHubBackgroundJobs(this IServiceCollection services)
+	/// <param name="prepareSchema">
+	/// <c>true</c> (Development) deixa o Hangfire criar o próprio schema ao subir; <c>false</c> assume
+	/// que o <c>migrate</c> já o aplicou (ADR-0038).
+	/// </param>
+	public static IServiceCollection AddNotificationHubBackgroundJobs(this IServiceCollection services, bool prepareSchema)
 	{
 		ArgumentNullException.ThrowIfNull(services);
 
@@ -107,7 +112,10 @@ public static class NotificationHubInfrastructureExtensions
 
 		services.AddSeccoBackgroundJobs(serviceProvider =>
 			serviceProvider.GetRequiredService<IOptions<NotificationHubBackgroundJobOptions>>()
-				.Value.ConnectionString);
+				.Value.ConnectionString,
+			prepareSchema);
+
+		services.AddScoped<ISeccoDatabaseMigrator, HangfireSchemaMigrator>();
 
 		return services;
 	}
