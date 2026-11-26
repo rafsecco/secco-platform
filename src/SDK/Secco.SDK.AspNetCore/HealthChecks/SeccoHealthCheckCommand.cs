@@ -81,7 +81,10 @@ public static class SeccoHealthCheckCommand
 
 	internal static async Task<int> RunAsync(int port, HttpMessageHandler? handler, TimeSpan timeout, CancellationToken cancellationToken)
 	{
-		using var client = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
+		// Sem redirecionamento (destino fixo em 127.0.0.1) e sem proxy do ambiente do container.
+		using var client = handler is null
+			? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false }, disposeHandler: true)
+			: new HttpClient(handler, disposeHandler: false);
 		client.Timeout = timeout;
 
 		using var request = new HttpRequestMessage(HttpMethod.Get, new Uri($"http://127.0.0.1:{port}/health/ready"));
@@ -90,7 +93,7 @@ public static class SeccoHealthCheckCommand
 #pragma warning disable CA1031 // Ponto de entrada de processo: qualquer falha vira exit code 1, nunca exceção
 		try
 		{
-			using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+			using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 			if (response.StatusCode == HttpStatusCode.OK)
 			{
 				return 0;

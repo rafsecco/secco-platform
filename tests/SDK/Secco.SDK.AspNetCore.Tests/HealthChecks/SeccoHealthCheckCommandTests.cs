@@ -14,12 +14,21 @@ public class SeccoHealthCheckCommandTests
 			=> respond(request, cancellationToken);
 	}
 
-	private static FakeHandler Responding(HttpStatusCode status) => new((request, _) =>
+	private static FakeHandler Responding(HttpStatusCode status, List<(Uri? Uri, string? Host)> seen) => new((request, _) =>
 	{
-		request.RequestUri.Should().Be(new Uri("http://127.0.0.1:8080/health/ready"));
-		request.Headers.Host.Should().Be("localhost");
+		seen.Add((request.RequestUri, request.Headers.Host));
 		return Task.FromResult(new HttpResponseMessage(status));
 	});
+
+	private static async Task<int> RunAndCheckRequestAsync(HttpStatusCode status)
+	{
+		var seen = new List<(Uri? Uri, string? Host)>();
+		var code = await SeccoHealthCheckCommand.RunAsync(8080, Responding(status, seen), TimeSpan.FromSeconds(5), CancellationToken.None);
+		seen.Should().ContainSingle();
+		seen[0].Uri.Should().Be(new Uri("http://127.0.0.1:8080/health/ready"));
+		seen[0].Host.Should().Be("localhost");
+		return code;
+	}
 
 	[Fact]
 	public void IsHealthCheck_PrimeiroArgumentoExato_True()
@@ -56,17 +65,15 @@ public class SeccoHealthCheckCommandTests
 
 	[Fact]
 	public async Task RunAsync_Status200_Zero()
-	{
-		var code = await SeccoHealthCheckCommand.RunAsync(8080, Responding(HttpStatusCode.OK), TimeSpan.FromSeconds(5), CancellationToken.None);
-		code.Should().Be(0);
-	}
+		=> (await RunAndCheckRequestAsync(HttpStatusCode.OK)).Should().Be(0);
 
 	[Fact]
 	public async Task RunAsync_Status503_Um()
-	{
-		var code = await SeccoHealthCheckCommand.RunAsync(8080, Responding(HttpStatusCode.ServiceUnavailable), TimeSpan.FromSeconds(5), CancellationToken.None);
-		code.Should().Be(1);
-	}
+		=> (await RunAndCheckRequestAsync(HttpStatusCode.ServiceUnavailable)).Should().Be(1);
+
+	[Fact]
+	public async Task RunAsync_Status307_Um()
+		=> (await RunAndCheckRequestAsync(HttpStatusCode.TemporaryRedirect)).Should().Be(1);
 
 	[Fact]
 	public async Task RunAsync_ConexaoRecusada_Um()
