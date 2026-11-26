@@ -20,6 +20,8 @@ services:
     build:
       context: ../..
       dockerfile: src/SampleService/Secco.SampleService.Api/Dockerfile
+      args:
+        SECCO_INCLUDE_DEV_SETTINGS: "true"
     depends_on:
       sqlserver:
         condition: service_healthy

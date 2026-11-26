@@ -19,6 +19,8 @@ x-securegate: &securegate-base
     build:
       context: .
       dockerfile: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+      args:
+        SECCO_INCLUDE_DEV_SETTINGS: "true"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -46,6 +48,8 @@ x-logstream: &logstream-base
     build:
       context: .
       dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+      args:
+        SECCO_INCLUDE_DEV_SETTINGS: "true"
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -62,6 +66,8 @@ x-notificationhub: &notificationhub-base
     build:
       context: .
       dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+      args:
+        SECCO_INCLUDE_DEV_SETTINGS: "true"
     depends_on:
       sqlserver:
         condition: service_healthy
