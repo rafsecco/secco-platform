@@ -1959,3 +1959,30 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 **Achado no desenho:** o `ISeccoSecretCipher` devolve como está o valor sem prefixo (legado em claro, ADR-0025). Herdado pela chave de arquivo, deixaria quem escreve na coluna escolher a chave. A chave sem prefixo é recusada.
 
 **Riscos assumidos:** a chave do arquivo passa como `string` base64 pelo embrulho e não pode ser zerada; e o truncamento só é detectado no fim, depois de os blocos anteriores (autênticos) terem sido escritos.
+
+## Imagens Docker no GHCR (2026-11-26, pedido do `secco-intranet`, ADR-0062)
+
+**A pergunta.** Como quem adota implanta os serviços sem compilar o monorepo e sem ficar preso à estrutura interna dele?
+
+**Escolha:** imagens públicas no GHCR, uma versão da plataforma para as quatro (`vX.Y.Z` → `X.Y.Z` e `X.Y`, sem `latest`). A release só sai depois da varredura (Trivy) e do smoke do compose do guia, e só se cada contrato for igual ao do último client publicado. O `healthcheck` é um verbo do binário, e o compose do guia é o mesmo arquivo que o CI sobe.
+
+- *Imagens privadas:* cada host do adotante precisaria de PAT. O código já é público, e sem o `appsettings.Development.json` a imagem não carrega segredo.
+- *Uma tag por produto, alinhada ao client:* são quatro tags por release, o GitHub ignora gatilho com mais de três tags num push, e o compose do adotante misturaria versões.
+- *Publicar e varrer depois:* imagem reprovada já estaria pública, e no GHCR uma versão pública não se desfaz.
+- *Healthcheck por `bash -c '</dev/tcp/...'` (o da intranet) ou por probe estático copiado:* o primeiro só prova a porta aberta; o segundo é mais um artefato para auditar.
+- *`trivy-action`:* teve tags sequestradas. A imagem oficial fixada por digest é uma action de terceiro a menos.
+- *Confiar em `X-Forwarded-*` de qualquer origem (como a intranet):* quem alcançasse a porta direto forjaria esquema e IP. A rede passou a ser obrigatória com o proxy ligado.
+- *Recusar subir com migration pendente também em LogStream e NotificationHub:* eles não têm banco de plataforma EF, e a ADR-0038 recusou de propósito conferir todos os tenants na subida. Só o schema do Hangfire, que migrava na subida, foi para o `migrate`.
+- *Persistir o cofre de sessão do AdminPortal:* pediria Redis, que a ADR-0035 adia até haver várias instâncias de verdade. A perda de sessão ao recriar o container fica documentada.
+
+**Achados no caminho.**
+- **Proxy reverso:** nenhum produto tratava `X-Forwarded-*`. Atrás do proxy TLS, o OpenIddict em Production recusaria todo o OIDC.
+- **Certificado em Staging:** o SecureGate gerava a chave de assinatura no `$HOME` do container, e recriar invalidava todos os tokens.
+- **Primeira subida com ACME:** os `migrate` que chamam o SecureGate podiam correr antes de o Caddy ter o certificado, até ganharem a espera pelo healthcheck do proxy (achado da revisão).
+- **Primeiro operador:** uma instalação nova não tinha caminho documentado. O smoke prova o caminho por um client temporário com `securegate:admin`.
+
+**Riscos assumidos.**
+- A checagem do schema do Hangfire é só de existência, porque o pacote não expõe versão mínima.
+- O Trivy varre só a imagem amd64.
+- A rotação do certificado de assinatura derruba os access tokens vigentes.
+- O SecureGate em execução recebe os segredos dos clients de plataforma, porque a configuração é a mesma do `migrate`.

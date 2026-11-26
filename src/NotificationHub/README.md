@@ -32,7 +32,9 @@ Escopo decidido: e-mail (assíncrono, com retry) e inbox in-app (gravação imed
 
 | Seção | Uso |
 |---|---|
-| `NotificationHub:BackgroundJobs:ConnectionString` | Banco de PLATAFORMA do Hangfire (schema próprio, gerenciado pela lib) — nunca o banco de um tenant |
+| `NotificationHub:BackgroundJobs:ConnectionString` | Banco de PLATAFORMA do Hangfire — nunca o banco de um tenant. Credencial de runtime: leitura, escrita e `EXECUTE` |
+| `NotificationHub:BackgroundJobs:MigrationConnectionString` | Opcional. Credencial dona do banco do Hangfire, usada só pelo `migrate` para instalar o schema da fila (ADR-0062). Sem ela, o `migrate` usa a `ConnectionString` |
+| `NotificationHub:BackgroundJobs:VerifySchemaOnStartup` | Padrão `true`. Fora de Development, recusa subir sem o schema do Hangfire. A checagem é só de existência, porque o `Hangfire.SqlServer` 1.8.25 não expõe versão mínima. Existe para testes; não desligue |
 | `NotificationHub:Email` | `Provider` (`Smtp` padrão / `SendGrid`), `FromAddress`/`FromName` sempre; `Host`/`Port`/`UseStartTls`/`Username`/`Password` para SMTP; `ApiKey` para SendGrid. **Validado no startup**: só o provider selecionado tem chaves exigidas |
 | `NotificationHub:Channels` | Nada aqui: o destino de `teams` e `slack` é **por tenant**, guardado cifrado no banco do próprio tenant e gerido por `/api/v1/channel-configurations` (ADR-0029). Configuração por instalação foi descartada — numa instalação multi-tenant, destino compartilhado faria notificação de um tenant chegar ao canal de outro |
 | `NotificationHub:Limits` | `MaxRecipientLength`/`MaxTitleLength`/`MaxMessageLength`/`MaxSourceLength`/`MaxTypeLength`/`MaxLinkLength` (ADR-0020) |

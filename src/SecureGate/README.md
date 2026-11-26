@@ -9,7 +9,7 @@ Identity & Access Management da Secco Platform (ADR-0022): servidor OIDC (OpenId
 - `POST /connect/token` (client credentials), discovery em `/.well-known/openid-configuration`.
 - Access tokens são **JWT puros assinados** (sem criptografia de conteúdo): os produtos validam com o `JwtBearer` padrão do SDK via Authority/JWKS — nenhum produto conhece o OpenIddict e não há chave simétrica compartilhada.
 - Claims curtas (ADR-0007): `sub` = client id, `scope`, audience derivada do scope (`logstream` → `secco-logstream`).
-- Certificados por ambiente: efêmeros em Testing, certificado de desenvolvimento em DEV/Staging; em **Production, `SecureGate:Signing:CertificatePath` é obrigatório — sem ele a API não sobe** (fail-fast, ADR-0020).
+- Certificados por ambiente: chaves efêmeras em Testing e certificado de desenvolvimento em Development. **Em qualquer outro ambiente (Production, Staging...) o certificado é obrigatório** e a API não sobe sem ele (fail-fast, ADR-0020/0062). Ele vem por `SecureGate:Signing:CertificatePath` (arquivo PKCS#12) **ou** `SecureGate:Signing:CertificateBase64` (o mesmo PKCS#12 em base64), nunca as duas formas. É o que mantém os tokens válidos quando o container é recriado.
 - Scopes semeados como **seed de referência** (ADR-0019); tenant demo + client `secco-dev-console` em seed de DEV (guarda dupla).
 
 ### Catálogo de tenants (Fase 6.3)
@@ -168,7 +168,7 @@ O operador lê os grupos do diretório do tenant (`GET .../entra/groups`, client
 | `SecureGate:InstallationOperators` | `Accounts` (ids de conta designadas operador), `TokenLifetimeMinutes` e `RecentAuthenticationMinutes` (padrão 10, teto 15) (ADR-0049) |
 | `SecureGate:TenantAdmin:MaxCreatedTenantsPerPerson` | Teto de tenants criados por pessoa com concessão de criação (padrão 20) (ADR-0047) |
 | `SecureGate:Audit:RetentionDays` | Retenção da trilha de autoridade guardada no SecureGate (1–3650; sem valor, não expira) (ADR-0054) |
-| `SecureGate:Signing:CertificatePath/CertificatePassword` | Certificado PKCS#12 — obrigatório em Production |
+| `SecureGate:Signing:CertificatePath` ou `CertificateBase64`, e `CertificatePassword` | Certificado PKCS#12 por arquivo ou em base64 (uma das duas formas). Obrigatório fora de Development e Testing (ADR-0062) |
 | `SecureGate:Catalog:EncryptionKey` | Chave AES-256 (base64, 32 bytes) da cifragem das connection strings — obrigatória em Production (ADR-0025) |
 | `SecureGate:Catalog:RetiredEncryptionKeys` | Chaves aposentadas (base64, 32 bytes) só para decifrar durante a rotação (ADR-0025) |
 | `SecureGate:Provisioning:Targets:<nome>` | Alvo de provisionamento: `Provider`, `Server` e — **opcional** — `AdminConnectionString`. Sem a credencial, a automação não existe e só o modo script funciona (ADR-0028). Alvo declarado pela metade falha no startup |

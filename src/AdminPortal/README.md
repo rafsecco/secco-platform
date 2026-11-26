@@ -83,6 +83,17 @@ Console de operação da plataforma Secco (Fase 7, **ADR-0023**). É o primeiro 
 > **"Plataforma: AdminPortal + SecureGate + LogStream"** do [`.vscode/launch.json`](../../.vscode/launch.json)
 > sobe os três já configurados; é o caminho recomendado.
 
+## Implantação (imagem `secco-adminportal`, ADR-0062)
+
+O AdminPortal é distribuído como imagem no GHCR (`ghcr.io/rafsecco/secco-adminportal`). Variáveis, compose e ordem de subida estão no [guia de implantação](../../docs/guia-de-implantacao.md). O que é próprio do console:
+
+| Chave | Uso |
+|---|---|
+| `AdminPortal:DataProtection:KeysPath` | Pasta das chaves do DataProtection (cookie de sessão e antiforgery). A imagem a aponta para `/var/lib/secco-adminportal/keys`, declarada como `VOLUME` (uid 1654, modo 700). Sem a chave, vale o padrão do framework (F5). |
+| `Secco:ReverseProxy:Enabled` / `KnownNetworks` | Atrás de proxy com TLS. Sem isso, a `redirect_uri` sai com `http://`. |
+
+**Recriar o container desconecta o operador.** As chaves sobrevivem pelo volume, mas o cofre de tokens (ADR-0046) é em memória (ADR-0035): o cookie aponta para uma sessão que não existe mais, e o operador volta pelo login do SecureGate, cuja sessão continua valendo.
+
 ## Testes
 
 `tests/AdminPortal/Secco.AdminPortal.Tests` (ADR-0012): `SecureGateClientFactory` (encaminhamento do token on-behalf-of), serviços de tenant/usuário/role/concessão (projeção dos DTOs, client substituído), consulta de logs (token + `X-Tenant-Id`), catálogo e entrada de famílias de permissão, provisionamento pelo diretório, trilha e smoke de composição (o app sobe e expõe o liveness sem depender do SecureGate no ar). A custódia do token é testada no próprio `Secco.SDK.RelyingParty`.

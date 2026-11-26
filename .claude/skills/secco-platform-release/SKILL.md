@@ -1,6 +1,6 @@
 ---
 name: secco-platform-release
-description: Processo de publicação de pacotes NuGet da Secco Platform via tag git (ADR-0011/0014, workflow `.github/workflows/publish-packages.yml`). Usar SEMPRE que a tarefa for publicar/versionar um pacote (Secco.SharedKernel, Secco.SDK.AspNetCore, Secco.SDK.EntityFrameworkCore, Secco.SDK.Testing, Secco.LogStream.Client, Secco.SecureGate.Client, Secco.NotificationHub.Client, Secco.Templates, ou um novo pacote publicável), criar/empurrar uma tag de release, ou quando o usuário mencionar "publicar pacote", "release", "tag de versão", "NuGet", "MinVer", "pacote amadureceu" ou o workflow `publish-packages.yml`.
+description: Processo de publicação de pacotes NuGet da Secco Platform via tag git (ADR-0011/0014, workflow `.github/workflows/publish-packages.yml`). Usar SEMPRE que a tarefa for publicar/versionar um pacote (Secco.SharedKernel, Secco.SDK.AspNetCore, Secco.SDK.EntityFrameworkCore, Secco.SDK.Testing, Secco.LogStream.Client, Secco.SecureGate.Client, Secco.NotificationHub.Client, Secco.Templates, ou um novo pacote publicável), criar/empurrar uma tag de release, ou quando o usuário mencionar "publicar pacote", "release", "tag de versão", "NuGet", "MinVer", "pacote amadureceu" ou o workflow `publish-packages.yml` — e também para publicar as imagens Docker da plataforma (tag `vX.Y.Z`, workflow `publish-images.yml`, GHCR).
 ---
 
 # Secco Platform — Publicação de pacotes NuGet
@@ -127,6 +127,18 @@ gh workflow run publish-packages.yml -f tag=sdk-logging/v0.1.1
 ```
 
 O `workflow_dispatch` faz checkout **da tag** (é dela que o MinVer tira a versão) e segue idêntico ao caminho do push. Serve também para reexecutar uma publicação que falhou por motivo transitório. Apagar e reempurrar a tag continua funcionando, mas é o caminho pior: durante a janela em que a tag não existe, a guarda de cadeia de qualquer dependente em execução reprova.
+
+## 6.1. Imagens Docker da plataforma (ADR-0062)
+
+As imagens dos serviços (`secco-securegate`, `secco-logstream`, `secco-notificationhub`, `secco-adminportal`) têm workflow próprio, `.github/workflows/publish-images.yml`, disparado pela tag **da plataforma** `vX.Y.Z`, sem prefixo. Ela publica as quatro imagens com `X.Y.Z` e `X.Y`, nunca `latest`.
+
+- **Ordem: pacotes primeiro, imagem depois.** O job `verify` roda `scripts/check-image-contracts.sh` e **recusa** a release se o `openapi.json` de algum produto divergir do da última tag estável `<produto>-client/vX.Y.Z`. Mudou contrato? Publique o client antes. A linha da tabela de compatibilidade sai no resumo do run. Copie-a para o CHANGELOG e para `docs/guia-de-implantacao.md`.
+- **Empurre a `vX.Y.Z` sozinha**, nunca junto com tags de pacote, pela mesma regra das três tags da seção 3.
+- **O `verify` roda tudo antes de qualquer push:** build amd64, Trivy (reprova em CRITICAL com correção disponível) e `scripts/deploy-smoke.sh`. Se ele falhar, nenhuma imagem sai.
+- **Republicar:** `gh workflow run publish-images.yml --ref vX.Y.Z`. Rode a partir da **tag** (`--ref`): a partir de um branch o workflow recusa, porque labels e provenance sairiam com o commit errado.
+- **Release parcial:** o `publish` é uma matriz com `fail-fast: false`. Se uma imagem falhar no push, as outras saem. Reexecute com o comando acima. Tags de imagem são idempotentes para o mesmo commit.
+- **Visibilidade no primeiro push de cada imagem:** o GHCR pode criar o pacote **privado**. Confira em `https://github.com/users/<owner>/packages/container/<nome>/settings` e troque para **Public** (passo manual, só do dono do repositório). No GitHub, pacote público não volta a ser privado. Confirme de uma máquina sem login: `docker pull ghcr.io/<owner>/secco-securegate:X.Y.Z`.
+- **Conferir o que saiu:** `docker buildx imagetools inspect ghcr.io/<owner>/secco-securegate:X.Y.Z` mostra `linux/amd64`, `linux/arm64` e as attestations (SBOM e provenance).
 
 ## 7. Versões atualmente publicadas
 

@@ -38,7 +38,7 @@ Plataforma corporativa modular para .NET. Cada produto é adotável de forma ind
 
 ## Começando
 
-Consome a plataforma? Veja o **[guia de início](docs/getting-started.md)** — configurar o feed do GitHub Packages, instalar os pacotes, subir uma API com `AddSeccoPlatform()`, gerar um produto pelo template e consumir os clients.
+Consome a plataforma? Veja o **[guia de início](docs/getting-started.md)** — configurar o feed do GitHub Packages, instalar os pacotes, subir uma API com `AddSeccoPlatform()`, gerar um produto pelo template e consumir os clients. Vai implantar os serviços? As imagens estão no GHCR, e o **[guia de implantação](docs/guia-de-implantacao.md)** traz o compose pronto.
 
 ```bash
 # feed privado (ADR-0011) + instalar o SDK
@@ -50,6 +50,7 @@ dotnet add package Secco.SDK.AspNetCore
 ## Documentação
 
 - **[Guia de início](docs/getting-started.md)** — para quem **adota** a plataforma (feed, pacotes, template, clients).
+- **[Guia de implantação](docs/guia-de-implantacao.md)** — para quem **roda** os serviços (imagens no GHCR, compose de host único, variáveis, `migrate`, primeiro operador).
 - **[Visão de arquitetura](docs/architecture-overview.md)** — os pilares e como os produtos se encaixam.
 - **[Decisões arquiteturais (ADRs)](docs/adr/secco-platform-adrs.md)** — fonte da verdade; nenhum código contradiz uma ADR Aceita.
 - **[Roadmap](docs/roadmap.md)** — fases e entregáveis.

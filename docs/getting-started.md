@@ -182,6 +182,8 @@ O token desse client sai **com** `tenant_id`. Um `X-Tenant-Id` de outro tenant �
 
 ## 7. Implantar: `migrate` antes das réplicas
 
+> **Implantando os serviços da plataforma** (SecureGate, LogStream, NotificationHub, AdminPortal)? Eles são distribuídos como imagem no GHCR. Siga o [guia de implantação](guia-de-implantacao.md), que traz o compose de host único, as variáveis de cada serviço e a ordem dos `migrate`. Esta seção descreve o mecanismo, que vale também para o produto que você gerar pelo template.
+
 Fora de Development, nenhuma API migra banco nem roda seed sozinha no startup (ADR-0005/0038). Quem faz isso é o **verbo `migrate` do próprio binário**. Ele aplica as migrations e, só se todas passarem, o seed de referência, e depois sai sem subir o servidor:
 
 ```bash

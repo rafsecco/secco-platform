@@ -113,6 +113,44 @@ app.MapSeccoHealthChecks();
 
 `/health/live` não executa nenhum check — reiniciar o processo não conserta dependência externa caída. `/health/ready` executa todos os checks e responde JSON com nome, status e duração por check — **sem** descrições nem mensagens de exceção (ADR-0020: erros de infraestrutura vazam hostnames e connection strings; diagnóstico detalhado fica nos logs). Endpoints anônimos: probes de orquestrador não autenticam.
 
+### Verbo `healthcheck` (ADR-0062)
+
+Para o `HEALTHCHECK` de uma imagem sem `curl` nem `wget`, o próprio binário faz o probe. Primeira instrução do `Program.cs`, antes de montar o host:
+
+```csharp
+if (SeccoHealthCheckCommand.IsHealthCheck(args))
+{
+    return await SeccoHealthCheckCommand.RunAsync();
+}
+```
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD ["dotnet", "MeuProduto.Api.dll", "healthcheck"]
+```
+
+- O probe faz um GET em `http://127.0.0.1:{porta}/health/ready` com `Host: localhost` e sai `0` só com `200`.
+- Ele não segue redirecionamento, não usa proxy do ambiente e não lê o corpo da resposta. O timeout é de 5 s.
+- A porta sai do primeiro `http://` de `ASPNETCORE_URLS`, senão de `ASPNETCORE_HTTP_PORTS`, senão 8080. Valor que não seja porta válida dá `1`.
+- Com `AllowedHosts` fixado, inclua `localhost` na lista.
+
+## Proxy reverso (ADR-0062)
+
+Atrás de um proxy que termina o TLS, o serviço só enxerga HTTPS e o IP do cliente se confiar nos `X-Forwarded-*`, e só deve confiar quando eles vêm do proxy. `AddSeccoPlatform()` já registra `AddSeccoForwardedHeaders()`; quem não usa a composição completa chama `AddSeccoForwardedHeaders()` direto. O middleware é o **primeiro** do pipeline:
+
+```csharp
+var app = builder.Build();
+app.UseSeccoForwardedHeaders();   // antes de cabeçalhos de segurança, autenticação, tudo
+```
+
+```json
+{ "Secco": { "ReverseProxy": { "Enabled": true, "KnownNetworks": [ "172.30.0.0/24" ] } } }
+```
+
+- **Desligado por padrão**, e nesse caso o middleware não faz nada.
+- **Ligado, `KnownNetworks` é obrigatória:** sem ela, ou com CIDR inválido, a aplicação não sobe. Origem fora da rede tem os cabeçalhos ignorados. O endereço IPv4 mapeado em IPv6 casa com a rede IPv4.
+- Só valem `X-Forwarded-For` e `X-Forwarded-Proto`, com `ForwardLimit = 1`. O `Host` não é reescrito: o proxy repassa o original, e `AllowedHosts` o restringe.
+
 ## Resiliência (ADR-0004)
 
 ```csharp
@@ -142,6 +180,8 @@ builder.Services.AddSeccoBackgroundJobs(serviceProvider =>
     return serviceProvider.GetRequiredService<IConfiguration>()["MeuProduto:BackgroundJobs:ConnectionString"]!;
 });
 ```
+
+Fora de Development, não deixe o Hangfire criar ou atualizar o próprio schema na subida (ADR-0038/0062): use a sobrecarga com `prepareSchema: builder.Environment.IsDevelopment()`. O schema passa a ser aplicado pelo `migrate`, por um `ISeccoDatabaseMigrator` do produto que chama `SqlServerObjectsInstaller.Install`, e a subida confere que ele existe. O `HangfireSchemaMigrator` e o `EnsureNotificationHubJobSchemaAsync` do NotificationHub são o modelo.
 
 ```csharp
 public sealed class SendEmailJob(INotificationRepository repository, ISeccoEmailSender sender) : IBackgroundJob<SendEmailPayload>

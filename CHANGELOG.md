@@ -12,6 +12,40 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### Imagens Docker da plataforma — distribuição pelo GHCR (ADR-0062) — ação necessária para quem implanta
+
+Os quatro serviços passam a ser distribuídos como imagem pública no GHCR, versionados juntos por tag da plataforma (`vX.Y.Z` → `X.Y.Z` e `X.Y`, nunca `latest`). O guia está em [`docs/guia-de-implantacao.md`](docs/guia-de-implantacao.md) e o exemplo em [`deploy/`](deploy).
+
+| Plataforma (imagens) | `Secco.SecureGate.Client` | `Secco.LogStream.Client` | `Secco.NotificationHub.Client` |
+|---|---|---|---|
+| 0.1.0 | 0.26.0 | 0.5.0 | 0.6.0 |
+
+- **Imagens:** `ghcr.io/rafsecco/secco-securegate`, `secco-logstream`, `secco-notificationhub` e `secco-adminportal`.
+  - Base `aspnet:10.0` (glibc) para amd64 e arm64.
+  - Rodam como uid 1654, servem HTTP na 8080 e têm `HEALTHCHECK` pelo verbo `healthcheck`.
+  - Saem com SBOM e provenance.
+  - Não trazem `appsettings.Development.json`.
+- **Publicação:** só depois da varredura (Trivy, reprova em CRITICAL com correção) e do smoke do compose do guia, e só se o contrato de cada serviço for igual ao do último client publicado.
+- **SecureGate:** o certificado de assinatura passa a ser obrigatório em todo ambiente que não seja Development nem Testing, Staging incluído. Ele entra por arquivo (`SecureGate:Signing:CertificatePath`) ou base64 (`SecureGate:Signing:CertificateBase64`), nunca as duas formas. **Quem roda Staging sem certificado deixa de subir.**
+- **NotificationHub:** o `migrate` instala o schema do Hangfire, com a credencial dona opcional `NotificationHub:BackgroundJobs:MigrationConnectionString`. Fora de Development o servidor não prepara mais o schema e recusa subir sem ele (`NotificationHub:BackgroundJobs:VerifySchemaOnStartup`, padrão `true`).
+- **AdminPortal:** as chaves do DataProtection vão para `AdminPortal:DataProtection:KeysPath`, que a imagem aponta para o volume `/var/lib/secco-adminportal/keys` (uid 1654, modo 700). A sessão do console continua em memória: recriar o container leva o operador ao re-login.
+- **Os quatro serviços** aceitam proxy reverso (`Secco:ReverseProxy`, abaixo) e o verbo `healthcheck`.
+- **Desenvolvimento:** o `docker-compose.yml` da raiz passa o build arg `SECCO_INCLUDE_DEV_SETTINGS=true`, sem o qual a imagem sai sem as configurações de DEV. O template `secco-service` gera o mesmo molde.
+
+### `Secco.SDK.AspNetCore` — verbo `healthcheck`, proxy reverso e Hangfire sem preparar o schema (ADR-0062)
+
+Só acréscimo. Sai na próxima versão do pacote.
+
+- **Adicionado** `SeccoHealthCheckCommand`.
+  - `IsHealthCheck(args)` e `RunAsync()`: antes de montar o host, faz um GET em `http://127.0.0.1:{porta}/health/ready` com `Host: localhost`, sem seguir redirecionamento e sem proxy do ambiente, e devolve 0 ou 1.
+  - A porta sai do primeiro `http://` de `ASPNETCORE_URLS` ou de `ASPNETCORE_HTTP_PORTS`. O padrão é 8080.
+  - Uso: primeira instrução do `Program.cs` e `HEALTHCHECK CMD ["dotnet", "<App>.dll", "healthcheck"]`.
+- **Adicionado** `AddSeccoForwardedHeaders()` (também dentro de `AddSeccoPlatform()`) e `UseSeccoForwardedHeaders()`, com a seção `Secco:ReverseProxy`.
+  - `Enabled` tem padrão `false`. `KnownNetworks` é uma lista de CIDR, **obrigatória** com `Enabled=true`: sem ela, ou com CIDR inválido, a aplicação não sobe.
+  - Só valem `X-Forwarded-For` e `X-Forwarded-Proto`, com `ForwardLimit = 1`. O `Host` não é reescrito.
+  - `UseSeccoForwardedHeaders()` deve ser o primeiro middleware e não faz nada com a opção desligada.
+- **Adicionado** a sobrecarga `AddSeccoBackgroundJobs(services, factory, prepareSchema)`. Com `false`, o Hangfire não cria nem atualiza o próprio schema na subida. A sobrecarga antiga continua igual (`true`).
+
 ### SecureGate (serviço), AdminPortal e `Secco.SecureGate.Client` — login federado direto — opt-in por tenant
 
 O serviço muda e o contrato só ganha um campo. O client está na seção abaixo (0.26.0).

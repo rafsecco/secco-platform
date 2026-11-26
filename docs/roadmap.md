@@ -198,6 +198,20 @@
   - **Saída de emergência:** `/login` direto.
   - **Processo:** implementado por subagentes (Sonnet e Haiku), cada tarefa revisada pelo diff. A revisão achou a marca de tentativa não idempotente (reabria o laço na reautenticação) e os eventos do esquema não ligados. Mutação 13 de 13: modo direto com cookie inválido, client sem tenant, opção ou federação desligadas, as duas marcas, `prompt=none`, `login_hint` cru, `http` no diretório, `//` no retorno, `/saiu` sem `IsLocal` e reautenticação sem `prompt=login`.
   - **Fica de fora:** o aceite contra um Entra real (troca do code no `organizations`). Publicado `Secco.SecureGate.Client` 0.26.0.
+- [ ] **Imagens Docker no GHCR** (**ADR-0062**, 2026-11-26, pedido do `secco-intranet`):
+  - **O problema:** a esteira do adotante precisava compilar o monorepo e ficava presa à estrutura interna dele.
+  - **Entrega:** imagens públicas `secco-securegate`, `secco-logstream`, `secco-notificationhub` e `secco-adminportal`.
+    - A tag `vX.Y.Z` publica `X.Y.Z` e `X.Y`, sem `latest`, para amd64 e arm64, com SBOM e provenance.
+    - O workflow varre com Trivy e roda o smoke do compose do guia antes do push, e recusa imagem sem client de mesmo contrato.
+    - As imagens rodam como não-root, com `HEALTHCHECK` pelo verbo `healthcheck` do SDK e sem settings de DEV.
+  - **Lacunas fechadas no caminho:**
+    - proxy reverso opt-in com rede obrigatória (sem ele, o OIDC atrás de TLS não funcionava);
+    - certificado de assinatura obrigatório também em Staging;
+    - schema do Hangfire no `migrate`;
+    - chaves do DataProtection do AdminPortal em volume.
+  - **Guia:** [`docs/guia-de-implantacao.md`](guia-de-implantacao.md), com o compose de host único em `deploy/`. É o mesmo arquivo que o CI sobe em Production (job `deploy-example`).
+  - **Processo:** tarefas 1–8 por subagentes (Sonnet e Haiku), cada uma revisada pelo diff. Compose, smoke e workflows ficaram com o controlador.
+  - **Fica de fora:** sessão do AdminPortal persistente (ADR-0035), Kubernetes e várias réplicas, rotação do certificado sem queda.
 - [x] **Exportação de listagens em Excel e PDF** (**ADR-0058**, 2026-11-02): pacote novo `Secco.SDK.Documents` com gravadores próprios de `.xlsx` (zip + `XmlWriter`) e PDF tabular (fontes padrão, WinAnsi), sem dependência de terceiros em runtime — o PDFsharp/MigraDoc virou AGPL ou comercial na 6.5.0, e o Open XML SDK segura a planilha em memória (395 MB para 200 mil linhas, medido); memória constante medida (55 MB com 1 milhão de linhas no Excel); nenhuma célula vira fórmula, texto escapado no PDF, limite de linhas, concorrência limitada, temporário 0600 com varredura de restos, nome gerado no servidor; mutação 14 de 14. Primeiro consumidor: `GET /api/v1/audit-entries/export` no LogStream, com `audit-entries:export`, limite por pessoa e trilha síncrona fail-closed antes do envio; `installation-operator` ganhou a permissão (emenda à ADR-0024) e o AdminPortal baixa por `POST` com antiforgery, num client sem retry. Exportação assíncrona fica para ADR própria, junto com o armazenamento de arquivos.
 
 ## Backlog

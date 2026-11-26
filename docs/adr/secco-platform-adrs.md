@@ -2482,9 +2482,82 @@ O **`Secco.SDK.EntityFrameworkCore`** ganha `ISeccoFileCipher` e `AesGcmFileCiph
 
 ---
 
+## ADR-0062: Distribuição dos serviços por imagem Docker no GHCR
+
+**Status:** Aceita
+**Data:** 2026-11-26
+
+### Contexto
+
+Quem adota a plataforma, a começar pelo `secco-intranet`, roda os serviços num host Docker próprio. Até aqui, a única forma de obter SecureGate, LogStream, NotificationHub e AdminPortal era compilar este monorepo. A esteira de deploy do adotante ficava presa à estrutura interna dele: mudar uma pasta ou um Dockerfile aqui quebraria o deploy de lá, e homologação e produção podiam rodar binários diferentes da mesma versão.
+
+Construir as imagens expôs lacunas que o compose de desenvolvimento escondia:
+
+- Nenhum produto tratava `X-Forwarded-*`. Atrás de um proxy com TLS, o OpenIddict em Production exige HTTPS e recusaria todo o OIDC, e o AdminPortal montaria a `redirect_uri` com `http://`.
+- Fora de Production e de Testing, o SecureGate gerava a chave de assinatura dentro do `$HOME` do container: recriar o container em Staging invalidava todos os tokens.
+- O `appsettings.Development.json` entrava na imagem com a `DevelopmentSigningKey` HS256 e client secrets conhecidos. Numa imagem pública, subir com `ASPNETCORE_ENVIRONMENT=Development` significaria aceitar token forjado.
+- O Hangfire criava e atualizava o próprio schema quando o NotificationHub subia, o que contraria a regra da ADR-0038 de não migrar no startup fora de Development.
+- A imagem base não traz `curl` nem `wget`, então um `HEALTHCHECK` precisaria de outro caminho.
+
+Alternativas avaliadas:
+
+- **Imagem privada no GHCR.** Coerente com o feed NuGet, mas cada host do adotante precisaria de PAT com `read:packages`. O código já é público e a imagem não carrega segredo. Descartada.
+- **Uma tag por produto, alinhada à versão do client** (`securegate-image/v0.26.0`). Dá correspondência direta com o client, mas são quatro tags por release, o GitHub ignora gatilho com mais de três tags num push, e o compose do adotante passaria a misturar versões. Descartada.
+- **Publicar e varrer depois.** O workflow fica mais simples, mas uma imagem reprovada já estaria pública com a tag, e no GHCR uma versão pública não se desfaz. Descartada.
+- **Healthcheck por executável de probe copiado para a imagem, ou por `bash -c '</dev/tcp/...'`.** O primeiro é mais um artefato para manter e auditar contra CVE. O segundo só prova que a porta abriu e não lê o status HTTP. Descartados.
+- **Confiar em `X-Forwarded-*` de qualquer origem**, como faz o `secco-intranet`. Quem alcançasse a porta do serviço sem passar pelo proxy forjaria o IP do cliente e o esquema. Descartada.
+
+### Decisão
+
+**Registro, nomes, visibilidade.** Uma imagem por processo implantável, no GitHub Container Registry, **pública**: `ghcr.io/<owner>/secco-securegate`, `secco-logstream`, `secco-notificationhub` e `secco-adminportal`. O Hangfire roda dentro do NotificationHub, então não tem imagem própria.
+
+**Versão.** Uma versão da plataforma para as quatro imagens. A tag git `vX.Y.Z` publica `X.Y.Z` e `X.Y`, **nunca `latest`**, e pré-release fica fora. Uma tabela no CHANGELOG e no guia de implantação mapeia cada versão da plataforma às versões dos `*.Client`. A release é **recusada** se o `openapi.json` de algum produto divergir do da última tag estável do client dele: toda imagem tem client publicado com o mesmo contrato.
+
+**Ordem do workflow** (`publish-images.yml`):
+1. Constrói amd64 localmente.
+2. Varre com Trivy (imagem oficial fixada por digest). CRITICAL com correção disponível reprova.
+3. Roda o smoke do compose do guia.
+4. Só então constrói `linux/amd64` + `linux/arm64` e publica com SBOM e provenance (`mode=max`), labels e annotations OCI.
+
+Actions e imagens de terceiros ficam fixadas por SHA ou digest. O build não recebe credencial de feed: todo `Secco.*` é `ProjectReference`, e o restore usa só o nuget.org.
+
+**Molde de imagem.**
+- Base `mcr.microsoft.com/dotnet/aspnet:10.0` (glibc, nunca Alpine) e usuário não-root (uid 1654).
+- Estágio de build na arquitetura do runner (IL portátil), versão do assembly vinda da tag.
+- Imagem de release sem `appsettings.Development.json`. O compose de desenvolvimento o recoloca por build arg.
+- `ENTRYPOINT ["dotnet", "<Assembly>.dll"]`, de modo que `docker run --rm <imagem> migrate` é o processo controlado da ADR-0038.
+- Configuração só por variável de ambiente (convenção `__`).
+
+**`healthcheck` como verbo do binário.** O `Secco.SDK.AspNetCore` ganha o `SeccoHealthCheckCommand`. Antes de montar o host, ele faz um GET em `http://127.0.0.1:{porta}/health/ready` com `Host: localhost`, sem seguir redirecionamento e sem proxy do ambiente, e sai 0 ou 1. A porta vem de `ASPNETCORE_URLS` ou `ASPNETCORE_HTTP_PORTS`. O `HEALTHCHECK` da imagem chama esse verbo.
+
+**Proxy reverso opt-in, com rede obrigatória.** `Secco:ReverseProxy:Enabled` (padrão `false`) e `Secco:ReverseProxy:KnownNetworks` (CIDR, obrigatória quando ligado: sem ela, ou com CIDR inválido, o serviço não sobe). Só valem `X-Forwarded-For` e `X-Forwarded-Proto`, com `ForwardLimit = 1`. O `Host` não é reescrito, e quem o restringe é o `AllowedHosts`. `UseSeccoForwardedHeaders()` é o primeiro middleware de cada produto.
+
+**Chaves que sobrevivem à recriação.**
+- O SecureGate guarda as chaves do DataProtection no banco (ADR-0033) e passa a **exigir o certificado de assinatura em todo ambiente que não seja Development nem Testing**, Staging incluído. O certificado vem por arquivo PKCS#12 (`SecureGate:Signing:CertificatePath`) ou pelo mesmo PKCS#12 em base64 (`SecureGate:Signing:CertificateBase64`), nunca pelas duas formas.
+- O AdminPortal grava as chaves do DataProtection em `AdminPortal:DataProtection:KeysPath`, que a imagem aponta para `/var/lib/secco-adminportal/keys`, o único `VOLUME` da plataforma.
+
+**Schema do Hangfire no `migrate`.** O `migrate` do NotificationHub instala o schema do Hangfire, com a credencial dona opcional `NotificationHub:BackgroundJobs:MigrationConnectionString`. Fora de Development o servidor não prepara o schema e recusa subir sem ele. A checagem é só de existência: o `Hangfire.SqlServer` 1.8.25 não expõe uma versão mínima utilizável, e a defasagem fica coberta pelo `migrate` obrigatório a cada deploy. LogStream e NotificationHub seguem a ADR-0038 para os bancos de tenant, que migram no primeiro uso.
+
+### Consequências
+
+- **Mais fácil:** o adotante implanta com `pull` de uma tag fixa, `migrate` e `up`, com a mesma imagem em homologação e produção. O `deploy/docker-compose.yml` é o exemplo do guia de implantação e é o mesmo arquivo que o CI sobe em Production, a cada mudança de serviço e antes de cada release.
+- **Homologação roda em `Production`.** Várias proteções dependem de `IsProduction()`: cookie `Secure`, `RequireHttpsMetadata`, chave do catálogo. "A mesma imagem" passa a significar também o mesmo ambiente, e a diferença fica na configuração. Staging continua possível, mas exige certificado.
+- **Sessões do AdminPortal não sobrevivem à recriação.** O cofre de tokens é em memória (ADR-0035/0046). As chaves do DataProtection sobrevivem pelo volume, mas o cookie aponta para uma sessão que não existe mais, e o operador volta pelo login do SecureGate, cuja sessão sobrevive. Persistir o cofre exige `IDistributedCache` durável, que a ADR-0035 adia até a multi-instância ser real.
+- **Rotação do certificado de assinatura** invalida os access tokens vigentes (até 5 minutos, ADR-0032). Os refresh tokens vivem no banco. Rotação sem queda fica no backlog.
+- **Quebras:** Staging sem certificado deixa de subir; quem usa `Secco:ReverseProxy` precisa declarar a rede; o compose de desenvolvimento precisa do build arg `SECCO_INCLUDE_DEV_SETTINGS`.
+- **Se um dia um `Secco.*` virar `PackageReference` num produto**, o build da imagem falha de forma visível sem credencial. A credencial entra por `--mount=type=secret`, nunca em camada ou `build-arg`.
+- **Proibido:**
+  - publicar imagem sem passar pela varredura e pelo smoke;
+  - documentar `latest`;
+  - publicar imagem cujo contrato não tenha client publicado;
+  - embarcar `appsettings.Development.json` ou qualquer segredo na imagem;
+  - ligar o proxy reverso sem rede conhecida.
+
+---
+
 ## Backlog de ADRs futuras
 
 - Política de retenção e conformidade LGPD por produto
-- Estratégia de deploy (contêiner: onde? Azure/AWS/on-prem do cliente?)
+- Estratégia de deploy além do host único (Kubernetes, múltiplas réplicas, nuvem gerenciada) — o host único é a ADR-0062
 - Roadmap público e política de suporte a versões
 - Armazenamento de arquivos e exportação assíncrona (pendência da ADR-0058)
