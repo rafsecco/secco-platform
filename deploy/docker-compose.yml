@@ -106,7 +106,7 @@ x-notificationhub-env: &notificationhub-env
 services:
   proxy:
     # TLS na borda. Com domínios reais o Caddy emite os certificados sozinho (ACME, portas 80/443).
-    image: caddy:2.10
+    image: caddy:2.10@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
     restart: unless-stopped
     ports:
       - "${HTTPS_PORT:-443}:443"

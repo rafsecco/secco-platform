@@ -21,6 +21,9 @@ ROOT="$(host_path "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
 DEPLOY="$ROOT/deploy"
 WORK="$(host_path "$(mktemp -d)")"
 PROJECT="secco-smoke"
+# Imagens auxiliares fixadas por digest (supply chain, ADR-0020)
+BUSYBOX="busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+CURL="curlimages/curl:8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"
 
 SECUREGATE_HOST="login.exemplo.com.br"
 LOGSTREAM_HOST="logs.exemplo.com.br"
@@ -50,7 +53,7 @@ cleanup() {
 	fi
 	compose down -v --remove-orphans >/dev/null 2>&1 || true
 	# A pasta de chaves pertence ao uid 1654: apaga pelo próprio docker
-	docker run --rm -v "$(host_path "$DEPLOY/data"):/d" busybox sh -c 'rm -rf /d/*' >/dev/null 2>&1 || true
+	docker run --rm -v "$(host_path "$DEPLOY/data"):/d" "$BUSYBOX" sh -c 'rm -rf /d/*' >/dev/null 2>&1 || true
 	rm -rf "$DEPLOY/data" "$WORK" 2>/dev/null || true
 	exit "$code"
 }
@@ -63,7 +66,7 @@ curl_https() {
 	shift
 	docker run --rm --network "${PROJECT}_secco" \
 		-v "$(host_path "$WORK/certs"):/certs:ro" -v "$(host_path "$WORK/out"):/out" \
-		curlimages/curl:8.11.1 -sS --max-time 15 --cacert /certs/ca.crt "$@"
+		"$CURL" -sS --max-time 15 --cacert /certs/ca.crt "$@"
 }
 
 status_of() { local host="$1"; shift; curl_https "$host" -o /dev/null -w '%{http_code}' "$@" 2>/dev/null || true; }
@@ -102,7 +105,7 @@ jwks_kids() {
 }
 
 keys_fingerprint() {
-	docker run --rm -v "$(host_path "$DEPLOY/data/adminportal-keys"):/k:ro" busybox \
+	docker run --rm -v "$(host_path "$DEPLOY/data/adminportal-keys"):/k:ro" "$BUSYBOX" \
 		sh -c 'cd /k && ls key-*.xml >/dev/null 2>&1 && sha256sum key-*.xml'
 }
 
@@ -167,7 +170,7 @@ EOF
 
 # Pasta das chaves do AdminPortal com o dono que o guia manda (uid 1654, modo 700)
 mkdir -p "$DEPLOY/data/adminportal-keys"
-docker run --rm -v "$(host_path "$DEPLOY/data/adminportal-keys"):/k" busybox \
+docker run --rm -v "$(host_path "$DEPLOY/data/adminportal-keys"):/k" "$BUSYBOX" \
 	sh -c 'chown 1654:1654 /k && chmod 700 /k'
 
 # --- 1 e 7. Cada imagem: não-root e sem appsettings.Development.json ------------------------------

@@ -1,0 +1,230 @@
+name: Publish images
+
+# Imagens Docker dos serviços no GHCR (ADR-0062), disparadas por tag da PLATAFORMA:
+#   v0.1.0 → ghcr.io/<owner>/secco-securegate:0.1.0 e :0.1 (idem logstream, notificationhub, adminportal)
+# Nunca `latest`. As tags de pacote NuGet (sdk/v…, securegate-client/v…) não casam com "v*".
+#
+# Ordem: verify constrói amd64 localmente, varre (Trivy reprova em CRITICAL) e roda o smoke do
+# compose do guia. Só se tudo passar, publish constrói amd64+arm64 e empurra com SBOM e provenance.
+# Uma imagem reprovada nunca chega ao registro.
+#
+# Actions de terceiros fixadas por SHA de commit (ADR-0020, supply chain); a versão está no comentário.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de plataforma já existente a publicar (ex.: v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-images-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  SECCO_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # A guarda de contrato compara com as tags dos clients: histórico e tags completos
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Versão da tag
+        id: version
+        run: |
+          if ! printf '%s' "$SECCO_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag '$SECCO_TAG' fora do formato vX.Y.Z (pré-release fica fora do v1)" >&2
+            exit 1
+          fi
+          echo "version=${SECCO_TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Guarda de compatibilidade com os clients
+        run: |
+          row="$(bash scripts/check-image-contracts.sh "${{ steps.version.outputs.version }}")"
+          {
+            echo "### Compatibilidade"
+            echo ""
+            echo "| Plataforma (imagens) | Secco.SecureGate.Client | Secco.LogStream.Client | Secco.NotificationHub.Client |"
+            echo "|---|---|---|---|"
+            echo "$row"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build securegate (amd64, local)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: local/secco-securegate:${{ steps.version.outputs.version }}
+          build-args: SECCO_VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=secco-securegate
+          cache-to: type=gha,mode=max,scope=secco-securegate
+
+      - name: Build logstream (amd64, local)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: src/LogStream/Secco.LogStream.Api/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: local/secco-logstream:${{ steps.version.outputs.version }}
+          build-args: SECCO_VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=secco-logstream
+          cache-to: type=gha,mode=max,scope=secco-logstream
+
+      - name: Build notificationhub (amd64, local)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: local/secco-notificationhub:${{ steps.version.outputs.version }}
+          build-args: SECCO_VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=secco-notificationhub
+          cache-to: type=gha,mode=max,scope=secco-notificationhub
+
+      - name: Build adminportal (amd64, local)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: src/AdminPortal/Secco.AdminPortal/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: local/secco-adminportal:${{ steps.version.outputs.version }}
+          build-args: SECCO_VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=secco-adminportal
+          cache-to: type=gha,mode=max,scope=secco-adminportal
+
+      - name: Varredura de vulnerabilidades (Trivy, reprova em CRITICAL)
+        # Imagem oficial do Trivy fixada por digest em vez da trivy-action (que já teve tags
+        # sequestradas): uma action de terceiro a menos na cadeia. CVE sem correção não reprova,
+        # mas aparece no relatório.
+        env:
+          TRIVY_IMAGE: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+        run: |
+          status=0
+          for image in securegate logstream notificationhub adminportal; do
+            ref="local/secco-$image:${{ steps.version.outputs.version }}"
+            echo "::group::Trivy $ref"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+              "$TRIVY_IMAGE" image --scanners vuln --severity HIGH,CRITICAL --no-progress "$ref" || true
+            if ! docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache \
+              "$TRIVY_IMAGE" image --scanners vuln --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress "$ref"; then
+              echo "::error::$ref tem vulnerabilidade CRITICAL com correção disponível"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+      - name: Smoke do compose do guia
+        run: bash scripts/deploy-smoke.sh local "${{ steps.version.outputs.version }}"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: secco-securegate
+            dockerfile: src/SecureGate/Secco.SecureGate.Api/Dockerfile
+            description: Secco SecureGate — servidor de identidade OIDC da Secco Platform
+          - name: secco-logstream
+            dockerfile: src/LogStream/Secco.LogStream.Api/Dockerfile
+            description: Secco LogStream — logs, processos e trilha de auditoria por tenant
+          - name: secco-notificationhub
+            dockerfile: src/NotificationHub/Secco.NotificationHub.Api/Dockerfile
+            description: Secco NotificationHub — e-mail, inbox in-app e canais externos
+          - name: secco-adminportal
+            dockerfile: src/AdminPortal/Secco.AdminPortal/Dockerfile
+            description: Secco AdminPortal — console de operação da instalação
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Metadados (tags e labels OCI)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          # Descrição também no índice multi-arch, que é o que o GHCR mostra
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.verify.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.name }}
+            org.opencontainers.image.description=${{ matrix.description }}
+          annotations: |
+            org.opencontainers.image.description=${{ matrix.description }}
+
+      - name: Set up QEMU
+        # O estágio de build roda na arquitetura do runner; só os RUN do estágio final (o mkdir do
+        # AdminPortal) executam em arm64
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Login no GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e push (amd64 + arm64, SBOM, provenance)
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: SECCO_VERSION=${{ needs.verify.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Resumo
+        run: |
+          {
+            echo "### ${{ matrix.name }}"
+            echo ""
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo "digest: ${{ steps.push.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

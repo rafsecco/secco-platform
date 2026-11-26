@@ -26,6 +26,7 @@ jobs:
       adminportal: ${{ steps.filter.outputs.adminportal }}
       notificationhub: ${{ steps.filter.outputs.notificationhub }}
       templates: ${{ steps.filter.outputs.templates }}
+      deploy: ${{ steps.filter.outputs.deploy }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -72,6 +73,11 @@ jobs:
               - 'tests/NotificationHub/**'
             templates:
               - 'templates/**'
+            deploy:
+              # Compose de implantação do guia e o smoke que o sobe (ADR-0062)
+              - 'deploy/**'
+              - 'scripts/deploy-smoke.sh'
+              - '**/Dockerfile'
 
   build-all:
     # Kernel/SDK/build mudaram: tudo é rebuildado — consumidores validam a mudança
@@ -275,6 +281,33 @@ jobs:
       - name: Teardown
         if: always()
         run: docker compose --profile ${{ matrix.product }} down -v
+
+  deploy-example:
+    # O compose do guia de implantação (deploy/) com as imagens construídas deste commit, em
+    # Production, pelo mesmo script que a release roda antes de publicar (ADR-0062). Sem este job,
+    # o guia poderia quebrar em silêncio entre uma release e outra.
+    needs: changes
+    if: >
+      needs.changes.outputs.deploy == 'true' ||
+      needs.changes.outputs.platform == 'true' ||
+      needs.changes.outputs.securegate == 'true' ||
+      needs.changes.outputs.logstream == 'true' ||
+      needs.changes.outputs.notificationhub == 'true' ||
+      needs.changes.outputs.adminportal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build das quatro imagens
+        run: |
+          docker build -q -f src/SecureGate/Secco.SecureGate.Api/Dockerfile -t local/secco-securegate:ci --build-arg SECCO_VERSION=0.0.0-ci .
+          docker build -q -f src/LogStream/Secco.LogStream.Api/Dockerfile -t local/secco-logstream:ci --build-arg SECCO_VERSION=0.0.0-ci .
+          docker build -q -f src/NotificationHub/Secco.NotificationHub.Api/Dockerfile -t local/secco-notificationhub:ci --build-arg SECCO_VERSION=0.0.0-ci .
+          docker build -q -f src/AdminPortal/Secco.AdminPortal/Dockerfile -t local/secco-adminportal:ci --build-arg SECCO_VERSION=0.0.0-ci .
+
+      - name: Smoke do compose do guia
+        run: bash scripts/deploy-smoke.sh local ci
 
   release-pendente:
     # O elo que faltava: codigo de pacote entra na main e ninguem se lembra de publicar.

@@ -1,0 +1,7 @@
+# Arquivos que rodam dentro de container Linux ou no bash do CI: LF sempre, mesmo em checkout
+# Windows com core.autocrlf=true (o bash quebra com CR no fim da linha).
+*.sh text eol=lf
+Dockerfile text eol=lf
+Caddyfile* text eol=lf
+deploy/** text eol=lf
+docker/** text eol=lf
