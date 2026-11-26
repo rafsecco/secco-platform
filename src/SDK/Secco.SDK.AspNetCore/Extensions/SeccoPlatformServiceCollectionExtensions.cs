@@ -33,6 +33,7 @@ public static class SeccoPlatformServiceCollectionExtensions
 		services.AddSeccoTenancy();
 		services.AddSeccoHealthChecks();
 		services.AddSeccoResilience();
+		services.AddSeccoForwardedHeaders();
 
 		return services;
 	}
