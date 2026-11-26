@@ -16,6 +16,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddSeccoCorrelation();
 builder.Services.AddSeccoResilience();
 builder.Services.AddSeccoHealthChecks();
+builder.Services.AddAdminPortalDataProtection(builder.Configuration);
 
 // Cabeçalhos de segurança (ADR-0057): o console nunca é emoldurado. O logout posta aqui e termina
 // no end_session do SecureGate, e o navegador aplica form-action aos redirects do POST — por isso
