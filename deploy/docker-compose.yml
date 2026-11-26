@@ -10,7 +10,8 @@
 #   docker compose run --rm notificationhub-migrate
 #   docker compose up -d
 #
-# Ou só `docker compose up -d`: os `depends_on` abaixo codificam a mesma ordem.
+# Ou só `docker compose up -d`: os `depends_on` abaixo codificam a mesma ordem, inclusive a
+# espera pelo certificado do proxy (healthcheck dele) antes dos `migrate` que chamam o SecureGate.
 #
 # O banco é EXTERNO (não está neste arquivo). Os bancos de plataforma e os logins vêm do
 # deploy/sql/sqlserver-plataforma.sql, aplicado pelo DBA. Só o proxy publica portas.
@@ -119,6 +120,14 @@ services:
       LOGSTREAM_HOST: "${LOGSTREAM_HOST:?}"
       NOTIFICATIONHUB_HOST: "${NOTIFICATIONHUB_HOST:?}"
       ADMINPORTAL_HOST: "${ADMINPORTAL_HOST:?}"
+    healthcheck:
+      # Pronto = já termina TLS para o SecureGate. Na primeira subida o certificado vem do ACME
+      # alguns segundos depois do start, e os `migrate` que chamam o SecureGate esperam por isto.
+      # Sem conferir a cadeia: aqui só importa o listener com certificado e o upstream no ar.
+      test: ["CMD-SHELL", "wget -q --no-check-certificate -O /dev/null https://$${SECUREGATE_HOST}/health/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
     networks:
       secco:
         # Os serviços chamam o SecureGate pelo domínio público (HTTPS é exigido em Production).
@@ -164,7 +173,7 @@ services:
       securegate:
         condition: service_healthy
       proxy:
-        condition: service_started
+        condition: service_healthy
     networks: [secco]
 
   logstream:
@@ -189,7 +198,7 @@ services:
       securegate:
         condition: service_healthy
       proxy:
-        condition: service_started
+        condition: service_healthy
     networks: [secco]
 
   notificationhub:

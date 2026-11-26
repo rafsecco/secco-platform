@@ -15,6 +15,10 @@
 -- Idempotente: rodar de novo não recria nada que já exista (e não troca senha).
 
 :on error exit
+-- As senhas entram entre aspas simples no CREATE LOGIN: gere-as sem aspas (ex.: `openssl rand -hex 32`).
+
+USE [master];
+GO
 
 -- ---------------------------------------------------------------------------------------------
 -- SecureGate

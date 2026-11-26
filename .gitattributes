@@ -3,5 +3,5 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
 Caddyfile* text eol=lf
-deploy/** text eol=lf
-docker/** text eol=lf
+deploy/** text=auto eol=lf
+docker/** text=auto eol=lf

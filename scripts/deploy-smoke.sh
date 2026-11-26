@@ -178,9 +178,9 @@ for image in securegate logstream notificationhub adminportal; do
 	ref="$REGISTRY/secco-$image:$VERSION"
 	uid="$(docker run --rm --entrypoint id "$ref" -u)"
 	[ "$uid" = "1654" ] || fail "$ref roda como uid $uid"
-	if docker run --rm --entrypoint ls "$ref" /app/appsettings.Development.json >/dev/null 2>&1; then
-		fail "$ref contém appsettings.Development.json"
-	fi
+	# `test ! -e` falha só se o arquivo existir: um erro qualquer do comando não passa por "ausente"
+	docker run --rm --entrypoint sh "$ref" -c 'test -d /app && test ! -e /app/appsettings.Development.json' \
+		|| fail "$ref contém appsettings.Development.json (ou não tem /app)"
 	ok "$ref: uid 1654, sem settings de desenvolvimento"
 done
 
@@ -199,7 +199,7 @@ set -e
 elapsed=$((SECONDS - started))
 [ "$code" -eq 1 ] || { echo "$migrate_log" | tail -40 >&2; fail "migrate inalcançável saiu $code (esperado 1) em ${elapsed}s"; }
 echo "$migrate_log" | grep -q "Migrations:" || { echo "$migrate_log" | tail -40 >&2; fail "log do migrate sem a mensagem 'Migrations:'"; }
-if echo "$migrate_log" | grep -q "NaoVaza123"; then fail "o log do migrate vazou a senha da connection string"; fi
+if echo "$migrate_log" | grep -qiE "NaoVaza123|Password="; then fail "o log do migrate vazou a connection string"; fi
 ok "migrate contra banco inalcançável: sai 1 em ${elapsed}s, mensagem clara, sem segredo"
 
 # --- 3 e 4. Sobe do zero: migrates saem 0, serviços ficam healthy e respondem pelo proxy ----------
