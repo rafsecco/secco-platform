@@ -16,9 +16,9 @@ public static class SecureGateOpenIddictExtensions
 {
 	/// <summary>
 	/// Registra o OpenIddict (core sobre o <see cref="SecureGateDbContext"/> + servidor).
-	/// Certificados: fora de Production, automáticos (efêmeros em Testing, certificado de
-	/// desenvolvimento persistido nos demais); em Production, <c>SecureGate:Signing:CertificatePath</c>
-	/// é obrigatório — sem ele a API não sobe (fail-fast, ADR-0020).
+	/// Certificados: automáticos só em Development (certificado de desenvolvimento persistido) e
+	/// Testing (efêmeros); nos demais ambientes <c>SecureGate:Signing:CertificatePath</c> ou
+	/// <c>CertificateBase64</c> é obrigatório — sem ele a API não sobe (fail-fast, ADR-0020).
 	/// </summary>
 	/// <param name="services">Coleção de serviços da aplicação.</param>
 	/// <param name="environment">Ambiente de hospedagem.</param>
@@ -96,7 +96,7 @@ public static class SecureGateOpenIddictExtensions
 		IHostEnvironment environment,
 		IConfiguration configuration)
 	{
-		// Fora de Development e Testing o certificado � obrigat�rio e vem da configura��o
+		// Fora de Development e Testing o certificado é obrigatório e vem da configuração
 		var certificate = SigningCertificateSource.Load(configuration, environment);
 		if (certificate is not null)
 		{
