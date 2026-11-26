@@ -1,0 +1,113 @@
+# Override do smoke (scripts/deploy-smoke.sh) sobre o deploy/docker-compose.yml do guia.
+#
+# Muda só o que um runner de CI não tem: o banco "externo" vira um container (com o MESMO script
+# SQL do guia), o SMTP vira o MailHog, o TLS usa uma CA de teste que o script gera e confia nos
+# serviços via SSL_CERT_FILE, e o SecureGate ganha dois clients de plataforma só do smoke.
+# Nada aqui é exemplo para produção.
+
+x-trust-test-ca: &trust-test-ca
+  volumes:
+    - "${SMOKE_CERTS_DIR:?}/ca.crt:/certs/ca.crt:ro"
+
+x-smoke-clients: &smoke-clients
+  SSL_CERT_FILE: "/certs/ca.crt"
+  SecureGate__PlatformClients__4__ClientId: "smoke-client"
+  SecureGate__PlatformClients__4__Type: "ClientCredentials"
+  SecureGate__PlatformClients__4__ClientSecret: "${SMOKE_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__4__Scopes__0: "logstream"
+  # Só para provar o caminho do primeiro operador do guia (client temporário com securegate:admin)
+  SecureGate__PlatformClients__5__ClientId: "smoke-admin"
+  SecureGate__PlatformClients__5__Type: "ClientCredentials"
+  SecureGate__PlatformClients__5__ClientSecret: "${SMOKE_ADMIN_SECRET:?}"
+  SecureGate__PlatformClients__5__Scopes__0: "securegate:admin"
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SMOKE_SA_PASSWORD:?}"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [secco]
+
+  sqlserver-init:
+    # O DBA do guia: aplica deploy/sql/sqlserver-plataforma.sql com as senhas do .env
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./sql/sqlserver-plataforma.sql:/init.sql:ro
+    environment:
+      SQLCMDPASSWORD: "${SMOKE_SA_PASSWORD:?}"
+    entrypoint:
+      - /opt/mssql-tools18/bin/sqlcmd
+      - -S
+      - sqlserver
+      - -U
+      - sa
+      - -C
+      - -b
+      - -i
+      - /init.sql
+      - -v
+      - "SECUREGATE_DB_MIGRATOR_PASSWORD=${SECUREGATE_DB_MIGRATOR_PASSWORD:?}"
+      - "SECUREGATE_DB_APP_PASSWORD=${SECUREGATE_DB_APP_PASSWORD:?}"
+      - "NOTIFICATIONHUB_JOBS_MIGRATOR_PASSWORD=${NOTIFICATIONHUB_JOBS_MIGRATOR_PASSWORD:?}"
+      - "NOTIFICATIONHUB_JOBS_APP_PASSWORD=${NOTIFICATIONHUB_JOBS_APP_PASSWORD:?}"
+    restart: "no"
+    networks: [secco]
+
+  mailhog:
+    image: mailhog/mailhog
+    networks: [secco]
+
+  proxy:
+    volumes:
+      - ./ci/Caddyfile.ci:/etc/caddy/Caddyfile:ro
+      - "${SMOKE_CERTS_DIR:?}:/certs:ro"
+
+  securegate-migrate:
+    <<: *trust-test-ca
+    environment:
+      <<: *smoke-clients
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+
+  securegate:
+    <<: *trust-test-ca
+    environment:
+      <<: *smoke-clients
+
+  logstream-migrate:
+    <<: *trust-test-ca
+    environment:
+      SSL_CERT_FILE: "/certs/ca.crt"
+
+  logstream:
+    <<: *trust-test-ca
+    environment:
+      SSL_CERT_FILE: "/certs/ca.crt"
+
+  notificationhub-migrate:
+    <<: *trust-test-ca
+    environment:
+      SSL_CERT_FILE: "/certs/ca.crt"
+    depends_on:
+      sqlserver-init:
+        condition: service_completed_successfully
+
+  notificationhub:
+    <<: *trust-test-ca
+    environment:
+      SSL_CERT_FILE: "/certs/ca.crt"
+
+  adminportal:
+    <<: *trust-test-ca
+    environment:
+      SSL_CERT_FILE: "/certs/ca.crt"

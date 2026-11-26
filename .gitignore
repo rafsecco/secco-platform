@@ -31,3 +31,13 @@ appsettings.*.local.json
 # Cache do Python (scripts/)
 __pycache__/
 *.py[cod]
+
+# Variáveis de ambiente: nada versionado, exceto o template
+*.env
+.env
+.env.*
+!.env.example
+
+# Estado e segredos locais do compose de implantação (deploy/)
+deploy/data/
+deploy/secrets/

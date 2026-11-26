@@ -1,0 +1,26 @@
+# Caddyfile do smoke (scripts/deploy-smoke.sh): os mesmos sites do deploy/Caddyfile, com o
+# certificado gerado pelo script (CA de teste) em vez de ACME.
+
+{
+	auto_https disable_redirects
+}
+
+{$SECUREGATE_HOST} {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy securegate:8080
+}
+
+{$LOGSTREAM_HOST} {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy logstream:8080
+}
+
+{$NOTIFICATIONHUB_HOST} {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy notificationhub:8080
+}
+
+{$ADMINPORTAL_HOST} {
+	tls /certs/server.crt /certs/server.key
+	reverse_proxy adminportal:8080
+}

@@ -1,0 +1,20 @@
+# Proxy de borda da Secco Platform (ADR-0062). O Caddy repassa o Host original e acrescenta
+# X-Forwarded-For e X-Forwarded-Proto, que os serviços aceitam só da rede interna do compose.
+# Com domínios reais e as portas 80/443 alcançáveis, os certificados vêm do Let's Encrypt.
+
+{$SECUREGATE_HOST} {
+	reverse_proxy securegate:8080
+}
+
+{$LOGSTREAM_HOST} {
+	reverse_proxy logstream:8080
+}
+
+{$NOTIFICATIONHUB_HOST} {
+	reverse_proxy notificationhub:8080
+}
+
+{$ADMINPORTAL_HOST} {
+	# Blazor Server: o circuito é um WebSocket de longa duração, que o reverse_proxy suporta sem ajuste
+	reverse_proxy adminportal:8080
+}

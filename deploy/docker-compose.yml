@@ -1,0 +1,235 @@
+# Secco Platform — implantação em host único (ADR-0062).
+#
+# Guia: docs/guia-de-implantacao.md. Este arquivo é o exemplo do guia e é o MESMO que o CI sobe
+# (scripts/deploy-smoke.sh), com um override que troca o banco externo por um container.
+#
+#   cp .env.example .env            # e preencha
+#   docker compose run --rm securegate-migrate
+#   docker compose up -d securegate proxy
+#   docker compose run --rm logstream-migrate
+#   docker compose run --rm notificationhub-migrate
+#   docker compose up -d
+#
+# Ou só `docker compose up -d`: os `depends_on` abaixo codificam a mesma ordem.
+#
+# O banco é EXTERNO (não está neste arquivo). Os bancos de plataforma e os logins vêm do
+# deploy/sql/sqlserver-plataforma.sql, aplicado pelo DBA. Só o proxy publica portas.
+
+x-common-env: &common-env
+  ASPNETCORE_ENVIRONMENT: "Production"
+  # O EF Core loga cada comando SQL em Information; em produção isso só serve para encher o log
+  Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: "Warning"
+  # Proxy reverso (ADR-0062): só a rede interna abaixo pode mandar X-Forwarded-*
+  Secco__ReverseProxy__Enabled: "true"
+  Secco__ReverseProxy__KnownNetworks__0: "${SECCO_NETWORK_SUBNET:-172.30.0.0/24}"
+
+x-securegate-env: &securegate-env
+  <<: *common-env
+  AllowedHosts: "${SECUREGATE_HOST:?};localhost"
+  SecureGate__PublicBaseUrl: "https://${SECUREGATE_HOST:?}"
+  # O SecureGate valida os próprios tokens de gestão como qualquer produto (ADR-0007)
+  Secco__Authentication__Authority: "https://${SECUREGATE_HOST:?}"
+  Secco__Authentication__Audience: "secco-securegate"
+  # Credencial de RUNTIME (ADR-0041): db_datareader + db_datawriter, nunca dona do banco
+  SecureGate__Database__ConnectionString: "Server=${DB_SERVER:?};Database=secco_securegate;User Id=secco_securegate_app;Password=${SECUREGATE_DB_APP_PASSWORD:?};Encrypt=true;TrustServerCertificate=${DB_TRUST_SERVER_CERTIFICATE:-false}"
+  # Cifragem das connection strings de tenant (ADR-0025): base64 de 32 bytes
+  SecureGate__Catalog__EncryptionKey: "${SECUREGATE_CATALOG_KEY:?}"
+  # Certificado de assinatura e cifragem dos tokens: arquivo PKCS#12 entregue como secret
+  SecureGate__Signing__CertificatePath: "/run/secrets/securegate-signing"
+  SecureGate__Signing__CertificatePassword: "${SECUREGATE_SIGNING_PASSWORD:-}"
+  # E-mail de convite e recuperação (ADR-0033)
+  SecureGate__Email__Provider: "Smtp"
+  SecureGate__Email__Host: "${SMTP_HOST:?}"
+  SecureGate__Email__Port: "${SMTP_PORT:-587}"
+  SecureGate__Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+  SecureGate__Email__Username: "${SMTP_USERNAME:-}"
+  SecureGate__Email__Password: "${SMTP_PASSWORD:-}"
+  SecureGate__Email__FromAddress: "${SMTP_FROM_ADDRESS:?}"
+  SecureGate__Email__FromName: "${SMTP_FROM_NAME:-Login}"
+  # Clients de plataforma (ADR-0037): a lista é a fonte da verdade — o `migrate` cria, atualiza e REMOVE
+  SecureGate__PlatformClients__0__ClientId: "logstream-service"
+  SecureGate__PlatformClients__0__Type: "ClientCredentials"
+  SecureGate__PlatformClients__0__ClientSecret: "${LOGSTREAM_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__0__Scopes__0: "catalog:logstream"
+  SecureGate__PlatformClients__0__Scopes__1: "authorization:read"
+  SecureGate__PlatformClients__0__Scopes__2: "permissions:logstream"
+  SecureGate__PlatformClients__1__ClientId: "notificationhub-service"
+  SecureGate__PlatformClients__1__Type: "ClientCredentials"
+  SecureGate__PlatformClients__1__ClientSecret: "${NOTIFICATIONHUB_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__1__Scopes__0: "permissions:notificationhub"
+  SecureGate__PlatformClients__2__ClientId: "adminportal"
+  SecureGate__PlatformClients__2__Type: "AuthorizationCode"
+  SecureGate__PlatformClients__2__ClientSecret: "${ADMINPORTAL_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__2__Scopes__0: "email"
+  SecureGate__PlatformClients__2__Scopes__1: "profile"
+  SecureGate__PlatformClients__2__Scopes__2: "roles"
+  SecureGate__PlatformClients__2__Scopes__3: "securegate:admin"
+  SecureGate__PlatformClients__2__Scopes__4: "logstream"
+  SecureGate__PlatformClients__2__RedirectUris__0: "https://${ADMINPORTAL_HOST:?}/signin-oidc"
+  SecureGate__PlatformClients__2__PostLogoutRedirectUris__0: "https://${ADMINPORTAL_HOST:?}/signout-callback-oidc"
+  SecureGate__PlatformClients__3__ClientId: "adminportal-sessions"
+  SecureGate__PlatformClients__3__Type: "ClientCredentials"
+  SecureGate__PlatformClients__3__ClientSecret: "${ADMINPORTAL_SESSIONS_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__3__Scopes__0: "authorization:read"
+
+x-logstream-env: &logstream-env
+  <<: *common-env
+  AllowedHosts: "${LOGSTREAM_HOST:?};localhost"
+  Secco__Authentication__Authority: "https://${SECUREGATE_HOST:?}"
+  Secco__Authentication__Audience: "secco-logstream"
+  # Catálogo de tenants e permissões vêm do SecureGate (ADR-0005/0021), pelo client de plataforma
+  Secco__SecureGate__BaseUrl: "https://${SECUREGATE_HOST:?}"
+  Secco__SecureGate__ClientId: "logstream-service"
+  Secco__SecureGate__ClientSecret: "${LOGSTREAM_CLIENT_SECRET:?}"
+  Secco__SecureGate__Product: "logstream"
+
+x-notificationhub-env: &notificationhub-env
+  <<: *common-env
+  AllowedHosts: "${NOTIFICATIONHUB_HOST:?};localhost"
+  Secco__Authentication__Authority: "https://${SECUREGATE_HOST:?}"
+  Secco__Authentication__Audience: "secco-notificationhub"
+  # Publicação do catálogo de permissões no `migrate` (ADR-0039)
+  Secco__SecureGate__BaseUrl: "https://${SECUREGATE_HOST:?}"
+  Secco__SecureGate__ClientId: "notificationhub-service"
+  Secco__SecureGate__ClientSecret: "${NOTIFICATIONHUB_CLIENT_SECRET:?}"
+  Secco__SecureGate__Product: "notificationhub"
+  # Fila do Hangfire no banco de PLATAFORMA do produto (ADR-0015), credencial de runtime
+  NotificationHub__BackgroundJobs__ConnectionString: "Server=${DB_SERVER:?};Database=secco_notificationhub_jobs;User Id=secco_nh_jobs_app;Password=${NOTIFICATIONHUB_JOBS_APP_PASSWORD:?};Encrypt=true;TrustServerCertificate=${DB_TRUST_SERVER_CERTIFICATE:-false}"
+  NotificationHub__Email__Host: "${SMTP_HOST:?}"
+  NotificationHub__Email__Port: "${SMTP_PORT:-587}"
+  NotificationHub__Email__UseStartTls: "${SMTP_USE_STARTTLS:-true}"
+  NotificationHub__Email__Username: "${SMTP_USERNAME:-}"
+  NotificationHub__Email__Password: "${SMTP_PASSWORD:-}"
+  NotificationHub__Email__FromAddress: "${SMTP_FROM_ADDRESS:?}"
+  NotificationHub__Email__FromName: "${SMTP_FROM_NAME:-Notificacoes}"
+
+services:
+  proxy:
+    # TLS na borda. Com domínios reais o Caddy emite os certificados sozinho (ACME, portas 80/443).
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    environment:
+      SECUREGATE_HOST: "${SECUREGATE_HOST:?}"
+      LOGSTREAM_HOST: "${LOGSTREAM_HOST:?}"
+      NOTIFICATIONHUB_HOST: "${NOTIFICATIONHUB_HOST:?}"
+      ADMINPORTAL_HOST: "${ADMINPORTAL_HOST:?}"
+    networks:
+      secco:
+        # Os serviços chamam o SecureGate pelo domínio público (HTTPS é exigido em Production).
+        # Os aliases fazem esse nome resolver para o proxy DENTRO da rede, sem hairpin NAT do host.
+        aliases:
+          - "${SECUREGATE_HOST:?}"
+          - "${LOGSTREAM_HOST:?}"
+          - "${NOTIFICATIONHUB_HOST:?}"
+          - "${ADMINPORTAL_HOST:?}"
+
+  securegate-migrate:
+    # `migrate` (ADR-0038): migrations com a credencial DONA e o seed de referência com a de runtime
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-securegate:${SECCO_VERSION:?}"
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *securegate-env
+      SecureGate__Database__MigrationConnectionString: "Server=${DB_SERVER:?};Database=secco_securegate;User Id=secco_securegate_migrator;Password=${SECUREGATE_DB_MIGRATOR_PASSWORD:?};Encrypt=true;TrustServerCertificate=${DB_TRUST_SERVER_CERTIFICATE:-false}"
+    secrets:
+      - securegate-signing
+    networks: [secco]
+
+  securegate:
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-securegate:${SECCO_VERSION:?}"
+    restart: unless-stopped
+    environment:
+      <<: *securegate-env
+    secrets:
+      - securegate-signing
+    depends_on:
+      securegate-migrate:
+        condition: service_completed_successfully
+    networks: [secco]
+
+  logstream-migrate:
+    # Publica o catálogo de permissões no SecureGate (ADR-0039): precisa dele de pé, via proxy
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-logstream:${SECCO_VERSION:?}"
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *logstream-env
+    depends_on:
+      securegate:
+        condition: service_healthy
+      proxy:
+        condition: service_started
+    networks: [secco]
+
+  logstream:
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-logstream:${SECCO_VERSION:?}"
+    restart: unless-stopped
+    environment:
+      <<: *logstream-env
+    depends_on:
+      logstream-migrate:
+        condition: service_completed_successfully
+    networks: [secco]
+
+  notificationhub-migrate:
+    # Schema do Hangfire com a credencial dona (ADR-0062) e catálogo de permissões (ADR-0039)
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-notificationhub:${SECCO_VERSION:?}"
+    command: ["migrate"]
+    restart: "no"
+    environment:
+      <<: *notificationhub-env
+      NotificationHub__BackgroundJobs__MigrationConnectionString: "Server=${DB_SERVER:?};Database=secco_notificationhub_jobs;User Id=secco_nh_jobs_migrator;Password=${NOTIFICATIONHUB_JOBS_MIGRATOR_PASSWORD:?};Encrypt=true;TrustServerCertificate=${DB_TRUST_SERVER_CERTIFICATE:-false}"
+    depends_on:
+      securegate:
+        condition: service_healthy
+      proxy:
+        condition: service_started
+    networks: [secco]
+
+  notificationhub:
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-notificationhub:${SECCO_VERSION:?}"
+    restart: unless-stopped
+    environment:
+      <<: *notificationhub-env
+    depends_on:
+      notificationhub-migrate:
+        condition: service_completed_successfully
+    networks: [secco]
+
+  adminportal:
+    image: "${SECCO_REGISTRY:-ghcr.io/rafsecco}/secco-adminportal:${SECCO_VERSION:?}"
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      AllowedHosts: "${ADMINPORTAL_HOST:?};localhost"
+      Secco__SecureGate__Authority: "https://${SECUREGATE_HOST:?}"
+      Secco__SecureGate__ApiBaseUrl: "https://${SECUREGATE_HOST:?}"
+      Secco__SecureGate__ClientId: "adminportal"
+      Secco__SecureGate__ClientSecret: "${ADMINPORTAL_CLIENT_SECRET:?}"
+      Secco__SessionValidation__BaseUrl: "https://${SECUREGATE_HOST:?}"
+      Secco__SessionValidation__ClientId: "adminportal-sessions"
+      Secco__SessionValidation__ClientSecret: "${ADMINPORTAL_SESSIONS_CLIENT_SECRET:?}"
+      Secco__LogStream__BaseUrl: "https://${LOGSTREAM_HOST:?}"
+    volumes:
+      # Chaves do DataProtection (cookie e antiforgery). A pasta do host pertence ao uid 1654, modo 700.
+      - ./data/adminportal-keys:/var/lib/secco-adminportal/keys
+    depends_on:
+      securegate:
+        condition: service_healthy
+    networks: [secco]
+
+secrets:
+  securegate-signing:
+    file: "${SECUREGATE_SIGNING_CERT_FILE:-./secrets/securegate-signing.pfx}"
+
+networks:
+  secco:
+    ipam:
+      config:
+        - subnet: "${SECCO_NETWORK_SUBNET:-172.30.0.0/24}"
