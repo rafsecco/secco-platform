@@ -203,7 +203,7 @@ vai entre aspas simples.
 | `SecureGate__Email__Host` / `Port` / `UseStartTls` | Sim | SMTP do convite e da recuperação de senha (ADR-0033). Fora de Development o SecureGate não sobe sem e-mail. |
 | `SecureGate__Email__Username` / `Password` | Se o SMTP autentica | Credenciais do SMTP. Vazias, não autentica. |
 | `SecureGate__Email__FromAddress` / `FromName` | Sim / Não | Remetente. |
-| `SecureGate__PlatformClients__{n}__*` | Sim | Clients de plataforma, um índice por client (tabela abaixo). A lista é a fonte da verdade: o `migrate` cria, atualiza e **remove** o client que sair dela. |
+| `SecureGate__PlatformClients__{n}__*` | Sim, no `migrate` | Clients de plataforma, um índice por client (tabela abaixo). A lista é a fonte da verdade: o `migrate` cria, atualiza e **remove** o client que sair dela. Só o `securegate-migrate` a recebe. O SecureGate em execução lê os clients do banco, e os segredos em claro ficam fora do container exposto. |
 
 Clients de plataforma do exemplo (`ClientSecret` com ao menos 32 caracteres):
 
@@ -296,13 +296,13 @@ services:
     command: ["migrate"]
     restart: "no"
     environment:
-      <<: *securegate-env
+      <<: [*securegate-env, *securegate-clients]   # clients de plataforma só aqui
       SecureGate__Database__MigrationConnectionString: "...secco_securegate_migrator..."
     secrets: [securegate-signing]
 
   securegate:
     image: ghcr.io/rafsecco/secco-securegate:${SECCO_VERSION}
-    environment: *securegate-env        # sem a credencial de migração
+    environment: *securegate-env        # sem a credencial de migração nem segredos de client
     secrets: [securegate-signing]
     depends_on:
       securegate-migrate: { condition: service_completed_successfully }
@@ -310,6 +310,7 @@ services:
   logstream-migrate:                    # publica o catálogo de permissões no SecureGate
     depends_on:
       securegate: { condition: service_healthy }
+      proxy: { condition: service_healthy }   # TLS do SecureGate pronto (certificado emitido)
   # logstream, notificationhub-migrate, notificationhub, adminportal: mesmo padrão
 
 networks:
@@ -347,6 +348,10 @@ docker compose ps        # os quatro serviços "healthy"
 Um `docker compose up -d` sozinho faz a mesma sequência pelos `depends_on`. Os passos separados
 mostram onde parou, quando algo falha.
 
+- **Os `migrate` do LogStream e do NotificationHub ficam esperando.** Eles esperam o proxy ficar
+  `healthy`, ou seja, com o certificado do SecureGate emitido. Se o DNS ainda não aponta para o host
+  ou a porta 80 não está aberta, o ACME não conclui. O proxy desiste em cerca de 5 minutos, e a subida
+  para ali. Confira `docker compose logs proxy`.
 - **`migrate` saiu `1`.** O log diz qual alvo falhou, sem connection string. O seed de referência não
   roda sobre schema pela metade.
 - **Banco inalcançável.** O `migrate` sai `1` em segundos.
@@ -361,15 +366,15 @@ Uma instalação nova não tem nenhum operador (`installation-operator`), e sem 
 AdminPortal. O caminho usa a API do SecureGate com um client **temporário**:
 
 1. Ponha no `.env` um segredo para o client temporário (`BOOTSTRAP_OPERATOR_SECRET`, 32 ou mais
-   caracteres). Suba o SecureGate com o override [`deploy/bootstrap-operador.yml`](../deploy/bootstrap-operador.yml),
-   que acrescenta o client `bootstrap-operador` com `securegate:admin` ao `securegate` e ao
-   `securegate-migrate`. Uma variável solta no `.env` não chega ao container: o `.env` só preenche os
-   `${...}` do compose.
+   caracteres). Rode o `migrate` com o override [`deploy/bootstrap-operador.yml`](../deploy/bootstrap-operador.yml),
+   que acrescenta o client `bootstrap-operador` com `securegate:admin` à lista de clients de plataforma.
+   - **Não precisa reiniciar o SecureGate.** Os clients ficam no banco, e o servidor os lê de lá.
+   - **Uma variável solta no `.env` não chega ao container.** O `.env` só preenche os `${...}` do
+     compose, por isso o client entra pelo override.
 
    ```bash
    echo "BOOTSTRAP_OPERATOR_SECRET=$(openssl rand -hex 32)" >> .env
    docker compose -f docker-compose.yml -f bootstrap-operador.yml run --rm securegate-migrate
-   docker compose -f docker-compose.yml -f bootstrap-operador.yml up -d securegate
    ```
 
 2. Crie a conta no tenant de plataforma (`018f0000-0000-7000-8000-0000000000ff`) e atribua o papel. A
@@ -390,13 +395,12 @@ AdminPortal. O caminho usa a API do SecureGate com um client **temporário**:
      -H "Authorization: Bearer $TOKEN"
    ```
 
-3. **Tire o client: rode o `migrate` e suba o SecureGate sem o override**, e apague a linha do
-   `.env`. O seed de referência remove o client que saiu da lista (ADR-0037). Um segredo com
-   `securegate:admin` esquecido alcança a instalação inteira.
+3. **Tire o client: rode o `migrate` sem o override** e apague a linha do `.env`. O seed de referência
+   remove o client que saiu da lista (ADR-0037), e o token dele deixa de ser emitido na hora. Um
+   segredo com `securegate:admin` esquecido alcança a instalação inteira.
 
    ```bash
    docker compose run --rm securegate-migrate
-   docker compose up -d securegate
    sed -i '/^BOOTSTRAP_OPERATOR_SECRET=/d' .env
    ```
 

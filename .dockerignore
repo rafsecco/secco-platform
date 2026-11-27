@@ -1,0 +1,16 @@
+# Contexto de build das imagens (raiz do repositório, ADR-0062). Só o que os COPY dos Dockerfiles
+# precisam entra; o resto fica de fora para o build local não levar artefato nem segredo para a imagem.
+**/bin/
+**/obj/
+**/TestResults/
+**/appsettings.*.local.json
+**/*.local.env
+**/.env
+**/.env.*
+.git/
+.vs/
+.vscode/
+.superpowers/
+deploy/
+docs/
+tests/

@@ -226,3 +226,28 @@ jobs:
             echo "digest: ${{ steps.push.outputs.digest }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  public-pull:
+    # O guia promete pull sem login. No primeiro push de cada imagem o GHCR costuma criar o pacote
+    # PRIVADO, e trocar para público é passo manual do dono (settings do pacote). Este job reprova
+    # enquanto alguma imagem não for legível sem credencial: torne-a pública e reexecute só ele.
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull anônimo das quatro imagens
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          status=0
+          for image in secco-securegate secco-logstream secco-notificationhub secco-adminportal; do
+            ref="ghcr.io/${OWNER}/${image}:${VERSION}"
+            if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+              echo "ok - $ref legível sem login"
+            else
+              echo "::error::$ref não é legível sem login: torne o pacote público em https://github.com/users/${OWNER}/packages/container/${image}/settings e reexecute este job"
+              status=1
+            fi
+          done
+          exit "$status"

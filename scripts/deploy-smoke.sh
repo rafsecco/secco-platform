@@ -130,7 +130,7 @@ openssl pkcs12 -export -inkey "$WORK/secrets/signing.key" -in "$WORK/secrets/sig
 chmod 644 "$WORK/secrets/securegate-signing.pfx"
 
 SMOKE_CLIENT_SECRET="$(secret)"
-SMOKE_ADMIN_SECRET="$(secret)"
+BOOTSTRAP_OPERATOR_SECRET="$(secret)"
 
 cat > "$WORK/.env" <<EOF
 SECCO_VERSION=$VERSION
@@ -165,7 +165,7 @@ SMTP_FROM_NAME=Smoke
 SMOKE_CERTS_DIR=$(host_path "$WORK/certs")
 SMOKE_SA_PASSWORD=Sa$(secret)
 SMOKE_CLIENT_SECRET=$SMOKE_CLIENT_SECRET
-SMOKE_ADMIN_SECRET=$SMOKE_ADMIN_SECRET
+BOOTSTRAP_OPERATOR_SECRET=$BOOTSTRAP_OPERATOR_SECRET
 EOF
 
 # Pasta das chaves do AdminPortal com o dono que o guia manda (uid 1654, modo 700)
@@ -242,9 +242,16 @@ wait_healthy adminportal
 [ "$(keys_fingerprint)" = "$keys_before" ] || fail "as chaves do AdminPortal mudaram depois de recriar o container"
 ok "chaves do DataProtection do AdminPortal iguais depois de recriar o container"
 
-# --- Primeiro operador pelo caminho do guia: client temporário com securegate:admin ----------------
-admin_token="$(token_or_fail smoke-admin "$SMOKE_ADMIN_SECRET" securegate:admin)"
-[ -n "$admin_token" ] || fail "o SecureGate não emitiu token com securegate:admin"
+# --- Segredos de client só no migrate: o SecureGate exposto não os recebe -------------------------
+if docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$(compose ps -q securegate)" | grep -q '^SecureGate__PlatformClients__'; then
+	fail "o container do SecureGate em execução recebeu configuração de PlatformClients (só o migrate deve)"
+fi
+ok "segredos dos clients de plataforma só no securegate-migrate, não no SecureGate exposto"
+
+# --- Primeiro operador pelo caminho do guia: deploy/bootstrap-operador.yml -----------------------
+compose -f "$DEPLOY/bootstrap-operador.yml" run --rm securegate-migrate >/dev/null 2>&1 \
+	|| fail "o migrate com o override bootstrap-operador.yml falhou"
+admin_token="$(token_or_fail bootstrap-operador "$BOOTSTRAP_OPERATOR_SECRET" securegate:admin)"
 users_url="https://$SECUREGATE_HOST/api/v1/tenants/$PLATFORM_TENANT/users"
 create="$(curl_https "$SECUREGATE_HOST" -o /out/user.json -w '%{http_code}' -X POST "$users_url" \
 	-H "Authorization: Bearer $admin_token" -H "Content-Type: application/json" \
@@ -256,5 +263,11 @@ assign="$(curl_https "$SECUREGATE_HOST" -o /out/role.json -w '%{http_code}' -X P
 	"$users_url/$user_id/roles/installation-operator" -H "Authorization: Bearer $admin_token")"
 [ "$assign" = "204" ] || { cat "$WORK/out/role.json" >&2; fail "atribuir installation-operator respondeu $assign"; }
 ok "primeiro operador: conta criada no tenant de plataforma e installation-operator atribuído"
+
+# Passo 3 do guia: o migrate sem o override remove o client temporário (ADR-0037)
+compose run --rm securegate-migrate >/dev/null 2>&1 || fail "o migrate sem o override falhou"
+leftover="$(token bootstrap-operador "$BOOTSTRAP_OPERATOR_SECRET" securegate:admin)"
+[ -z "$leftover" ] || fail "o client bootstrap-operador continuou emitindo token depois do migrate sem o override"
+ok "client temporário removido pelo migrate sem o override"
 
 echo "SMOKE OK"

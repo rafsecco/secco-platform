@@ -3,10 +3,10 @@
 # e tire em seguida: um segredo com securegate:admin alcança a instalação inteira.
 #
 #   docker compose -f docker-compose.yml -f bootstrap-operador.yml run --rm securegate-migrate
-#   docker compose -f docker-compose.yml -f bootstrap-operador.yml up -d securegate
 #   ... cria a conta e atribui o papel ...
 #   docker compose run --rm securegate-migrate      # sem o override: o seed REMOVE o client (ADR-0037)
-#   docker compose up -d securegate
+#
+# Não precisa reiniciar o SecureGate: os clients vivem no banco, e o servidor os lê de lá.
 #
 # O segredo vem do .env (BOOTSTRAP_OPERATOR_SECRET, 32+ caracteres); apague a linha depois.
 
@@ -18,9 +18,5 @@ x-bootstrap-client: &bootstrap-client
 
 services:
   securegate-migrate:
-    environment:
-      <<: *bootstrap-client
-
-  securegate:
     environment:
       <<: *bootstrap-client

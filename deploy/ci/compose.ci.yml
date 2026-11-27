@@ -11,19 +11,15 @@ x-trust-test-ca: &trust-test-ca
 
 x-smoke-clients: &smoke-clients
   SSL_CERT_FILE: "/certs/ca.crt"
-  SecureGate__PlatformClients__4__ClientId: "smoke-client"
-  SecureGate__PlatformClients__4__Type: "ClientCredentials"
-  SecureGate__PlatformClients__4__ClientSecret: "${SMOKE_CLIENT_SECRET:?}"
-  SecureGate__PlatformClients__4__Scopes__0: "logstream"
-  # Só para provar o caminho do primeiro operador do guia (client temporário com securegate:admin)
-  SecureGate__PlatformClients__5__ClientId: "smoke-admin"
+  # Índice 5: o 4 é o do deploy/bootstrap-operador.yml, que o smoke também exercita
+  SecureGate__PlatformClients__5__ClientId: "smoke-client"
   SecureGate__PlatformClients__5__Type: "ClientCredentials"
-  SecureGate__PlatformClients__5__ClientSecret: "${SMOKE_ADMIN_SECRET:?}"
-  SecureGate__PlatformClients__5__Scopes__0: "securegate:admin"
+  SecureGate__PlatformClients__5__ClientSecret: "${SMOKE_CLIENT_SECRET:?}"
+  SecureGate__PlatformClients__5__Scopes__0: "logstream"
 
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest@sha256:4525e3efac9f3e241cb003bb2ff2a82818b502f37e12049d788b1a9fa7e13b7f
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "${SMOKE_SA_PASSWORD:?}"
@@ -36,7 +32,7 @@ services:
 
   sqlserver-init:
     # O DBA do guia: aplica deploy/sql/sqlserver-plataforma.sql com as senhas do .env
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest@sha256:4525e3efac9f3e241cb003bb2ff2a82818b502f37e12049d788b1a9fa7e13b7f
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -63,7 +59,7 @@ services:
     networks: [secco]
 
   mailhog:
-    image: mailhog/mailhog
+    image: mailhog/mailhog:v1.0.1@sha256:8d76a3d4ffa32a3661311944007a415332c4bb855657f4f6c57996405c009bea
     networks: [secco]
 
   proxy:
@@ -82,7 +78,7 @@ services:
   securegate:
     <<: *trust-test-ca
     environment:
-      <<: *smoke-clients
+      SSL_CERT_FILE: "/certs/ca.crt"
 
   logstream-migrate:
     <<: *trust-test-ca

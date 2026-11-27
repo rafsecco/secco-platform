@@ -47,7 +47,11 @@ x-securegate-env: &securegate-env
   SecureGate__Email__Password: "${SMTP_PASSWORD:-}"
   SecureGate__Email__FromAddress: "${SMTP_FROM_ADDRESS:?}"
   SecureGate__Email__FromName: "${SMTP_FROM_NAME:-Login}"
-  # Clients de plataforma (ADR-0037): a lista é a fonte da verdade — o `migrate` cria, atualiza e REMOVE
+
+x-securegate-clients: &securegate-clients
+  # Clients de plataforma (ADR-0037): a lista é a fonte da verdade — o `migrate` cria, atualiza e REMOVE.
+  # Só o `securegate-migrate` recebe esta âncora: quem reconcilia é o seed de referência, e o SecureGate
+  # em execução lê os clients do banco. Os segredos em claro ficam fora do container exposto.
   SecureGate__PlatformClients__0__ClientId: "logstream-service"
   SecureGate__PlatformClients__0__Type: "ClientCredentials"
   SecureGate__PlatformClients__0__ClientSecret: "${LOGSTREAM_CLIENT_SECRET:?}"
@@ -144,7 +148,7 @@ services:
     command: ["migrate"]
     restart: "no"
     environment:
-      <<: *securegate-env
+      <<: [*securegate-env, *securegate-clients]
       SecureGate__Database__MigrationConnectionString: "Server=${DB_SERVER:?};Database=secco_securegate;User Id=secco_securegate_migrator;Password=${SECUREGATE_DB_MIGRATOR_PASSWORD:?};Encrypt=true;TrustServerCertificate=${DB_TRUST_SERVER_CERTIFICATE:-false}"
     secrets:
       - securegate-signing
