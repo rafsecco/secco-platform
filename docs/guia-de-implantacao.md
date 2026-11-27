@@ -360,6 +360,42 @@ mostram onde parou, quando algo falha.
   - credencial de runtime dona do banco;
   - falta certificado ou e-mail.
 
+## Produto adotante no mesmo host
+
+Um produto que consome a plataforma, como a Intranet, pode rodar no mesmo host, com o compose dele ao lado deste. Um host tem uma porta 443 só, então **o proxy é um só**: o desta pasta. O guia de deploy do produto traz os valores dele. O encaixe tem três pontos.
+
+1. **Clients do produto na âncora `x-securegate-clients`** da sua cópia do `deploy/docker-compose.yml`, nos próximos índices livres. Se o produto publica catálogo de permissões próprio, ele também precisa de `SecureGate__PermissionCatalog__Products__{n}`. Depois rode `securegate-migrate`. Fora dessa âncora, o `migrate` não enxerga o client e o **remove**.
+
+   ```yaml
+   x-securegate-clients: &securegate-clients
+     # ... os quatro da plataforma (índices 0 a 3) ...
+     SecureGate__PlatformClients__4__ClientId: "intranet-login"
+     SecureGate__PlatformClients__4__Type: "AuthorizationCode"
+     # ...
+     SecureGate__PermissionCatalog__Products__0: "intranet"
+   ```
+
+2. **O container do produto entra na rede da plataforma**, `secco`, ou o nome que estiver em `SECCO_NETWORK_NAME`. No compose do produto, ela é declarada como externa. Assim o produto chama o SecureGate pelo nome público, que resolve para o proxy dentro da rede, e o proxy alcança o produto pelo nome do serviço.
+
+   ```yaml
+   networks:
+     secco:
+       external: true
+       name: secco
+   ```
+
+3. **O site do produto no `Caddyfile` desta pasta**, apontando para o serviço dele:
+
+   ```caddyfile
+   intranet.exemplo.com.br {
+   	reverse_proxy intranet-web:8080
+   }
+   ```
+
+   Inclua o nome no `.env`, na lista de aliases e no `environment` do serviço `proxy`, como os outros. Depois, `docker compose up -d proxy`.
+
+Suba a plataforma primeiro: o `migrate` do produto publica o catálogo de permissões no SecureGate e precisa dele no ar.
+
 ## Primeiro operador
 
 Uma instalação nova não tem nenhum operador (`installation-operator`), e sem ele ninguém entra no

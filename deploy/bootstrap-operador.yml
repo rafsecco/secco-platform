@@ -8,13 +8,16 @@
 #
 # Não precisa reiniciar o SecureGate: os clients vivem no banco, e o servidor os lê de lá.
 #
+# Índice 99, longe dos seus: os clients de plataforma da instalação (e os de produtos adotantes, como a
+# Intranet) ocupam 0, 1, 2... e um índice repetido aqui sobrescreveria um deles durante o bootstrap.
+#
 # O segredo vem do .env (BOOTSTRAP_OPERATOR_SECRET, 32+ caracteres); apague a linha depois.
 
 x-bootstrap-client: &bootstrap-client
-  SecureGate__PlatformClients__4__ClientId: "bootstrap-operador"
-  SecureGate__PlatformClients__4__Type: "ClientCredentials"
-  SecureGate__PlatformClients__4__ClientSecret: "${BOOTSTRAP_OPERATOR_SECRET:?defina BOOTSTRAP_OPERATOR_SECRET no .env}"
-  SecureGate__PlatformClients__4__Scopes__0: "securegate:admin"
+  SecureGate__PlatformClients__99__ClientId: "bootstrap-operador"
+  SecureGate__PlatformClients__99__Type: "ClientCredentials"
+  SecureGate__PlatformClients__99__ClientSecret: "${BOOTSTRAP_OPERATOR_SECRET:?defina BOOTSTRAP_OPERATOR_SECRET no .env}"
+  SecureGate__PlatformClients__99__Scopes__0: "securegate:admin"
 
 services:
   securegate-migrate:

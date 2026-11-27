@@ -243,6 +243,9 @@ secrets:
 
 networks:
   secco:
+    # Nome fixo: um produto adotante em outro compose (ex.: a Intranet) entra nesta rede como
+    # `external`, e o nome não pode depender da pasta onde este arquivo está.
+    name: "${SECCO_NETWORK_NAME:-secco}"
     ipam:
       config:
         - subnet: "${SECCO_NETWORK_SUBNET:-172.30.0.0/24}"

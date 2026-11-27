@@ -21,6 +21,8 @@ ROOT="$(host_path "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
 DEPLOY="$ROOT/deploy"
 WORK="$(host_path "$(mktemp -d)")"
 PROJECT="secco-smoke"
+# Rede com nome próprio: não colide com uma instalação de verdade no mesmo host (rede "secco")
+NETWORK="secco-smoke"
 # Imagens auxiliares fixadas por digest (supply chain, ADR-0020)
 BUSYBOX="busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
 CURL="curlimages/curl:8.11.1@sha256:c1fe1679c34d9784c1b0d1e5f62ac0a79fca01fb6377cdd33e90473c6f9f9a69"
@@ -64,7 +66,7 @@ curl_https() {
 	# pelo alias de rede, com a CA de teste. Não depende do curl nem das portas do host.
 	# O primeiro argumento (o host) fica só para leitura de quem chama. Saída em arquivo: /out.
 	shift
-	docker run --rm --network "${PROJECT}_secco" \
+	docker run --rm --network "$NETWORK" \
 		-v "$(host_path "$WORK/certs"):/certs:ro" -v "$(host_path "$WORK/out"):/out" \
 		"$CURL" -sS --max-time 15 --cacert /certs/ca.crt "$@"
 }
@@ -139,6 +141,7 @@ SECUREGATE_HOST=$SECUREGATE_HOST
 LOGSTREAM_HOST=$LOGSTREAM_HOST
 NOTIFICATIONHUB_HOST=$NOTIFICATIONHUB_HOST
 ADMINPORTAL_HOST=$ADMINPORTAL_HOST
+SECCO_NETWORK_NAME=$NETWORK
 SECCO_NETWORK_SUBNET=172.30.0.0/24
 HTTPS_PORT=$HTTPS_PORT
 HTTP_PORT=$HTTP_PORT

@@ -11,7 +11,7 @@ x-trust-test-ca: &trust-test-ca
 
 x-smoke-clients: &smoke-clients
   SSL_CERT_FILE: "/certs/ca.crt"
-  # Índice 5: o 4 é o do deploy/bootstrap-operador.yml, que o smoke também exercita
+  # Índice 5: como um client a mais da instalação (o bootstrap-operador.yml usa o 99)
   SecureGate__PlatformClients__5__ClientId: "smoke-client"
   SecureGate__PlatformClients__5__Type: "ClientCredentials"
   SecureGate__PlatformClients__5__ClientSecret: "${SMOKE_CLIENT_SECRET:?}"
