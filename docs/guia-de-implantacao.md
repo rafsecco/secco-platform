@@ -28,15 +28,12 @@ o banco por um container e o SMTP por um falso.
 3. **Os bancos de tenant migram no primeiro uso.** O `migrate` do LogStream e do NotificationHub
    migra os tenants que já existem. Um tenant criado depois do deploy tem o banco migrado na primeira
    vez que o serviço o abre (ADR-0038). Se esse banco estiver fora do ar, só esse tenant recebe `503`.
-4. **O NotificationHub não lê tenants nem permissões do SecureGate.** O LogStream lê os dois do
-   SecureGate. O NotificationHub não, e há duas consequências:
-   - os bancos de tenant dele são configurados por variável
-     (`Secco__Tenancy__Tenants__{id}__ConnectionString`, uma por tenant);
-   - as permissões de cada perfil também são configuradas no próprio serviço
-     (`Secco__Authorization__Roles__{perfil}__Permissions__{n}`, ex.: `notifications:write`).
-
-   Sem elas, nenhum chamador tem permissão no NotificationHub, que responde `403`. Do SecureGate
-   ele só usa o token, para autenticar, e a publicação do catálogo de permissões.
+4. **Sistema que chama LogStream ou NotificationHub por máquina usa client de produto do tenant.**
+   Os dois serviços leem do SecureGate os tenants (o banco de cada um) e as permissões, por perfil
+   (ADR-0005/0021). O client de produto (ADR-0037) é vinculado a um tenant, e o token dele sai com
+   `tenant_id`. O perfil dele no tenant precisa das permissões das chamadas que o sistema faz (ver
+   "Produto adotante no mesmo host"). Um client de plataforma não serve para isso: o token dele não
+   tem tenant.
 5. **A checagem do schema do Hangfire é só de existência.** O NotificationHub recusa subir sem o
    schema da fila, mas não percebe um schema mais antigo que o da versão nova. Rode o `migrate` a cada
    atualização, como manda a seção "Atualização".
@@ -210,7 +207,7 @@ Clients de plataforma do exemplo (`ClientSecret` com ao menos 32 caracteres):
 | `ClientId` | `Type` | `Scopes` | Para quê |
 |---|---|---|---|
 | `logstream-service` | `ClientCredentials` | `catalog:logstream`, `authorization:read`, `permissions:logstream` | o LogStream lê o catálogo de tenants e as permissões e publica o catálogo de permissões dele |
-| `notificationhub-service` | `ClientCredentials` | `permissions:notificationhub` | o NotificationHub publica o catálogo de permissões no `migrate` |
+| `notificationhub-service` | `ClientCredentials` | `catalog:notificationhub`, `authorization:read`, `permissions:notificationhub` | o NotificationHub lê o catálogo de tenants e as permissões e publica o catálogo de permissões dele |
 | `adminportal` | `AuthorizationCode` | `email`, `profile`, `roles`, `securegate:admin`, `logstream` | login do operador no console. `RedirectUris__0` = `https://admin.exemplo.com.br/signin-oidc`, `PostLogoutRedirectUris__0` = `https://admin.exemplo.com.br/signout-callback-oidc` |
 | `adminportal-sessions` | `ClientCredentials` | `authorization:read` | o console confere se a sessão do operador foi revogada (ADR-0032) |
 
@@ -239,10 +236,9 @@ ADR-0049). Cada um está descrito no [README do SecureGate](../src/SecureGate/RE
 |---|---|---|
 | `NotificationHub__BackgroundJobs__ConnectionString` | Sim | Credencial de **runtime** da fila do Hangfire: `secco_nh_jobs_app`. |
 | `NotificationHub__BackgroundJobs__MigrationConnectionString` | Recomendada, no `migrate` | Credencial **dona** (`secco_nh_jobs_migrator`), usada só para instalar o schema da fila. Sem ela, o `migrate` usa a de runtime, que então precisaria de DDL. |
-| `Secco__Tenancy__Tenants__{tenantId}__ConnectionString` | Uma por tenant | Banco de tenant do NotificationHub (ver limitação 4). |
 | `Secco__Authentication__Authority` / `Audience` | Sim | URL pública do SecureGate / `secco-notificationhub`. |
-| `Secco__SecureGate__BaseUrl` / `ClientId` / `ClientSecret` | Sim | O client `notificationhub-service`, para publicar o catálogo de permissões no `migrate`. |
-| `Secco__Authorization__Roles__{perfil}__Permissions__{n}` | Sim, para ter acesso | Permissões de cada perfil **neste serviço** (ex.: `notifications:read`, `notifications:write`, `in-app-notifications:read`). O NotificationHub não as resolve pelo SecureGate (limitação 4). |
+| `Secco__SecureGate__BaseUrl` / `ClientId` / `ClientSecret` | Sim | O client `notificationhub-service`. Com ela, o NotificationHub lê do SecureGate o catálogo de tenants (o banco de cada um) e as permissões por perfil, e publica o catálogo de permissões no `migrate`. Os bancos de tenant vêm do catálogo; não há connection string de tenant no NotificationHub. |
+| `Secco__SecureGate__Product` | Sim | `notificationhub`. Sem ela, o NotificationHub não sobe com a seção configurada. |
 | `NotificationHub__Email__Host` / `Port` / `UseStartTls` / `Username` / `Password` / `FromAddress` / `FromName` | Sim | SMTP do canal de e-mail (mesmo formato do SecureGate). `Provider=SendGrid` com `ApiKey` também é aceito. |
 | `NotificationHub__BackgroundJobs__VerifySchemaOnStartup` | Não (padrão `true`) | Existe para testes. Não desligue: é o que impede subir sem o schema da fila. |
 
@@ -362,7 +358,7 @@ mostram onde parou, quando algo falha.
 
 ## Produto adotante no mesmo host
 
-Um produto que consome a plataforma, como a Intranet, pode rodar no mesmo host, com o compose dele ao lado deste. Um host tem uma porta 443 só, então **o proxy é um só**: o desta pasta. O guia de deploy do produto traz os valores dele. O encaixe tem três pontos.
+Um produto que consome a plataforma, como a Intranet, pode rodar no mesmo host, com o compose dele ao lado deste. Um host tem uma porta 443 só, então **o proxy é um só**: o desta pasta. O guia de deploy do produto traz os valores dele. O encaixe tem quatro pontos.
 
 1. **Clients do produto na âncora `x-securegate-clients`** da sua cópia do `deploy/docker-compose.yml`, nos próximos índices livres. Se o produto publica catálogo de permissões próprio, ele também precisa de `SecureGate__PermissionCatalog__Products__{n}`. Depois rode `securegate-migrate`. Fora dessa âncora, o `migrate` não enxerga o client e o **remove**.
 
@@ -393,6 +389,14 @@ Um produto que consome a plataforma, como a Intranet, pode rodar no mesmo host, 
    ```
 
    Inclua o nome no `.env`, na lista de aliases e no `environment` do serviço `proxy`, como os outros. Depois, `docker compose up -d proxy`.
+
+4. **Client de produto para LogStream e NotificationHub.** Se o produto grava auditoria, envia log ou
+   notifica, ele chama os dois com um client **de produto** do tenant dele (limitação 4), criado pelo
+   operador pela API ou pelo AdminPortal. O client tem os escopos `logstream` e `notificationhub` e um
+   perfil do tenant com as permissões das chamadas que faz. No produto, as credenciais vão em
+   `Secco__LogStream__ClientId`/`ClientSecret` e `Secco__NotificationHub__ClientId`/`ClientSecret`, e
+   a URL do SecureGate vem de `Secco__SecureGate__BaseUrl`. O smoke prova esse caminho: com a
+   permissão, `201` na trilha e `202` na notificação; sem ela, `403`.
 
 Suba a plataforma primeiro: o `migrate` do produto publica o catálogo de permissões no SecureGate e precisa dele no ar.
 

@@ -39,6 +39,7 @@ Escopo decidido: e-mail (assíncrono, com retry) e inbox in-app (gravação imed
 | `NotificationHub:Channels` | Nada aqui: o destino de `teams` e `slack` é **por tenant**, guardado cifrado no banco do próprio tenant e gerido por `/api/v1/channel-configurations` (ADR-0029). Configuração por instalação foi descartada — numa instalação multi-tenant, destino compartilhado faria notificação de um tenant chegar ao canal de outro |
 | `NotificationHub:Limits` | `MaxRecipientLength`/`MaxTitleLength`/`MaxMessageLength`/`MaxSourceLength`/`MaxTypeLength`/`MaxLinkLength` (ADR-0020) |
 | `NotificationHub:Database` | Engine dos bancos de tenant (`SqlServer` padrão / `Postgres`, ADR-0018) |
+| `Secco:SecureGate` | `BaseUrl`, `ClientId`, `ClientSecret` e `Product` (`notificationhub`). Com a seção, o NotificationHub lê do SecureGate o **catálogo de tenants** (escopo `catalog:notificationhub`) e as **permissões por perfil** (`authorization:read`), como o LogStream, e confere a versão de sessão (ADR-0005/0021/0032). Também publica o catálogo de permissões no `migrate` (`permissions:notificationhub`). Sem a seção (DEV e testes), valem `Secco:Tenancy:Tenants` e `Secco:Authorization:Roles` |
 
 ### Paridade de banco (8.3, ADR-0018)
 

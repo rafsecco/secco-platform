@@ -12,6 +12,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
+### NotificationHub (serviço) e SecureGate (serviço) — NotificationHub lê tenants e permissões do SecureGate — ação necessária para quem configurava o NotificationHub à mão
+
+O NotificationHub passa a resolver o catálogo de tenants e as permissões pelo SecureGate, como o LogStream (ADR-0005/0021). Antes ele só lia da própria configuração, e por isso um sistema consumidor (a Intranet) não conseguia notificar: o perfil do client dele no SecureGate não valia ali.
+
+- **Com a seção `Secco:SecureGate`** (o normal fora de DEV):
+  - os bancos de tenant vêm do catálogo do SecureGate (escopo `catalog:notificationhub`);
+  - as permissões vêm do perfil do chamador no tenant (`authorization:read`);
+  - a versão de sessão das pessoas é conferida (ADR-0032).
+  - `Secco:SecureGate:Product=notificationhub` passa a ser obrigatório.
+- **Sem a seção** (DEV e testes), nada muda: `Secco:Tenancy:Tenants` e `Secco:Authorization:Roles`.
+- **SecureGate:** o seed de referência registra o escopo `catalog:notificationhub`. Rode o `migrate` do SecureGate antes do NotificationHub novo.
+- **Ação:** o client de plataforma do NotificationHub ganha `catalog:notificationhub` e `authorization:read`, como no `deploy/docker-compose.yml`. Tenants e perfis antes configurados no NotificationHub passam a ser os do SecureGate: banco de tenant pelo catálogo ou pelo provisionamento (ADR-0028), permissões no perfil do tenant.
+- **Para um sistema consumidor** (ex.: a Intranet): chame LogStream e NotificationHub com um client **de produto** do tenant (ADR-0037). Ver "Produto adotante no mesmo host" no guia de implantação. O smoke prova o caminho: com a permissão, `201` na trilha e `202` na notificação; sem ela, `403`.
+
 ### Imagens Docker da plataforma 0.1.0 — distribuição pelo GHCR (ADR-0062) — ação necessária para quem implanta
 
 Os quatro serviços passam a ser distribuídos como imagem pública no GHCR, versionados juntos por tag da plataforma (`vX.Y.Z` → `X.Y.Z` e `X.Y`, nunca `latest`). O guia está em [`docs/guia-de-implantacao.md`](docs/guia-de-implantacao.md) e o exemplo em [`deploy/`](deploy).

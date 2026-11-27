@@ -267,6 +267,87 @@ assign="$(curl_https "$SECUREGATE_HOST" -o /out/role.json -w '%{http_code}' -X P
 [ "$assign" = "204" ] || { cat "$WORK/out/role.json" >&2; fail "atribuir installation-operator respondeu $assign"; }
 ok "primeiro operador: conta criada no tenant de plataforma e installation-operator atribuído"
 
+# --- Produto adotante com client de produto do tenant (o caminho da Intranet) ---------------------
+# Tenant com banco para LogStream e NotificationHub, perfil com as permissões das chamadas que a
+# Intranet faz e client de produto vinculado ao tenant. O token sai com tenant_id: nenhum dos dois
+# serviços precisa de X-Tenant-Id, e os dois resolvem a permissão pelo perfil no SecureGate.
+api() {
+	# api <método> <url> <token> [corpo-json] -> imprime o corpo e, na última linha, o status
+	local method="$1" url="$2" bearer="$3" body="${4:-}"
+	if [ -n "$body" ]; then
+		curl_https - -w '\n%{http_code}' -X "$method" "$url" -H "Authorization: Bearer $bearer" \
+			-H "Content-Type: application/json" -d "$body"
+	else
+		curl_https - -w '\n%{http_code}' -X "$method" "$url" -H "Authorization: Bearer $bearer"
+	fi
+}
+status_line() { printf '%s' "${1##*$'\n'}"; }
+body_of() { printf '%s' "${1%$'\n'*}"; }
+expect() {
+	# expect <resposta de api> <status esperado> <descrição>
+	local got; got="$(status_line "$1")"
+	[ "$got" = "$2" ] || { body_of "$1" >&2; echo >&2; fail "$3 respondeu $got (esperado $2)"; }
+}
+json_field() { sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" | head -1; }
+
+sg="https://$SECUREGATE_HOST/api/v1"
+created_tenant="$(api POST "$sg/tenants" "$admin_token" '{"name":"Intranet (smoke)","slug":"intranet-smoke"}')"
+expect "$created_tenant" 201 "criar o tenant"
+tenant_id="$(body_of "$created_tenant" | json_field id)"
+
+# Bancos do tenant, um login por banco com db_owner só nele (como o provisionamento faz, ADR-0028)
+tenant_db_password="Tn$(secret)"
+compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(grep '^SMOKE_SA_PASSWORD=' "$WORK/.env" | cut -d= -f2-)" -C -b -Q "
+CREATE DATABASE [smoke_logstream_t1]; CREATE DATABASE [smoke_nh_t1];
+CREATE LOGIN [smoke_ls_t1] WITH PASSWORD = N'$tenant_db_password'; CREATE LOGIN [smoke_nh_t1] WITH PASSWORD = N'$tenant_db_password';" >/dev/null \
+	|| fail "criar os bancos do tenant"
+for pair in smoke_logstream_t1:smoke_ls_t1 smoke_nh_t1:smoke_nh_t1; do
+	compose exec -T sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$(grep '^SMOKE_SA_PASSWORD=' "$WORK/.env" | cut -d= -f2-)" -C -b -d "${pair%%:*}" -Q "
+CREATE USER [${pair#*:}] FOR LOGIN [${pair#*:}]; ALTER ROLE [db_owner] ADD MEMBER [${pair#*:}];" >/dev/null \
+		|| fail "dar acesso ao banco ${pair%%:*}"
+done
+expect "$(api PUT "$sg/tenants/$tenant_id/databases/logstream" "$admin_token" \
+	"{\"connectionString\":\"Server=sqlserver,1433;Database=smoke_logstream_t1;User Id=smoke_ls_t1;Password=$tenant_db_password;TrustServerCertificate=true\"}")" 204 "registrar o banco do LogStream"
+expect "$(api PUT "$sg/tenants/$tenant_id/databases/notificationhub" "$admin_token" \
+	"{\"connectionString\":\"Server=sqlserver,1433;Database=smoke_nh_t1;User Id=smoke_nh_t1;Password=$tenant_db_password;TrustServerCertificate=true\"}")" 204 "registrar o banco do NotificationHub"
+
+# Perfil com as permissões que a Intranet usa, e um segundo perfil só com a trilha (para o 403)
+expect "$(api POST "$sg/tenants/$tenant_id/roles" "$admin_token" '{"name":"intranet-integracao"}')" 201 "criar o perfil intranet-integracao"
+expect "$(api PUT "$sg/tenants/$tenant_id/roles/intranet-integracao/permissions" "$admin_token" \
+	'{"permissions":["audit-entries:write","log-entries:write","notifications:write","notifications:read","in-app-notifications:read","in-app-notifications:write"]}')" 204 "dar as permissões ao perfil"
+expect "$(api POST "$sg/tenants/$tenant_id/roles" "$admin_token" '{"name":"so-trilha"}')" 201 "criar o perfil so-trilha"
+expect "$(api PUT "$sg/tenants/$tenant_id/roles/so-trilha/permissions" "$admin_token" \
+	'{"permissions":["audit-entries:write"]}')" 204 "dar a permissão ao perfil so-trilha"
+
+created_client="$(api POST "$sg/tenants/$tenant_id/clients" "$admin_token" \
+	'{"name":"Intranet (smoke)","scopes":["logstream","notificationhub"],"roles":["intranet-integracao"]}')"
+expect "$created_client" 201 "criar o client de produto"
+product_id="$(body_of "$created_client" | json_field clientId)"
+product_secret="$(body_of "$created_client" | json_field clientSecret)"
+limited_client="$(api POST "$sg/tenants/$tenant_id/clients" "$admin_token" \
+	'{"name":"Sem NotificationHub (smoke)","scopes":["notificationhub"],"roles":["so-trilha"]}')"
+expect "$limited_client" 201 "criar o client de produto limitado"
+limited_id="$(body_of "$limited_client" | json_field clientId)"
+limited_secret="$(body_of "$limited_client" | json_field clientSecret)"
+
+# LogStream: a trilha de auditoria, como a Intranet grava (primeiro uso migra o banco do tenant)
+ls_token="$(token_or_fail "$product_id" "$product_secret" logstream)"
+expect "$(api POST "https://$LOGSTREAM_HOST/api/v1/audit-entries" "$ls_token" \
+	'{"actorId":"8f1c2a4e-0000-4000-8000-000000000001","actorType":"User","action":"smoke.registrou"}')" 201 "gravar auditoria no LogStream com o client de produto"
+ok "client de produto do tenant grava auditoria no LogStream (perfil resolvido no SecureGate)"
+
+# NotificationHub: notificação in-app e leitura da caixa, como a Intranet faz
+nh_token="$(token_or_fail "$product_id" "$product_secret" notificationhub)"
+expect "$(api POST "https://$NOTIFICATIONHUB_HOST/api/v1/notifications" "$nh_token" \
+	'{"userId":"8f1c2a4e-0000-4000-8000-000000000001","recipient":null,"title":"Smoke","message":"Aviso do smoke","source":"smoke","type":"teste","link":null,"scheduledFor":null,"channels":["in_app"]}')" 202 "despachar notificação no NotificationHub com o client de produto"
+unread="$(api GET "https://$NOTIFICATIONHUB_HOST/api/v1/in-app-notifications?userId=8f1c2a4e-0000-4000-8000-000000000001" "$nh_token")"
+expect "$unread" 200 "ler a caixa in-app"
+body_of "$unread" | grep -q 'Aviso do smoke' || fail "a notificação in-app não apareceu na caixa"
+limited_token="$(token_or_fail "$limited_id" "$limited_secret" notificationhub)"
+expect "$(api POST "https://$NOTIFICATIONHUB_HOST/api/v1/notifications" "$limited_token" \
+	'{"userId":"8f1c2a4e-0000-4000-8000-000000000001","recipient":null,"title":"x","message":"x","source":null,"type":null,"link":null,"scheduledFor":null,"channels":["in_app"]}')" 403 "NotificationHub com perfil sem notifications:write"
+ok "NotificationHub resolve tenant pelo catálogo e permissão pelo perfil no SecureGate (com permissão 202, sem 403)"
+
 # Passo 3 do guia: o migrate sem o override remove o client temporário (ADR-0037)
 compose run --rm securegate-migrate >/dev/null 2>&1 || fail "o migrate sem o override falhou"
 leftover="$(token bootstrap-operador "$BOOTSTRAP_OPERATOR_SECRET" securegate:admin)"

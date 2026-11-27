@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using Secco.NotificationHub.Api.Endpoints;
+using Secco.NotificationHub.Api.Extensions;
 using Secco.NotificationHub.Application;
 using Secco.NotificationHub.Infrastructure;
 using Secco.NotificationHub.Infrastructure.BackgroundJobs;
@@ -30,6 +31,10 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // Options (NotificationHub:*) são bindadas lazy pela Infrastructure a partir do IConfiguration
 builder.Services.AddNotificationHubApplication();
 builder.Services.AddNotificationHubInfrastructure();
+
+// Catálogo de tenants e permissões do SecureGate, como o LogStream (ADR-0005/0021): com a seção
+// Secco:SecureGate configurada vale o SecureGate; sem ela (DEV), a configuração
+builder.Services.AddNotificationHubSecureGateIntegration();
 
 // Jobs persistentes com retry (ADR-0015 Camada 2) — banco de PLATAFORMA, não por tenant;
 // não faz parte de AddSeccoPlatform() (produtos sem essa necessidade não carregam Hangfire)

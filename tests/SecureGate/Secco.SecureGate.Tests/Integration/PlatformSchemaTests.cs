@@ -241,4 +241,18 @@ public class PlatformSchemaTests(SecureGateApiFactory factory) : IClassFixture<S
 		registered.Should().NotBeNull();
 		(await scopes.GetResourcesAsync(registered!)).Should().Contain("secco-securegate");
 	}
+
+	[Theory]
+	[InlineData("logstream")]
+	[InlineData("notificationhub")]
+	public async Task Seed_Always_RegistersCatalogScopePerMultiTenantProduct(string product)
+	{
+		using var scope = factory.Services.CreatePlatformScope();
+		var scopes = scope.ServiceProvider.GetRequiredService<IOpenIddictScopeManager>();
+
+		var registered = await scopes.FindByNameAsync(SecureGateScopes.CatalogFor(product));
+
+		registered.Should().NotBeNull("o produto lê o catálogo de tenants do SecureGate (ADR-0005)");
+		(await scopes.GetResourcesAsync(registered!)).Should().Contain("secco-securegate");
+	}
 }

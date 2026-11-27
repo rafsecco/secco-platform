@@ -1986,3 +1986,14 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 - O Trivy varre só a imagem amd64.
 - Trocar o certificado de assinatura derruba todos os tokens, refresh inclusive, porque o mesmo certificado os cifra.
 - O SecureGate em execução recebe os segredos dos clients de plataforma, porque a configuração é a mesma do `migrate`.
+
+## Integração de produto adotante com LogStream e NotificationHub (2026-11-27)
+
+**A pergunta.** A Intranet chamava LogStream e NotificationHub com o client de plataforma dela. O token não tem tenant, os clients NSwag não mandam `X-Tenant-Id`, e o NotificationHub resolvia tenants e permissões só pela própria configuração. Como um produto adotante grava auditoria e notifica?
+
+**Escolha (do Rafael):** client **de produto** do tenant (ADR-0037) para os dois serviços, com um perfil que tem as permissões das chamadas. O NotificationHub passa a ler tenants e permissões do SecureGate, como o LogStream, e o SecureGate registra `catalog:notificationhub`.
+
+- *Só configuração no NotificationHub:* a permissão viveria em dois lugares, e revogar no SecureGate não valeria nele. É a exceção à ADR-0021 que a mudança fecha.
+- *Client de plataforma com `X-Tenant-Id` por chamada:* exigiria código no adotante, e o secret sem tenant alcançaria qualquer tenant pelo cabeçalho. O de produto contém o secret no tenant.
+
+**Riscos assumidos:** a leitura da caixa in-app pelo `userId` que o chamador informa continua no modelo "chamador confiável" (pendência já registrada). Com o SecureGate fora do ar, o NotificationHub vale do cache e depois falha fechado, como o LogStream.

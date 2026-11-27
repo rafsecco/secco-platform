@@ -46,7 +46,7 @@ public sealed class SecureGateReferenceDataSeeder(
 	};
 
 	/// <summary>Produtos multi-tenant com catálogo servido pelo SecureGate (ADR-0005).</summary>
-	private static readonly IReadOnlyList<string> CatalogProducts = ["logstream"];
+	private static readonly IReadOnlyList<string> CatalogProducts = ["logstream", "notificationhub"];
 
 	public async Task SeedAsync(CancellationToken cancellationToken = default)
 	{
