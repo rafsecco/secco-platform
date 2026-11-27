@@ -70,6 +70,7 @@ As quatro imagens de uma versão saem do mesmo commit, com o mesmo número. A ta
 | Plataforma (imagens) | `Secco.SecureGate.Client` | `Secco.LogStream.Client` | `Secco.NotificationHub.Client` |
 |---|---|---|---|
 | 0.1.0 | 0.26.0 | 0.5.0 | 0.6.0 |
+| 0.2.0 | 0.26.0 | 0.5.0 | 0.6.0 |
 
 A release só sai se o contrato de cada serviço for idêntico ao do client publicado (o workflow
 recusa), então a correspondência é exata.

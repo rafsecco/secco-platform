@@ -12,7 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### NotificationHub (serviço) e SecureGate (serviço) — NotificationHub lê tenants e permissões do SecureGate — ação necessária para quem configurava o NotificationHub à mão
+### Imagens 0.2.0 — NotificationHub (serviço) e SecureGate (serviço): NotificationHub lê tenants e permissões do SecureGate — ação necessária para quem configurava o NotificationHub à mão
 
 O NotificationHub passa a resolver o catálogo de tenants e as permissões pelo SecureGate, como o LogStream (ADR-0005/0021). Antes ele só lia da própria configuração, e por isso um sistema consumidor (a Intranet) não conseguia notificar: o perfil do client dele no SecureGate não valia ali.
 
@@ -33,6 +33,7 @@ Os quatro serviços passam a ser distribuídos como imagem pública no GHCR, ver
 | Plataforma (imagens) | `Secco.SecureGate.Client` | `Secco.LogStream.Client` | `Secco.NotificationHub.Client` |
 |---|---|---|---|
 | 0.1.0 | 0.26.0 | 0.5.0 | 0.6.0 |
+| 0.2.0 | 0.26.0 | 0.5.0 | 0.6.0 |
 
 - **Imagens:** `ghcr.io/rafsecco/secco-securegate`, `secco-logstream`, `secco-notificationhub` e `secco-adminportal`.
   - Base `aspnet:10.0` (glibc) para amd64 e arm64.
