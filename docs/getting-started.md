@@ -36,8 +36,8 @@ Versões publicadas atuais:
 
 | Pacote | Versão | Para quê |
 |---|---|---|
-| `Secco.SharedKernel` | 0.7.14 | `Result<T>`, paginação, entidades base, claims/permissions |
-| `Secco.SDK.AspNetCore` | 0.10.3 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs, cabeçalhos de segurança) |
+| `Secco.SharedKernel` | 0.7.15 | `Result<T>`, paginação, entidades base, claims/permissions |
+| `Secco.SDK.AspNetCore` | 0.11.0 | Cross-cutting de runtime (auth, tenancy, correlation, health, resiliência, autorização, OpenAPI, background jobs, cabeçalhos de segurança) |
 | `Secco.SDK.EntityFrameworkCore` | 0.7.0 | `SeccoDbContext`, nomenclatura de banco por convention (ADR-0017), cifragem de segredo em repouso (ADR-0025) e de arquivo em streaming (ADR-0061) |
 | `Secco.SDK.Testing` | 0.1.1 | Base das factories de teste de integração (ADR-0027); marcado `DevelopmentDependency` |
 | `Secco.SecureGate.Client` | 0.26.0 | Client do SecureGate + `ITenantCatalog`/`IPermissionResolver` prontos |
@@ -49,7 +49,7 @@ Versões publicadas atuais:
 | `Secco.SDK.Imaging` | 0.2.0 | Tratamento seguro de imagem enviada (`ISeccoImageProcessor`, variantes sem metadados, SkiaSharp atrás de porta interna, ADR-0042) |
 | `Secco.SDK.Documents` | 0.1.0 | Exportação de listagens em Excel e PDF tabular gerada no servidor (`ISeccoDocumentExporter`, gravadores próprios, memória constante, ADR-0058) |
 | `Secco.NotificationHub.Client` | 0.6.0 | Client do NotificationHub |
-| `Secco.Templates` | 0.4.0 | `dotnet new secco-service` |
+| `Secco.Templates` | 0.5.0 | `dotnet new secco-service` |
 
 > **`Secco.SDK.Logging` 0.1.0 não serve mais.** Ela foi empacotada quando o `Secco.LogStream.Client` ainda era 0.2.0 e chama um método que a 0.3.0 renomeou. Com os dois pacotes na versão mais recente, o despacho do lote falha e o dispatcher engole a exceção por design (ADR-0008) — o sintoma é log que não chega, sem nada cair. Use a 0.1.1 ou posterior (a atual é a 0.2.0).
 

@@ -12,7 +12,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## Não publicado
 
-### Imagens Docker da plataforma — distribuição pelo GHCR (ADR-0062) — ação necessária para quem implanta
+### Imagens Docker da plataforma 0.1.0 — distribuição pelo GHCR (ADR-0062) — ação necessária para quem implanta
 
 Os quatro serviços passam a ser distribuídos como imagem pública no GHCR, versionados juntos por tag da plataforma (`vX.Y.Z` → `X.Y.Z` e `X.Y`, nunca `latest`). O guia está em [`docs/guia-de-implantacao.md`](docs/guia-de-implantacao.md) e o exemplo em [`deploy/`](deploy).
 
@@ -31,20 +31,6 @@ Os quatro serviços passam a ser distribuídos como imagem pública no GHCR, ver
 - **AdminPortal:** as chaves do DataProtection vão para `AdminPortal:DataProtection:KeysPath`, que a imagem aponta para o volume `/var/lib/secco-adminportal/keys` (uid 1654, modo 700). A sessão do console continua em memória: recriar o container leva o operador ao re-login.
 - **Os quatro serviços** aceitam proxy reverso (`Secco:ReverseProxy`, abaixo) e o verbo `healthcheck`.
 - **Desenvolvimento:** o `docker-compose.yml` da raiz passa o build arg `SECCO_INCLUDE_DEV_SETTINGS=true`, sem o qual a imagem sai sem as configurações de DEV. O template `secco-service` gera o mesmo molde.
-
-### `Secco.SDK.AspNetCore` — verbo `healthcheck`, proxy reverso e Hangfire sem preparar o schema (ADR-0062)
-
-Só acréscimo. Sai na próxima versão do pacote.
-
-- **Adicionado** `SeccoHealthCheckCommand`.
-  - `IsHealthCheck(args)` e `RunAsync()`: antes de montar o host, faz um GET em `http://127.0.0.1:{porta}/health/ready` com `Host: localhost`, sem seguir redirecionamento e sem proxy do ambiente, e devolve 0 ou 1.
-  - A porta sai do primeiro `http://` de `ASPNETCORE_URLS` ou de `ASPNETCORE_HTTP_PORTS`. O padrão é 8080.
-  - Uso: primeira instrução do `Program.cs` e `HEALTHCHECK CMD ["dotnet", "<App>.dll", "healthcheck"]`.
-- **Adicionado** `AddSeccoForwardedHeaders()` (também dentro de `AddSeccoPlatform()`) e `UseSeccoForwardedHeaders()`, com a seção `Secco:ReverseProxy`.
-  - `Enabled` tem padrão `false`. `KnownNetworks` é uma lista de CIDR, **obrigatória** com `Enabled=true`: sem ela, ou com CIDR inválido, a aplicação não sobe.
-  - Só valem `X-Forwarded-For` e `X-Forwarded-Proto`, com `ForwardLimit = 1`. O `Host` não é reescrito.
-  - `UseSeccoForwardedHeaders()` deve ser o primeiro middleware e não faz nada com a opção desligada.
-- **Adicionado** a sobrecarga `AddSeccoBackgroundJobs(services, factory, prepareSchema)`. Com `false`, o Hangfire não cria nem atualiza o próprio schema na subida. A sobrecarga antiga continua igual (`true`).
 
 ### SecureGate (serviço), AdminPortal e `Secco.SecureGate.Client` — login federado direto — opt-in por tenant
 
@@ -237,6 +223,10 @@ Não é pacote: muda o serviço SecureGate (imagem/binário). Nenhum contrato HT
 
 ### Secco.SharedKernel
 
+#### 0.7.15 — 2026-11-26
+
+Patch **sem mudança funcional**: o diff desde a 0.7.14 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.AspNetCore` 0.11.0 sai deste commit e o referencia por `ProjectReference`.
+
 #### 0.7.14 — 2026-11-25
 
 Patch **sem mudança funcional**: o diff desde a 0.7.13 é vazio. Existe pela cadeia do MinVer (ADR-0011): o `Secco.SDK.EntityFrameworkCore` 0.7.0 sai deste commit e o referencia por `ProjectReference`.
@@ -379,6 +369,20 @@ Patch **sem mudança funcional**: o conteúdo é idêntico à 0.3.2 (o diff entr
 | 0.1.0 | 2026-07-08 |
 
 ### Secco.SDK.AspNetCore
+
+#### 0.11.0 — 2026-11-26
+
+Verbo `healthcheck`, proxy reverso e Hangfire sem preparar o schema (ADR-0062). Só acréscimo: quem não chama as extensões novas não vê diferença, e `AddSeccoPlatform()` só registra o proxy, que vem desligado.
+
+- **Adicionado** `SeccoHealthCheckCommand`.
+  - `IsHealthCheck(args)` e `RunAsync()`: antes de montar o host, faz um GET em `http://127.0.0.1:{porta}/health/ready` com `Host: localhost`, sem seguir redirecionamento e sem proxy do ambiente, e devolve 0 ou 1.
+  - A porta sai do primeiro `http://` de `ASPNETCORE_URLS` ou de `ASPNETCORE_HTTP_PORTS`. O padrão é 8080.
+  - Uso: primeira instrução do `Program.cs` e `HEALTHCHECK CMD ["dotnet", "<App>.dll", "healthcheck"]`.
+- **Adicionado** `AddSeccoForwardedHeaders()` (também dentro de `AddSeccoPlatform()`) e `UseSeccoForwardedHeaders()`, com a seção `Secco:ReverseProxy`.
+  - `Enabled` tem padrão `false`. `KnownNetworks` é uma lista de CIDR, **obrigatória** com `Enabled=true`: sem ela, ou com CIDR inválido, a aplicação não sobe.
+  - Só valem `X-Forwarded-For` e `X-Forwarded-Proto`, com `ForwardLimit = 1`. O `Host` não é reescrito.
+  - `UseSeccoForwardedHeaders()` deve ser o primeiro middleware e não faz nada com a opção desligada.
+- **Adicionado** a sobrecarga `AddSeccoBackgroundJobs(services, factory, prepareSchema)`. Com `false`, o Hangfire não cria nem atualiza o próprio schema na subida. A sobrecarga antiga continua igual (`true`).
 
 #### 0.10.3 — 2026-11-18
 
@@ -1054,6 +1058,10 @@ Primeira versão. Base compartilhada das factories de teste de integração (ADR
 Primeira versão. Client NSwag gerado do `openapi.json` versionado do NotificationHub (ADR-0006) — a única forma legítima de outro produto da plataforma falar com ele. Cobre o despacho multi-canal, a consulta de status e os endpoints de inbox in-app.
 
 ### Secco.Templates
+
+#### 0.5.0 — 2026-11-26
+
+- **Alterado** o produto gerado sai no molde de imagem da ADR-0062: verbo `healthcheck` como primeira instrução do `Program.cs`, `UseSeccoForwardedHeaders()` como primeiro middleware e Dockerfile com build no `BUILDPLATFORM`, usuário não-root, `HEALTHCHECK` e sem `appsettings.Development.json` (o compose do template passa `SECCO_INCLUDE_DEV_SETTINGS=true`).
 
 #### 0.4.0 — 2026-10-11
 
