@@ -28,16 +28,27 @@ o banco por um container e o SMTP por um falso.
 3. **Os bancos de tenant migram no primeiro uso.** O `migrate` do LogStream e do NotificationHub
    migra os tenants que já existem. Um tenant criado depois do deploy tem o banco migrado na primeira
    vez que o serviço o abre (ADR-0038). Se esse banco estiver fora do ar, só esse tenant recebe `503`.
-4. **O NotificationHub não lê o catálogo de tenants do SecureGate.** Os bancos de tenant dele são
-   configurados por variável (`Secco__Tenancy__Tenants__{id}__ConnectionString`, uma por tenant).
-   O LogStream lê o catálogo do SecureGate.
+4. **O NotificationHub não lê tenants nem permissões do SecureGate.** O LogStream lê os dois do
+   SecureGate. O NotificationHub não, e há duas consequências:
+   - os bancos de tenant dele são configurados por variável
+     (`Secco__Tenancy__Tenants__{id}__ConnectionString`, uma por tenant);
+   - as permissões de cada perfil também são configuradas no próprio serviço
+     (`Secco__Authorization__Roles__{perfil}__Permissions__{n}`, ex.: `notifications:write`).
+
+   Sem elas, nenhum chamador tem permissão no NotificationHub, que responde `403`. Do SecureGate
+   ele só usa o token, para autenticar, e a publicação do catálogo de permissões.
 5. **A checagem do schema do Hangfire é só de existência.** O NotificationHub recusa subir sem o
    schema da fila, mas não percebe um schema mais antigo que o da versão nova. Rode o `migrate` a cada
    atualização, como manda a seção "Atualização".
 6. **Certificado em base64 aparece em `docker inspect`.** Prefira entregar o certificado de assinatura
    como arquivo (`secrets:` do Compose), como no exemplo.
-7. **Rotação do certificado de assinatura derruba os access tokens vigentes**, que vivem até 5
-   minutos. Os refresh tokens continuam válidos (ficam no banco). Não há rotação sem queda.
+7. **Trocar o certificado de assinatura desconecta todo mundo.** O mesmo certificado assina e cifra os
+   tokens. Com ele trocado, deixam de valer:
+   - os access tokens (até 5 minutos);
+   - os refresh tokens, que são cifrados com ele (o banco guarda só os metadados);
+   - os codes em andamento.
+
+   Toda pessoa refaz o login, e todo client de máquina pede um token novo. Não há rotação sem queda.
 
 ## Imagens e versões
 
@@ -53,11 +64,11 @@ As imagens são **públicas**. O `docker pull` não precisa de login:
 Tags:
 
 - **`X.Y.Z`**: a que o seu deploy usa. Fixa, nunca muda de conteúdo.
-- **`X.Y`**: aponta para o patch mais recente daquela linha. Use só se aceitar receber correção sem
-  trocar a tag.
+- **`X.Y`**: aponta para a última publicação daquela linha (normalmente o patch mais recente). Use só
+  se aceitar receber correção sem trocar a tag.
 - **Não existe `latest`.** Nada neste guia depende dele.
 
-Todas as imagens de uma versão saem juntas, com o mesmo número. A tabela diz qual versão de cada client NSwag corresponde a cada versão da plataforma. Use-a para escolher os pacotes de quem consome os serviços, como o `secco-intranet`:
+As quatro imagens de uma versão saem do mesmo commit, com o mesmo número. A tabela diz qual versão de cada client NSwag corresponde a cada versão da plataforma. Use-a para escolher os pacotes de quem consome os serviços, como o `secco-intranet`:
 
 | Plataforma (imagens) | `Secco.SecureGate.Client` | `Secco.LogStream.Client` | `Secco.NotificationHub.Client` |
 |---|---|---|---|
@@ -122,11 +133,10 @@ Ele cria dois bancos de **plataforma**, cada um com dois logins:
 | `secco_notificationhub_jobs` | `secco_nh_jobs_migrator` | `db_owner` no banco | só o `migrate` do NotificationHub (schema do Hangfire) |
 | `secco_notificationhub_jobs` | `secco_nh_jobs_app` | `db_datareader` + `db_datawriter` + `EXECUTE` | o NotificationHub em execução (fila do Hangfire) |
 
-- **No SecureGate, as duas credenciais são obrigatórias e diferentes** (ADR-0041). O banco tem
-  Row-Level Security, e o dono do banco conseguiria desligá-lo. Fora de Development, o SecureGate
+- **No SecureGate, use as duas credenciais, e diferentes** (ADR-0041). Sem a de migração, o `migrate` usa a de runtime, que não tem DDL; dando posse à de runtime, o SecureGate recusa subir. O banco tem Row-Level Security, e o dono do banco conseguiria desligá-lo. Fora de Development, o SecureGate
   **recusa subir** com credencial de runtime dona do banco.
 - **Nenhum login recebe permissão no servidor**, e a aplicação nunca usa `sa`.
-- **Senhas em hex** (`openssl rand -hex 32`). Elas entram numa connection string, onde `;` quebraria o valor.
+- **Senhas sem `;` nem aspas**, porque entram numa connection string e entre aspas simples no `CREATE LOGIN`. Um prefixo com maiúscula sobre hex atende também a política de complexidade do SQL Server em Windows (`CHECK_POLICY = ON` pede 3 categorias): `echo "Sg$(openssl rand -hex 24)"`.
 - **O LogStream não tem banco de plataforma.** Os bancos de **tenant** de LogStream e NotificationHub
   vêm do provisionamento do SecureGate (ADR-0028, pelo AdminPortal ou pela API) ou do seu DBA, um
   banco e um login por tenant, com `db_owner` só nele.
@@ -182,7 +192,7 @@ vai entre aspas simples.
 | Variável | Obrigatória | Descrição |
 |---|---|---|
 | `SecureGate__Database__ConnectionString` | Sim | Credencial de **runtime**: `secco_securegate_app` (leitura e escrita, nunca dona). |
-| `SecureGate__Database__MigrationConnectionString` | Sim, no `migrate` | Credencial **dona**: `secco_securegate_migrator`. Só no serviço `securegate-migrate`. |
+| `SecureGate__Database__MigrationConnectionString` | Na prática sim, no `migrate` | Credencial **dona**: `secco_securegate_migrator`. Só no serviço `securegate-migrate`. Ausente, o `migrate` usa a de runtime, que não tem DDL. |
 | `SecureGate__Database__Provider` | Não (padrão `SqlServer`) | `SqlServer` ou `PostgreSql`. |
 | `SecureGate__PublicBaseUrl` | Sim | URL pública do SecureGate (`https://login.exemplo.com.br`). Base dos links de convite e recuperação. Nunca vem do `Host` da requisição. |
 | `SecureGate__Catalog__EncryptionKey` | Sim | Chave que cifra as connection strings de tenant no banco (ADR-0025): base64 de 32 bytes (`openssl rand -base64 32`). Entra no backup com o mesmo peso do banco. |
@@ -231,7 +241,8 @@ ADR-0049). Cada um está descrito no [README do SecureGate](../src/SecureGate/RE
 | `NotificationHub__BackgroundJobs__MigrationConnectionString` | Recomendada, no `migrate` | Credencial **dona** (`secco_nh_jobs_migrator`), usada só para instalar o schema da fila. Sem ela, o `migrate` usa a de runtime, que então precisaria de DDL. |
 | `Secco__Tenancy__Tenants__{tenantId}__ConnectionString` | Uma por tenant | Banco de tenant do NotificationHub (ver limitação 4). |
 | `Secco__Authentication__Authority` / `Audience` | Sim | URL pública do SecureGate / `secco-notificationhub`. |
-| `Secco__SecureGate__BaseUrl` / `ClientId` / `ClientSecret` / `Product` | Sim | O client `notificationhub-service`, para publicar o catálogo de permissões no `migrate`. `Product` = `notificationhub`. |
+| `Secco__SecureGate__BaseUrl` / `ClientId` / `ClientSecret` | Sim | O client `notificationhub-service`, para publicar o catálogo de permissões no `migrate`. |
+| `Secco__Authorization__Roles__{perfil}__Permissions__{n}` | Sim, para ter acesso | Permissões de cada perfil **neste serviço** (ex.: `notifications:read`, `notifications:write`, `in-app-notifications:read`). O NotificationHub não as resolve pelo SecureGate (limitação 4). |
 | `NotificationHub__Email__Host` / `Port` / `UseStartTls` / `Username` / `Password` / `FromAddress` / `FromName` | Sim | SMTP do canal de e-mail (mesmo formato do SecureGate). `Provider=SendGrid` com `ApiKey` também é aceito. |
 | `NotificationHub__BackgroundJobs__VerifySchemaOnStartup` | Não (padrão `true`) | Existe para testes. Não desligue: é o que impede subir sem o schema da fila. |
 
@@ -241,7 +252,7 @@ ADR-0049). Cada um está descrito no [README do SecureGate](../src/SecureGate/RE
 |---|---|---|
 | `Secco__SecureGate__Authority` / `ApiBaseUrl` | Sim | URL pública do SecureGate (login do operador e API de gestão). |
 | `Secco__SecureGate__ClientId` / `ClientSecret` | Sim | O client `adminportal`. |
-| `Secco__SessionValidation__BaseUrl` / `ClientId` / `ClientSecret` | Sim | URL do SecureGate e o client `adminportal-sessions`. |
+| `Secco__SessionValidation__BaseUrl` / `ClientId` / `ClientSecret` | Sim (não impede a subida) | URL do SecureGate e o client `adminportal-sessions`. Sem a seção o console sobe, mas não percebe sessão de operador revogada (ADR-0032). |
 | `Secco__LogStream__BaseUrl` | Sim | URL pública do LogStream (leitura de logs e exportação da trilha). |
 | `AdminPortal__DataProtection__KeysPath` | Não (a imagem define `/var/lib/secco-adminportal/keys`) | Pasta das chaves do cookie e do antiforgery. Monte-a (próxima seção). |
 
@@ -349,13 +360,16 @@ mostram onde parou, quando algo falha.
 Uma instalação nova não tem nenhum operador (`installation-operator`), e sem ele ninguém entra no
 AdminPortal. O caminho usa a API do SecureGate com um client **temporário**:
 
-1. Acrescente ao SecureGate um client de plataforma só para isso, rode o `migrate` e reinicie:
+1. Ponha no `.env` um segredo para o client temporário (`BOOTSTRAP_OPERATOR_SECRET`, 32 ou mais
+   caracteres). Suba o SecureGate com o override [`deploy/bootstrap-operador.yml`](../deploy/bootstrap-operador.yml),
+   que acrescenta o client `bootstrap-operador` com `securegate:admin` ao `securegate` e ao
+   `securegate-migrate`. Uma variável solta no `.env` não chega ao container: o `.env` só preenche os
+   `${...}` do compose.
 
-   ```dotenv
-   SecureGate__PlatformClients__4__ClientId=bootstrap-operador
-   SecureGate__PlatformClients__4__Type=ClientCredentials
-   SecureGate__PlatformClients__4__ClientSecret=<segredo de 32+ caracteres>
-   SecureGate__PlatformClients__4__Scopes__0=securegate:admin
+   ```bash
+   echo "BOOTSTRAP_OPERATOR_SECRET=$(openssl rand -hex 32)" >> .env
+   docker compose -f docker-compose.yml -f bootstrap-operador.yml run --rm securegate-migrate
+   docker compose -f docker-compose.yml -f bootstrap-operador.yml up -d securegate
    ```
 
 2. Crie a conta no tenant de plataforma (`018f0000-0000-7000-8000-0000000000ff`) e atribua o papel. A
@@ -363,9 +377,10 @@ AdminPortal. O caminho usa a API do SecureGate com um client **temporário**:
    senha e cadastra o segundo fator, que é obrigatório para operador.
 
    ```bash
+   export "$(grep ^BOOTSTRAP_OPERATOR_SECRET= .env)"
    TOKEN=$(curl -fsS https://login.exemplo.com.br/connect/token \
      -d grant_type=client_credentials -d client_id=bootstrap-operador \
-     -d client_secret="$SEGREDO" -d scope=securegate:admin | jq -r .access_token)
+     -d client_secret="$BOOTSTRAP_OPERATOR_SECRET" -d scope=securegate:admin | jq -r .access_token)
 
    USER_ID=$(curl -fsS -X POST https://login.exemplo.com.br/api/v1/tenants/018f0000-0000-7000-8000-0000000000ff/users \
      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -375,8 +390,15 @@ AdminPortal. O caminho usa a API do SecureGate com um client **temporário**:
      -H "Authorization: Bearer $TOKEN"
    ```
 
-3. **Retire o client da configuração e rode o `migrate` de novo**, que o remove (ADR-0037). Um
-   segredo com `securegate:admin` esquecido na configuração alcança a instalação inteira.
+3. **Tire o client: rode o `migrate` e suba o SecureGate sem o override**, e apague a linha do
+   `.env`. O seed de referência remove o client que saiu da lista (ADR-0037). Um segredo com
+   `securegate:admin` esquecido alcança a instalação inteira.
+
+   ```bash
+   docker compose run --rm securegate-migrate
+   docker compose up -d securegate
+   sed -i '/^BOOTSTRAP_OPERATOR_SECRET=/d' .env
+   ```
 
 Daí em diante, os demais operadores e tenants se criam pelo AdminPortal.
 

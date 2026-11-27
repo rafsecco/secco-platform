@@ -1984,5 +1984,5 @@ Duas mutações são equivalentes. O filtro de origem no store é coberto pelo c
 **Riscos assumidos.**
 - A checagem do schema do Hangfire é só de existência, porque o pacote não expõe versão mínima.
 - O Trivy varre só a imagem amd64.
-- A rotação do certificado de assinatura derruba os access tokens vigentes.
+- Trocar o certificado de assinatura derruba todos os tokens, refresh inclusive, porque o mesmo certificado os cifra.
 - O SecureGate em execução recebe os segredos dos clients de plataforma, porque a configuração é a mesma do `migrate`.

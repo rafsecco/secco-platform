@@ -1,0 +1,26 @@
+# Override TEMPORÁRIO para criar o primeiro operador (guia de implantação, "Primeiro operador").
+# Acrescenta ao SecureGate um client de plataforma com securegate:admin. Use só enquanto cria a conta
+# e tire em seguida: um segredo com securegate:admin alcança a instalação inteira.
+#
+#   docker compose -f docker-compose.yml -f bootstrap-operador.yml run --rm securegate-migrate
+#   docker compose -f docker-compose.yml -f bootstrap-operador.yml up -d securegate
+#   ... cria a conta e atribui o papel ...
+#   docker compose run --rm securegate-migrate      # sem o override: o seed REMOVE o client (ADR-0037)
+#   docker compose up -d securegate
+#
+# O segredo vem do .env (BOOTSTRAP_OPERATOR_SECRET, 32+ caracteres); apague a linha depois.
+
+x-bootstrap-client: &bootstrap-client
+  SecureGate__PlatformClients__4__ClientId: "bootstrap-operador"
+  SecureGate__PlatformClients__4__Type: "ClientCredentials"
+  SecureGate__PlatformClients__4__ClientSecret: "${BOOTSTRAP_OPERATOR_SECRET:?defina BOOTSTRAP_OPERATOR_SECRET no .env}"
+  SecureGate__PlatformClients__4__Scopes__0: "securegate:admin"
+
+services:
+  securegate-migrate:
+    environment:
+      <<: *bootstrap-client
+
+  securegate:
+    environment:
+      <<: *bootstrap-client

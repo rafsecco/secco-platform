@@ -136,6 +136,7 @@ As imagens dos serviços (`secco-securegate`, `secco-logstream`, `secco-notifica
 - **Empurre a `vX.Y.Z` sozinha**, nunca junto com tags de pacote, pela mesma regra das três tags da seção 3.
 - **O `verify` roda tudo antes de qualquer push:** build amd64, Trivy (reprova em CRITICAL com correção disponível) e `scripts/deploy-smoke.sh`. Se ele falhar, nenhuma imagem sai.
 - **Republicar:** `gh workflow run publish-images.yml --ref vX.Y.Z`. Rode a partir da **tag** (`--ref`): a partir de um branch o workflow recusa, porque labels e provenance sairiam com o commit errado.
+- **Republicar uma tag antiga move a `X.Y`** para ela (o `metadata-action` não sabe que existe patch mais novo). Republicou a `v0.1.0` depois de sair a `v0.1.1`? Republique a `v0.1.1` em seguida.
 - **Release parcial:** o `publish` é uma matriz com `fail-fast: false`. Se uma imagem falhar no push, as outras saem. Reexecute com o comando acima. Tags de imagem são idempotentes para o mesmo commit.
 - **Visibilidade no primeiro push de cada imagem:** o GHCR pode criar o pacote **privado**. Confira em `https://github.com/users/<owner>/packages/container/<nome>/settings` e troque para **Public** (passo manual, só do dono do repositório). No GitHub, pacote público não volta a ser privado. Confirme de uma máquina sem login: `docker pull ghcr.io/<owner>/secco-securegate:X.Y.Z`.
 - **Conferir o que saiu:** `docker buildx imagetools inspect ghcr.io/<owner>/secco-securegate:X.Y.Z` mostra `linux/amd64`, `linux/arm64` e as attestations (SBOM e provenance).
